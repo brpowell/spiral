@@ -2,9 +2,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addSource,
+  applyOrganizeSource,
   getLibrary,
   getSourceStatuses,
   listSources,
+  previewOrganizeSource,
   relocateSource,
   removeSource,
   rescanSource,
@@ -54,6 +56,26 @@ describe("source commands", () => {
       ],
       ["set_source_path_format", { sourceId: 3, pathFormat: null }],
       ["set_import_source", { sourceId: 3 }],
+    ]);
+  });
+
+  it("preview and apply organizing with an optional path format", async () => {
+    await previewOrganizeSource(3);
+    await previewOrganizeSource(3, "{artist}/{title}.{ext}");
+    await applyOrganizeSource(3);
+    await applyOrganizeSource(1, "{album}/{title}.{ext}");
+
+    expect(vi.mocked(invoke).mock.calls).toEqual([
+      ["preview_organize_source", { sourceId: 3, pathFormat: null }],
+      [
+        "preview_organize_source",
+        { sourceId: 3, pathFormat: "{artist}/{title}.{ext}" },
+      ],
+      ["apply_organize_source", { sourceId: 3, pathFormat: null }],
+      [
+        "apply_organize_source",
+        { sourceId: 1, pathFormat: "{album}/{title}.{ext}" },
+      ],
     ]);
   });
 

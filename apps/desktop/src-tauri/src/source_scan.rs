@@ -82,10 +82,18 @@ pub enum ReconcileScope<'a> {
 }
 
 /// One reconcile at a time, so two passes never read and insert the same file.
-static RECONCILE_LOCK: Mutex<()> = Mutex::new(());
+pub(crate) static RECONCILE_LOCK: Mutex<()> = Mutex::new(());
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Hold off every reconcile (the watcher's included) while the guard lives.
+/// The file planner holds it while it moves files and updates their rows, so
+/// a reconcile never sees a file moved before its row was, and the watcher's
+/// reconcile of those moves afterwards finds nothing to change.
+pub fn exclusive() -> std::sync::MutexGuard<'static, ()> {
+    lock(&RECONCILE_LOCK)
 }
 
 /// Size and modification time (ms since the epoch) of a regular file.

@@ -22,6 +22,7 @@ mod db_migrations;
 mod diagnostics_export;
 mod disc_metadata_cache;
 mod encoding_profiles;
+mod file_plan;
 mod file_playback;
 mod file_scan;
 mod fs_move;
@@ -159,7 +160,7 @@ pub fn run() {
             let conn = db::open(&db_path).expect("failed to open database");
             app.manage(DbState(Mutex::new(conn)));
             app.manage(RatingSync::new());
-            commands::sources::init(app.handle());
+            commands::organize::init(app.handle());
 
             #[cfg(desktop)]
             if let Err(err) = media_shortcuts::register(app.handle()) {
@@ -237,6 +238,8 @@ pub fn run() {
             commands::sources::set_source_organize,
             commands::sources::set_source_path_format,
             commands::sources::set_import_source,
+            commands::organize::preview_organize_source,
+            commands::organize::apply_organize_source,
             commands::sources::get_source_statuses,
             commands::lyrics::get_track_lyrics,
             commands::lyrics::mark_track_instrumental,

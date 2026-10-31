@@ -35,3 +35,66 @@ export interface SourceStatus {
   sourceId: number;
   status: SourceWatchStatus;
 }
+
+/** Where a track's file is, or is going (see `file_plan::Location`). */
+export interface FileLocation {
+  sourceId: number;
+  /** Path relative to the source's folder, with `/` separators. */
+  relPath: string;
+  path: string;
+}
+
+/** One file operation in a plan. Only moves exist so far. */
+export interface FileOp {
+  kind: "move";
+  trackId: number;
+  from: FileLocation;
+  to: FileLocation;
+}
+
+/**
+ * Why an operation can't go exactly as wanted. `targetExists` and
+ * `duplicateTarget` still run, to a numbered name; the rest are skipped.
+ */
+export type FileConflict =
+  | { kind: "targetExists"; wanted: string }
+  | { kind: "duplicateTarget"; wanted: string; otherTrackId: number }
+  | { kind: "sourceMissing" }
+  | { kind: "sourceUnreadable"; error: string }
+  | { kind: "insideSpiralFolder" }
+  | { kind: "invalidTarget"; error: string };
+
+export interface PlannedFileOp {
+  op: FileOp;
+  conflict: FileConflict | null;
+}
+
+/** What organizing a source would do, for the user to confirm. */
+export interface FilePlanSummary {
+  /** Files that will move, renamed ones included. */
+  moves: number;
+  /** Of those, the ones going to a numbered name. */
+  renamed: number;
+  /** Tracks that stay put because of a conflict. */
+  skipped: number;
+  /** Tracks already where they belong. */
+  unchanged: number;
+  /** The first moves, by path. */
+  sample: PlannedFileOp[];
+  /** The first operations with a conflict. */
+  conflicts: PlannedFileOp[];
+}
+
+export interface FilePlanApplySummary {
+  moved: number;
+  failed: number;
+  errors: string[];
+}
+
+/** Payload of `library://file-plan-progress`. */
+export interface FilePlanProgress {
+  /** Null while an interrupted plan is finished at startup. */
+  sourceId: number | null;
+  done: number;
+  total: number;
+}
