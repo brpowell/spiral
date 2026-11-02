@@ -130,6 +130,5 @@ export const useNavigationStore = create<NavigationState>((set) => ({
       cdReturnContext: { kind: "sidebar", view: state.view },
     })),
 
-  closeCdDrive: () =>
-    set((state) => stateAfterCloseCd(state.cdReturnContext)),
+  closeCdDrive: () => set((state) => stateAfterCloseCd(state.cdReturnContext)),
 }));

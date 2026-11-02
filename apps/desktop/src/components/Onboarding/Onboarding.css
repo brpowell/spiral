@@ -317,9 +317,15 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
 
 .onboarding-folders__text {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+}
+
+.onboarding-folders__remove {
+  flex: none;
+  color: var(--color-text-secondary);
 }
 
 .onboarding-folders__name {

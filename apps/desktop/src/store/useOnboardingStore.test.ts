@@ -62,10 +62,20 @@ describe("useOnboardingStore", () => {
     expect(store.getState().step).toBe(3);
   });
 
-  it("forgets the answer when started again", async () => {
+  it("forgets the answer and added folders when started again", async () => {
     const store = await freshStore();
     store.getState().setMusicChoice("new");
+    store.getState().noteSourceAdded(3);
     store.getState().start();
     expect(store.getState().musicChoice).toBeNull();
+    expect(store.getState().addedSourceIds).toEqual([]);
+  });
+
+  it("tracks folders added and removed on the folders step", async () => {
+    const store = await freshStore();
+    store.getState().noteSourceAdded(3);
+    store.getState().noteSourceAdded(4);
+    store.getState().noteSourceRemoved(3);
+    expect(store.getState().addedSourceIds).toEqual([4]);
   });
 });

@@ -1,8 +1,5 @@
 import { create } from "zustand";
-import {
-  DEFAULT_VISUALIZER_ID,
-  toVisualizer,
-} from "../lib/resolveVisualizer";
+import { DEFAULT_VISUALIZER_ID, toVisualizer } from "../lib/resolveVisualizer";
 import {
   getActiveVisualizerId,
   listVisualizers,

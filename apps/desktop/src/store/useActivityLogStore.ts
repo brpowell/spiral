@@ -25,11 +25,11 @@ interface ActivityLogState {
   setAutoScroll: (enabled: boolean) => void;
 }
 
-function entryMatchesDomain(entry: ActivityLogEntry, domain: ActivityLogDomain): boolean {
-  return (
-    entry.domain === domain ||
-    entry.domain.startsWith(`${domain}.`)
-  );
+function entryMatchesDomain(
+  entry: ActivityLogEntry,
+  domain: ActivityLogDomain,
+): boolean {
+  return entry.domain === domain || entry.domain.startsWith(`${domain}.`);
 }
 
 export function filterActivityLogEntries(

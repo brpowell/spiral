@@ -38,11 +38,16 @@ interface LibrarySettingsState {
   setPreferencesOpen: (open: boolean) => void;
   openPreferences: (section?: PreferencesSectionId) => void;
   consumePreferencesFocusSection: () => PreferencesSectionId | null;
-  saveLibrarySettings: (patch: LibrarySettingsPatch) => Promise<LibrarySettings>;
+  saveLibrarySettings: (
+    patch: LibrarySettingsPatch,
+  ) => Promise<LibrarySettings>;
   applyLibrarySettings: (settings: LibrarySettings) => void;
   resolveImportMode: () => Promise<ImportChoice>;
   /** Answer the import prompt. Remembering a copy into another source makes it the import source. */
-  confirmImportChoice: (choice: ImportChoice, remember: boolean) => Promise<void>;
+  confirmImportChoice: (
+    choice: ImportChoice,
+    remember: boolean,
+  ) => Promise<void>;
   cancelImportChoice: () => void;
 }
 
