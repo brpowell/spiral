@@ -9,6 +9,13 @@
 //! the missing marks. Hidden files and folders (e.g. `.spiral-convert`) are
 //! skipped.
 //!
+//! A file found on disk matches a row by the file, not the path string: on a
+//! case- or normalization-insensitive volume a row may hold another spelling
+//! of the path (after a rename that only changed case), and that row is
+//! re-pointed to the spelling on disk rather than marked missing beside a new
+//! duplicate. So the walk agrees with Other's missing marks, which ask the
+//! file system whether the stored path names a file.
+//!
 //! Reconciling is idempotent and serialized, so the startup pass, a manual
 //! rescan and the file watcher can all call it. Files are read without holding
 //! the database lock, and the lock is taken briefly for each write.
@@ -21,6 +28,7 @@ use crate::library_organize;
 use crate::lyrics_normalize;
 use crate::metadata_reader;
 use crate::sources::{self, LibraryRoots, Source, SourceRoots};
+use crate::track_identity;
 use chrono::Utc;
 use rusqlite::{params, Connection};
 use serde::Serialize;
@@ -193,6 +201,52 @@ fn known_tracks(
     Ok(known)
 }
 
+/// The source's tracks by [`track_identity::path_key`], for finding the row
+/// of a file whose path is spelled differently on disk (another case or
+/// Unicode form) than in the database.
+fn tracks_by_key(
+    conn: &Connection,
+    source_id: i64,
+) -> Result<HashMap<String, Vec<(String, KnownTrack)>>, String> {
+    let mut by_key: HashMap<String, Vec<(String, KnownTrack)>> = HashMap::new();
+    for (path, track) in known_tracks(conn, source_id, None)? {
+        by_key
+            .entry(track_identity::path_key(&path))
+            .or_default()
+            .push((path, track));
+    }
+    Ok(by_key)
+}
+
+/// The row stored under another spelling of `path` that names the same file,
+/// skipping rows already matched in this pass.
+fn equivalent_track(
+    by_key: &mut HashMap<String, Vec<(String, KnownTrack)>>,
+    matched: &HashSet<i64>,
+    path: &str,
+) -> Option<(String, KnownTrack)> {
+    let rows = by_key.get_mut(&track_identity::path_key(path))?;
+    let at = rows.iter().position(|(stored, track)| {
+        stored != path
+            && !matched.contains(&track.id)
+            && track_identity::same_file(Path::new(stored), Path::new(path))
+    })?;
+    Some(rows.swap_remove(at))
+}
+
+/// Point a track at the spelling of its path found on disk.
+fn set_path(conn: &Connection, source_id: i64, id: i64, path: &str) -> Result<(), String> {
+    let rel = SourceRoots::load(conn)
+        .map_err(|e| e.to_string())?
+        .relative_path(source_id, Path::new(path))?;
+    conn.execute(
+        "UPDATE tracks SET rel_path = ?1 WHERE id = ?2",
+        params![rel, id],
+    )
+    .map(|_| ())
+    .map_err(|e| e.to_string())
+}
+
 fn set_missing(conn: &Connection, id: i64, missing: bool) -> Result<(), String> {
     let since = missing.then(|| Utc::now().to_rfc3339());
     conn.execute(
@@ -238,10 +292,19 @@ pub fn reconcile_source(
     }
 }
 
-/// Reconcile every source: a full pass over each source's folder, and
-/// missing marks for Other. Used at startup to catch what changed while
+/// Reconcile every source: merge rows that name the same file, then a full
+/// pass over each source's folder, and missing marks for Other. Used at startup to catch what changed while
 /// Spiral was closed.
 pub fn reconcile_all(db: &Mutex<Connection>, ctx: &ScanContext) -> Vec<ReconcileSummary> {
+    // Rows an earlier scan duplicated under another spelling of a path.
+    {
+        let _serial = lock(&RECONCILE_LOCK);
+        match track_identity::merge_duplicate_tracks(&lock(db)) {
+            Ok(0) => {}
+            Ok(n) => eprintln!("merged {n} duplicate track rows"),
+            Err(err) => eprintln!("merge duplicate tracks: {err}"),
+        }
+    }
     let ids = match sources::list_sources(&lock(db)) {
         Ok(list) => list.into_iter().map(|s| s.id).collect::<Vec<_>>(),
         Err(err) => {
@@ -323,12 +386,34 @@ fn reconcile_watched(
 
     let mut known = known_tracks(&lock(db), source_id, Some(&coverage))?;
     let mut summary = ReconcileSummary::new(source_id);
+    // Built the first time a file has no row under its exact path.
+    let mut by_key = None;
+    let mut matched = HashSet::new();
 
     for path in found {
         let Some(stat) = file_stat(Path::new(&path)) else {
             continue;
         };
-        match known.remove(&path) {
+        let mut row = known.remove(&path);
+        if row.is_none() {
+            // A row may hold another spelling of this file's path, e.g. after
+            // a rename that only changed case on a case-insensitive volume.
+            // Re-point it rather than adding a second row for the file.
+            if by_key.is_none() {
+                by_key = Some(tracks_by_key(&lock(db), source_id)?);
+            }
+            if let Some((stored, track)) =
+                equivalent_track(by_key.as_mut().unwrap(), &matched, &path)
+            {
+                known.remove(&stored);
+                set_path(&lock(db), source_id, track.id, &path)?;
+                row = Some(track);
+            }
+        }
+        if let Some(track) = &row {
+            matched.insert(track.id);
+        }
+        match row {
             Some(track) => {
                 // A NULL stat predates change tracking: record it and trust the
                 // row, rather than re-reading every file once.

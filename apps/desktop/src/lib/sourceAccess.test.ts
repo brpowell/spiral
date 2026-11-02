@@ -43,6 +43,13 @@ describe("canDeleteFromDisk", () => {
   it("keeps Other's loose files on disk", () => {
     expect(canDeleteFromDisk({ sourceId: 2 })).toBe(false);
   });
+
+  it("never deletes a missing track's file", () => {
+    expect(canDeleteFromDisk({ sourceId: 1, missingSince: "then" })).toBe(
+      false,
+    );
+    expect(canDeleteFromDisk({ sourceId: 3, missingSince: null })).toBe(true);
+  });
 });
 
 describe("source error mapping", () => {
