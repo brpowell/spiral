@@ -57,19 +57,37 @@ fn is_nested(child: &Path, parent: &Path) -> bool {
     child != parent && child.starts_with(&parent)
 }
 
-/// Roots of the user's sources in the open library.
-fn watched_roots(app: &AppHandle) -> Vec<PathBuf> {
+/// The open library's sources, as stored: the absolute roots of those
+/// outside the Spiral folder, and the Spiral-relative roots of those inside it.
+fn library_source_roots(app: &AppHandle) -> (Vec<PathBuf>, Vec<String>) {
     let state = app.state::<DbState>();
     let conn = state.0.lock().unwrap_or_else(|e| e.into_inner());
-    sources::user_source_roots(&conn)
+    let (inside, outside): (Vec<String>, Vec<String>) = sources::stored_roots(&conn)
         .unwrap_or_default()
         .into_iter()
         .map(|(_, root)| root)
-        .collect()
+        .partition(|root| sources::is_spiral_relative(root));
+    (outside.into_iter().map(PathBuf::from).collect(), inside)
 }
 
-/// `watched` are the watched folders' roots. A library may sit inside a
-/// watched folder, but not in the same place as one or around one.
+/// The top-level entries of the Spiral folder to carry along when it moves,
+/// besides the database, artwork and packs: `Tracks` (a source or not) and
+/// the folder holding each source stored inside the Spiral folder.
+fn source_entries_to_move(inside: &[String]) -> Vec<String> {
+    let mut entries = vec![settings::MEDIA_DIR_NAME.to_string()];
+    for root in inside {
+        if let Some(first) = root.split('/').find(|part| !part.is_empty()) {
+            if !entries.iter().any(|e| e == first) {
+                entries.push(first.to_string());
+            }
+        }
+    }
+    entries
+}
+
+/// `watched` are the roots of the sources outside the Spiral folder. A
+/// library may sit inside one, but not in the same place as one or around
+/// one. Sources inside the Spiral folder move along with it.
 fn validate_destination(
     current_root: &Path,
     dest: &Path,
@@ -120,7 +138,8 @@ pub fn inspect_library_destination(
     let current = settings::resolved_library_settings(app);
     let current_root = PathBuf::from(&current.library_root);
 
-    let blocked_reason = validate_destination(&current_root, &dest, &watched_roots(app)).err();
+    let blocked_reason =
+        validate_destination(&current_root, &dest, &library_source_roots(app).0).err();
 
     let has_database = dest.join(DATABASE_FILE_NAME).is_file();
     let audio_file_count = if dest.is_dir() {
@@ -220,50 +239,57 @@ fn relocate_entry(from: &Path, to: &Path) -> Result<(), String> {
 }
 
 /// After the Spiral folder moved, carry over artwork cached in app data, which
-/// is keyed by file path. Track rows need no rewrite: the default source's
-/// paths are relative to its `Tracks` folder, which follows the database.
+/// is keyed by file path, for the tracks of sources inside it. Track rows need
+/// no rewrite: those sources' roots are stored relative to the Spiral folder,
+/// which follows the database.
 pub(crate) fn migrate_moved_art_cache(
     app_data: &Path,
     conn: &Connection,
-    old_media: &Path,
+    old_root: &Path,
 ) -> Result<(), String> {
     let roots = SourceRoots::load(conn).map_err(|e| e.to_string())?;
-    let tracks: Vec<(i64, String, String)> = conn
-        .prepare(
-            "SELECT id, rel_path, art_path FROM tracks
-             WHERE source_id = ?1 AND art_path IS NOT NULL",
-        )
-        .and_then(|mut stmt| {
-            stmt.query_map(rusqlite::params![sources::DEFAULT_SOURCE_ID], |r| {
-                Ok((r.get(0)?, r.get(1)?, r.get(2)?))
-            })?
-            .collect()
-        })
-        .map_err(|e| e.to_string())?;
-
-    for (id, rel_path, art_path) in tracks {
-        // Library-relative Artwork/ paths stay valid across the move, and
-        // absolute track paths didn't move.
-        if art_path.starts_with("Artwork/")
-            || art_path.starts_with("Artwork\\")
-            || Path::new(&rel_path).is_absolute()
-        {
+    for (source_id, stored) in sources::stored_roots(conn).map_err(|e| e.to_string())? {
+        if !sources::is_spiral_relative(&stored) {
             continue;
         }
-        let old_path = sources::join_rel_path(old_media, &rel_path);
-        let new_path = roots.resolve(sources::DEFAULT_SOURCE_ID, &rel_path);
-        let new_art = library_organize::migrate_art_cache(
-            app_data,
-            &old_path.to_string_lossy(),
-            &new_path,
-            Some(&art_path),
-        )?;
-        if new_art.as_deref() != Some(art_path.as_str()) {
-            conn.execute(
-                "UPDATE tracks SET art_path = ?1 WHERE id = ?2",
-                rusqlite::params![new_art, id],
+        let old_source_root = sources::join_rel_path(old_root, &stored);
+        let tracks: Vec<(i64, String, String)> = conn
+            .prepare(
+                "SELECT id, rel_path, art_path FROM tracks
+                 WHERE source_id = ?1 AND art_path IS NOT NULL",
             )
-            .map_err(|e| format!("failed to update track art: {e}"))?;
+            .and_then(|mut stmt| {
+                stmt.query_map(rusqlite::params![source_id], |r| {
+                    Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+                })?
+                .collect()
+            })
+            .map_err(|e| e.to_string())?;
+
+        for (id, rel_path, art_path) in tracks {
+            // Library-relative Artwork/ paths stay valid across the move, and
+            // absolute track paths didn't move.
+            if art_path.starts_with("Artwork/")
+                || art_path.starts_with("Artwork\\")
+                || Path::new(&rel_path).is_absolute()
+            {
+                continue;
+            }
+            let old_path = sources::join_rel_path(&old_source_root, &rel_path);
+            let new_path = roots.resolve(source_id, &rel_path);
+            let new_art = library_organize::migrate_art_cache(
+                app_data,
+                &old_path.to_string_lossy(),
+                &new_path,
+                Some(&art_path),
+            )?;
+            if new_art.as_deref() != Some(art_path.as_str()) {
+                conn.execute(
+                    "UPDATE tracks SET art_path = ?1 WHERE id = ?2",
+                    rusqlite::params![new_art, id],
+                )
+                .map_err(|e| format!("failed to update track art: {e}"))?;
+            }
         }
     }
     Ok(())
@@ -344,12 +370,12 @@ pub fn relocate_library(
     let current = settings::resolved_library_settings(app);
     let current_root = PathBuf::from(&current.library_root);
     let old_db = PathBuf::from(&current.database_path);
-    let old_media = PathBuf::from(&current.media_folder);
+    let (outside_roots, inside_roots) = library_source_roots(app);
 
-    validate_destination(&current_root, &dest, &watched_roots(app))?;
+    validate_destination(&current_root, &dest, &outside_roots)?;
 
     let dest_db = settings::database_path_for_root(&dest);
-    let dest_media = settings::media_folder_for_root(&dest);
+    let source_entries = source_entries_to_move(&inside_roots);
     let old_artwork = settings::artwork_folder_for_root(&current_root);
     let dest_artwork = settings::artwork_folder_for_root(&dest);
     let old_packs = current_root.join(crate::packs::LIBRARY_PACKS_DIR_NAME);
@@ -366,17 +392,24 @@ pub fn relocate_library(
                     "A Spiral library already exists here. Switch to it instead of moving.".into(),
                 );
             }
-            if dest_media.is_dir() {
-                let non_empty = fs::read_dir(&dest_media)
-                    .map(|mut d| d.next().is_some())
-                    .unwrap_or(false);
-                if non_empty {
-                    return Err(
-                        "Destination Tracks folder is not empty. Choose an empty folder or switch to an existing library."
-                            .into(),
-                    );
+            for entry in &source_entries {
+                let dest_entry = dest.join(entry);
+                if dest_entry.is_dir() {
+                    let non_empty = fs::read_dir(&dest_entry)
+                        .map(|mut d| d.next().is_some())
+                        .unwrap_or(false);
+                    if non_empty {
+                        return Err(format!(
+                            "Destination {entry} folder is not empty. Choose an empty folder or switch to an existing library."
+                        ));
+                    }
+                    remove_path_best_effort(&dest_entry);
+                } else if dest_entry.exists() {
+                    return Err(format!(
+                        "Destination already exists: {}",
+                        dest_entry.display()
+                    ));
                 }
-                remove_path_best_effort(&dest_media);
             }
 
             rating_sync.clear_pending();
@@ -388,8 +421,8 @@ pub fn relocate_library(
                 if old_db.is_file() {
                     relocate_entry(&old_db, &dest_db)?;
                 }
-                if old_media.is_dir() {
-                    relocate_entry(&old_media, &dest_media)?;
+                for entry in &source_entries {
+                    relocate_entry(&current_root.join(entry), &dest.join(entry))?;
                 }
                 if old_artwork.is_dir() {
                     relocate_entry(&old_artwork, &dest_artwork)?;
@@ -416,7 +449,7 @@ pub fn relocate_library(
 
             match (|| -> Result<LibrarySettingsResponse, String> {
                 let conn = db::open(&dest_db).map_err(|e| e.to_string())?;
-                migrate_moved_art_cache(&settings::app_data_dir(app)?, &conn, &old_media)?;
+                migrate_moved_art_cache(&settings::app_data_dir(app)?, &conn, &current_root)?;
                 drop(conn);
 
                 // Items created in the Library are linked by absolute path; follow the move.
@@ -479,6 +512,15 @@ pub fn relocate_library(
                 return Err(err);
             }
             if mode == LibraryRelocateMode::FreshImport {
+                // A `Tracks` folder already there is managed, as it was in
+                // the library it came from.
+                if settings::media_folder_for_root(&dest).is_dir() {
+                    let conn = state.0.lock().map_err(|e| e.to_string())?;
+                    let roots = sources::LibraryRoots::for_library_root(&dest);
+                    if let Err(err) = sources::create_managed_source(&conn, &roots) {
+                        eprintln!("fresh import: add Tracks as a source: {err}");
+                    }
+                }
                 let _ = import_audio_as_reference(app, state, &dest);
             }
             Ok(resolved)
@@ -546,38 +588,138 @@ mod tests {
     }
 
     #[test]
-    fn moving_the_spiral_folder_needs_no_track_rewrite() {
+    fn source_folders_inside_the_spiral_folder_move_along() {
+        assert_eq!(source_entries_to_move(&[]), vec!["Tracks".to_string()]);
+        assert_eq!(
+            source_entries_to_move(&["Tracks".into(), "Rips/Vinyl".into(), "Rips/Tape".into()]),
+            vec!["Tracks".to_string(), "Rips".to_string()]
+        );
+    }
+
+    #[test]
+    fn moving_the_spiral_folder_carries_its_sources_without_a_row_rewrite() {
         let dir = unique_temp_dir("db-move");
         let old_root = dir.join("old");
         let new_root = dir.join("new");
+        let outside = dir.join("Outside");
         fs::create_dir_all(old_root.join("Tracks/A")).unwrap();
-        let old_file = old_root.join("Tracks/A/a.mp3");
-        fs::write(&old_file, b"x").unwrap();
-        {
-            let conn = db::open(&old_root.join("Library.db")).unwrap();
+        fs::create_dir_all(old_root.join("Rips/Vinyl")).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        let tracks_file = old_root.join("Tracks/A/a.mp3");
+        let rips_file = old_root.join("Rips/Vinyl/b.mp3");
+        let outside_file = outside.join("c.mp3");
+        for file in [&tracks_file, &rips_file, &outside_file] {
+            fs::write(file, b"x").unwrap();
+        }
+        let app_data = dir.join("AppData");
+        let cached = crate::art_cache::write_bytes_to_art_cache(
+            &app_data,
+            &tracks_file.to_string_lossy(),
+            b"art",
+            "jpg",
+        )
+        .unwrap();
+        let save = |conn: &Connection, file: &Path, source_id: i64| {
             db::save_track(
-                &conn,
+                conn,
                 &crate::models::TrackInput {
                     title: "Song".into(),
-                    file_path: old_file.to_string_lossy().into_owned(),
+                    file_path: file.to_string_lossy().into_owned(),
                     ..Default::default()
                 },
-                sources::DEFAULT_SOURCE_ID,
+                source_id,
+            )
+            .unwrap()
+        };
+        let (tracks_id, rips_id, outside_id) = {
+            let conn = db::open(&old_root.join("Library.db")).unwrap();
+            let roots = sources::LibraryRoots::for_library_root(&old_root);
+            let tracks = sources::create_managed_source(&conn, &roots).unwrap().id;
+            let add = |root: &Path| {
+                sources::add_source(&conn, &roots, &root.to_string_lossy(), None)
+                    .unwrap()
+                    .id
+            };
+            let rips = add(&old_root.join("Rips/Vinyl"));
+            let outside_id = add(&outside);
+            let with_art = save(&conn, &tracks_file, tracks);
+            conn.execute(
+                "UPDATE tracks SET art_path = ?1 WHERE id = ?2",
+                rusqlite::params![cached.to_string_lossy(), with_art],
             )
             .unwrap();
+            save(&conn, &rips_file, rips);
+            save(&conn, &outside_file, outside_id);
+            // Sources inside the Spiral folder are stored relative to it.
+            let stored = sources::stored_roots(&conn).unwrap();
+            assert_eq!(
+                stored,
+                vec![
+                    (tracks, "Tracks".to_string()),
+                    (rips, "Rips/Vinyl".to_string()),
+                    (outside_id, outside.to_string_lossy().into_owned()),
+                ]
+            );
+            (tracks, rips, outside_id)
+        };
+        // What `relocate_library` moves: the database and each source entry.
+        fs::create_dir_all(&new_root).unwrap();
+        relocate_entry(&old_root.join("Library.db"), &new_root.join("Library.db")).unwrap();
+        for entry in source_entries_to_move(&["Tracks".into(), "Rips/Vinyl".into()]) {
+            relocate_entry(&old_root.join(&entry), &new_root.join(&entry)).unwrap();
         }
-        fs::rename(&old_root, &new_root).unwrap();
 
         let conn = db::open(&new_root.join("Library.db")).unwrap();
-        let app_data = dir.join("AppData");
-        migrate_moved_art_cache(&app_data, &conn, &old_root.join("Tracks")).unwrap();
-        let tracks = db::get_all_tracks(&conn).unwrap();
+        migrate_moved_art_cache(&app_data, &conn, &old_root).unwrap();
+        let path_of = |source_id: i64| {
+            db::get_tracks_for_source(&conn, source_id).unwrap()[0]
+                .file_path
+                .clone()
+        };
         assert_eq!(
-            tracks[0].file_path,
+            path_of(tracks_id),
             new_root.join("Tracks/A/a.mp3").to_string_lossy()
         );
-        assert!(Path::new(&tracks[0].file_path).is_file());
+        assert_eq!(
+            path_of(rips_id),
+            new_root.join("Rips/Vinyl/b.mp3").to_string_lossy()
+        );
+        assert_eq!(path_of(outside_id), outside_file.to_string_lossy());
+        for id in [tracks_id, rips_id, outside_id] {
+            assert!(Path::new(&path_of(id)).is_file());
+        }
+        let listed = sources::list_sources(&conn).unwrap();
+        let tracks = listed.iter().find(|s| s.id == tracks_id).unwrap();
+        assert_eq!(
+            tracks.root_path.as_deref(),
+            Some(new_root.join("Tracks").to_string_lossy().as_ref())
+        );
+        // The managed source is still recognised, so it isn't added twice.
+        assert_eq!(
+            sources::managed_source_id(&conn, &sources::LibraryRoots::for_library_root(&new_root))
+                .unwrap(),
+            Some(tracks_id)
+        );
+        // Cached art keyed by the old path follows the move.
+        let art = db::get_tracks_for_source(&conn, tracks_id).unwrap()[0]
+            .art_path
+            .clone()
+            .unwrap();
+        assert_ne!(art, cached.to_string_lossy());
+        assert!(Path::new(&art).is_file());
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn validate_rejects_a_library_around_an_outside_source_only() {
+        let root = PathBuf::from("/tmp/spiral-lib");
+        // `Tracks` inside the Spiral folder is not among them: it moves along.
+        let outside = [PathBuf::from("/Volumes/Big/Music")];
+        assert!(validate_destination(&root, Path::new("/Volumes/Big"), &outside).is_err());
+        assert!(
+            validate_destination(&root, Path::new("/Volumes/Big/Music/Spiral"), &outside).is_ok()
+        );
+        assert!(validate_destination(&root, Path::new("/Volumes/Other/Spiral"), &outside).is_ok());
     }
 
     #[test]

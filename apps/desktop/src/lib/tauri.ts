@@ -5,6 +5,7 @@ import type { SoundPackSummary } from "../types/soundPack";
 import type {
   FilePlanApplySummary,
   FilePlanSummary,
+  ImportTarget,
   ReconcileSummary,
   Source,
   SourceStatus,
@@ -557,9 +558,18 @@ export async function setImportSource(sourceId: number): Promise<Source> {
   return invoke<Source>("set_import_source", { sourceId });
 }
 
-/** The source new imports are copied into (the default source when none is set). */
-export async function getImportSource(): Promise<Source> {
-  return invoke<Source>("get_import_source");
+/** The source new imports are copied into, if any, and whether copying is possible now. */
+export async function getImportSource(): Promise<ImportTarget> {
+  return invoke<ImportTarget>("get_import_source");
+}
+
+/**
+ * Let Spiral manage the user's music: create `Tracks` in the Spiral folder,
+ * add it as an organized source and make it the import target if none is
+ * set. Returns the existing source when it is already one.
+ */
+export async function createManagedSource(): Promise<Source> {
+  return invoke<Source>("create_managed_source");
 }
 
 /** Watch status of each watched folder, for the offline badge. */

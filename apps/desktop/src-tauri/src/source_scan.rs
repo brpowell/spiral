@@ -5,7 +5,7 @@
 //! time changed since they were last read are read again, and tracks whose
 //! file is gone get `missing_since`. A track is never deleted here; when its
 //! file comes back the mark is cleared. Every source with a folder is walked,
-//! the default source included. Other has no folder, so its tracks only get
+//! wherever it is. Other has no folder, so its tracks only get
 //! the missing marks. Hidden files and folders (e.g. `.spiral-convert`) are
 //! skipped.
 //!
@@ -134,8 +134,8 @@ impl Coverage {
     }
 }
 
-/// For a source with a folder (`root` given), paths outside its root, inside
-/// the Spiral folder but not the root, or hidden are dropped.
+/// For a source with a folder (`root` given), paths outside its root, in the
+/// Spiral folder's data or another source nested in it, or hidden are dropped.
 fn coverage(
     scope: ReconcileScope<'_>,
     root: Option<&Path>,
@@ -362,7 +362,13 @@ fn reconcile_watched(
     scope: ReconcileScope<'_>,
 ) -> Result<ReconcileSummary, String> {
     let root = PathBuf::from(root);
-    let coverage = coverage(scope, Some(&root), &ctx.roots).unwrap_or_else(|| Coverage {
+    // Knowing every source's folder, the walk skips one nested in this one.
+    let roots = ctx
+        .roots
+        .clone()
+        .with_sources(&lock(db))
+        .map_err(|e| e.to_string())?;
+    let coverage = coverage(scope, Some(&root), &roots).unwrap_or_else(|| Coverage {
         dirs: vec![root.clone()],
         files: HashSet::new(),
     });
@@ -372,7 +378,7 @@ fn reconcile_watched(
     let mut found: Vec<String> = coverage
         .dirs
         .iter()
-        .flat_map(|dir| audio_files_in_source(dir, &root, &ctx.roots))
+        .flat_map(|dir| audio_files_in_source(dir, &root, &roots))
         .collect();
     found.extend(
         coverage
@@ -476,8 +482,9 @@ pub(crate) fn is_hidden_below(path: &Path, root: &Path) -> bool {
 }
 
 /// Audio files under `dir` in the source rooted at `root`, without
-/// descending into hidden folders or the rest of the Spiral folder (a user
-/// source may contain it). Empty when `dir` is not a folder.
+/// descending into hidden folders, the Spiral folder's data (a source may
+/// contain the Spiral folder) or another source nested in it. Empty when
+/// `dir` is not a folder.
 fn audio_files_in_source(dir: &Path, root: &Path, roots: &LibraryRoots) -> Vec<String> {
     walkdir::WalkDir::new(dir)
         .follow_links(false)
@@ -588,7 +595,7 @@ pub fn remove_source(
 mod tests {
     use super::*;
     use crate::db_migrations;
-    use crate::sources::{DEFAULT_SOURCE_ID, OTHER_SOURCE_ID};
+    use crate::sources::OTHER_SOURCE_ID;
     use crate::test_fixtures::wav;
     use std::fs;
 
@@ -645,6 +652,13 @@ mod tests {
             )
             .unwrap()
             .id
+        }
+
+        /// The Spiral folder's `Tracks` as a source, created on first use.
+        fn managed(&self) -> i64 {
+            sources::create_managed_source(&lock(&self.db), &self.ctx.roots)
+                .unwrap()
+                .id
         }
 
         fn reconcile(&self, source_id: i64) -> ReconcileSummary {
@@ -870,11 +884,12 @@ mod tests {
     }
 
     #[test]
-    fn the_default_source_is_walked_and_other_gets_missing_marks() {
+    fn a_source_in_the_spiral_folder_is_walked_and_other_gets_missing_marks() {
         let fx = Fixture::new("default");
+        let tracks = fx.managed();
         let managed = fx.wav("Music/Spiral Library/Tracks/a.wav");
         let external = fx.wav("Downloads/b.wav");
-        for (path, source) in [(&managed, DEFAULT_SOURCE_ID), (&external, OTHER_SOURCE_ID)] {
+        for (path, source) in [(&managed, tracks), (&external, OTHER_SOURCE_ID)] {
             let input = crate::models::TrackInput {
                 title: "Song".into(),
                 file_path: s(path),
@@ -892,12 +907,9 @@ mod tests {
         // Other is never walked, so files beside its tracks stay out.
         fx.wav("Downloads/c.wav");
 
+        assert_eq!(fx.reconcile(tracks), summary(tracks, 1, 0, 0, 0));
         assert_eq!(
-            fx.reconcile(DEFAULT_SOURCE_ID),
-            summary(DEFAULT_SOURCE_ID, 1, 0, 0, 0)
-        );
-        assert_eq!(
-            fx.tracks(DEFAULT_SOURCE_ID),
+            fx.tracks(tracks),
             vec![
                 (s(&dropped), "dropped".into(), false),
                 (s(&managed), "Song".into(), false),
@@ -909,8 +921,8 @@ mod tests {
         assert_eq!(
             all,
             vec![
-                summary(DEFAULT_SOURCE_ID, 0, 0, 1, 0),
-                summary(OTHER_SOURCE_ID, 0, 0, 1, 0)
+                summary(OTHER_SOURCE_ID, 0, 0, 1, 0),
+                summary(tracks, 0, 0, 1, 0),
             ]
         );
         assert_eq!(
@@ -920,20 +932,17 @@ mod tests {
 
         // Written again, so it is read again as well as restored.
         fx.wav("Music/Spiral Library/Tracks/a.wav");
-        assert_eq!(
-            fx.reconcile(DEFAULT_SOURCE_ID),
-            summary(DEFAULT_SOURCE_ID, 0, 1, 0, 1)
-        );
+        assert_eq!(fx.reconcile(tracks), summary(tracks, 0, 1, 0, 1));
 
         // A watcher batch inside the tracks folder is reconciled; hidden
         // paths in it are ignored.
         let later = fx.wav("Music/Spiral Library/Tracks/later.wav");
         let hidden = fx.wav("Music/Spiral Library/Tracks/.spiral-convert/2.wav");
         assert_eq!(
-            fx.reconcile_paths(DEFAULT_SOURCE_ID, &[later.clone(), hidden]),
-            summary(DEFAULT_SOURCE_ID, 1, 0, 0, 0)
+            fx.reconcile_paths(tracks, &[later.clone(), hidden]),
+            summary(tracks, 1, 0, 0, 0)
         );
-        assert_eq!(fx.tracks(DEFAULT_SOURCE_ID).len(), 3);
+        assert_eq!(fx.tracks(tracks).len(), 3);
     }
 
     #[test]
@@ -956,22 +965,33 @@ mod tests {
     }
 
     #[test]
-    fn a_watched_folder_around_the_library_skips_it() {
+    fn a_source_around_the_spiral_folder_skips_its_data_and_tracks_source() {
         let fx = Fixture::new("around");
+        let tracks = fx.managed();
         let managed = fx.wav("Music/Spiral Library/Tracks/Artist/Album/m.wav");
         let input = crate::models::TrackInput {
             title: "Managed".into(),
             file_path: s(&managed),
             ..Default::default()
         };
-        let managed_id = db::save_track(&lock(&fx.db), &input, DEFAULT_SOURCE_ID).unwrap();
+        let managed_id = db::save_track(&lock(&fx.db), &input, tracks).unwrap();
         // Untracked files in the tracks folder and a sound pack's audio.
         fx.wav("Music/Spiral Library/Tracks/Artist/Album/stray.wav");
         fx.wav("Music/Spiral Library/Packs/sounds/pack/click.wav");
         let loose = fx.wav("Music/SomeArtist/loose.wav");
         let top = fx.wav("Music/top.wav");
 
-        let music = fx.watch("Music");
+        // Sources can't overlap any more, but a library from before `Tracks`
+        // was an ordinary source may have one around the Spiral folder.
+        let music = {
+            let conn = lock(&fx.db);
+            conn.execute(
+                "INSERT INTO sources (name, root_path, created_at) VALUES ('Music', ?1, 'now')",
+                params![s(&fx.path("Music"))],
+            )
+            .unwrap();
+            conn.last_insert_rowid()
+        };
         assert_eq!(fx.reconcile(music), summary(music, 2, 0, 0, 0));
         assert_eq!(
             fx.tracks(music),
@@ -981,7 +1001,7 @@ mod tests {
             ]
         );
         assert_eq!(
-            fx.tracks(DEFAULT_SOURCE_ID),
+            fx.tracks(tracks),
             vec![(s(&managed), "Managed".into(), false)]
         );
         let total: i64 = lock(&fx.db)
@@ -1009,16 +1029,10 @@ mod tests {
         let track = db::get_track_by_id(&lock(&fx.db), managed_id)
             .unwrap()
             .unwrap();
-        assert_eq!(
-            (track.source_id, track.missing_since),
-            (DEFAULT_SOURCE_ID, None)
-        );
-        // The default source's own pass marks it, and picks up the stray file
-        // the user source skipped.
-        assert_eq!(
-            fx.reconcile(DEFAULT_SOURCE_ID),
-            summary(DEFAULT_SOURCE_ID, 1, 0, 1, 0)
-        );
+        assert_eq!((track.source_id, track.missing_since), (tracks, None));
+        // `Tracks`'s own pass marks it, and picks up the stray file the
+        // source around it skipped.
+        assert_eq!(fx.reconcile(tracks), summary(tracks, 1, 0, 1, 0));
     }
 
     #[test]
@@ -1074,7 +1088,7 @@ mod tests {
         assert!(new_cache.is_file());
         assert!(!old_cache.exists());
 
-        assert!(relocate_source(&fx.db, &fx.ctx, DEFAULT_SOURCE_ID, &s(&fx.path("New"))).is_err());
+        assert!(relocate_source(&fx.db, &fx.ctx, OTHER_SOURCE_ID, &s(&fx.path("New"))).is_err());
     }
 
     #[test]

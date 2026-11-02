@@ -243,6 +243,7 @@ pub fn run() {
             commands::organize::preview_organize_source,
             commands::organize::apply_organize_source,
             commands::sources::get_import_source,
+            commands::sources::create_managed_source,
             commands::sources::get_source_statuses,
             commands::lyrics::get_track_lyrics,
             commands::lyrics::mark_track_instrumental,

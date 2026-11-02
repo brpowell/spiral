@@ -954,7 +954,7 @@ mod tests {
     mod source_files {
         use super::super::*;
         use crate::source_test_support::*;
-        use crate::sources::{DEFAULT_SOURCE_ID, OTHER_SOURCE_ID};
+        use crate::sources::OTHER_SOURCE_ID;
 
         const FORMAT: &str = "{artist}/{album}/{title}.{ext}";
 
@@ -963,7 +963,7 @@ mod tests {
             let conn = conn();
             let t = default_source_tracks(&conn);
             for (id, path) in [
-                (t.default, "/m.mp3"),
+                (t.managed, "/managed/m.mp3"),
                 (t.user, "/user/u.mp3"),
                 (t.other, "/x.mp3"),
             ] {
@@ -1029,6 +1029,15 @@ mod tests {
         }
 
         #[test]
+        fn with_no_import_source_others_replacements_are_refused() {
+            let conn = conn();
+            let x = insert_track(&conn, "/elsewhere/x.mp3", OTHER_SOURCE_ID);
+            // Replace and convert both find their destination here.
+            let err = replacement_destination(&conn, &track_in(&conn, x), FORMAT).unwrap_err();
+            assert!(err.starts_with(sources::NO_SOURCE), "{err}");
+        }
+
+        #[test]
         fn an_unreachable_source_refuses_replacements() {
             let tmp = TempDir::new("replace-offline");
             let conn = conn();
@@ -1050,11 +1059,12 @@ mod tests {
             let conn = conn();
             let files: Vec<_> = ["m", "u", "x"]
                 .iter()
-                .map(|name| audio_with_sidecar(&tmp.0, name))
+                .map(|name| audio_with_sidecar(&tmp.dir(name), name))
                 .collect();
-            let user = add_user_source(&conn, &tmp.0);
+            let managed = add_managed_source(&conn, &tmp.0.join("m"));
+            let user = add_user_source(&conn, &tmp.0.join("u"));
             let ids = [
-                insert_track(&conn, &files[0].0.to_string_lossy(), DEFAULT_SOURCE_ID),
+                insert_track(&conn, "m.mp3", managed),
                 insert_track(&conn, "u.mp3", user),
                 insert_track(&conn, &files[2].0.to_string_lossy(), OTHER_SOURCE_ID),
             ];
@@ -1083,7 +1093,8 @@ mod tests {
             let tmp = TempDir::new("delete-missing");
             let conn = conn();
             let (audio, sidecar) = audio_with_sidecar(&tmp.0, "song");
-            let id = insert_track(&conn, &audio.to_string_lossy(), DEFAULT_SOURCE_ID);
+            let source = add_user_source(&conn, &tmp.0);
+            let id = insert_track(&conn, "song.mp3", source);
             conn.execute(
                 "UPDATE tracks SET missing_since = 'then' WHERE id = ?1",
                 [id],
@@ -1106,7 +1117,7 @@ mod tests {
             let alias = crate::track_identity::tests::alias(&audio, "SONG.mp3");
             let user = add_user_source(&conn, &tmp.0);
             let a = insert_track(&conn, "song.mp3", user);
-            insert_track(&conn, &alias.to_string_lossy(), DEFAULT_SOURCE_ID);
+            insert_track(&conn, &alias.to_string_lossy(), OTHER_SOURCE_ID);
 
             let track = remove_row(&conn, a);
             assert_eq!(

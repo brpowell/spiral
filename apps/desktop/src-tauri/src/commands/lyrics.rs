@@ -165,7 +165,7 @@ mod tests {
         let tmp = TempDir::new("lyrics");
         let files: Vec<_> = ["m", "u", "x"]
             .iter()
-            .map(|name| ogg::copy_minimal(&tmp.0, &format!("{name}.ogg")))
+            .map(|name| ogg::copy_minimal(&tmp.dir(name), &format!("{name}.ogg")))
             .collect();
         let conn = conn();
         let t = source_tracks(&conn, &files[0], &files[1], &files[2]);
@@ -173,7 +173,7 @@ mod tests {
         let lyrics = synced();
 
         for (id, file) in [
-            (t.default, &files[0]),
+            (t.managed, &files[0]),
             (t.user, &files[1]),
             (t.other, &files[2]),
         ] {

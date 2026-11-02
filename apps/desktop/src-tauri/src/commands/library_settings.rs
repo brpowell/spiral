@@ -62,7 +62,14 @@ fn prepare_import(
         let conn = state.0.lock().map_err(|e| e.to_string())?;
         let id = match source_id {
             Some(id) => id,
-            None => sources::import_source_id(&conn).map_err(|e| e.to_string())?,
+            None => sources::import_source_id(&conn)
+                .map_err(|e| e.to_string())?
+                .ok_or_else(|| {
+                    format!(
+                        "{}: there is no source folder to copy files into",
+                        sources::NO_SOURCE
+                    )
+                })?,
         };
         sources::write_target(&conn, id, global_format)?
     };
@@ -197,6 +204,44 @@ mod tests {
             assert!(
                 prepare_import(&state, &incoming, "copy", Some(offline_id), GLOBAL, false).is_err()
             );
+        }
+
+        #[test]
+        fn with_no_source_copies_are_refused_and_references_still_work() {
+            let tmp = TempDir::new("import-no-source");
+            let state = DbState(Mutex::new(conn()));
+            let file = ogg::copy_minimal(&tmp.dir("Incoming"), "song.ogg");
+            let path = file.to_string_lossy();
+
+            let err = prepare_import(&state, &path, "copy", None, GLOBAL, false).unwrap_err();
+            assert!(err.starts_with(sources::NO_SOURCE), "{err}");
+            assert_eq!(
+                prepare_import(&state, &path, "reference", None, GLOBAL, false).unwrap(),
+                path
+            );
+            let target = sources::import_target(&state.0.lock().unwrap()).unwrap();
+            assert_eq!(target.source, None);
+            assert!(!target.copy_available);
+        }
+
+        #[test]
+        fn an_unreachable_import_target_refuses_copies() {
+            let tmp = TempDir::new("import-offline-target");
+            let conn = conn();
+            let target = tmp.dir("Target");
+            let id = add_managed_source(&conn, &target);
+            assert!(sources::import_target(&conn).unwrap().copy_available);
+            std::fs::remove_dir(&target).unwrap();
+            let import = sources::import_target(&conn).unwrap();
+            assert_eq!(import.source.map(|s| s.id), Some(id));
+            assert!(!import.copy_available);
+
+            let state = DbState(Mutex::new(conn));
+            let file = ogg::copy_minimal(&tmp.dir("Incoming"), "song.ogg");
+            let err = prepare_import(&state, &file.to_string_lossy(), "copy", None, GLOBAL, false)
+                .unwrap_err();
+            assert!(err.starts_with(sources::SOURCE_UNAVAILABLE), "{err}");
+            assert!(!target.exists());
         }
 
         #[test]

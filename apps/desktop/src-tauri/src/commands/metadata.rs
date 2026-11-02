@@ -752,7 +752,7 @@ mod tests {
         let conn = conn();
         let t = source_tracks(
             &conn,
-            Path::new("/m.ogg"),
+            Path::new("/managed/m.ogg"),
             &tmp.0.join("Collection/u.ogg"),
             Path::new("/x.ogg"),
         );

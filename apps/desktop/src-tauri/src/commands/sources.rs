@@ -101,12 +101,17 @@ pub fn init(app: &AppHandle) {
 }
 
 /// Organizing used to be one global setting. Carry an "off" over to the
-/// default source once, then drop the setting.
+/// Spiral folder's `Tracks` source once, then drop the setting.
 fn apply_legacy_auto_organize(app: &AppHandle, conn: &rusqlite::Connection) {
     match settings::take_legacy_auto_organize(app) {
         Ok(Some(false)) => {
-            if let Err(err) = sources::set_source_organize(conn, sources::DEFAULT_SOURCE_ID, false)
-            {
+            let roots = LibraryRoots::from_settings(&settings::resolved_library_settings(app));
+            let result = match sources::managed_source_id(conn, &roots) {
+                Ok(Some(id)) => sources::set_source_organize(conn, id, false).map(|_| ()),
+                Ok(None) => Ok(()),
+                Err(err) => Err(err.to_string()),
+            };
+            if let Err(err) = result {
                 eprintln!("carry over auto-organize setting: {err}");
             }
         }
@@ -255,12 +260,41 @@ pub fn set_import_source(state: State<DbState>, source_id: i64) -> Result<Source
     sources::set_import_source(&conn, source_id)
 }
 
-/// The source new imports are copied into (the default when none is set).
+/// The source new imports are copied into, if any, and whether copying into
+/// it is possible right now.
 #[tauri::command]
-pub fn get_import_source(state: State<DbState>) -> Result<Source, String> {
+pub fn get_import_source(state: State<DbState>) -> Result<sources::ImportTarget, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    let id = sources::import_source_id(&conn).map_err(|e| e.to_string())?;
-    sources::get_source(&conn, id)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Source {id} not found"))
+    sources::import_target(&conn).map_err(|e| e.to_string())
+}
+
+/// Let Spiral manage the user's music (onboarding): create `Tracks` in the
+/// Spiral folder, add it as an organized source and make it the import
+/// target if none is set. Calling it again returns the existing source.
+#[tauri::command]
+pub fn create_managed_source(app: AppHandle, state: State<DbState>) -> Result<Source, String> {
+    let roots = LibraryRoots::from_settings(&settings::resolved_library_settings(&app));
+    let (source, existed) = {
+        let conn = state.0.lock().map_err(|e| e.to_string())?;
+        let existed = sources::managed_source_id(&conn, &roots)
+            .map_err(|e| e.to_string())?
+            .is_some();
+        (sources::create_managed_source(&conn, &roots)?, existed)
+    };
+    if existed {
+        return Ok(source);
+    }
+    if let Some(root) = &source.root_path {
+        path_scope::allow_dir(&app, Path::new(root));
+    }
+    emit_source_changed(&app, source.id);
+    source_watch::sync(&app);
+    // `Tracks` may already hold files (e.g. from an earlier library).
+    let id = source.id;
+    tauri::async_runtime::spawn(async move {
+        if let Err(err) = reconcile_in_background(app, id).await {
+            eprintln!("initial scan of source {id}: {err}");
+        }
+    });
+    Ok(source)
 }
