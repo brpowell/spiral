@@ -18,12 +18,13 @@
     "progress": "Step {{current}} of {{total}}",
     "library": {
       "title": "How do you want your music organized?",
+      "description": "You can always change this later.",
       "choice": {
-        "new": "Do it for me",
+        "new": "Use the default",
         "existing": "I'll pick the folder(s)"
       },
       "newMessage": "Auto-organize your files under <code>{{path}}</code>",
-      "existingDetail": "If you want more control, or already have your files organized."
+      "existingDetail": "If you want more control, or already have your files collected. Optionally use auto-organize."
     },
     "folders": {
       "title": "Add your folder(s)",

@@ -71,6 +71,9 @@ describe("Onboarding", () => {
         name: "How do you want your music organized?",
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText("You can always change this later."),
+    ).toBeInTheDocument();
     // Next waits for an answer to the first question.
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
     expect(
@@ -84,7 +87,7 @@ describe("Onboarding", () => {
     render(<Onboarding />);
     playThroughReveal();
 
-    fireEvent.click(screen.getByRole("radio", { name: /^Do it for me/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /^Use the default/ }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(
       screen.getByRole("heading", { name: "Try on a style" }),

@@ -31,7 +31,7 @@ describe("LibraryStep", () => {
   });
 
   function newCard() {
-    return screen.getByRole("radio", { name: /^Do it for me/ });
+    return screen.getByRole("radio", { name: /^Use the default/ });
   }
 
   it("offers the two answers as radio cards, none picked", () => {

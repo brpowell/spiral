@@ -186,7 +186,7 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
 }
 
 .onboarding__panel--centered .onboarding__title {
-  margin: 0;
+  margin: 0 0 10px;
 }
 
 .onboarding__title {

@@ -40,20 +40,16 @@ export const ONBOARDING_FADE_MS = 600;
 /**
  * `split`: text left, controls right. `even`: split into two equal columns,
  * for controls about as wide as the text. `centered`: one stacked, centred
- * column. A step without a description shows just its title.
+ * column.
  */
 const STEPS: Record<
   OnboardingStepId,
-  {
-    Content: ComponentType;
-    layout: "split" | "even" | "centered";
-    description: boolean;
-  }
+  { Content: ComponentType; layout: "split" | "even" | "centered" }
 > = {
-  library: { Content: LibraryStep, layout: "centered", description: false },
-  folders: { Content: FoldersStep, layout: "even", description: true },
-  style: { Content: StyleStep, layout: "split", description: true },
-  privacy: { Content: PrivacyStep, layout: "split", description: true },
+  library: { Content: LibraryStep, layout: "centered" },
+  folders: { Content: FoldersStep, layout: "even" },
+  style: { Content: StyleStep, layout: "split" },
+  privacy: { Content: PrivacyStep, layout: "split" },
 };
 
 const LAYOUT_CLASSES = {
@@ -170,7 +166,7 @@ function OnboardingOverlay() {
   const stepIds = onboardingSteps(musicChoice);
   const isLast = step === stepIds.length - 1;
   const id = stepIds[step];
-  const { Content, layout, description } = STEPS[id];
+  const { Content, layout } = STEPS[id];
   const goNext = () => {
     setNavigated(true);
     next();
@@ -206,11 +202,9 @@ function OnboardingOverlay() {
               <h1 className="onboarding__title">
                 {t(`onboarding.${id}.title`)}
               </h1>
-              {description ? (
-                <p className="onboarding__description">
-                  {t(`onboarding.${id}.description`)}
-                </p>
-              ) : null}
+              <p className="onboarding__description">
+                {t(`onboarding.${id}.description`)}
+              </p>
               {id === "style" ? <TransportPreview /> : null}
             </div>
             <FadingScroller className="onboarding__content">
