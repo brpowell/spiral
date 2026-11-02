@@ -67,15 +67,15 @@ export function countTracksBySource(
   return counts;
 }
 
-/** Display name for a source: the localized managed/external names, or the folder's. */
-export function sourceDisplayName(source: Source): string {
+/** Display name for a source: "Tracks" and "Other files" for the built-ins, else the stored name. */
+export function sourceDisplayName(source: Pick<Source, "id" | "name">): string {
   const role = sourceRole(source);
-  if (role === "default") return t("library:sources.managedName");
-  if (role === "other") return t("library:sources.externalName");
+  if (role === "default") return t("library:sources.defaultName");
+  if (role === "other") return t("library:sources.otherName");
   return source.name;
 }
 
-/** Sort rank for the source column: the library, then watched folders, then other files. */
+/** Sort rank for the source column: the default source, then added folders, then Other. */
 export function sourceSortRank(sourceId: number | undefined): number {
   if (sourceId == null || sourceId === DEFAULT_SOURCE_ID) return 0;
   if (sourceId === OTHER_SOURCE_ID) return Number.MAX_SAFE_INTEGER;

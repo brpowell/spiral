@@ -78,15 +78,34 @@
   color: var(--color-danger, #e55);
 }
 
-.sources-section__writable {
-  align-items: flex-start;
+.sources-section__settings {
+  display: flex;
+  flex-direction: column;
   gap: 0.6rem;
-  margin: 0.35rem 0 0;
+  margin-top: 0.35rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--color-border);
 }
 
-.sources-section__writable > .switch {
+.sources-section__organize {
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.sources-section__organize > .switch {
   flex-shrink: 0;
   margin-top: 0.1rem;
+}
+
+.sources-section__format {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.sources-section__format-label {
+  font-size: 0.82rem;
+  font-weight: var(--weight-medium);
 }
 
 .sources-section__actions {

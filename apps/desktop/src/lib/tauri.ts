@@ -1517,11 +1517,20 @@ export async function saveLibrarySettings(
   return invoke<LibrarySettings>("save_library_settings", { library: patch });
 }
 
+/**
+ * Copy a file into a source (`sourceId`, else the import source), or with
+ * `reference` leave it where it is. Returns the path to save.
+ */
 export async function prepareImportFile(
   sourcePath: string,
   mode: "copy" | "reference",
+  sourceId?: number | null,
 ): Promise<string> {
-  return invoke<string>("prepare_import_file", { sourcePath, mode });
+  return invoke<string>("prepare_import_file", {
+    sourcePath,
+    mode,
+    sourceId: sourceId ?? null,
+  });
 }
 
 /** `startDir` is where the picker opens (nearest existing folder if it is missing). */

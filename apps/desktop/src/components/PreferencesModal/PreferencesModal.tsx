@@ -558,11 +558,17 @@ export function PreferencesModal() {
                   <FormField
                     label={t("preferences:library.pathFormat")}
                     description={
-                      organizePreviewPath != null ? (
-                        <span aria-live="polite">
-                          <code>{organizePreviewPath}</code>
-                        </span>
-                      ) : undefined
+                      <>
+                        {t("preferences:library.pathFormatDescription")}
+                        {organizePreviewPath != null ? (
+                          <>
+                            {" "}
+                            <span aria-live="polite">
+                              <code>{organizePreviewPath}</code>
+                            </span>
+                          </>
+                        ) : null}
+                      </>
                     }
                   >
                     <div className="preferences__path-row">
