@@ -63,7 +63,7 @@ describe("LibraryStep", () => {
     });
     render(<LibraryStep />);
     await waitFor(() =>
-      expect(newCard()).toHaveTextContent(
+      expect(newCard()).toHaveAccessibleDescription(
         "Auto-organize your files under ~/Music/Spiral/Tracks",
       ),
     );
@@ -72,16 +72,16 @@ describe("LibraryStep", () => {
   it("falls back to Tracks under the Spiral folder before sources load", async () => {
     render(<LibraryStep />);
     await waitFor(() =>
-      expect(newCard()).toHaveTextContent("~/Music/Spiral/Tracks"),
+      expect(newCard()).toHaveAccessibleDescription(
+        /~\/Music\/Spiral\/Tracks$/,
+      ),
     );
   });
 
   it("explains when to pick folders", () => {
     render(<LibraryStep />);
     expect(
-      screen.getByRole("radio", {
-        name: /^I'll pick the folder\(s\).*If you want more control/,
-      }),
-    ).toBeInTheDocument();
+      screen.getByRole("radio", { name: "I'll pick the folder(s)" }),
+    ).toHaveAccessibleDescription(/^If you want more control/);
   });
 });

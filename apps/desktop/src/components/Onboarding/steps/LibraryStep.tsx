@@ -7,6 +7,7 @@ import {
   type MusicChoice,
 } from "../../../store/useOnboardingStore";
 import { useSourcesStore } from "../../../store/useSourcesStore";
+import { RadioGroup, RadioGroupItem } from "../../common/RadioGroup/RadioGroup";
 import { IconFolderCog, IconFolderPen } from "../../icons";
 
 const CHOICES: { id: MusicChoice; Icon: typeof IconFolderCog }[] = [
@@ -26,43 +27,36 @@ export function LibraryStep() {
   const newPath = useNewCollectionPath();
 
   return (
-    <div
+    <RadioGroup
+      variant="card"
+      orientation="vertical"
       className="onboarding-cards"
-      role="radiogroup"
+      value={musicChoice}
+      onChange={setMusicChoice}
       aria-label={t("onboarding.library.title")}
     >
       {CHOICES.map(({ id, Icon }) => (
-        <button
+        <RadioGroupItem
           key={id}
-          type="button"
-          role="radio"
-          aria-checked={musicChoice === id}
-          className="onboarding-card"
-          onClick={() => setMusicChoice(id)}
+          value={id}
+          icon={<Icon />}
+          description={
+            id === "new" ? (
+              <Trans
+                i18nKey="onboarding.library.newMessage"
+                ns="common"
+                values={{ path: newPath }}
+                components={{ code: <code /> }}
+              />
+            ) : (
+              t("onboarding.library.existingDetail")
+            )
+          }
         >
-          <span className="onboarding-card__icon" aria-hidden="true">
-            <Icon width={24} height={24} />
-          </span>
-          <span className="onboarding-card__text">
-            <span className="onboarding-card__label">
-              {t(`onboarding.library.choice.${id}`)}
-            </span>
-            <span className="onboarding-card__detail">
-              {id === "new" ? (
-                <Trans
-                  i18nKey="onboarding.library.newMessage"
-                  ns="common"
-                  values={{ path: newPath }}
-                  components={{ code: <code /> }}
-                />
-              ) : (
-                t("onboarding.library.existingDetail")
-              )}
-            </span>
-          </span>
-        </button>
+          {t(`onboarding.library.choice.${id}`)}
+        </RadioGroupItem>
       ))}
-    </div>
+    </RadioGroup>
   );
 }
 

@@ -9,11 +9,15 @@ import {
 import "./RadioGroup.css";
 
 export type RadioGroupOrientation = "horizontal" | "vertical";
-export type RadioGroupVariant = "default" | "button";
+/**
+ * `default`: native radio dots. `button`: a row of small toggle buttons.
+ * `card`: stacked option cards with an icon, title and description.
+ */
+export type RadioGroupVariant = "default" | "button" | "card";
 
 type RadioGroupContextValue<T extends string = string> = {
   name: string;
-  value: T;
+  value: T | null;
   onChange: (value: T) => void;
   disabled: boolean;
   variant: RadioGroupVariant;
@@ -31,7 +35,8 @@ function useRadioGroupContext() {
 
 export type RadioGroupProps<T extends string> = {
   name?: string;
-  value: T;
+  /** The checked item's value; null when none is picked yet. */
+  value: T | null;
   onChange: (value: T) => void;
   orientation?: RadioGroupOrientation;
   variant?: RadioGroupVariant;
@@ -93,12 +98,27 @@ export type RadioGroupItemProps = Omit<
   "type" | "name" | "checked" | "onChange" | "children"
 > & {
   value: string;
+  /** The option's label (its title, for the `card` variant). */
   children?: ReactNode;
+  /** `card` only: leading icon. */
+  icon?: ReactNode;
+  /** `card` only: a quieter line under the title, read as the description. */
+  description?: ReactNode;
 };
 
 export const RadioGroupItem = forwardRef<HTMLInputElement, RadioGroupItemProps>(
   function RadioGroupItem(
-    { value, id: idProp, disabled, className, title, children, ...props },
+    {
+      value,
+      id: idProp,
+      disabled,
+      className,
+      title,
+      children,
+      icon,
+      description,
+      ...props
+    },
     ref,
   ) {
     const {
@@ -110,6 +130,8 @@ export const RadioGroupItem = forwardRef<HTMLInputElement, RadioGroupItemProps>(
     } = useRadioGroupContext();
     const autoId = useId();
     const id = idProp ?? autoId;
+    const isCard = variant === "card";
+    const hidden = variant === "button" || isCard;
     const isDisabled = disabled ?? groupDisabled;
     const checked = groupValue === value;
 
@@ -119,7 +141,7 @@ export const RadioGroupItem = forwardRef<HTMLInputElement, RadioGroupItemProps>(
         id={id}
         type="radio"
         className={
-          variant === "button"
+          hidden
             ? "radio-group-item__input radio-group-item__input--visually-hidden"
             : ["radio-group-item__input", className].filter(Boolean).join(" ")
         }
@@ -128,10 +150,51 @@ export const RadioGroupItem = forwardRef<HTMLInputElement, RadioGroupItemProps>(
         checked={checked}
         disabled={isDisabled}
         onChange={() => onChange(value)}
-        title={variant === "button" ? undefined : title}
+        title={hidden ? undefined : title}
+        // The card's label wraps its description too; name it by the title alone.
+        aria-labelledby={isCard ? `${id}-title` : undefined}
+        aria-describedby={
+          isCard && description ? `${id}-description` : undefined
+        }
         {...props}
       />
     );
+
+    if (isCard) {
+      const cardClass = [
+        "radio-group-item",
+        "radio-group-item--card",
+        checked && "radio-group-item--checked",
+        isDisabled && "radio-group-item--disabled",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      return (
+        <label className={cardClass} title={title}>
+          {input}
+          {icon != null ? (
+            <span className="radio-group-item__icon" aria-hidden="true">
+              {icon}
+            </span>
+          ) : null}
+          <span className="radio-group-item__text">
+            <span id={`${id}-title`} className="radio-group-item__title">
+              {children}
+            </span>
+            {description != null ? (
+              <span
+                id={`${id}-description`}
+                className="radio-group-item__description"
+              >
+                {description}
+              </span>
+            ) : null}
+          </span>
+        </label>
+      );
+    }
 
     if (variant === "button") {
       const labelClass = [
