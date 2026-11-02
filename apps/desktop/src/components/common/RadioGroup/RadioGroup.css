@@ -136,7 +136,7 @@
 /*
  * Card variant: the same press as the button variant, at card size. Options
  * sit up on a lip; the chosen one is pressed in, sunk 1px with an inner
- * shadow and an accent edge.
+ * shadow and an accent tint. Its border stays plain so the recess reads.
  */
 .radio-group--card {
   gap: 12px;
@@ -185,7 +185,6 @@
 
 .radio-group-item--card.radio-group-item--checked {
   top: 1px;
-  border-color: var(--color-accent);
   background-color: color-mix(
     in srgb,
     var(--color-accent) 10%,
