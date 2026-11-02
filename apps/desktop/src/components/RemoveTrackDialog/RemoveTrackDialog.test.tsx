@@ -49,22 +49,16 @@ describe("RemoveTrackDialog", () => {
 
   it("only removes from the library when every track is missing", () => {
     renderDialog([track(1, 1, "then"), track(2, 3, "then")]);
-    expect(screen.getByRole("note").textContent).toMatch(
-      /^These tracks are missing, so they're only removed from the library/,
-    );
+    expect(screen.queryByRole("note")).toBeNull();
     expect(screen.queryByRole("button", { name: /trash/i })).toBeNull();
     expect(
       screen.getByRole("button", { name: "Remove from library" }),
     ).toBeTruthy();
   });
 
-  it("says missing tracks are only removed in a mixed selection", () => {
-    renderDialog([track(1, 1), track(2, 1, "then"), track(3, 2)]);
-    const notes = screen.getAllByRole("note").map((n) => n.textContent);
-    expect(notes).toEqual([
-      "1 of these files is in Other files. It leaves the library, but stays on disk.",
-      "1 of these tracks is missing, so it's only removed from the library. Spiral won't delete a file it can't find.",
-    ]);
+  it("still offers the Trash when only some tracks are missing", () => {
+    renderDialog([track(1, 1), track(2, 1, "then")]);
+    expect(screen.queryByRole("note")).toBeNull();
     // Only the one present file outside Other goes to the Trash.
     expect(
       screen.getByRole("button", { name: "Remove and send to trash" }),

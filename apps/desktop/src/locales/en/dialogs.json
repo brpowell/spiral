@@ -8,11 +8,7 @@
     "keptOnDisk_one": "{{count}} of these files is in Other files. It leaves the library, but stays on disk.",
     "keptOnDisk_other": "{{count}} of these files are in Other files. They leave the library, but stay on disk.",
     "allKeptOnDisk_one": "This file is in Other files. It leaves the library, but stays on disk.",
-    "allKeptOnDisk_other": "These files are in Other files. They leave the library, but stay on disk.",
-    "missing_one": "{{count}} of these tracks is missing, so it's only removed from the library. Spiral won't delete a file it can't find.",
-    "missing_other": "{{count}} of these tracks are missing, so they're only removed from the library. Spiral won't delete files it can't find.",
-    "allMissing_one": "This track is missing, so it's only removed from the library. Spiral won't delete a file it can't find.",
-    "allMissing_other": "These tracks are missing, so they're only removed from the library. Spiral won't delete files it can't find."
+    "allKeptOnDisk_other": "These files are in Other files. They leave the library, but stay on disk."
   },
   "convert": {
     "title_one": "Convert track",

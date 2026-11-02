@@ -54,9 +54,6 @@ export function RemoveTrackDialog({
   const inOther = tracks.filter(
     (track) => track.sourceId === OTHER_SOURCE_ID,
   ).length;
-  const missing = tracks.filter(
-    (track) => track.sourceId !== OTHER_SOURCE_ID && track.missingSince,
-  ).length;
   const deletable = tracks.filter(canDeleteFromDisk).length;
 
   return (
@@ -90,13 +87,6 @@ export function RemoveTrackDialog({
             {inOther === count
               ? t("removeTracks.allKeptOnDisk", { count })
               : t("removeTracks.keptOnDisk", { count: inOther })}
-          </p>
-        ) : null}
-        {missing > 0 ? (
-          <p className="remove-track-dialog__note" role="note">
-            {missing === count
-              ? t("removeTracks.allMissing", { count })
-              : t("removeTracks.missing", { count: missing })}
           </p>
         ) : null}
       </ModalBody>
