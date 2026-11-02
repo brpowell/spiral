@@ -21,7 +21,7 @@ describe("RemoveTrackDialog", () => {
   it("offers deleting files in any source folder, with no note", () => {
     renderDialog([track(1, 1), track(2, 3)]);
     expect(
-      screen.getByRole("button", { name: "Remove and move files to Trash" }),
+      screen.getByRole("button", { name: "Remove and send to trash" }),
     ).toBeTruthy();
     expect(screen.queryByRole("note")).toBeNull();
   });
@@ -32,7 +32,7 @@ describe("RemoveTrackDialog", () => {
       "2 of these files are in Other files. They leave the library, but stay on disk.",
     );
     expect(
-      screen.getByRole("button", { name: "Remove and move files to Trash" }),
+      screen.getByRole("button", { name: "Remove and send to trash" }),
     ).toBeTruthy();
   });
 
@@ -52,7 +52,7 @@ describe("RemoveTrackDialog", () => {
     expect(screen.getByRole("note").textContent).toMatch(
       /^These tracks are missing, so they're only removed from the library/,
     );
-    expect(screen.queryByRole("button", { name: /Trash/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /trash/i })).toBeNull();
     expect(
       screen.getByRole("button", { name: "Remove from library" }),
     ).toBeTruthy();
@@ -67,7 +67,7 @@ describe("RemoveTrackDialog", () => {
     ]);
     // Only the one present file outside Other goes to the Trash.
     expect(
-      screen.getByRole("button", { name: "Remove and move file to Trash" }),
+      screen.getByRole("button", { name: "Remove and send to trash" }),
     ).toBeTruthy();
   });
 });

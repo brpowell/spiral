@@ -50,10 +50,10 @@ describe("i18n Phase 4 catalogs", () => {
       "Remove 5 tracks from library?",
     );
     expect(t("dialogs:removeTracks.deleteFiles", { count: 1 })).toBe(
-      "Remove and move file to Trash",
+      "Remove and send to trash",
     );
     expect(t("dialogs:removeTracks.deleteFiles", { count: 2 })).toBe(
-      "Remove and move files to Trash",
+      "Remove and send to trash",
     );
     expect(t("dialogs:convert.title", { count: 1 })).toBe("Convert track");
     expect(t("dialogs:convert.title", { count: 4 })).toBe("Convert 4 tracks");
