@@ -174,11 +174,6 @@
     .radio-group-item--checked
   ) {
   background-color: color-mix(in oklch, white 10%, var(--color-surface));
-  border-color: color-mix(
-    in srgb,
-    var(--color-accent) 35%,
-    var(--color-border)
-  );
 }
 
 .radio-group-item--card:active:not(.radio-group-item--disabled):not(
