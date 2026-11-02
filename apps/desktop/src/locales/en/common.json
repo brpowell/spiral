@@ -17,12 +17,13 @@
     "finish": "Finish",
     "progress": "Step {{current}} of {{total}}",
     "library": {
-      "title": "Where do you keep your music?",
+      "title": "How do you want your music organized?",
       "choice": {
-        "new": "I'm starting a new collection",
-        "existing": "It's already organized, I'll pick the folder(s)"
+        "new": "Do it for me",
+        "existing": "I'll pick the folder(s)"
       },
-      "newMessage": "Music will be added to <code>{{path}}</code>"
+      "newMessage": "Tracks will live in: <code>{{path}}</code>",
+      "existingDetail": "If you want to choose the location, or already have your files organized."
     },
     "folders": {
       "title": "Add your folder(s)",

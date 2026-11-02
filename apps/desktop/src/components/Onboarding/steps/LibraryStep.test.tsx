@@ -1,11 +1,15 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useLibrarySettingsStore } from "../../../store/useLibrarySettingsStore";
 import { useOnboardingStore } from "../../../store/useOnboardingStore";
 import { useSourcesStore } from "../../../store/useSourcesStore";
 import type { LibrarySettings } from "../../../types/library";
 import type { Source } from "../../../types/source";
 import { LibraryStep } from "./LibraryStep";
+
+const path = vi.hoisted(() => ({ homeDir: vi.fn() }));
+vi.mock("@tauri-apps/api/path", () => path);
+path.homeDir.mockResolvedValue("/Users/me");
 
 const tracksSource: Source = {
   id: 1,
@@ -27,7 +31,7 @@ describe("LibraryStep", () => {
   });
 
   function newCard() {
-    return screen.getByRole("radio", { name: /I'm starting a new collection/ });
+    return screen.getByRole("radio", { name: /^Do it for me/ });
   }
 
   it("offers the two answers as radio cards, none picked", () => {
@@ -37,7 +41,7 @@ describe("LibraryStep", () => {
     expect(newCard()).not.toBeChecked();
     expect(
       screen.getByRole("radio", {
-        name: "It's already organized, I'll pick the folder(s)",
+        name: /^I'll pick the folder\(s\)/,
       }),
     ).not.toBeChecked();
   });
@@ -45,26 +49,39 @@ describe("LibraryStep", () => {
   it("remembers the picked answer", () => {
     render(<LibraryStep />);
     const existing = screen.getByRole("radio", {
-      name: "It's already organized, I'll pick the folder(s)",
+      name: /^I'll pick the folder\(s\)/,
     });
     fireEvent.click(existing);
     expect(useOnboardingStore.getState().musicChoice).toBe("existing");
     expect(existing).toBeChecked();
   });
 
-  it("says the new collection goes in the Tracks folder", () => {
+  it("says the new collection goes in the Tracks folder, home as ~", async () => {
     useSourcesStore.setState({
       sources: [tracksSource],
       sourcesById: new Map([[1, tracksSource]]),
     });
     render(<LibraryStep />);
-    expect(newCard()).toHaveTextContent(
-      "Music will be added to /Users/me/Music/Spiral/Tracks",
+    await waitFor(() =>
+      expect(newCard()).toHaveTextContent(
+        "Tracks will live in: ~/Music/Spiral/Tracks",
+      ),
     );
   });
 
-  it("falls back to Tracks under the Spiral folder before sources load", () => {
+  it("falls back to Tracks under the Spiral folder before sources load", async () => {
     render(<LibraryStep />);
-    expect(newCard()).toHaveTextContent("/Users/me/Music/Spiral/Tracks");
+    await waitFor(() =>
+      expect(newCard()).toHaveTextContent("~/Music/Spiral/Tracks"),
+    );
+  });
+
+  it("explains when to pick folders", () => {
+    render(<LibraryStep />);
+    expect(
+      screen.getByRole("radio", {
+        name: /^I'll pick the folder\(s\).*If you want to choose the location/,
+      }),
+    ).toBeInTheDocument();
   });
 });

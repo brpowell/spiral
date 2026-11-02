@@ -1,4 +1,5 @@
 import { Trans, useTranslation } from "react-i18next";
+import { shortenHomePath, useHomeDir } from "../../../lib/homePath";
 import { DEFAULT_SOURCE_ID } from "../../../lib/sourceAccess";
 import { useLibrarySettingsStore } from "../../../store/useLibrarySettingsStore";
 import {
@@ -46,16 +47,18 @@ export function LibraryStep() {
             <span className="onboarding-card__label">
               {t(`onboarding.library.choice.${id}`)}
             </span>
-            {id === "new" ? (
-              <span className="onboarding-card__detail">
+            <span className="onboarding-card__detail">
+              {id === "new" ? (
                 <Trans
                   i18nKey="onboarding.library.newMessage"
                   ns="common"
                   values={{ path: newPath }}
                   components={{ code: <code /> }}
                 />
-              </span>
-            ) : null}
+              ) : (
+                t("onboarding.library.existingDetail")
+              )}
+            </span>
           </span>
         </button>
       ))}
@@ -63,12 +66,18 @@ export function LibraryStep() {
   );
 }
 
-/** Where a new collection goes: the default source, the Spiral folder's Tracks. */
+/**
+ * Where a new collection goes: the default source, the Spiral folder's Tracks.
+ * Shown with the home folder as `~` so it reads short.
+ */
 function useNewCollectionPath(): string {
   const rootPath = useSourcesStore(
     (s) => s.sourcesById.get(DEFAULT_SOURCE_ID)?.rootPath,
   );
   const libraryRoot = useLibrarySettingsStore((s) => s.settings?.libraryRoot);
-  if (rootPath) return rootPath;
-  return libraryRoot ? `${libraryRoot.replace(/[\\/]+$/, "")}/Tracks` : "";
+  const home = useHomeDir();
+  const path =
+    rootPath ??
+    (libraryRoot ? `${libraryRoot.replace(/[\\/]+$/, "")}/Tracks` : "");
+  return shortenHomePath(path, home);
 }
