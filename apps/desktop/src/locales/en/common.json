@@ -17,8 +17,7 @@
     "finish": "Finish",
     "progress": "Step {{current}} of {{total}}",
     "library": {
-      "title": "Where does your music live?",
-      "description": "Start a new collection in Spiral, or bring the folders you already have.",
+      "title": "Where do you keep your music?",
       "choice": {
         "new": "I'm starting a new collection",
         "existing": "It's already organized, I'll pick the folder(s)"

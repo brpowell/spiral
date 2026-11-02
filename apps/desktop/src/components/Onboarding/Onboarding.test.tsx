@@ -67,7 +67,7 @@ describe("Onboarding", () => {
 
     expect(overlay.className).toContain("onboarding--docked");
     expect(
-      screen.getByRole("heading", { name: "Where does your music live?" }),
+      screen.getByRole("heading", { name: "Where do you keep your music?" }),
     ).toBeInTheDocument();
     // Next waits for an answer to the first question.
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
@@ -89,7 +89,7 @@ describe("Onboarding", () => {
     // A brief note first; Got it moves on.
     expect(screen.getByText(/Music will be added to/)).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Where does your music live?" }),
+      screen.getByRole("heading", { name: "Where do you keep your music?" }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Got it" }));
     expect(

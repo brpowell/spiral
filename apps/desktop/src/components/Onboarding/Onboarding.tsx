@@ -37,19 +37,30 @@ export const ONBOARDING_DOCK_MS = 800;
 /** Matches the `.onboarding` opacity transition. */
 export const ONBOARDING_FADE_MS = 600;
 
-/** Every step is split: text left, controls right. */
-const STEPS: Record<OnboardingStepId, ComponentType> = {
-  library: LibraryStep,
-  folders: FoldersStep,
-  style: StyleStep,
-  privacy: PrivacyStep,
+/**
+ * `split`: text left, controls right. `even`: split into two equal columns,
+ * for controls about as wide as the text. `centered`: one stacked, centred
+ * column. A step without a description shows just its title.
+ */
+const STEPS: Record<
+  OnboardingStepId,
+  {
+    Content: ComponentType;
+    layout: "split" | "even" | "centered";
+    description: boolean;
+  }
+> = {
+  library: { Content: LibraryStep, layout: "centered", description: false },
+  folders: { Content: FoldersStep, layout: "even", description: true },
+  style: { Content: StyleStep, layout: "split", description: true },
+  privacy: { Content: PrivacyStep, layout: "split", description: true },
 };
 
-/** Steps whose controls are about as wide as the text, so both columns match. */
-const EVEN_STEPS: ReadonlySet<OnboardingStepId> = new Set([
-  "library",
-  "folders",
-]);
+const LAYOUT_CLASSES = {
+  split: "onboarding__panel--split",
+  even: "onboarding__panel--split onboarding__panel--even",
+  centered: "onboarding__panel--centered",
+} as const;
 
 /**
  * First-run overlay over the library: plays the Spiral logo reveal once, docks
@@ -160,7 +171,7 @@ function OnboardingOverlay() {
   const stepIds = onboardingSteps(musicChoice);
   const isLast = step === stepIds.length - 1;
   const id = stepIds[step];
-  const Content = STEPS[id];
+  const { Content, layout, description } = STEPS[id];
   const goNext = () => {
     setNavigated(true);
     next();
@@ -189,16 +200,18 @@ function OnboardingOverlay() {
             </Button>
           </div>
           <div
-            className={`onboarding__panel onboarding__panel--split${EVEN_STEPS.has(id) ? " onboarding__panel--even" : ""}${navigated ? "" : " onboarding__panel--first"}`}
+            className={`onboarding__panel ${LAYOUT_CLASSES[layout]}${navigated ? "" : " onboarding__panel--first"}`}
             key={id}
           >
             <div className="onboarding__intro">
               <h1 className="onboarding__title">
                 {t(`onboarding.${id}.title`)}
               </h1>
-              <p className="onboarding__description">
-                {t(`onboarding.${id}.description`)}
-              </p>
+              {description ? (
+                <p className="onboarding__description">
+                  {t(`onboarding.${id}.description`)}
+                </p>
+              ) : null}
               {id === "style" ? <TransportPreview /> : null}
             </div>
             <FadingScroller className="onboarding__content">
