@@ -7,11 +7,11 @@ import {
   type MusicChoice,
 } from "../../../store/useOnboardingStore";
 import { useSourcesStore } from "../../../store/useSourcesStore";
-import { IconFileMusic, IconOpenFolder } from "../../icons";
+import { IconFolderCog, IconFolderPen } from "../../icons";
 
-const CHOICES: { id: MusicChoice; Icon: typeof IconFileMusic }[] = [
-  { id: "new", Icon: IconFileMusic },
-  { id: "existing", Icon: IconOpenFolder },
+const CHOICES: { id: MusicChoice; Icon: typeof IconFolderCog }[] = [
+  { id: "new", Icon: IconFolderCog },
+  { id: "existing", Icon: IconFolderPen },
 ];
 
 /**
