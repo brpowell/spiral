@@ -36,7 +36,7 @@ describe("Onboarding", () => {
         },
       },
     };
-    useOnboardingStore.setState({ open: true, step: 0 });
+    useOnboardingStore.setState({ open: true, step: 0, musicChoice: null });
   });
 
   afterEach(() => {
@@ -67,9 +67,10 @@ describe("Onboarding", () => {
 
     expect(overlay.className).toContain("onboarding--docked");
     expect(
-      screen.getByRole("heading", { name: "Where should your Spiral folder live?" }),
+      screen.getByRole("heading", { name: "Where does your music live?" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
+    // Next waits for an answer to the first question.
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
     expect(
       screen.getByRole("button", { name: "Skip welcome" }),
     ).toBeInTheDocument();
@@ -77,14 +78,24 @@ describe("Onboarding", () => {
     expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
   });
 
-  it("steps forward and back through the welcome screens", () => {
+  it("confirms where a new collection goes, then steps through", () => {
     render(<Onboarding />);
     playThroughReveal();
 
+    fireEvent.click(
+      screen.getByRole("radio", { name: "I'm starting a new collection" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    // A brief note first; Got it moves on.
+    expect(screen.getByText(/Music will be added to/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Where does your music live?" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
     expect(
       screen.getByRole("heading", { name: "Try on a style" }),
     ).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 3")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(
@@ -93,6 +104,30 @@ describe("Onboarding", () => {
     expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(
+      screen.getByRole("heading", { name: "Try on a style" }),
+    ).toBeInTheDocument();
+  });
+
+  it("adds a folders step for music that's already organized", () => {
+    render(<Onboarding />);
+    playThroughReveal();
+
+    fireEvent.click(
+      screen.getByRole("radio", {
+        name: "It's already organized, I'll pick the folder(s)",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(
+      screen.getByRole("heading", { name: "Add your folder(s)" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 4")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Add folder" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(
       screen.getByRole("heading", { name: "Try on a style" }),
     ).toBeInTheDocument();

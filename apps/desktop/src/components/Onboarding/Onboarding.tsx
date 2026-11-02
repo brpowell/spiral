@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentType,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
   adoptOnboardingSplash,
@@ -6,13 +12,15 @@ import {
   onboardingOverlayTop,
 } from "../../lib/onboardingSplash";
 import {
-  ONBOARDING_STEP_COUNT,
+  onboardingSteps,
   useOnboardingStore,
+  type OnboardingStepId,
 } from "../../store/useOnboardingStore";
 import { Button } from "../common/Button/Button";
 import { FadingScroller } from "./FadingScroller";
 import { TransportPreview } from "./TransportPreview";
-import { LibraryStep } from "./steps/LibraryStep";
+import { FoldersStep } from "./steps/FoldersStep";
+import { LibraryStep, NewCollectionDialog } from "./steps/LibraryStep";
 import { PrivacyStep } from "./steps/PrivacyStep";
 import { StyleStep } from "./steps/StyleStep";
 
@@ -29,12 +37,13 @@ export const ONBOARDING_DOCK_MS = 800;
 /** Matches the `.onboarding` opacity transition. */
 export const ONBOARDING_FADE_MS = 600;
 
-/** `split`: text left, controls right. `centered`: one stacked, centred column (small settings). */
-const STEPS = [
-  { id: "library", Content: LibraryStep, layout: "centered" },
-  { id: "style", Content: StyleStep, layout: "split" },
-  { id: "privacy", Content: PrivacyStep, layout: "split" },
-] as const;
+/** Every step is split: text left, controls right. */
+const STEPS: Record<OnboardingStepId, ComponentType> = {
+  library: LibraryStep,
+  folders: FoldersStep,
+  style: StyleStep,
+  privacy: PrivacyStep,
+};
 
 /**
  * First-run overlay over the library: plays the Spiral logo reveal once, docks
@@ -53,6 +62,7 @@ function OnboardingOverlay() {
   const step = useOnboardingStore((s) => s.step);
   const next = useOnboardingStore((s) => s.next);
   const back = useOnboardingStore((s) => s.back);
+  const musicChoice = useOnboardingStore((s) => s.musicChoice);
   const logoRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<SpiralMotionController | null>(null);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -61,6 +71,7 @@ function OnboardingOverlay() {
   const [leaving, setLeaving] = useState(false);
   // The first panel waits for the logo to dock; later steps appear right away.
   const [navigated, setNavigated] = useState(false);
+  const [confirmingNew, setConfirmingNew] = useState(false);
 
   // Layout effect: the glyph must be in the DOM in the same commit as the
   // overlay, so the first painted frame already has the brandmark.
@@ -140,8 +151,14 @@ function OnboardingOverlay() {
     return () => clearTimeout(timer);
   }, [leaving, finish]);
 
-  const isLast = step === ONBOARDING_STEP_COUNT - 1;
-  const { id, Content, layout } = STEPS[step];
+  const stepIds = onboardingSteps(musicChoice);
+  const isLast = step === stepIds.length - 1;
+  const id = stepIds[step];
+  const Content = STEPS[id];
+  const goNext = () => {
+    setNavigated(true);
+    next();
+  };
 
   return (
     <div
@@ -166,7 +183,7 @@ function OnboardingOverlay() {
             </Button>
           </div>
           <div
-            className={`onboarding__panel onboarding__panel--${layout}${navigated ? "" : " onboarding__panel--first"}`}
+            className={`onboarding__panel onboarding__panel--split${navigated ? "" : " onboarding__panel--first"}`}
             key={id}
           >
             <div className="onboarding__intro">
@@ -186,7 +203,7 @@ function OnboardingOverlay() {
             <span className="onboarding__progress">
               {t("onboarding.progress", {
                 current: step + 1,
-                total: ONBOARDING_STEP_COUNT,
+                total: stepIds.length,
               })}
             </span>
             <div className="onboarding__nav">
@@ -203,19 +220,28 @@ function OnboardingOverlay() {
               ) : null}
               <Button
                 variant="primary"
+                // The first step needs an answer before it can move on.
+                disabled={id === "library" && musicChoice == null}
                 onClick={
                   isLast
                     ? () => setLeaving(true)
-                    : () => {
-                        setNavigated(true);
-                        next();
-                      }
+                    : id === "library" && musicChoice === "new"
+                      ? () => setConfirmingNew(true)
+                      : goNext
                 }
               >
                 {isLast ? t("onboarding.finish") : t("onboarding.next")}
               </Button>
             </div>
           </footer>
+          <NewCollectionDialog
+            open={confirmingNew}
+            onClose={() => setConfirmingNew(false)}
+            onConfirm={() => {
+              setConfirmingNew(false);
+              goNext();
+            }}
+          />
         </>
       ) : null}
     </div>
