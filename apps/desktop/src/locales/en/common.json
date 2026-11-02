@@ -22,8 +22,8 @@
         "new": "Do it for me",
         "existing": "I'll pick the folder(s)"
       },
-      "newMessage": "Tracks will live in: <code>{{path}}</code>",
-      "existingDetail": "If you want to choose the location, or already have your files organized."
+      "newMessage": "Auto-organize your files under <code>{{path}}</code>",
+      "existingDetail": "If you want more control, or already have your files organized."
     },
     "folders": {
       "title": "Add your folder(s)",

@@ -64,7 +64,7 @@ describe("LibraryStep", () => {
     render(<LibraryStep />);
     await waitFor(() =>
       expect(newCard()).toHaveTextContent(
-        "Tracks will live in: ~/Music/Spiral/Tracks",
+        "Auto-organize your files under ~/Music/Spiral/Tracks",
       ),
     );
   });
@@ -80,7 +80,7 @@ describe("LibraryStep", () => {
     render(<LibraryStep />);
     expect(
       screen.getByRole("radio", {
-        name: /^I'll pick the folder\(s\).*If you want to choose the location/,
+        name: /^I'll pick the folder\(s\).*If you want more control/,
       }),
     ).toBeInTheDocument();
   });

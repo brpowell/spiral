@@ -313,6 +313,11 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
   overflow-wrap: anywhere;
 }
 
+/* Monospace runs large; scale it so the path matches the text around it. */
+.onboarding-card__detail code {
+  font-size: 0.88em;
+}
+
 /* Folders step */
 .onboarding-folders {
   display: flex;
