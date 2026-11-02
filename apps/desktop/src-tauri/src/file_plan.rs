@@ -112,8 +112,9 @@ pub enum Conflict {
     /// The track's file can't be read. Skipped.
     #[serde(rename_all = "camelCase")]
     SourceUnreadable { error: String },
-    /// The target would be inside the Spiral folder, which isn't a source.
-    /// Skipped.
+    /// The target would be in the Spiral folder's data (database, artwork,
+    /// packs) or in another source's folder nested in this one, which a walk
+    /// of this source skips. Skipped.
     InsideSpiralFolder,
     /// A part of the target starts with a dot (e.g. a title like `.hack`).
     /// Walks and the watcher skip hidden entries, so the track would read as
@@ -316,11 +317,16 @@ pub fn plan_organize_source(
     let format = organize_format(conn, source_id, format, target.path_format, default_format)?;
     let root = target.root;
     let roots = SourceRoots::load(conn).map_err(|e| e.to_string())?;
-    // Targets a walk of this source would skip: the Spiral folder (for the
-    // default source, the part outside its own folder) and hidden entries.
-    let library_roots = sources::spiral_folder(conn)
-        .map_err(|e| e.to_string())?
-        .map(|folder| LibraryRoots::for_library_root(&folder));
+    // Targets a walk of this source would skip: the Spiral folder's data,
+    // another source nested in this one, and hidden entries.
+    let library_roots = match sources::spiral_folder(conn).map_err(|e| e.to_string())? {
+        Some(folder) => Some(
+            LibraryRoots::for_library_root(&folder)
+                .with_sources(conn)
+                .map_err(|e| e.to_string())?,
+        ),
+        None => None,
+    };
 
     // Every row's path, missing ones included: a target must not collide
     // with a row even when its file is gone.
@@ -940,7 +946,6 @@ mod tests {
     use super::*;
     use crate::db_migrations;
     use crate::source_scan::{ReconcileScope, ScanContext};
-    use crate::sources::DEFAULT_SOURCE_ID;
     use crate::test_fixtures::wav;
     use chrono::Utc;
 
@@ -1248,10 +1253,11 @@ mod tests {
     #[test]
     fn missing_unreadable_and_spiral_folder_targets_are_skipped() {
         let fx = Fixture::new("blocked");
-        // A source around the Spiral folder, whose artist would land a file in it.
+        // A source around the Spiral folder, whose artist would land a file in
+        // its packs.
         let src = fx.source("Music");
         let gone = fx.row(src, &fx.path("Music/gone.wav"), "Band", "Album", "Gone");
-        let inside = fx.track(src, "Music/in.wav", "Spiral Library", "Tracks", "Sneaky");
+        let inside = fx.track(src, "Music/in.wav", "Spiral Library", "Packs", "Sneaky");
         let plan = fx.plan(src);
         assert_eq!(
             targets(&plan),
@@ -1263,7 +1269,7 @@ mod tests {
                 ),
                 (
                     inside,
-                    "Spiral Library/Tracks/Sneaky.wav".into(),
+                    "Spiral Library/Packs/Sneaky.wav".into(),
                     Some(Conflict::InsideSpiralFolder)
                 ),
             ]
@@ -1403,16 +1409,19 @@ mod tests {
     }
 
     #[test]
-    fn the_default_source_is_organized_inside_the_spiral_folder() {
+    fn a_source_in_the_spiral_folder_is_organized_there() {
         let fx = Fixture::new("default");
+        let tracks = sources::create_managed_source(&fx.db.lock().unwrap(), &fx.roots())
+            .unwrap()
+            .id;
         let id = fx.track(
-            DEFAULT_SOURCE_ID,
+            tracks,
             "Music/Spiral Library/Tracks/x.wav",
             "Band",
             "Album",
             "Song",
         );
-        let plan = fx.plan(DEFAULT_SOURCE_ID);
+        let plan = fx.plan(tracks);
         assert_eq!(
             targets(&plan),
             vec![(id, "Band/Album/Song.wav".into(), None)]

@@ -27,11 +27,13 @@ export function canDeleteFromDisk(
   return track.sourceId !== OTHER_SOURCE_ID && !track.missingSince;
 }
 
-/** Error prefixes the source commands return. */
+/** Error prefixes the source, import, replace and convert commands return. */
 const SOURCE_ERROR_KEYS = {
   source_not_folder: "library:sources.errors.notFolder",
-  source_inside_library: "library:sources.errors.insideLibrary",
+  source_spiral_data: "library:sources.errors.spiralData",
   source_overlap: "library:sources.errors.overlap",
+  no_source: "library:sources.errors.noSource",
+  source_unavailable: "library:sources.errors.unavailable",
 } as const;
 
 export type SourceErrorCode = keyof typeof SOURCE_ERROR_KEYS;

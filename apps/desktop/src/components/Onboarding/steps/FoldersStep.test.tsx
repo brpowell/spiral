@@ -93,12 +93,12 @@ describe("FoldersStep", () => {
 
   it("explains why a folder can't be added", async () => {
     tauri.addSource.mockRejectedValue(
-      "source_inside_library: /Users/me/Spiral/Tracks is inside the Spiral folder",
+      "source_spiral_data: /Users/me/Spiral/Artwork is the Spiral folder or holds its data",
     );
     render(<FoldersStep />);
     fireEvent.click(screen.getByRole("button", { name: "Add folder" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "That folder is inside the Spiral folder.",
+      "That folder is the Spiral folder or holds its database, artwork or packs.",
     );
   });
 

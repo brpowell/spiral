@@ -58,8 +58,12 @@ describe("source error mapping", () => {
     expect(sourceErrorCode(new Error("source_overlap: /a overlaps /b"))).toBe(
       "source_overlap",
     );
-    expect(sourceErrorCode("source_inside_library: /x")).toBe(
-      "source_inside_library",
+    expect(sourceErrorCode("source_spiral_data: /x")).toBe(
+      "source_spiral_data",
+    );
+    expect(sourceErrorCode("no_source: nowhere to copy")).toBe("no_source");
+    expect(sourceErrorCode("source_unavailable: /x")).toBe(
+      "source_unavailable",
     );
     expect(sourceErrorCode("source_not_folder: /x")).toBe("source_not_folder");
     expect(sourceErrorCode("disk full")).toBeNull();
@@ -71,8 +75,11 @@ describe("source error mapping", () => {
     expect(describeSourceError("source_overlap: /a overlaps /b")).toMatch(
       /overlaps one of your sources/,
     );
-    expect(describeSourceError("source_inside_library: /x")).toMatch(
-      /inside the Spiral folder/,
+    expect(describeSourceError("source_spiral_data: /x")).toMatch(
+      /is the Spiral folder/,
+    );
+    expect(describeSourceError("no_source: nowhere")).toMatch(
+      /Add a folder first/,
     );
     expect(describeSourceError(new Error("disk full"))).toBe("disk full");
   });

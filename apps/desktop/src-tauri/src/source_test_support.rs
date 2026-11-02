@@ -1,7 +1,7 @@
 //! Databases and files for tests of code that treats sources differently.
 
 use crate::db_migrations;
-use crate::sources::{DEFAULT_SOURCE_ID, OTHER_SOURCE_ID};
+use crate::sources::OTHER_SOURCE_ID;
 use rusqlite::{params, Connection};
 use std::path::{Path, PathBuf};
 
@@ -41,8 +41,9 @@ pub fn conn() -> Connection {
 
 /// One track id per kind of source.
 pub struct SourceTracks {
-    /// In the default source.
-    pub default: i64,
+    /// In an organized source that is the import target, like onboarding's
+    /// `Tracks`.
+    pub managed: i64,
     /// In a source the user added.
     pub user: i64,
     /// In Other.
@@ -59,8 +60,19 @@ pub fn add_user_source(conn: &Connection, root: &Path) -> i64 {
     conn.last_insert_rowid()
 }
 
-/// Insert a track stored as `rel_path` (absolute for Other, and for the
-/// default source of an in-memory database).
+/// Add an organized source rooted at `root` and make it the import target,
+/// as onboarding's `Tracks` is.
+pub fn add_managed_source(conn: &Connection, root: &Path) -> i64 {
+    let id = add_user_source(conn, root);
+    conn.execute(
+        "UPDATE sources SET auto_organize = 1, import_target = 1 WHERE id = ?1",
+        params![id],
+    )
+    .unwrap();
+    id
+}
+
+/// Insert a track stored as `rel_path` (absolute for Other).
 pub fn insert_track(conn: &Connection, rel_path: &str, source_id: i64) -> i64 {
     conn.execute(
         "INSERT INTO tracks (title, rel_path, date_added, source_id)
@@ -71,13 +83,15 @@ pub fn insert_track(conn: &Connection, rel_path: &str, source_id: i64) -> i64 {
     conn.last_insert_rowid()
 }
 
-/// One track per kind of source, with files at the given paths. The user
-/// source is rooted at the user file's folder.
-pub fn source_tracks(conn: &Connection, default: &Path, user: &Path, other: &Path) -> SourceTracks {
+/// One track per kind of source, with files at the given paths. The managed
+/// and user sources are rooted at their file's folder.
+pub fn source_tracks(conn: &Connection, managed: &Path, user: &Path, other: &Path) -> SourceTracks {
+    let managed_source = add_managed_source(conn, managed.parent().unwrap());
+    let managed_name = managed.file_name().unwrap().to_string_lossy();
     let user_source = add_user_source(conn, user.parent().unwrap());
     let user_name = user.file_name().unwrap().to_string_lossy();
     SourceTracks {
-        default: insert_track(conn, &default.to_string_lossy(), DEFAULT_SOURCE_ID),
+        managed: insert_track(conn, &managed_name, managed_source),
         user: insert_track(conn, &user_name, user_source),
         other: insert_track(conn, &other.to_string_lossy(), OTHER_SOURCE_ID),
     }
@@ -86,7 +100,7 @@ pub fn source_tracks(conn: &Connection, default: &Path, user: &Path, other: &Pat
 pub fn default_source_tracks(conn: &Connection) -> SourceTracks {
     source_tracks(
         conn,
-        Path::new("/m.mp3"),
+        Path::new("/managed/m.mp3"),
         Path::new("/user/u.mp3"),
         Path::new("/x.mp3"),
     )

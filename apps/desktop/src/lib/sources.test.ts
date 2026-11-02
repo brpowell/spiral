@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addSource,
   applyOrganizeSource,
+  createManagedSource,
   getImportSource,
   getLibrary,
   getSourceStatuses,
@@ -40,6 +41,7 @@ describe("source commands", () => {
     await setSourcePathFormat(3, null);
     await setImportSource(3);
     await getImportSource();
+    await createManagedSource();
 
     expect(vi.mocked(invoke).mock.calls).toEqual([
       ["list_sources"],
@@ -59,6 +61,7 @@ describe("source commands", () => {
       ["set_source_path_format", { sourceId: 3, pathFormat: null }],
       ["set_import_source", { sourceId: 3 }],
       ["get_import_source"],
+      ["create_managed_source"],
     ]);
   });
 

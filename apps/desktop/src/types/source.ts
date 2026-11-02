@@ -1,12 +1,13 @@
 /**
- * A library source: a folder of tracks. Ids 1 (the default source, the Spiral
- * folder's tracks folder) and 2 (Other, loose files with no folder) are built
- * in; folders the user adds get ids from 3 up.
+ * A library source: a folder of tracks the user chose. There may be none.
+ * Other (id 2, loose files with no folder) is built in. Libraries from before
+ * sources were optional keep their `Tracks` source as id 1, an ordinary,
+ * removable source; folders added later get ids from 3 up.
  */
 export interface Source {
   id: number;
   name: string;
-  /** The source's folder (resolved for the default source); null for Other. */
+  /** The source's absolute folder; null for Other. */
   rootPath: string | null;
   /** Whether Spiral keeps the source's files organized. */
   autoOrganize: boolean;
@@ -15,6 +16,17 @@ export interface Source {
   /** New imports are copied into this source. */
   importTarget: boolean;
   createdAt: string;
+}
+
+/** Where copy imports go (see `get_import_source`). */
+export interface ImportTarget {
+  /** The import target, or null when none is set. */
+  source: Source | null;
+  /**
+   * True when copying is possible now: a target is set and its folder is
+   * reachable. "Keep files where they are" imports work regardless.
+   */
+  copyAvailable: boolean;
 }
 
 /** What one reconcile pass changed in a source's tracks. */

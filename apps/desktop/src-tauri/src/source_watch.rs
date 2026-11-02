@@ -1,5 +1,5 @@
 //! File watchers for library sources: one recursive watcher per source
-//! folder (the default source's included; Other has none), so files added,
+//! folder (Other has none, and there may be no sources at all), so files added,
 //! changed, renamed or deleted there show up without a rescan.
 //!
 //! Events are coalesced per source until the folder has been quiet for
@@ -56,8 +56,8 @@ impl WatchRoot {
     }
 
     /// `path` in the stored root's form, or `None` when it is outside the
-    /// root, hidden, or in the Spiral folder but not this source's part of it
-    /// (a user source may contain the Spiral folder).
+    /// root, hidden, in the Spiral folder's data (a source may contain the
+    /// Spiral folder) or in another source nested in this one.
     fn accept(&self, path: &Path, roots: &LibraryRoots) -> Option<PathBuf> {
         let path = match path.strip_prefix(&self.resolved) {
             Ok(rest) if self.resolved != self.root => self.root.join(rest),
@@ -285,10 +285,17 @@ impl Registry {
 /// after a source is added, removed or relocated, or the library changes.
 /// Starts the watcher thread on first use.
 pub fn sync(app: &AppHandle) {
-    let wanted: HashMap<i64, PathBuf> = {
+    let (wanted, roots): (HashMap<i64, PathBuf>, LibraryRoots) = {
         let state = app.state::<DbState>();
         let conn = lock(&state.0);
-        match sources::list_sources(&conn) {
+        let roots = match library_roots(app).with_sources(&conn) {
+            Ok(roots) => roots,
+            Err(err) => {
+                eprintln!("source watch: list sources: {err}");
+                return;
+            }
+        };
+        let wanted = match sources::list_sources(&conn) {
             Ok(list) => list
                 .into_iter()
                 // Other has no folder; every other source is watched.
@@ -299,9 +306,9 @@ pub fn sync(app: &AppHandle) {
                 eprintln!("source watch: list sources: {err}");
                 return;
             }
-        }
+        };
+        (wanted, roots)
     };
-    let roots = library_roots(app);
 
     let registry = REGISTRY.get_or_init(|| {
         let (tx, rx) = mpsc::channel();
@@ -489,8 +496,12 @@ mod tests {
             .fold(Event::new(kind), |e, p| e.add_path(PathBuf::from(p)))
     }
 
+    /// The Spiral folder at `library`, with `/music` and the Spiral folder's
+    /// `Tracks` as sources (a library from before sources couldn't overlap).
     fn roots(library: &str) -> LibraryRoots {
-        LibraryRoots::for_library_root(Path::new(library))
+        let mut roots = LibraryRoots::for_library_root(Path::new(library));
+        roots.source_roots = vec!["/music".into(), Path::new(library).join("Tracks")];
+        roots
     }
 
     #[test]
@@ -627,7 +638,7 @@ mod tests {
     }
 
     #[test]
-    fn accept_drops_paths_outside_the_root_and_in_the_library() {
+    fn accept_drops_paths_outside_the_root_in_spiral_data_and_nested_sources() {
         let root = WatchRoot {
             root: "/music".into(),
             resolved: "/music".into(),
@@ -643,16 +654,29 @@ mod tests {
             root.accept(Path::new("/music/Spiral Library/Tracks/x.mp3"), &lib),
             None
         );
-        assert_eq!(root.accept(Path::new("/music/Spiral Library"), &lib), None);
+        assert_eq!(
+            root.accept(Path::new("/music/Spiral Library/Packs/x.wav"), &lib),
+            None
+        );
+        assert_eq!(
+            root.accept(Path::new("/music/Spiral Library/Library.db"), &lib),
+            None
+        );
+        // The rest of the Spiral folder is an ordinary folder.
+        assert_eq!(
+            root.accept(Path::new("/music/Spiral Library/Loose/x.mp3"), &lib),
+            Some("/music/Spiral Library/Loose/x.mp3".into())
+        );
         assert_eq!(root.accept(Path::new("/music/a/.b.mp3"), &lib), None);
     }
 
     #[test]
-    fn accept_keeps_the_default_sources_own_files() {
+    fn accept_keeps_a_spiral_folder_sources_own_files() {
         let lib = roots("/music/Spiral Library");
+        let tracks = PathBuf::from("/music/Spiral Library/Tracks");
         let root = WatchRoot {
-            root: lib.media_folder.clone(),
-            resolved: lib.media_folder.clone(),
+            root: tracks.clone(),
+            resolved: tracks,
         };
         assert_eq!(
             root.accept(Path::new("/music/Spiral Library/Tracks/A/x.mp3"), &lib),
