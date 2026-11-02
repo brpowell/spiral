@@ -116,6 +116,11 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
   overflow: hidden;
 }
 
+/* Two equal columns, so a short list or a pair of cards sits balanced. */
+.onboarding__panel--even {
+  grid-template-columns: repeat(2, minmax(0, 400px));
+}
+
 .onboarding__panel--split .onboarding__content {
   min-height: 0;
   overflow-y: auto;
@@ -123,6 +128,11 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
      clipped; the margins cancel it so the column still lines up. */
   padding: 8px 12px 24px 8px;
   margin: -2px 0 0 -8px;
+}
+
+/* Cancel the right padding too, so the controls fill their column exactly. */
+.onboarding__panel--even .onboarding__content {
+  margin-right: -12px;
 }
 
 /* Fade the scroller at an edge only while there's more to scroll to there. */
@@ -224,7 +234,7 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  width: min(440px, 100%);
+  width: 100%;
 }
 
 .onboarding-card {
@@ -292,7 +302,7 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
   flex-direction: column;
   align-items: flex-start;
   gap: 16px;
-  width: min(440px, 100%);
+  width: 100%;
 }
 
 .onboarding-folders__list {

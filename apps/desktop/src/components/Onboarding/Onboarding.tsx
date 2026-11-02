@@ -45,6 +45,12 @@ const STEPS: Record<OnboardingStepId, ComponentType> = {
   privacy: PrivacyStep,
 };
 
+/** Steps whose controls are about as wide as the text, so both columns match. */
+const EVEN_STEPS: ReadonlySet<OnboardingStepId> = new Set([
+  "library",
+  "folders",
+]);
+
 /**
  * First-run overlay over the library: plays the Spiral logo reveal once, docks
  * the lockup into the corner, then walks through the welcome steps. Shown on
@@ -183,7 +189,7 @@ function OnboardingOverlay() {
             </Button>
           </div>
           <div
-            className={`onboarding__panel onboarding__panel--split${navigated ? "" : " onboarding__panel--first"}`}
+            className={`onboarding__panel onboarding__panel--split${EVEN_STEPS.has(id) ? " onboarding__panel--even" : ""}${navigated ? "" : " onboarding__panel--first"}`}
             key={id}
           >
             <div className="onboarding__intro">
