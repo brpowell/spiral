@@ -117,7 +117,7 @@ describe("Onboarding", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(
-      screen.getByRole("heading", { name: "Add your folder(s)" }),
+      screen.getByRole("heading", { name: "Add music sources" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Step 2 of 4")).toBeInTheDocument();
     expect(

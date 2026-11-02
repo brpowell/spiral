@@ -27,7 +27,7 @@
       "existingDetail": "If you want more control, or already have your files collected. Optionally use auto-organize."
     },
     "folders": {
-      "title": "Add your folder(s)",
+      "title": "Add music sources",
       "description": "Choose one or more root folders where your music lives.",
       "add": "Add folder",
       "listAria": "Your music folders",
