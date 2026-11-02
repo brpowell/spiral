@@ -40,7 +40,8 @@ export const ONBOARDING_FADE_MS = 600;
 /**
  * `split`: text left, controls right. `even`: split into two equal columns,
  * for controls about as wide as the text. `centered`: one stacked, centred
- * column.
+ * column, with the description as a note under the controls (read after the
+ * choices, it answers "what if I'm not sure?").
  */
 const STEPS: Record<
   OnboardingStepId,
@@ -167,6 +168,11 @@ function OnboardingOverlay() {
   const isLast = step === stepIds.length - 1;
   const id = stepIds[step];
   const { Content, layout } = STEPS[id];
+  const description = (
+    <p className="onboarding__description">
+      {t(`onboarding.${id}.description`)}
+    </p>
+  );
   const goNext = () => {
     setNavigated(true);
     next();
@@ -202,14 +208,13 @@ function OnboardingOverlay() {
               <h1 className="onboarding__title">
                 {t(`onboarding.${id}.title`)}
               </h1>
-              <p className="onboarding__description">
-                {t(`onboarding.${id}.description`)}
-              </p>
+              {layout === "centered" ? null : description}
               {id === "style" ? <TransportPreview /> : null}
             </div>
             <FadingScroller className="onboarding__content">
               <Content />
             </FadingScroller>
+            {layout === "centered" ? description : null}
           </div>
           <footer className="onboarding__footer">
             <span className="onboarding__progress">
