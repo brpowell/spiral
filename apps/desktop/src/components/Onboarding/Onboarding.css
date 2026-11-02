@@ -179,10 +179,34 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
 
 .onboarding__panel--centered {
   grid-template-columns: minmax(0, 480px);
-  /* Anchored from the top, a bit below true centre (optical centre). */
-  padding-top: max(168px, 28vh);
+  /*
+   * Optical centre: the stack sits a little above true centre, where the eye
+   * expects the middle to be. The flexible rows above and below split the
+   * spare height 1:2; they shrink to nothing (and the panel scrolls) when the
+   * window is too short, so nothing is clipped.
+   */
+  grid-template-rows: minmax(0, 1fr) repeat(3, auto) minmax(0, 2fr);
+  align-content: stretch;
+  /*
+   * Clears the docked logo; the deeper bottom lifts the stack off true centre,
+   * easing back to just clearing the footer on short windows.
+   */
+  padding-block: 104px clamp(104px, 20vh, 160px);
   row-gap: 24px;
   text-align: center;
+}
+
+/* Title, choices, then the note, between the two flexible rows. */
+.onboarding__panel--centered > :nth-child(1) {
+  grid-row: 2;
+}
+
+.onboarding__panel--centered > :nth-child(2) {
+  grid-row: 3;
+}
+
+.onboarding__panel--centered > :nth-child(3) {
+  grid-row: 4;
 }
 
 .onboarding__panel--centered .onboarding__title {
