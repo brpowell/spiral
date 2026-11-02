@@ -92,8 +92,12 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
   position: absolute;
   inset: 0;
   display: grid;
-  /* Both columns hug their content and the pair is centred in the window. */
-  grid-template-columns: minmax(240px, 380px) minmax(0, max-content);
+  /*
+   * Fixed tracks, the same on every two-column step, so the title always
+   * lands in the same place. The controls column fits the Style step's three
+   * swatches across (3 × 160px + 2 × 16px gaps).
+   */
+  grid-template-columns: minmax(240px, 380px) minmax(0, 512px);
   justify-content: center;
   column-gap: 72px;
   align-content: start;
@@ -116,23 +120,13 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
   overflow: hidden;
 }
 
-/* Two equal columns, so a short list or a pair of cards sits balanced. */
-.onboarding__panel--even {
-  grid-template-columns: repeat(2, minmax(0, 400px));
-}
-
 .onboarding__panel--split .onboarding__content {
   min-height: 0;
   overflow-y: auto;
   /* Room inside the scroller so hover lift, focus rings and shadows aren't
-     clipped; the margins cancel it so the column still lines up. */
+     clipped; the margins cancel it so the controls fill their column exactly. */
   padding: 8px 12px 24px 8px;
-  margin: -2px 0 0 -8px;
-}
-
-/* Cancel the right padding too, so the controls fill their column exactly. */
-.onboarding__panel--even .onboarding__content {
-  margin-right: -12px;
+  margin: -2px -12px 0 -8px;
 }
 
 /* Fade the scroller at an edge only while there's more to scroll to there. */

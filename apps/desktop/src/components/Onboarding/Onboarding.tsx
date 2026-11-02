@@ -38,24 +38,23 @@ export const ONBOARDING_DOCK_MS = 800;
 export const ONBOARDING_FADE_MS = 600;
 
 /**
- * `split`: text left, controls right. `even`: split into two equal columns,
- * for controls about as wide as the text. `centered`: one stacked, centred
- * column, with the description as a note under the controls (read after the
- * choices, it answers "what if I'm not sure?").
+ * `split`: text left, controls right, on the same fixed grid for every such
+ * step. `centered`: one stacked, centred column, with the description as a
+ * note under the controls (read after the choices, it answers "what if I'm
+ * not sure?").
  */
 const STEPS: Record<
   OnboardingStepId,
-  { Content: ComponentType; layout: "split" | "even" | "centered" }
+  { Content: ComponentType; layout: "split" | "centered" }
 > = {
   library: { Content: LibraryStep, layout: "centered" },
-  folders: { Content: FoldersStep, layout: "even" },
+  folders: { Content: FoldersStep, layout: "split" },
   style: { Content: StyleStep, layout: "split" },
   privacy: { Content: PrivacyStep, layout: "split" },
 };
 
 const LAYOUT_CLASSES = {
   split: "onboarding__panel--split",
-  even: "onboarding__panel--split onboarding__panel--even",
   centered: "onboarding__panel--centered",
 } as const;
 
