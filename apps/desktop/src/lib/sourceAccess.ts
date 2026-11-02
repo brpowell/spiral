@@ -17,11 +17,14 @@ export function sourceRole(source: Pick<Source, "id">): SourceRole {
 
 /**
  * Whether removing the track may also delete its file. Every source's files
- * can be deleted except Other's loose files, which stay on disk. Tracks still
+ * can be deleted except Other's loose files, which stay on disk, and a
+ * missing track's: its path may now name another track's file. Tracks still
  * importing have no source yet and land in a source folder.
  */
-export function canDeleteFromDisk(track: Pick<Track, "sourceId">): boolean {
-  return track.sourceId !== OTHER_SOURCE_ID;
+export function canDeleteFromDisk(
+  track: Pick<Track, "sourceId" | "missingSince">,
+): boolean {
+  return track.sourceId !== OTHER_SOURCE_ID && !track.missingSince;
 }
 
 /** Error prefixes the source commands return. */

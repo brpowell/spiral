@@ -432,11 +432,23 @@ export async function getConvertProfileOptions(
   });
 }
 
+/**
+ * What became of a removed track's file. Only `trashed` means it left its
+ * folder; the `kept*` outcomes mean deleting it was refused.
+ */
+export type RemovedFile =
+  | "notRequested"
+  | "trashed"
+  | "notFound"
+  | "keptInOther"
+  | "keptMissing"
+  | "keptShared";
+
 export async function removeTrack(
   trackId: number,
   deleteFromDisk: boolean,
-): Promise<void> {
-  return invoke<void>("remove_track", { trackId, deleteFromDisk });
+): Promise<RemovedFile> {
+  return invoke<RemovedFile>("remove_track", { trackId, deleteFromDisk });
 }
 
 export async function getLibrary(): Promise<Track[]> {

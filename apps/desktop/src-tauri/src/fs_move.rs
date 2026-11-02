@@ -24,6 +24,35 @@ pub fn rename_or_copy_file(from: &Path, to: &Path) -> Result<(), String> {
     }
 }
 
+/// Move a file to the system Trash, so a deletion the user asked for can be
+/// undone. Tests delete the file instead of filling the real Trash.
+pub fn move_to_trash(path: &Path) -> Result<(), String> {
+    #[cfg(test)]
+    {
+        fs::remove_file(path).map_err(|e| format!("failed to move to Trash: {e}"))
+    }
+    #[cfg(not(test))]
+    {
+        trash_context()
+            .delete(path)
+            .map_err(|e| format!("failed to move to Trash: {e}"))
+    }
+}
+
+#[cfg(not(test))]
+fn trash_context() -> trash::TrashContext {
+    #[allow(unused_mut)]
+    let mut ctx = trash::TrashContext::default();
+    // The default asks Finder over Apple Events, which needs the user's
+    // permission; NSFileManager doesn't.
+    #[cfg(target_os = "macos")]
+    {
+        use trash::macos::{DeleteMethod, TrashContextExtMacos};
+        ctx.set_delete_method(DeleteMethod::NsFileManager);
+    }
+    ctx
+}
+
 fn is_cross_device_rename_error(err: &std::io::Error) -> bool {
     err.kind() == ErrorKind::CrossesDevices
 }

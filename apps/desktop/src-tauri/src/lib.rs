@@ -74,6 +74,7 @@ mod sources;
 pub mod tag_inspector;
 #[cfg(test)]
 mod test_fixtures;
+mod track_identity;
 mod track_list_prefs;
 mod transcoder;
 mod viz_worker_csp;

@@ -2,6 +2,7 @@ use crate::art_cache;
 use crate::audio_properties;
 use crate::db;
 use crate::encoding_profiles;
+use crate::fs_move;
 use crate::import_files;
 use crate::library_organize::{self, OrganizeMetadata};
 use crate::lyrics_normalize;
@@ -15,6 +16,7 @@ use crate::models::{
 use crate::rating_sync::{schedule_rating_file_write, RatingSync};
 use crate::settings;
 use crate::sources::{self, LibraryRoots};
+use crate::track_identity;
 use crate::transcoder;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -384,29 +386,45 @@ fn save_rating(
     Ok((saved_rating, file_path))
 }
 
+/// What became of a removed track's file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RemovedFile {
+    /// Only the row was removed, as asked.
+    NotRequested,
+    /// Moved to the Trash.
+    Trashed,
+    /// Nothing was at the track's path.
+    NotFound,
+    /// In Other, whose loose files are never deleted.
+    KeptInOther,
+    /// The track was marked missing, so its path can't be trusted to name
+    /// its own file (it may be another track's, under another spelling).
+    KeptMissing,
+    /// Another track still uses the file.
+    KeptShared,
+}
+
 #[tauri::command]
 pub fn remove_track(
     app: AppHandle,
     state: State<DbState>,
     track_id: i64,
     delete_from_disk: bool,
-) -> Result<(), String> {
-    let track = {
+) -> Result<RemovedFile, String> {
+    let (track, file) = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
         let track = db::get_track_by_id(&conn, track_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("Track {track_id} not found"))?;
         db::delete_track(&conn, track_id).map_err(|e| e.to_string())?;
-        track
+        let file = if delete_from_disk {
+            delete_removed_track_file(&conn, &track, settings::lyrics_sidecar_sync_enabled(&app))?
+        } else {
+            RemovedFile::NotRequested
+        };
+        (track, file)
     };
-
-    if delete_from_disk {
-        delete_removed_track_file(
-            track.source_id,
-            Path::new(&track.file_path),
-            settings::lyrics_sidecar_sync_enabled(&app),
-        )?;
-    }
 
     let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
 
@@ -423,29 +441,49 @@ pub fn remove_track(
         }
     }
 
-    Ok(())
+    Ok(file)
 }
 
-/// Delete a removed track's file and lyrics sidecar. Other's loose files are
-/// never deleted: for them the request is ignored and the file stays, so
-/// removing a mixed selection still removes every row. Returns whether the
-/// file was deleted.
+/// Move a removed track's file and lyrics sidecar to the Trash. The file is
+/// kept when it is one of Other's loose files, when the track was marked
+/// missing, or when another track row names the same file (compared on
+/// disk, not by path string).
 fn delete_removed_track_file(
-    source_id: i64,
-    audio_path: &Path,
+    conn: &rusqlite::Connection,
+    track: &Track,
     sidecar_enabled: bool,
-) -> Result<bool, String> {
-    if source_id == sources::OTHER_SOURCE_ID {
-        return Ok(false);
+) -> Result<RemovedFile, String> {
+    if track.source_id == sources::OTHER_SOURCE_ID {
+        return Ok(RemovedFile::KeptInOther);
+    }
+    if track.missing_since.is_some() {
+        return Ok(RemovedFile::KeptMissing);
+    }
+    let audio_path = Path::new(&track.file_path);
+    if !audio_path.is_file() {
+        if sidecar_enabled {
+            trash_sidecar(audio_path)?;
+        }
+        return Ok(RemovedFile::NotFound);
+    }
+    let sharing = track_identity::other_rows_for_file(conn, audio_path, track.id)
+        .map_err(|e| e.to_string())?;
+    if !sharing.is_empty() {
+        return Ok(RemovedFile::KeptShared);
     }
     if sidecar_enabled {
-        lyrics_sidecar::remove_sidecar(audio_path)?;
+        trash_sidecar(audio_path)?;
     }
-    if !audio_path.exists() {
-        return Ok(false);
+    fs_move::move_to_trash(audio_path)?;
+    Ok(RemovedFile::Trashed)
+}
+
+fn trash_sidecar(audio_path: &Path) -> Result<(), String> {
+    let sidecar = lyrics_sidecar::sidecar_path_for(audio_path);
+    if sidecar.is_file() {
+        fs_move::move_to_trash(&sidecar)?;
     }
-    fs::remove_file(audio_path).map_err(|e| format!("Failed to delete audio file: {e}"))?;
-    Ok(true)
+    Ok(())
 }
 
 /// Where a replacement or converted file for `track` goes: its own source
@@ -465,9 +503,12 @@ fn replacement_destination(
     Ok((target, folder))
 }
 
-/// Remove the file a replace or convert superseded, with its lyrics sidecar.
-/// Other's loose files stay on disk.
+/// Move the file a replace or convert superseded to the Trash, with its
+/// lyrics sidecar. Other's loose files stay on disk, and so does a file
+/// another track row still names.
 fn remove_superseded_file(
+    conn: &rusqlite::Connection,
+    track_id: i64,
     source_id: i64,
     source_root: Option<&Path>,
     old_path: &Path,
@@ -476,12 +517,20 @@ fn remove_superseded_file(
     if source_id == sources::OTHER_SOURCE_ID || !old_path.is_file() {
         return;
     }
+    match track_identity::other_rows_for_file(conn, old_path, track_id) {
+        Ok(sharing) if sharing.is_empty() => {}
+        Ok(_) => return,
+        Err(e) => {
+            eprintln!("failed to check who else uses a superseded file: {e}");
+            return;
+        }
+    }
     if sidecar_enabled {
-        if let Err(e) = lyrics_sidecar::remove_sidecar(old_path) {
+        if let Err(e) = trash_sidecar(old_path) {
             eprintln!("failed to remove superseded lyrics sidecar: {e}");
         }
     }
-    if let Err(e) = fs::remove_file(old_path) {
+    if let Err(e) = fs_move::move_to_trash(old_path) {
         eprintln!("failed to delete superseded file: {e}");
         return;
     }
@@ -587,16 +636,17 @@ pub fn replace_track_from_import(
 
     project_lyrics_to_file(&new_path_buf, canonical_lyrics.as_ref(), sidecar_enabled)?;
 
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
     if !library_organize::same_path(&old_path, &new_path_buf) {
         remove_superseded_file(
+            &conn,
+            track_id,
             existing.source_id,
             old_root.as_deref(),
             &old_path,
             sidecar_enabled,
         );
     }
-
-    let conn = state.0.lock().map_err(|e| e.to_string())?;
     track_for_ui(&conn, Path::new(&resolved.library_root), track_id)
 }
 
@@ -816,16 +866,17 @@ fn convert_track_impl(
         db::set_track_source(&conn, track_id, target.source_id).map_err(|e| e.to_string())?;
     }
 
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
     if !library_organize::same_path(&old_path, &final_path) {
         remove_superseded_file(
+            &conn,
+            track_id,
             existing.source_id,
             old_root.as_deref(),
             &old_path,
             resolved.lyrics_sidecar_sync_enabled,
         );
     }
-
-    let conn = state.0.lock().map_err(|e| e.to_string())?;
     track_for_ui(&conn, Path::new(&resolved.library_root), track_id)
 }
 
@@ -933,25 +984,6 @@ mod tests {
             (audio, sidecar)
         }
 
-        #[test]
-        fn delete_from_disk_deletes_every_source_but_other() {
-            let tmp = TempDir::new("delete");
-            let files: Vec<_> = ["m", "u", "x"]
-                .iter()
-                .map(|name| audio_with_sidecar(&tmp.0, name))
-                .collect();
-
-            for (source, (audio, sidecar)) in [DEFAULT_SOURCE_ID, 3].into_iter().zip(&files) {
-                assert!(delete_removed_track_file(source, audio, true).unwrap());
-                assert!(!audio.exists());
-                assert!(!sidecar.exists());
-            }
-            let (audio, sidecar) = &files[2];
-            assert!(!delete_removed_track_file(OTHER_SOURCE_ID, audio, true).unwrap());
-            assert!(audio.is_file());
-            assert!(sidecar.is_file());
-        }
-
         fn track_in(conn: &rusqlite::Connection, id: i64) -> Track {
             db::get_track_by_id(conn, id).unwrap().unwrap()
         }
@@ -1005,20 +1037,185 @@ mod tests {
             assert!(replacement_destination(&conn, &track_in(&conn, u), FORMAT).is_err());
         }
 
+        /// Remove a track's row the way `remove_track` does, returning it.
+        fn remove_row(conn: &rusqlite::Connection, id: i64) -> Track {
+            let track = track_in(conn, id);
+            db::delete_track(conn, id).unwrap();
+            track
+        }
+
+        #[test]
+        fn delete_from_disk_trashes_every_source_but_other() {
+            let tmp = TempDir::new("delete");
+            let conn = conn();
+            let files: Vec<_> = ["m", "u", "x"]
+                .iter()
+                .map(|name| audio_with_sidecar(&tmp.0, name))
+                .collect();
+            let user = add_user_source(&conn, &tmp.0);
+            let ids = [
+                insert_track(&conn, &files[0].0.to_string_lossy(), DEFAULT_SOURCE_ID),
+                insert_track(&conn, "u.mp3", user),
+                insert_track(&conn, &files[2].0.to_string_lossy(), OTHER_SOURCE_ID),
+            ];
+
+            for (id, (audio, sidecar)) in ids[..2].iter().zip(&files) {
+                let track = remove_row(&conn, *id);
+                assert_eq!(
+                    delete_removed_track_file(&conn, &track, true).unwrap(),
+                    RemovedFile::Trashed
+                );
+                assert!(!audio.exists());
+                assert!(!sidecar.exists());
+            }
+            let track = remove_row(&conn, ids[2]);
+            assert_eq!(
+                delete_removed_track_file(&conn, &track, true).unwrap(),
+                RemovedFile::KeptInOther
+            );
+            let (audio, sidecar) = &files[2];
+            assert!(audio.is_file());
+            assert!(sidecar.is_file());
+        }
+
+        #[test]
+        fn a_missing_tracks_file_is_never_deleted() {
+            let tmp = TempDir::new("delete-missing");
+            let conn = conn();
+            let (audio, sidecar) = audio_with_sidecar(&tmp.0, "song");
+            let id = insert_track(&conn, &audio.to_string_lossy(), DEFAULT_SOURCE_ID);
+            conn.execute(
+                "UPDATE tracks SET missing_since = 'then' WHERE id = ?1",
+                [id],
+            )
+            .unwrap();
+            let track = remove_row(&conn, id);
+            assert_eq!(
+                delete_removed_track_file(&conn, &track, true).unwrap(),
+                RemovedFile::KeptMissing
+            );
+            assert!(audio.is_file() && sidecar.is_file());
+        }
+
+        #[test]
+        fn a_file_another_row_names_is_kept() {
+            let tmp = TempDir::new("delete-shared");
+            let conn = conn();
+            let (audio, sidecar) = audio_with_sidecar(&tmp.0, "song");
+            // Another row for the same file under another case.
+            let alias = crate::track_identity::tests::alias(&audio, "SONG.mp3");
+            let user = add_user_source(&conn, &tmp.0);
+            let a = insert_track(&conn, "song.mp3", user);
+            insert_track(&conn, &alias.to_string_lossy(), DEFAULT_SOURCE_ID);
+
+            let track = remove_row(&conn, a);
+            assert_eq!(
+                delete_removed_track_file(&conn, &track, true).unwrap(),
+                RemovedFile::KeptShared
+            );
+            assert!(audio.is_file() && sidecar.is_file());
+
+            // The same file is kept when a replace supersedes it.
+            remove_superseded_file(&conn, a, user, Some(&tmp.0), &audio, true);
+            assert!(audio.is_file() && sidecar.is_file());
+        }
+
+        /// The user's sequence: a folder renamed only in case left a row with
+        /// the old spelling; a scan marked it missing and added a duplicate
+        /// for the spelling on disk; deleting the "missing" duplicate from
+        /// disk then deleted the real file.
+        #[cfg(unix)]
+        #[test]
+        fn a_case_only_rename_neither_duplicates_nor_deletes() {
+            use crate::source_scan::{self, ReconcileScope, ScanContext};
+            use crate::sources::LibraryRoots;
+            use std::sync::Mutex;
+
+            let tmp = TempDir::new("case-rename");
+            let root = tmp.dir("Music");
+            let album = tmp.dir("Music/Album");
+            let file = album.join("a.wav");
+            crate::test_fixtures::wav::write_minimal(&file);
+            crate::track_identity::tests::alias_dir(&album, "ALBUM");
+            let db = Mutex::new(conn());
+            let lock = || db.lock().unwrap();
+            let source = add_user_source(&lock(), &root);
+            let id = insert_track(&lock(), "ALBUM/a.wav", source);
+            db::set_track_rating(&lock(), id, 80).unwrap();
+            let ctx = ScanContext {
+                app_data_dir: tmp.0.join("AppData"),
+                roots: LibraryRoots::for_library_root(&tmp.0.join("Spiral")),
+                lyrics_sidecar_enabled: false,
+            };
+
+            // The scan re-points the row instead of adding a second one.
+            source_scan::reconcile_source(&db, &ctx, source, ReconcileScope::All).unwrap();
+            let tracks = db::get_tracks_for_source(&lock(), source).unwrap();
+            assert_eq!(tracks.len(), 1);
+            let track = &tracks[0];
+            assert_eq!(track.id, id);
+            assert_eq!(Path::new(&track.file_path), file);
+            assert!(track.missing_since.is_none());
+            assert_eq!(track.rating, 80);
+
+            // The rows the old scan left behind: the old spelling, marked
+            // missing, and a new row for the spelling on disk.
+            let duplicate = |missing: bool| {
+                let id = insert_track(&lock(), "ALBUM/a.wav", source);
+                if missing {
+                    lock()
+                        .execute(
+                            "UPDATE tracks SET missing_since = 'then' WHERE id = ?1",
+                            [id],
+                        )
+                        .unwrap();
+                }
+                id
+            };
+            // Deleting the missing row from disk deletes nothing...
+            let stale = duplicate(true);
+            let stale = remove_row(&lock(), stale);
+            assert_eq!(
+                delete_removed_track_file(&lock(), &stale, false).unwrap(),
+                RemovedFile::KeptMissing
+            );
+            assert!(file.is_file());
+            // ...nor does it when the row wasn't marked missing, since the
+            // other row still names the file.
+            let stale = duplicate(false);
+            let stale = remove_row(&lock(), stale);
+            assert_eq!(
+                delete_removed_track_file(&lock(), &stale, false).unwrap(),
+                RemovedFile::KeptShared
+            );
+            assert!(file.is_file());
+
+            // Duplicates already in a library merge at the next startup scan,
+            // into the row with the history.
+            let stale = duplicate(true);
+            db::set_track_rating(&lock(), stale, 0).unwrap();
+            source_scan::reconcile_all(&db, &ctx);
+            let tracks = db::get_tracks_for_source(&lock(), source).unwrap();
+            assert_eq!(tracks.len(), 1);
+            assert_eq!((tracks[0].id, tracks[0].rating), (id, 80));
+            assert_eq!(Path::new(&tracks[0].file_path), file);
+        }
+
         #[test]
         fn superseded_files_are_removed_except_others() {
             let tmp = TempDir::new("superseded");
+            let conn = conn();
             let root = tmp.dir("Source");
             let nested = tmp.dir("Source/Artist/Album");
             let (old, sidecar) = audio_with_sidecar(&nested, "old");
-            remove_superseded_file(3, Some(&root), &old, true);
+            remove_superseded_file(&conn, 1, 3, Some(&root), &old, true);
             assert!(!old.exists() && !sidecar.exists());
             // Emptied folders are pruned up to the source root.
             assert!(!tmp.0.join("Source/Artist").exists());
             assert!(root.is_dir());
 
             let (loose, loose_sidecar) = audio_with_sidecar(&tmp.0, "loose");
-            remove_superseded_file(OTHER_SOURCE_ID, None, &loose, true);
+            remove_superseded_file(&conn, 1, OTHER_SOURCE_ID, None, &loose, true);
             assert!(loose.is_file() && loose_sidecar.is_file());
         }
     }
