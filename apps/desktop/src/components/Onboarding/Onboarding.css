@@ -299,12 +299,17 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
   line-height: 1.3;
 }
 
-.onboarding-new__message {
-  margin: 0;
-  line-height: 1.5;
+.onboarding-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
-.onboarding-new__path {
+.onboarding-card__detail {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
   overflow-wrap: anywhere;
 }
 

@@ -78,20 +78,14 @@ describe("Onboarding", () => {
     expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
   });
 
-  it("confirms where a new collection goes, then steps through", () => {
+  it("steps through a new collection without a folders step", () => {
     render(<Onboarding />);
     playThroughReveal();
 
     fireEvent.click(
-      screen.getByRole("radio", { name: "I'm starting a new collection" }),
+      screen.getByRole("radio", { name: /I'm starting a new collection/ }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    // A brief note first; Got it moves on.
-    expect(screen.getByText(/Music will be added to/)).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Where do you keep your music?" }),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
     expect(
       screen.getByRole("heading", { name: "Try on a style" }),
     ).toBeInTheDocument();

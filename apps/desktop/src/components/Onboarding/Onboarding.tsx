@@ -20,7 +20,7 @@ import { Button } from "../common/Button/Button";
 import { FadingScroller } from "./FadingScroller";
 import { TransportPreview } from "./TransportPreview";
 import { FoldersStep } from "./steps/FoldersStep";
-import { LibraryStep, NewCollectionDialog } from "./steps/LibraryStep";
+import { LibraryStep } from "./steps/LibraryStep";
 import { PrivacyStep } from "./steps/PrivacyStep";
 import { StyleStep } from "./steps/StyleStep";
 
@@ -88,7 +88,6 @@ function OnboardingOverlay() {
   const [leaving, setLeaving] = useState(false);
   // The first panel waits for the logo to dock; later steps appear right away.
   const [navigated, setNavigated] = useState(false);
-  const [confirmingNew, setConfirmingNew] = useState(false);
 
   // Layout effect: the glyph must be in the DOM in the same commit as the
   // overlay, so the first painted frame already has the brandmark.
@@ -241,26 +240,12 @@ function OnboardingOverlay() {
                 variant="primary"
                 // The first step needs an answer before it can move on.
                 disabled={id === "library" && musicChoice == null}
-                onClick={
-                  isLast
-                    ? () => setLeaving(true)
-                    : id === "library" && musicChoice === "new"
-                      ? () => setConfirmingNew(true)
-                      : goNext
-                }
+                onClick={isLast ? () => setLeaving(true) : goNext}
               >
                 {isLast ? t("onboarding.finish") : t("onboarding.next")}
               </Button>
             </div>
           </footer>
-          <NewCollectionDialog
-            open={confirmingNew}
-            onClose={() => setConfirmingNew(false)}
-            onConfirm={() => {
-              setConfirmingNew(false);
-              goNext();
-            }}
-          />
         </>
       ) : null}
     </div>

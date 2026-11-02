@@ -1,4 +1,3 @@
-import { useId } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { DEFAULT_SOURCE_ID } from "../../../lib/sourceAccess";
 import { useLibrarySettingsStore } from "../../../store/useLibrarySettingsStore";
@@ -7,8 +6,6 @@ import {
   type MusicChoice,
 } from "../../../store/useOnboardingStore";
 import { useSourcesStore } from "../../../store/useSourcesStore";
-import { Button } from "../../common/Button/Button";
-import { Modal, ModalBody, ModalFooter } from "../../common/Modal/Modal";
 import { IconFileMusic, IconOpenFolder } from "../../icons";
 
 const CHOICES: { id: MusicChoice; Icon: typeof IconFileMusic }[] = [
@@ -17,14 +14,15 @@ const CHOICES: { id: MusicChoice; Icon: typeof IconFileMusic }[] = [
 ];
 
 /**
- * "Where does your music live?": starting a new collection in the Spiral
- * folder, or pointing Spiral at folders that are already organized. The
- * second answer adds a step for picking those folders.
+ * "Where do you keep your music?": starting a new collection in the Spiral
+ * folder (the card says where), or pointing Spiral at folders that are
+ * already organized. The second answer adds a step for picking those folders.
  */
 export function LibraryStep() {
   const { t } = useTranslation("common");
   const musicChoice = useOnboardingStore((s) => s.musicChoice);
   const setMusicChoice = useOnboardingStore((s) => s.setMusicChoice);
+  const newPath = useNewCollectionPath();
 
   return (
     <div
@@ -44,8 +42,20 @@ export function LibraryStep() {
           <span className="onboarding-card__icon" aria-hidden="true">
             <Icon width={24} height={24} />
           </span>
-          <span className="onboarding-card__label">
-            {t(`onboarding.library.choice.${id}`)}
+          <span className="onboarding-card__text">
+            <span className="onboarding-card__label">
+              {t(`onboarding.library.choice.${id}`)}
+            </span>
+            {id === "new" ? (
+              <span className="onboarding-card__detail">
+                <Trans
+                  i18nKey="onboarding.library.newMessage"
+                  ns="common"
+                  values={{ path: newPath }}
+                  components={{ code: <code /> }}
+                />
+              </span>
+            ) : null}
           </span>
         </button>
       ))}
@@ -61,39 +71,4 @@ function useNewCollectionPath(): string {
   const libraryRoot = useLibrarySettingsStore((s) => s.settings?.libraryRoot);
   if (rootPath) return rootPath;
   return libraryRoot ? `${libraryRoot.replace(/[\\/]+$/, "")}/Tracks` : "";
-}
-
-/** Shown on Next after "I'm starting a new collection": where music will go. */
-export function NewCollectionDialog({
-  open,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  const { t } = useTranslation("common");
-  const titleId = useId();
-  const path = useNewCollectionPath();
-
-  return (
-    <Modal open={open} onClose={onClose} size="sm" labelledBy={titleId}>
-      <ModalBody>
-        <p id={titleId} className="onboarding-new__message">
-          <Trans
-            i18nKey="onboarding.library.newMessage"
-            ns="common"
-            values={{ path }}
-            components={{ code: <code className="onboarding-new__path" /> }}
-          />
-        </p>
-      </ModalBody>
-      <ModalFooter>
-        <Button variant="primary" onClick={onConfirm}>
-          {t("onboarding.library.newConfirm")}
-        </Button>
-      </ModalFooter>
-    </Modal>
-  );
 }

@@ -22,8 +22,7 @@
         "new": "I'm starting a new collection",
         "existing": "It's already organized, I'll pick the folder(s)"
       },
-      "newMessage": "Music will be added to <code>{{path}}</code>",
-      "newConfirm": "Got it"
+      "newMessage": "Music will be added to <code>{{path}}</code>"
     },
     "folders": {
       "title": "Add your folder(s)",

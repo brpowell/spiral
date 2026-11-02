@@ -1,11 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { useLibrarySettingsStore } from "../../../store/useLibrarySettingsStore";
 import { useOnboardingStore } from "../../../store/useOnboardingStore";
 import { useSourcesStore } from "../../../store/useSourcesStore";
 import type { LibrarySettings } from "../../../types/library";
 import type { Source } from "../../../types/source";
-import { LibraryStep, NewCollectionDialog } from "./LibraryStep";
+import { LibraryStep } from "./LibraryStep";
 
 const tracksSource: Source = {
   id: 1,
@@ -26,14 +26,20 @@ describe("LibraryStep", () => {
     });
   });
 
+  function newCard() {
+    return screen.getByRole("radio", { name: /I'm starting a new collection/ });
+  }
+
   it("offers the two answers as radio cards, none picked", () => {
     render(<LibraryStep />);
     const cards = screen.getAllByRole("radio");
-    expect(cards.map((c) => c.textContent)).toEqual([
-      "I'm starting a new collection",
-      "It's already organized, I'll pick the folder(s)",
-    ]);
-    for (const card of cards) expect(card).not.toBeChecked();
+    expect(cards).toHaveLength(2);
+    expect(newCard()).not.toBeChecked();
+    expect(
+      screen.getByRole("radio", {
+        name: "It's already organized, I'll pick the folder(s)",
+      }),
+    ).not.toBeChecked();
   });
 
   it("remembers the picked answer", () => {
@@ -46,33 +52,19 @@ describe("LibraryStep", () => {
     expect(existing).toBeChecked();
   });
 
-  describe("new collection note", () => {
-    function renderDialog() {
-      const onConfirm = vi.fn();
-      render(
-        <NewCollectionDialog open onClose={vi.fn()} onConfirm={onConfirm} />,
-      );
-      return onConfirm;
-    }
-
-    it("names the Tracks folder in the Spiral folder", () => {
-      useSourcesStore.setState({
-        sources: [tracksSource],
-        sourcesById: new Map([[1, tracksSource]]),
-      });
-      const onConfirm = renderDialog();
-      expect(
-        screen.getByText("/Users/me/Music/Spiral/Tracks"),
-      ).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: "Got it" }));
-      expect(onConfirm).toHaveBeenCalled();
+  it("says the new collection goes in the Tracks folder", () => {
+    useSourcesStore.setState({
+      sources: [tracksSource],
+      sourcesById: new Map([[1, tracksSource]]),
     });
+    render(<LibraryStep />);
+    expect(newCard()).toHaveTextContent(
+      "Music will be added to /Users/me/Music/Spiral/Tracks",
+    );
+  });
 
-    it("falls back to Tracks under the Spiral folder before sources load", () => {
-      renderDialog();
-      expect(
-        screen.getByText("/Users/me/Music/Spiral/Tracks"),
-      ).toBeInTheDocument();
-    });
+  it("falls back to Tracks under the Spiral folder before sources load", () => {
+    render(<LibraryStep />);
+    expect(newCard()).toHaveTextContent("/Users/me/Music/Spiral/Tracks");
   });
 });
