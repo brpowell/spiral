@@ -4,7 +4,10 @@ vi.mock("../lib/scheduling", () => ({
   afterUiTransition: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { applyBatchRule, useImportDedupeStore } from "./useImportDedupeStore";
+import {
+  applyBatchRule,
+  useImportDedupeStore,
+} from "./useImportDedupeStore";
 import type { ImportDuplicateContext } from "../lib/trackDedupe";
 import type { Track, TrackInput } from "../types/track";
 
@@ -108,9 +111,10 @@ describe("useImportDedupeStore", () => {
       .getState()
       .promptImportDedupe(duplicateContext({ hasLyricsConflict: true }));
 
-    await useImportDedupeStore
-      .getState()
-      .resolveImportDedupe({ action: "replace", replaceLyrics: false }, true);
+    await useImportDedupeStore.getState().resolveImportDedupe(
+      { action: "replace", replaceLyrics: false },
+      true,
+    );
 
     await expect(promptPromise).resolves.toEqual({
       action: "replace",

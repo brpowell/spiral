@@ -99,11 +99,7 @@ export const useSkinPreferencesStore = create<SkinPreferencesState>(
 
       const settings = useSkinStore.getState().activePack?.manifest.settings;
       const setting = findSkinSetting(settings, settingId);
-      if (
-        !setting ||
-        setting.type !== "boolean" ||
-        typeof value !== "boolean"
-      ) {
+      if (!setting || setting.type !== "boolean" || typeof value !== "boolean") {
         return;
       }
 
