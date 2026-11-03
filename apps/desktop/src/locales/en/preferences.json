@@ -57,7 +57,7 @@
     "organizeDescription": "Files are renamed and sorted into subfolders based on the path format.",
     "pathFormat": "Path format",
     "formatPreview": "e.g.",
-    "formatTokens": "Available tokens",
+    "formatTokens": "Show path tokens",
     "insertToken": "Insert into the path format",
     "tokens": {
       "albumArtist": "Album artist, or the artist when there isn’t one",

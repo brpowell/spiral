@@ -75,8 +75,11 @@ const track = (id: number, sourceId: number, missingSince?: string) =>
     missingSince,
   }) as Track;
 
+/** A row, found by its menu: folder cards show their path, not their name. */
 function item(name: string): HTMLElement {
-  return screen.getByText(name).closest("li, section") as HTMLElement;
+  return screen
+    .getByRole("button", { name: `Actions for ${name}` })
+    .closest("li, section") as HTMLElement;
 }
 
 /** Opens a row's more menu and picks an item from it. */
@@ -147,7 +150,7 @@ describe("SourcesSection", () => {
 
   async function renderSection() {
     render(<SourcesSection />);
-    await screen.findByText("Music");
+    await screen.findByRole("button", { name: "Actions for Music" });
   }
 
   it("lists every source with its path and counts", async () => {
@@ -157,7 +160,7 @@ describe("SourcesSection", () => {
     expect(
       within(tracks).getByText("/Users/me/Music/Spiral Library/Tracks"),
     ).toBeTruthy();
-    expect(within(tracks).getByText("1 track")).toBeTruthy();
+    expect(within(tracks).getByText(/^1 track/)).toBeTruthy();
     expect(within(item("Other files")).getByText("0 tracks")).toBeTruthy();
 
     const music = item("Music");
@@ -202,7 +205,11 @@ describe("SourcesSection", () => {
   it("keeps a folder card to its path and counts", async () => {
     await renderSection();
     const tracks = item("Tracks");
-    expect(within(tracks).getByText("Default")).toBeTruthy();
+    // No name row: the path heads the card, with the default noted inline.
+    expect(within(tracks).queryByText("Tracks")).toBeNull();
+    expect(within(tracks).getByText(/^1 track/).textContent).toBe(
+      "1 track · Default",
+    );
     expect(within(tracks).queryByRole("checkbox")).toBeNull();
     expect(within(tracks).queryByLabelText("Path format")).toBeNull();
     expect(within(tracks).getAllByRole("button")).toHaveLength(1);
@@ -294,7 +301,7 @@ describe("SourcesSection", () => {
     const dialog = await openEdit("Music");
     expect(within(dialog).queryByText("Track title")).toBeNull();
     fireEvent.click(
-      within(dialog).getByRole("button", { name: "Available tokens" }),
+      within(dialog).getByRole("button", { name: "Show path tokens" }),
     );
     expect(within(dialog).getByText("Track title")).toBeTruthy();
 

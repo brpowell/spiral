@@ -35,30 +35,37 @@
   gap: 0.35rem;
 }
 
-.sources-section__heading {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
 .sources-section__name {
   font-weight: var(--weight-medium);
 }
 
-.sources-section__offline {
-  --badge-fg: var(--color-danger, #e55);
-  --badge-border: color-mix(
-    in srgb,
-    var(--color-danger, #e55) 40%,
-    transparent
-  );
-  --badge-bg: color-mix(in srgb, var(--color-danger, #e55) 10%, transparent);
+/* Inline status after the counts, e.g. "494 tracks · ✓ Default". */
+.sources-section__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  vertical-align: bottom;
 }
 
+.sources-section__status svg {
+  width: 0.95em;
+  height: 0.95em;
+  flex-shrink: 0;
+}
+
+/* Green whatever the theme's accent is: the success colour. */
+.sources-section__default svg {
+  color: var(--color-alert-success);
+}
+
+.sources-section__offline {
+  color: var(--color-danger, #e55);
+}
+
+/* The path is the card's headline now that the name row is gone. */
 .sources-section__path {
   font-size: 0.78rem;
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

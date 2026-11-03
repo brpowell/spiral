@@ -26,7 +26,6 @@ import { usePlayerStore } from "../../store/usePlayerStore";
 import { useSourcesStore } from "../../store/useSourcesStore";
 import type { ReconcileSummary, Source } from "../../types/source";
 import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
-import { Badge } from "../common/Badge/Badge";
 import { Button } from "../common/Button/Button";
 import {
   ContextMenuItem,
@@ -244,7 +243,8 @@ export function SourcesSection() {
 
   const busy = busyId != null;
 
-  const renderCounts = (source: Source) => {
+  /** Counts, then the folder's status (default, offline) inline after them. */
+  const renderMeta = (source: Source) => {
     if (rescanningId === source.id) {
       return (
         <p className="sources-section__meta" role="status">
@@ -261,6 +261,30 @@ export function SourcesSection() {
             {" · "}
             <span className="sources-section__missing">
               {t("preferences:sources.missingCount", { count: count.missing })}
+            </span>
+          </>
+        ) : null}
+        {source.importTarget ? (
+          <>
+            {" · "}
+            <span
+              className="sources-section__status sources-section__default"
+              title={t("preferences:sources.defaultHint")}
+            >
+              <IconCheck aria-hidden />
+              {t("preferences:sources.defaultBadge")}
+            </span>
+          </>
+        ) : null}
+        {isOffline(source) ? (
+          <>
+            {" · "}
+            <span
+              className="sources-section__status sources-section__offline"
+              title={t("preferences:sources.offlineHint")}
+            >
+              <IconDisconnected aria-hidden />
+              {t("preferences:sources.offline")}
             </span>
           </>
         ) : null}
@@ -335,41 +359,21 @@ export function SourcesSection() {
 
   /** A folder the user chose, `Tracks` included. */
   const renderFolder = (source: Source) => {
+    // The path is what identifies a folder; the name only labels its menu.
     const name = sourceDisplayName(source);
-    const offline = isOffline(source);
     return (
       <li key={source.id} className="sources-section__item">
         <span className="sources-section__icon">
           <IconOpenFolder aria-hidden />
         </span>
         <div className="sources-section__body">
-          <div className="sources-section__heading">
-            <span className="sources-section__name">{name}</span>
-            {source.importTarget ? (
-              <Badge
-                variant="accent"
-                title={t("preferences:sources.defaultHint")}
-              >
-                {t("preferences:sources.defaultBadge")}
-              </Badge>
-            ) : null}
-            {offline ? (
-              <Badge
-                className="sources-section__offline"
-                title={t("preferences:sources.offlineHint")}
-              >
-                <IconDisconnected aria-hidden />
-                {t("preferences:sources.offline")}
-              </Badge>
-            ) : null}
-          </div>
           {source.rootPath ? (
             <code className="sources-section__path" title={source.rootPath}>
               {/* Ellipsize the start, so the folder name stays visible. */}
               <bdo dir="ltr">{source.rootPath}</bdo>
             </code>
           ) : null}
-          {renderCounts(source)}
+          {renderMeta(source)}
         </div>
         {renderMenu(source, name, true)}
       </li>
@@ -387,7 +391,7 @@ export function SourcesSection() {
           </span>
           <div className="sources-section__body">
             <span className="sources-section__name">{name}</span>
-            {renderCounts(source)}
+            {renderMeta(source)}
             <p className="sources-section__description">
               {t("preferences:sources.otherDescription")}
             </p>
