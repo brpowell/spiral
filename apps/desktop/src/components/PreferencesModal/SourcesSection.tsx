@@ -33,6 +33,7 @@ import {
   ContextMenuSeparator,
 } from "../ContextMenu/ContextMenu";
 import {
+  IconCheck,
   IconDelete,
   IconDisconnected,
   IconFolderCog,
@@ -156,8 +157,14 @@ export function SourcesSection() {
       }
     });
 
+  const makeDefault = (source: Source) =>
+    run(source.id, async () => {
+      await setImportSource(source.id);
+      await loadSources();
+    });
+
   /**
-   * Saves the edit dialog. Location and default apply at once; turning
+   * Saves the edit dialog. A new location applies at once; turning
    * organize on, or a new format for an organized source, moves files, so it
    * goes through the preview (cancelling it leaves organizing as it was).
    */
@@ -169,7 +176,6 @@ export function SourcesSection() {
       current = await relocateSource(source.id, edits.rootPath);
       applySource(current);
     }
-    if (edits.makeDefault) await setImportSource(source.id);
 
     const formatChanged = edits.pathFormat !== undefined;
     const nextFormat = formatChanged
@@ -262,7 +268,10 @@ export function SourcesSection() {
     );
   };
 
-  /** Rescan for every row; Edit and Remove only for folders. */
+  /**
+   * Rescan for every row; Edit and Remove only for folders, and Make default
+   * for folders that aren't it (it acts at once, so it isn't in Edit).
+   */
   const renderMenu = (source: Source, name: string, folder: boolean) => (
     <MenuButton
       ariaLabel={t("preferences:sources.actionsAria", { name })}
@@ -270,7 +279,7 @@ export function SourcesSection() {
       variant="ghost"
       className="sources-section__menu"
       disabled={busy}
-      layoutDeps={[folder]}
+      layoutDeps={[folder, source.importTarget]}
     >
       {(close) => (
         <>
@@ -282,6 +291,17 @@ export function SourcesSection() {
                 close();
                 setError(null);
                 setEditing(source);
+              }}
+            />
+          ) : null}
+          {folder && !source.importTarget ? (
+            <ContextMenuItem
+              icon={<IconCheck />}
+              label={t("preferences:sources.makeDefault")}
+              disabled={isOffline(source)}
+              onClick={() => {
+                close();
+                void makeDefault(source);
               }}
             />
           ) : null}
@@ -446,7 +466,6 @@ export function SourcesSection() {
 
       <SourceEditDialog
         source={editing}
-        offline={editing ? isOffline(editing) : false}
         defaultFormat={defaultFormat}
         previewSample={previewSample}
         onClose={() => setEditing(null)}

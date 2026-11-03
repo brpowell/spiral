@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import {
   formatOrganizeRelativePath,
@@ -25,6 +26,7 @@ import {
   ModalTitle,
 } from "../common/Modal/Modal";
 import { TextInput } from "../common/TextInput/TextInput";
+import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
 import { IconOpenFolder } from "../icons";
 import "./SourceEditDialog.css";
 
@@ -51,8 +53,6 @@ export function normalizeFormat(value: string): string | null {
 export interface SourceEdits {
   /** A new folder for the source. */
   rootPath?: string;
-  /** Make the source the default folder copies go into. */
-  makeDefault?: boolean;
   autoOrganize?: boolean;
   /** The source's own format; null goes back to the default one. */
   pathFormat?: string | null;
@@ -60,8 +60,6 @@ export interface SourceEdits {
 
 interface SourceEditDialogProps {
   source: Source | null;
-  /** Whether the source's folder can't be reached right now. */
-  offline: boolean;
   /** The global path format a source without its own uses. */
   defaultFormat: string;
   /** The track the format preview is shown for. */
@@ -72,12 +70,11 @@ interface SourceEditDialogProps {
 }
 
 /**
- * Edit a source: its location, whether it's the default folder, and how
- * Spiral organizes it. Nothing changes until Save.
+ * Edit a source: its location and how Spiral organizes it. Nothing changes
+ * until Save, and closing with unsaved changes asks first.
  */
 export function SourceEditDialog({
   source: requested,
-  offline,
   defaultFormat,
   previewSample,
   onClose,
@@ -94,7 +91,6 @@ export function SourceEditDialog({
   const source = requested ?? shown;
 
   const [rootPath, setRootPath] = useState("");
-  const [makeDefault, setMakeDefault] = useState(false);
   const [autoOrganize, setAutoOrganize] = useState(false);
   const [format, setFormat] = useState("");
   const [saving, setSaving] = useState(false);
@@ -110,16 +106,36 @@ export function SourceEditDialog({
     [format, defaultFormat, previewSample],
   );
 
+  // Compared by meaning, so editing a field back to how it was counts as clean.
+  const changes: SourceEdits = {};
+  if (source) {
+    if (rootPath && rootPath !== source.rootPath) changes.rootPath = rootPath;
+    if (autoOrganize !== source.autoOrganize) {
+      changes.autoOrganize = autoOrganize;
+    }
+    const pathFormat = normalizeFormat(format);
+    if (pathFormat !== source.pathFormat) changes.pathFormat = pathFormat;
+  }
+  const dirty = Object.keys(changes).length > 0;
+
+  const {
+    discardPrompt,
+    setDiscardPrompt,
+    requestClose,
+    handleBackdropClick,
+    dismissDiscardPrompt,
+  } = useEditorDiscardPrompt(dirty, onClose, saving);
+
   // Start from the source as it is each time the dialog opens.
   useEffect(() => {
     if (!requested) return;
     setRootPath(requested.rootPath ?? "");
-    setMakeDefault(requested.importTarget);
     setAutoOrganize(requested.autoOrganize);
     setFormat(requested.pathFormat ?? "");
     setSaving(false);
     setError(null);
-  }, [requested]);
+    setDiscardPrompt(false);
+  }, [requested, setDiscardPrompt]);
 
   if (!source) return null;
 
@@ -138,20 +154,6 @@ export function SourceEditDialog({
       setPicking(false);
     }
   };
-
-  const edits = (): SourceEdits => {
-    const next: SourceEdits = {};
-    if (rootPath && rootPath !== source.rootPath) next.rootPath = rootPath;
-    if (makeDefault && !source.importTarget) next.makeDefault = true;
-    if (autoOrganize !== source.autoOrganize) next.autoOrganize = autoOrganize;
-    const pathFormat = normalizeFormat(format);
-    if (pathFormat !== source.pathFormat) next.pathFormat = pathFormat;
-    return next;
-  };
-
-  const changes = edits();
-  // Compared by meaning, so editing a field back to how it was counts as clean.
-  const dirty = Object.keys(changes).length > 0;
 
   const save = async () => {
     if (busy || !dirty) return;
@@ -182,15 +184,11 @@ export function SourceEditDialog({
     });
   };
 
-  const close = () => {
-    if (saving) return;
-    onClose();
-  };
-
   return (
     <Modal
       open={open}
-      onClose={close}
+      onClose={handleBackdropClick}
+      dismissible={!saving}
       size="lg"
       panelClassName="source-edit"
       panelRef={dialogRef}
@@ -203,7 +201,7 @@ export function SourceEditDialog({
       </ModalHeader>
 
       <ModalBody>
-        <div className="source-edit__fields">
+        <div className="source-edit__fields" inert={discardPrompt || undefined}>
           <div className="source-edit__field">
             <span className="source-edit__label">
               {t("preferences:sources.location")}
@@ -221,38 +219,6 @@ export function SourceEditDialog({
               </Button>
             </div>
           </div>
-
-          {source.importTarget ? (
-            // Exactly one folder is the default, so the current one has
-            // nothing to toggle; another folder takes it over.
-            <div className="source-edit__field">
-              <span className="source-edit__label">
-                {t("preferences:sources.defaultFolder")}
-              </span>
-              <p className="source-edit__hint">
-                {t("preferences:sources.defaultFolderCurrent")}
-              </p>
-            </div>
-          ) : (
-            <Field orientation="horizontal" className="source-edit__option">
-              <Checkbox
-                id={id("default")}
-                checked={makeDefault}
-                disabled={busy || offline}
-                onChange={(e) => setMakeDefault(e.target.checked)}
-              />
-              <FieldContent>
-                <FieldLabel htmlFor={id("default")}>
-                  {t("preferences:sources.makeDefault")}
-                </FieldLabel>
-                <FieldDescription>
-                  {offline
-                    ? t("preferences:sources.makeDefaultOffline")
-                    : t("preferences:sources.defaultFolderDescription")}
-                </FieldDescription>
-              </FieldContent>
-            </Field>
-          )}
 
           <Field orientation="horizontal" className="source-edit__option">
             <Checkbox
@@ -324,16 +290,30 @@ export function SourceEditDialog({
         </div>
       </ModalBody>
 
-      <ModalFooter onCancel={close} cancelDisabled={saving}>
+      <ModalFooter
+        inert={discardPrompt || undefined}
+        onCancel={requestClose}
+        cancelDisabled={saving}
+      >
         <Button
           variant="primary"
-          disabled={busy || !dirty}
+          disabled={busy || !dirty || discardPrompt}
           isLoading={saving}
           onClick={() => void save()}
         >
           {t("common:save")}
         </Button>
       </ModalFooter>
+
+      <EditorDiscardOverlay
+        open={discardPrompt}
+        description={t("preferences:sources.discardEdits")}
+        onKeepEditing={dismissDiscardPrompt}
+        onDiscard={() => {
+          setDiscardPrompt(false);
+          onClose();
+        }}
+      />
     </Modal>
   );
 }

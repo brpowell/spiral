@@ -52,7 +52,9 @@
 }
 
 /* Wider than the lg preset, so a typical format and its preview fit on a line. */
+/* Positioned so the discard prompt can cover it. */
 .modal-panel.source-edit {
+  position: relative;
   width: min(600px, 100%);
   max-height: calc(100vh - 3rem);
 }

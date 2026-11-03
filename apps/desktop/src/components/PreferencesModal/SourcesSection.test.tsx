@@ -209,10 +209,16 @@ describe("SourcesSection", () => {
     expect(within(item("Music")).queryByText("Default")).toBeNull();
   });
 
-  it("offers Edit, Rescan and Remove for every folder, Tracks included", async () => {
+  it("offers Edit, Rescan and Remove for every folder, and Make default for the rest", async () => {
     await renderSection();
+    // Make default only for folders that aren't it already.
     expect(await menuItems("Tracks")).toEqual(["Edit…", "Rescan", "Remove…"]);
-    expect(await menuItems("Music")).toEqual(["Edit…", "Rescan", "Remove…"]);
+    expect(await menuItems("Music")).toEqual([
+      "Edit…",
+      "Make default",
+      "Rescan",
+      "Remove…",
+    ]);
   });
 
   it("offers only Rescan for Other", async () => {
@@ -250,15 +256,9 @@ describe("SourcesSection", () => {
         name: "Automatically organize files",
       }),
     ).toBeChecked();
-    // Already the default: said plainly, with nothing to toggle.
-    expect(
-      within(dialog).getByText(/This is your default folder/),
-    ).toBeTruthy();
-    expect(
-      within(dialog).queryByRole("checkbox", {
-        name: "Make this the default folder",
-      }),
-    ).toBeNull();
+    // The default is chosen from the card's menu, not here.
+    expect(within(dialog).queryByText(/default folder/i)).toBeNull();
+    expect(within(dialog).getAllByRole("checkbox")).toHaveLength(1);
     // Blank uses the default, which shows as the placeholder.
     expect(within(dialog).getByLabelText("Path format")).toHaveAttribute(
       "placeholder",
@@ -341,27 +341,26 @@ describe("SourcesSection", () => {
       }),
     );
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    fireEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "Discard",
+      }),
+    );
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(tauri.setSourceOrganize).not.toHaveBeenCalled();
     expect(tauri.previewOrganizeSource).not.toHaveBeenCalled();
   });
 
-  it("makes a folder the default", async () => {
+  it("makes a folder the default from its menu", async () => {
     tauri.getSourceStatuses.mockResolvedValue([]);
     tauri.setImportSource.mockResolvedValue({
       ...sources[2],
       importTarget: true,
     });
     await renderSection();
-    const dialog = await openEdit("Music");
-    fireEvent.click(
-      within(dialog).getByRole("checkbox", {
-        name: "Make this the default folder",
-      }),
-    );
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    chooseFromMenu("Music", /Make default/);
     await waitFor(() => expect(tauri.setImportSource).toHaveBeenCalledWith(3));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(tauri.listSources).toHaveBeenCalledTimes(2));
   });
 
   it("won't make an offline folder the default", async () => {
@@ -369,13 +368,52 @@ describe("SourcesSection", () => {
     await waitFor(() =>
       expect(within(item("Music")).getByText("Offline")).toBeTruthy(),
     );
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Music" }));
+    expect(
+      screen.getByRole("menuitem", { name: /Make default/ }),
+    ).toBeDisabled();
+  });
+
+  it("asks before discarding unsaved changes", async () => {
+    await renderSection();
     const dialog = await openEdit("Music");
+    fireEvent.click(
+      within(dialog).getByRole("checkbox", {
+        name: "Automatically organize files",
+      }),
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    const prompt = await screen.findByRole("alertdialog", {
+      name: "Discard changes?",
+    });
+    expect(prompt.textContent).toMatch(/Unsaved changes to this music source/);
+
+    fireEvent.click(
+      within(prompt).getByRole("button", { name: "Keep editing" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     expect(
       within(dialog).getByRole("checkbox", {
-        name: "Make this the default folder",
+        name: "Automatically organize files",
       }),
-    ).toBeDisabled();
-    expect(within(dialog).getByText(/Reconnect it/)).toBeTruthy();
+    ).toBeChecked();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    fireEvent.click(
+      within(
+        await screen.findByRole("alertdialog", { name: "Discard changes?" }),
+      ).getByRole("button", { name: "Discard" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(tauri.setSourceOrganize).not.toHaveBeenCalled();
+  });
+
+  it("closes without asking when nothing changed", async () => {
+    await renderSection();
+    const dialog = await openEdit("Music");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
   it("changes a folder's location on Save", async () => {
