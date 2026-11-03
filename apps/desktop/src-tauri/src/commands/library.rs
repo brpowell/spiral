@@ -529,6 +529,91 @@ fn remove_superseded_file(
     }
 }
 
+/// How a replace takes the incoming file.
+#[derive(Debug, PartialEq, Eq)]
+enum ReplaceWith {
+    /// It is the track's own file: nothing to replace.
+    SameFile,
+    /// It is already in a source: the track points at it where it is, as an
+    /// import keeps files that are already in a source in place.
+    InPlace,
+    /// It is outside every source: copied into the track's own source.
+    Copy,
+}
+
+fn replace_with(
+    conn: &rusqlite::Connection,
+    roots: &LibraryRoots,
+    old_path: &Path,
+    incoming: &Path,
+) -> Result<ReplaceWith, String> {
+    if track_identity::same_file(old_path, incoming) {
+        return Ok(ReplaceWith::SameFile);
+    }
+    Ok(
+        match sources::source_for_path(conn, roots, incoming).map_err(|e| e.to_string())? {
+            Some(_) => ReplaceWith::InPlace,
+            None => ReplaceWith::Copy,
+        },
+    )
+}
+
+/// Point track `track_id` at its replacement file `new_path`, with the
+/// incoming file's tags, in one transaction. With `merge`, a row the file
+/// already has (its source was scanned) is merged into the track first, so
+/// the track keeps its id, playlists and history and gains the other row's.
+/// Returns the track's lyrics as stored, to project onto the file.
+fn adopt_replacement(
+    conn: &rusqlite::Connection,
+    roots: &LibraryRoots,
+    track_id: i64,
+    new_path: &Path,
+    merge: bool,
+    metadata: &TrackMetadataUpdate,
+    lyrics: &Option<TrackLyricsInput>,
+) -> Result<Option<TrackLyricsInput>, String> {
+    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    if merge {
+        for other in track_identity::other_rows_for_file(&tx, new_path, track_id)
+            .map_err(|e| e.to_string())?
+        {
+            track_identity::merge_into(&tx, track_id, other).map_err(|e| e.to_string())?;
+        }
+    }
+    db::update_track(
+        &tx,
+        track_id,
+        metadata,
+        Some(&new_path.to_string_lossy()),
+        Some(&audio_properties::read_audio_properties(new_path)),
+    )
+    .map_err(|e| {
+        eprintln!("replace_track_from_import update error: {e}");
+        e.to_string()
+    })?;
+    let source_id = sources::require_source_for_path(&tx, roots, new_path)?;
+    db::set_track_source(&tx, track_id, source_id).map_err(|e| e.to_string())?;
+    // The file is there: whatever went missing before is found.
+    tx.execute(
+        "UPDATE tracks SET missing_since = NULL WHERE id = ?1",
+        [track_id],
+    )
+    .map_err(|e| e.to_string())?;
+    lyrics_normalize::persist_import_lyrics(&tx, track_id, lyrics).map_err(|e| {
+        eprintln!("persist_import_lyrics error: {e}");
+        e.to_string()
+    })?;
+    let stored = db::get_track_lyrics(&tx, track_id)
+        .map_err(|e| e.to_string())?
+        .map(lyrics_normalize::track_lyrics_record_to_input);
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(stored)
+}
+
+/// Replace a track's file with an imported one, keeping the track (its id,
+/// playlists and history). A file already in a source is used where it is;
+/// one from elsewhere is copied into the track's own source. The superseded
+/// file goes to the Trash.
 #[tauri::command]
 pub fn replace_track_from_import(
     app: AppHandle,
@@ -539,40 +624,66 @@ pub fn replace_track_from_import(
 ) -> Result<Track, String> {
     crate::path_scope::ensure_allowed(&app, &source_path)?;
     let resolved = settings::resolved_library_settings(&app);
-    let sidecar_enabled = settings::lyrics_sidecar_sync_enabled(&app);
+    replace_track_file(
+        &state.0,
+        &LibraryRoots::from_settings(&resolved),
+        track_id,
+        Path::new(&source_path),
+        &track,
+        settings::lyrics_sidecar_sync_enabled(&app),
+        app.path().app_data_dir().ok().as_deref(),
+    )?;
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    track_for_ui(&conn, Path::new(&resolved.library_root), track_id)
+}
 
-    let (existing, mut metadata, (target, folder), old_root) = {
-        let conn = state.0.lock().map_err(|e| e.to_string())?;
+/// [`replace_track_from_import`] without the app: `app_data` holds the art
+/// cache to carry over, when there is one.
+fn replace_track_file(
+    db: &Mutex<rusqlite::Connection>,
+    roots: &LibraryRoots,
+    track_id: i64,
+    incoming: &Path,
+    track: &TrackInput,
+    sidecar_enabled: bool,
+    app_data: Option<&Path>,
+) -> Result<(), String> {
+    let (existing, mut metadata, copy_to, old_root) = {
+        let conn = db.lock().map_err(|e| e.to_string())?;
         let existing = db::get_track_by_id(&conn, track_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("Track {track_id} not found"))?;
-        let destination = replacement_destination(&conn, &existing)?;
+        let copy_to = match replace_with(&conn, roots, Path::new(&existing.file_path), incoming)? {
+            ReplaceWith::SameFile => return Ok(()),
+            ReplaceWith::InPlace => None,
+            ReplaceWith::Copy => Some(replacement_destination(&conn, &existing)?),
+        };
         let old_root = sources::SourceRoots::load(&conn)
             .map_err(|e| e.to_string())?
             .root(existing.source_id)
             .map(Path::to_path_buf);
-        let metadata = track_input_to_metadata(&track);
-        (existing, metadata, destination, old_root)
+        (existing, track_input_to_metadata(track), copy_to, old_root)
     };
 
     let old_path = PathBuf::from(&existing.file_path);
-    let new_path = import_files::prepare_import_file(
-        &source_path,
-        import_files::ImportDestination {
-            folder: &folder,
-            path_format: target.path_format.as_deref(),
-        },
-        sidecar_enabled,
-        Some(&old_path),
-    )?;
+    let new_path = match &copy_to {
+        None => incoming.to_path_buf(),
+        Some((target, folder)) => PathBuf::from(import_files::prepare_import_file(
+            &incoming.to_string_lossy(),
+            import_files::ImportDestination {
+                folder,
+                path_format: target.path_format.as_deref(),
+            },
+            sidecar_enabled,
+            Some(&old_path),
+        )?),
+    };
 
-    let new_path_buf = PathBuf::from(&new_path);
-
-    if let Ok(app_data) = app.path().app_data_dir() {
+    if let Some(app_data) = app_data {
         if let Some(new_art) = library_organize::migrate_art_cache(
-            &app_data,
+            app_data,
             &existing.file_path,
-            &new_path,
+            &new_path.to_string_lossy(),
             metadata.art_path.as_deref(),
         )? {
             metadata.art_path = Some(new_art);
@@ -580,39 +691,31 @@ pub fn replace_track_from_import(
     }
 
     let canonical_lyrics = {
-        let conn = state.0.lock().map_err(|e| e.to_string())?;
-        db::update_track(
+        let conn = db.lock().map_err(|e| e.to_string())?;
+        adopt_replacement(
             &conn,
+            roots,
             track_id,
+            &new_path,
+            copy_to.is_none(),
             &metadata,
-            Some(new_path.as_str()),
-            Some(&audio_properties::read_audio_properties(Path::new(
-                &new_path,
-            ))),
-        )
-        .map_err(|e| {
-            eprintln!("replace_track_from_import update error: {e}");
-            e.to_string()
-        })?;
-        let source_id = sources::require_source_for_path(
-            &conn,
-            &LibraryRoots::from_settings(&resolved),
-            &new_path_buf,
-        )?;
-        db::set_track_source(&conn, track_id, source_id).map_err(|e| e.to_string())?;
-        lyrics_normalize::persist_import_lyrics(&conn, track_id, &track.lyrics).map_err(|e| {
-            eprintln!("persist_import_lyrics error: {e}");
-            e.to_string()
-        })?;
-        db::get_track_lyrics(&conn, track_id)
-            .map_err(|e| e.to_string())?
-            .map(lyrics_normalize::track_lyrics_record_to_input)
+            &track.lyrics,
+        )?
     };
 
-    project_lyrics_to_file(&new_path_buf, canonical_lyrics.as_ref(), sidecar_enabled)?;
+    // A copy is Spiral's own file, so it takes the track's lyrics. A file used
+    // in place is the user's: writing into it is a tag edit, which goes
+    // through the edit's confirmation, so it keeps its own lyrics here (the
+    // library keeps the track's).
+    if copy_to.is_some() {
+        project_lyrics_to_file(&new_path, canonical_lyrics.as_ref(), sidecar_enabled)?;
+    }
 
-    let conn = state.0.lock().map_err(|e| e.to_string())?;
-    if !library_organize::same_path(&old_path, &new_path_buf) {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    // Never the file the track now uses, whatever path names it.
+    if !library_organize::same_path(&old_path, &new_path)
+        && !track_identity::same_file(&old_path, &new_path)
+    {
         remove_superseded_file(
             &conn,
             track_id,
@@ -621,7 +724,7 @@ pub fn replace_track_from_import(
             sidecar_enabled,
         );
     }
-    track_for_ui(&conn, Path::new(&resolved.library_root), track_id)
+    Ok(())
 }
 
 /// Project canonical DB lyrics onto an audio file (tags + sidecar).
@@ -1073,6 +1176,165 @@ mod tests {
             // The same file is kept when a replace supersedes it.
             remove_superseded_file(&conn, a, Some(&tmp.0), &audio, true);
             assert!(audio.is_file() && sidecar.is_file());
+        }
+
+        mod replace {
+            use super::*;
+            use std::sync::Mutex;
+
+            /// Sources B (the track's) and A, with the track's file in B and
+            /// the incoming file in A.
+            struct Library {
+                tmp: TempDir,
+                db: Mutex<rusqlite::Connection>,
+                track: i64,
+                old: PathBuf,
+                incoming: PathBuf,
+                a: i64,
+            }
+
+            fn library(label: &str) -> Library {
+                let tmp = TempDir::new(label);
+                let conn = conn();
+                let b = add_user_source(&conn, &tmp.dir("B"));
+                let a = add_user_source(&conn, &tmp.dir("A"));
+                let old = tmp.0.join("B/song.wav");
+                let incoming = tmp.0.join("A/new.wav");
+                crate::test_fixtures::wav::write_minimal(&old);
+                crate::test_fixtures::wav::write_minimal(&incoming);
+                let track = insert_track(&conn, "song.wav", b);
+                Library {
+                    tmp,
+                    db: Mutex::new(conn),
+                    track,
+                    old,
+                    incoming,
+                    a,
+                }
+            }
+
+            fn replace(lib: &Library, incoming: &Path) {
+                let roots = LibraryRoots::for_library_root(&lib.tmp.0.join("Spiral"));
+                let input = TrackInput {
+                    title: "New".into(),
+                    file_path: incoming.to_string_lossy().into_owned(),
+                    ..Default::default()
+                };
+                replace_track_file(&lib.db, &roots, lib.track, incoming, &input, true, None)
+                    .unwrap();
+            }
+
+            fn track_ids(conn: &rusqlite::Connection) -> Vec<i64> {
+                let mut stmt = conn.prepare("SELECT id FROM tracks ORDER BY id").unwrap();
+                stmt.query_map([], |row| row.get(0))
+                    .unwrap()
+                    .collect::<Result<_, _>>()
+                    .unwrap()
+            }
+
+            fn files_in(dir: &Path) -> Vec<String> {
+                let mut names: Vec<_> = fs::read_dir(dir)
+                    .unwrap()
+                    .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+                    .collect();
+                names.sort();
+                names
+            }
+
+            #[test]
+            fn a_file_already_in_a_source_is_used_where_it_is() {
+                let lib = library("replace-in-place");
+                let bytes = fs::read(&lib.incoming).unwrap();
+                replace(&lib, &lib.incoming);
+
+                let conn = lib.db.lock().unwrap();
+                let track = track_in(&conn, lib.track);
+                // The same track, now at A's file: no copy, one row.
+                assert_eq!(track_ids(&conn), vec![lib.track]);
+                assert_eq!(Path::new(&track.file_path), lib.incoming);
+                assert_eq!(track.source_id, lib.a);
+                assert_eq!(track.missing_since, None);
+                assert_eq!(track.title, "New");
+                // B's superseded file is in the Trash; A's file stays.
+                assert!(files_in(&lib.tmp.0.join("B")).is_empty());
+                assert_eq!(files_in(&lib.tmp.0.join("A")), vec!["new.wav"]);
+                // The user's file isn't written to: no tag edit without its
+                // confirmation.
+                assert_eq!(fs::read(&lib.incoming).unwrap(), bytes);
+            }
+
+            #[test]
+            fn a_scanned_files_row_is_merged_into_the_track() {
+                let lib = library("replace-merge");
+                {
+                    let conn = lib.db.lock().unwrap();
+                    let scanned = insert_track(&conn, "new.wav", lib.a);
+                    conn.execute(
+                        "UPDATE tracks SET play_count = 2 WHERE id = ?1",
+                        [lib.track],
+                    )
+                    .unwrap();
+                    conn.execute("UPDATE tracks SET play_count = 3 WHERE id = ?1", [scanned])
+                        .unwrap();
+                    conn.execute(
+                        "INSERT INTO playlists (title, date_created, last_used_at)
+                         VALUES ('Mix', 'now', 'now')",
+                        [],
+                    )
+                    .unwrap();
+                    conn.execute(
+                        "INSERT INTO playlist_tracks (playlist_id, track_id, position)
+                         VALUES (last_insert_rowid(), ?1, 0)",
+                        [scanned],
+                    )
+                    .unwrap();
+                }
+                replace(&lib, &lib.incoming);
+
+                let conn = lib.db.lock().unwrap();
+                // A's row is gone, its plays and playlist entry carried over.
+                assert_eq!(track_ids(&conn), vec![lib.track]);
+                let track = track_in(&conn, lib.track);
+                assert_eq!(track.play_count, 5);
+                assert_eq!(Path::new(&track.file_path), lib.incoming);
+                let in_playlist: i64 = conn
+                    .query_row(
+                        "SELECT COUNT(*) FROM playlist_tracks WHERE track_id = ?1",
+                        [lib.track],
+                        |row| row.get(0),
+                    )
+                    .unwrap();
+                assert_eq!(in_playlist, 1);
+                assert!(!lib.old.exists());
+            }
+
+            #[test]
+            fn the_tracks_own_file_is_left_alone() {
+                let lib = library("replace-same-file");
+                replace(&lib, &lib.old);
+
+                let conn = lib.db.lock().unwrap();
+                let track = track_in(&conn, lib.track);
+                assert_eq!(Path::new(&track.file_path), lib.old);
+                assert_eq!(track.title, "Song");
+                assert!(lib.old.is_file());
+            }
+
+            #[test]
+            fn a_file_from_outside_every_source_is_copied_in() {
+                let lib = library("replace-copy");
+                let outside = lib.tmp.dir("Downloads").join("got.wav");
+                crate::test_fixtures::wav::write_minimal(&outside);
+                replace(&lib, &outside);
+
+                let conn = lib.db.lock().unwrap();
+                let track = track_in(&conn, lib.track);
+                // Copied beside the old file in B, which went to the Trash.
+                assert_eq!(Path::new(&track.file_path), lib.tmp.0.join("B/got.wav"));
+                assert!(outside.is_file());
+                assert_eq!(files_in(&lib.tmp.0.join("B")), vec!["got.wav"]);
+                assert_eq!(track_ids(&conn), vec![lib.track]);
+            }
         }
 
         /// The user's sequence: a folder renamed only in case left a row with
