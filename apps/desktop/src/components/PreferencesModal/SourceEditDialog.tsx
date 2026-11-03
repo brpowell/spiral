@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -113,8 +113,12 @@ export function SourceEditDialog({
     if (autoOrganize !== source.autoOrganize) {
       changes.autoOrganize = autoOrganize;
     }
+    // The format field is hidden while organizing is off, so an edit made
+    // before turning it off isn't saved behind the user's back.
     const pathFormat = normalizeFormat(format);
-    if (pathFormat !== source.pathFormat) changes.pathFormat = pathFormat;
+    if (autoOrganize && pathFormat !== source.pathFormat) {
+      changes.pathFormat = pathFormat;
+    }
   }
   const dirty = Object.keys(changes).length > 0;
 
@@ -202,85 +206,113 @@ export function SourceEditDialog({
 
       <ModalBody>
         <div className="source-edit__fields" inert={discardPrompt || undefined}>
-          <div className="source-edit__field">
-            <span className="source-edit__label">
+          <section
+            className="source-edit__section"
+            aria-labelledby={id("location-heading")}
+          >
+            <h3 id={id("location-heading")} className="source-edit__heading">
               {t("preferences:sources.location")}
-            </span>
+            </h3>
             <div className="source-edit__location">
-              <code className="source-edit__path">{rootPath}</code>
+              <IconOpenFolder
+                className="source-edit__location-icon"
+                aria-hidden
+              />
+              <code className="source-edit__path">
+                {/* Let a long path wrap between folders, not inside a name. */}
+                {rootPath.split("/").map((part, i) => (
+                  <Fragment key={i}>
+                    {i > 0 ? "/" : null}
+                    {i > 0 ? <wbr /> : null}
+                    {part}
+                  </Fragment>
+                ))}
+              </code>
               <Button
                 size="sm"
                 disabled={busy}
                 isLoading={picking}
                 onClick={() => void changeLocation()}
               >
-                <IconOpenFolder aria-hidden />
                 {t("preferences:sources.changeLocation")}
               </Button>
             </div>
-          </div>
+          </section>
 
-          <Field orientation="horizontal" className="source-edit__option">
-            <Checkbox
-              id={id("organize")}
-              checked={autoOrganize}
-              disabled={busy}
-              onChange={(e) => setAutoOrganize(e.target.checked)}
-            />
-            <FieldContent>
-              <FieldLabel htmlFor={id("organize")}>
-                {t("preferences:sources.organize")}
-              </FieldLabel>
-              <FieldDescription>
-                {t("preferences:sources.organizeDescription")}
-              </FieldDescription>
-            </FieldContent>
-          </Field>
+          <section
+            className="source-edit__section"
+            aria-labelledby={id("organize-heading")}
+          >
+            <h3 id={id("organize-heading")} className="source-edit__heading">
+              {t("preferences:sources.organizeHeading")}
+            </h3>
+            <Field orientation="horizontal" className="source-edit__option">
+              <Checkbox
+                id={id("organize")}
+                checked={autoOrganize}
+                disabled={busy}
+                onChange={(e) => setAutoOrganize(e.target.checked)}
+              />
+              <FieldContent>
+                <FieldLabel htmlFor={id("organize")}>
+                  {t("preferences:sources.organize")}
+                </FieldLabel>
+                <FieldDescription>
+                  {t("preferences:sources.organizeDescription")}
+                </FieldDescription>
+              </FieldContent>
+            </Field>
 
-          <div className="source-edit__field">
-            <label className="source-edit__label" htmlFor={id("format")}>
-              {t("preferences:sources.pathFormat")}
-            </label>
-            <TextInput
-              ref={formatRef}
-              id={id("format")}
-              value={format}
-              placeholder={defaultFormat}
-              spellCheck={false}
-              disabled={busy}
-              onChange={(e) => setFormat(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void save();
-              }}
-            />
-            <p className="source-edit__hint" aria-live="polite">
-              {t("preferences:sources.formatPreview")}{" "}
-              <code className="source-edit__preview">{preview}</code>
-            </p>
-            <Disclosure
-              className="source-edit__tokens"
-              label={t("preferences:sources.formatTokens")}
-            >
-              <ul className="source-edit__token-list">
-                {PATH_FORMAT_TOKENS.map((token) => (
-                  <li key={token}>
-                    <button
-                      type="button"
-                      className="source-edit__token"
-                      disabled={busy}
-                      title={t("preferences:sources.insertToken")}
-                      onClick={() => insertToken(token)}
-                    >
-                      <code>{`{${token}}`}</code>
-                    </button>
-                    <span className="source-edit__token-description">
-                      {t(`preferences:sources.tokens.${token.split(":")[0]}`)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </Disclosure>
-          </div>
+            {/* The format only matters while organizing, so it sits under it. */}
+            {autoOrganize ? (
+              <div className="source-edit__format">
+                <label className="source-edit__label" htmlFor={id("format")}>
+                  {t("preferences:sources.pathFormat")}
+                </label>
+                <TextInput
+                  ref={formatRef}
+                  id={id("format")}
+                  value={format}
+                  placeholder={defaultFormat}
+                  spellCheck={false}
+                  disabled={busy}
+                  onChange={(e) => setFormat(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void save();
+                  }}
+                />
+                <p className="source-edit__hint" aria-live="polite">
+                  {t("preferences:sources.formatPreview")}{" "}
+                  <code className="source-edit__preview">{preview}</code>
+                </p>
+                <Disclosure
+                  className="source-edit__tokens"
+                  label={t("preferences:sources.formatTokens")}
+                >
+                  <ul className="source-edit__token-list">
+                    {PATH_FORMAT_TOKENS.map((token) => (
+                      <li key={token}>
+                        <button
+                          type="button"
+                          className="source-edit__token"
+                          disabled={busy}
+                          title={t("preferences:sources.insertToken")}
+                          onClick={() => insertToken(token)}
+                        >
+                          <code>{`{${token}}`}</code>
+                        </button>
+                        <span className="source-edit__token-description">
+                          {t(
+                            `preferences:sources.tokens.${token.split(":")[0]}`,
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </Disclosure>
+              </div>
+            ) : null}
+          </section>
 
           {error ? (
             <p className="preferences__error" role="alert">

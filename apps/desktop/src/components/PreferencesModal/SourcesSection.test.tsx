@@ -290,7 +290,7 @@ describe("SourcesSection", () => {
 
   it("lists tokens in a disclosure and inserts one at the cursor", async () => {
     await renderSection();
-    const dialog = await openEdit("Music");
+    const dialog = await openEdit("Tracks");
     expect(within(dialog).queryByText("Track title")).toBeNull();
     fireEvent.click(
       within(dialog).getByRole("button", { name: "Available tokens" }),
@@ -308,7 +308,7 @@ describe("SourcesSection", () => {
 
   it("enables Save only once something has changed", async () => {
     await renderSection();
-    const dialog = await openEdit("Music");
+    const dialog = await openEdit("Tracks");
     const save = within(dialog).getByRole("button", { name: "Save" });
     expect(save).toBeDisabled();
 
@@ -601,23 +601,39 @@ describe("SourcesSection", () => {
     );
   });
 
-  it("saves a format for an unorganized folder without moving files", async () => {
-    tauri.setSourcePathFormat.mockResolvedValue({
-      ...sources[2],
-      pathFormat: "{title}.{ext}",
-    });
+  it("shows the path format only while organizing is on", async () => {
     await renderSection();
     const edit = await openEdit("Music");
-    const input = within(edit).getByLabelText("Path format");
-    fireEvent.change(input, { target: { value: "{title}.{ext}" } });
-    fireEvent.keyDown(input, { key: "Enter" });
-    await waitFor(() =>
-      expect(tauri.setSourcePathFormat).toHaveBeenCalledWith(
-        3,
-        "{title}.{ext}",
-      ),
+    expect(within(edit).queryByLabelText("Path format")).toBeNull();
+    const organize = within(edit).getByRole("checkbox", {
+      name: "Automatically organize files",
+    });
+    fireEvent.click(organize);
+    expect(within(edit).getByLabelText("Path format")).toBeTruthy();
+    fireEvent.click(organize);
+    expect(within(edit).queryByLabelText("Path format")).toBeNull();
+  });
+
+  it("drops a format edit hidden by turning organizing off", async () => {
+    tauri.setSourceOrganize.mockResolvedValue({
+      ...sources[0],
+      autoOrganize: false,
+    });
+    await renderSection();
+    const edit = await openEdit("Tracks");
+    fireEvent.change(within(edit).getByLabelText("Path format"), {
+      target: { value: "{title}.{ext}" },
+    });
+    fireEvent.click(
+      within(edit).getByRole("checkbox", {
+        name: "Automatically organize files",
+      }),
     );
-    expect(tauri.previewOrganizeSource).not.toHaveBeenCalled();
+    fireEvent.click(within(edit).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(tauri.setSourceOrganize).toHaveBeenCalledWith(1, false),
+    );
+    expect(tauri.setSourcePathFormat).not.toHaveBeenCalled();
   });
 
   it("shows a readable message when a folder can't be added", async () => {
