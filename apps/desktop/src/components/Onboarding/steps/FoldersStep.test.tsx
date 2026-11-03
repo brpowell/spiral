@@ -17,6 +17,9 @@ vi.mock("../../../lib/tauri", () => tauri);
 vi.mock("../../../store/usePlayerStore", () => ({
   usePlayerStore: { getState: () => player },
 }));
+vi.mock("@tauri-apps/api/path", () => ({
+  homeDir: vi.fn().mockResolvedValue("/Users/me"),
+}));
 
 function source(patch: Partial<Source>): Source {
   return {
@@ -48,6 +51,13 @@ describe("FoldersStep", () => {
     tauri.listSources.mockResolvedValue(builtIns);
   });
 
+  it("writes the home folder as ~ in folder paths", async () => {
+    tauri.addSource.mockResolvedValue(source({}));
+    render(<FoldersStep />);
+    fireEvent.click(screen.getByRole("button", { name: "Add folder" }));
+    expect(await screen.findByText("~/Music")).toBeInTheDocument();
+  });
+
   it("starts with just the Add folder button", () => {
     render(<FoldersStep />);
     expect(screen.queryByRole("list")).toBeNull();
@@ -73,7 +83,7 @@ describe("FoldersStep", () => {
       .getByRole("list", { name: "Your music folders" })
       .querySelectorAll("li");
     expect([...items].map((li) => li.textContent)).toEqual([
-      "Music/Users/me/Music",
+      "Music~/Music",
       "Archive/Volumes/Archive",
     ]);
     // Built-in sources aren't the user's folders.

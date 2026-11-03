@@ -1,0 +1,121 @@
+/* Generous space between groups, tight within them, so each reads as one. */
+.source-edit__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+  /* Keeps the last group off the footer's buttons. */
+  padding-bottom: 0.75rem;
+}
+
+.source-edit__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.source-edit__label {
+  font-size: 0.82rem;
+  font-weight: var(--weight-medium);
+}
+
+.source-edit__location {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+/* The whole path, wrapped: the dialog has room, and the card already ellipsizes. */
+.source-edit__path {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.source-edit__option {
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.source-edit__option > .checkbox__input {
+  flex-shrink: 0;
+  margin-top: 0.2rem;
+}
+
+.source-edit__hint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+/* The column's gap spaces the fields; drop Field's own top margin. */
+.source-edit__fields > .field {
+  margin: 0;
+}
+
+/* Wider than the lg preset, so a typical format and its preview fit on a line. */
+/* Positioned so the discard prompt can cover it. */
+.modal-panel.source-edit {
+  position: relative;
+  width: min(600px, 100%);
+  max-height: calc(100vh - 3rem);
+}
+
+/* Monospace reads larger than the text around it, so scale it down to match. */
+.source-edit__preview {
+  font-size: 0.88em;
+  overflow-wrap: anywhere;
+  color: var(--color-text-primary);
+}
+
+.source-edit__tokens {
+  margin-top: 0.35rem;
+}
+
+/* Stronger than Disclosure's default muted trigger, so the tokens are found. */
+.source-edit__tokens > .disclosure__trigger {
+  font-weight: var(--weight-medium);
+  color: var(--color-text-primary);
+}
+
+.source-edit__token-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+}
+
+/* Each row's button and description sit in the grid's two columns. */
+.source-edit__token-list > li {
+  display: contents;
+}
+
+.source-edit__token {
+  justify-self: start;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.source-edit__token:hover:not(:disabled) {
+  background: var(--color-interactive-hover);
+}
+
+.source-edit__token:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.source-edit__token-description {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}
