@@ -218,24 +218,24 @@ export function SourceEditDialog({
 
       <ModalBody>
         <div className="source-edit__fields" inert={discardPrompt || undefined}>
-          <div className="source-edit__field">
+          {/* Label and path stacked as any field's are; Change location beside
+              both, so its height doesn't push the path away from its label. */}
+          <div className="source-edit__location">
             <span className="source-edit__label">
               {t("preferences:sources.location")}
             </span>
-            <div className="source-edit__location">
-              <code className="source-edit__path" title={rootPath}>
-                {displayPath(rootPath)}
-              </code>
-              <Button
-                size="sm"
-                disabled={busy}
-                isLoading={picking}
-                onClick={() => void changeLocation()}
-              >
-                <IconOpenFolder aria-hidden />
-                {t("preferences:sources.changeLocation")}
-              </Button>
-            </div>
+            <code className="source-edit__path" title={rootPath}>
+              {displayPath(rootPath)}
+            </code>
+            <Button
+              size="sm"
+              disabled={busy}
+              isLoading={picking}
+              onClick={() => void changeLocation()}
+            >
+              <IconOpenFolder aria-hidden />
+              {t("preferences:sources.changeLocation")}
+            </Button>
           </div>
 
           {/* The format belongs to organizing: nested under it, and off with it. */}
