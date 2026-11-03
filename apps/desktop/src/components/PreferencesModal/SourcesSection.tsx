@@ -3,12 +3,12 @@ import { useTranslation } from "react-i18next";
 import {
   countTracksBySource,
   describeSourceError,
+  isOtherSource,
   sourceDisplayName,
-  sourceRole,
-  type SourceRole,
 } from "../../lib/sourceAccess";
 import {
   addSource,
+  createManagedSource,
   pickMusicFolder,
   relocateSource,
   removeSource,
@@ -35,8 +35,8 @@ import { TextInput } from "../common/TextInput/TextInput";
 import {
   IconDelete,
   IconDisconnected,
+  IconFolderCog,
   IconFolderLink,
-  IconHardDrive,
   IconImport,
   IconOpenFolder,
   IconPlus,
@@ -51,18 +51,6 @@ import "./SourcesSection.css";
 /** How often the offline badges refresh while the section is open. */
 export const SOURCE_STATUS_POLL_MS = 5000;
 
-const ROLE_ORDER: Record<SourceRole, number> = {
-  default: 0,
-  user: 1,
-  other: 2,
-};
-
-function sourceIcon(role: SourceRole) {
-  if (role === "default") return <IconHardDrive aria-hidden />;
-  if (role === "user") return <IconOpenFolder aria-hidden />;
-  return <IconFolderLink aria-hidden />;
-}
-
 /** A path format field's value as stored: blank means the default format. */
 function normalizeFormat(value: string): string | null {
   const trimmed = value.trim();
@@ -74,7 +62,11 @@ interface PendingOrganize extends OrganizeRequest {
   clearFormat?: boolean;
 }
 
-/** Preferences → Sources: the folders Spiral plays music from. */
+/**
+ * Preferences → Sources: the folders Spiral plays music from, which may be
+ * none. Other (loose files with no folder) is shown apart and isn't counted
+ * among them.
+ */
 export function SourcesSection() {
   const { t } = useTranslation(["preferences", "common"]);
   const sources = useSourcesStore((s) => s.sources);
@@ -87,7 +79,7 @@ export function SourcesSection() {
     (s) => s.settings?.organizePathFormat ?? "",
   );
 
-  const [busyId, setBusyId] = useState<number | "add" | null>(null);
+  const [busyId, setBusyId] = useState<number | "add" | "managed" | null>(null);
   const [rescanningId, setRescanningId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -106,14 +98,14 @@ export function SourcesSection() {
   }, [loadSources, loadStatuses]);
 
   const counts = useMemo(() => countTracksBySource(library), [library]);
-  const ordered = useMemo(
+  const folders = useMemo(
     () =>
-      [...sources].sort(
-        (a, b) =>
-          ROLE_ORDER[sourceRole(a)] - ROLE_ORDER[sourceRole(b)] || a.id - b.id,
-      ),
+      sources
+        .filter((source) => !isOtherSource(source))
+        .sort((a, b) => a.id - b.id),
     [sources],
   );
+  const other = sources.find(isOtherSource) ?? null;
 
   const trackCount = (source: Source) => counts.get(source.id)?.total ?? 0;
 
@@ -124,7 +116,10 @@ export function SourcesSection() {
       return next;
     });
 
-  const run = async (id: number | "add", action: () => Promise<void>) => {
+  const run = async (
+    id: number | "add" | "managed",
+    action: () => Promise<void>,
+  ) => {
     if (busyId != null) return;
     setBusyId(id);
     setError(null);
@@ -143,6 +138,12 @@ export function SourcesSection() {
       const folder = await pickMusicFolder();
       if (!folder) return;
       applySource(await addSource(folder));
+      await loadSources();
+    });
+
+  const addManagedFolder = () =>
+    run("managed", async () => {
+      applySource(await createManagedSource());
       await loadSources();
     });
 
@@ -244,209 +245,262 @@ export function SourcesSection() {
     }
   };
 
+  const busy = busyId != null;
+
+  const renderCounts = (source: Source) => {
+    const count = counts.get(source.id) ?? { total: 0, missing: 0 };
+    return (
+      <p className="sources-section__meta">
+        {t("preferences:sources.trackCount", { count: count.total })}
+        {count.missing > 0 ? (
+          <>
+            {" · "}
+            <span className="sources-section__missing">
+              {t("preferences:sources.missingCount", { count: count.missing })}
+            </span>
+          </>
+        ) : null}
+      </p>
+    );
+  };
+
+  const rescanButton = (source: Source) => (
+    <Button
+      size="sm"
+      disabled={busy}
+      isLoading={rescanningId === source.id}
+      onClick={() => void rescan(source)}
+    >
+      <IconRefresh aria-hidden />
+      {rescanningId === source.id
+        ? t("preferences:sources.rescanning")
+        : t("preferences:sources.rescan")}
+    </Button>
+  );
+
+  /** A folder the user chose, `Tracks` included: every control applies. */
+  const renderFolder = (source: Source) => {
+    const name = sourceDisplayName(source);
+    const offline = statuses[source.id] === "unreachable";
+    const organizeId = `source-organize-${source.id}`;
+    const formatId = `source-format-${source.id}`;
+    return (
+      <li key={source.id} className="sources-section__item">
+        <span className="sources-section__icon">
+          <IconOpenFolder aria-hidden />
+        </span>
+        <div className="sources-section__body">
+          <div className="sources-section__heading">
+            <span className="sources-section__name">{name}</span>
+            {source.importTarget ? (
+              <Badge
+                variant="accent"
+                title={t("preferences:sources.importTargetHint")}
+              >
+                {t("preferences:sources.importTarget")}
+              </Badge>
+            ) : null}
+            {offline ? (
+              <Badge
+                className="sources-section__offline"
+                title={t("preferences:sources.offlineHint")}
+              >
+                <IconDisconnected aria-hidden />
+                {t("preferences:sources.offline")}
+              </Badge>
+            ) : null}
+          </div>
+          {source.rootPath ? (
+            <code className="sources-section__path" title={source.rootPath}>
+              {/* Ellipsize the start, so the folder name stays visible. */}
+              <bdo dir="ltr">{source.rootPath}</bdo>
+            </code>
+          ) : null}
+          {renderCounts(source)}
+          <p className="sources-section__description">
+            {offline
+              ? t("preferences:sources.offlineHint")
+              : t("preferences:sources.userDescription")}
+          </p>
+
+          <div className="sources-section__settings">
+            <Field
+              orientation="horizontal"
+              className="sources-section__organize"
+            >
+              <Switch
+                id={organizeId}
+                checked={source.autoOrganize}
+                disabled={busy}
+                onChange={(e) => toggleOrganize(source, e.target.checked)}
+              />
+              <FieldContent>
+                <FieldLabel htmlFor={organizeId}>
+                  {t("preferences:sources.organize")}
+                </FieldLabel>
+                <FieldDescription>
+                  {source.autoOrganize
+                    ? t("preferences:sources.organizeOnDescription")
+                    : t("preferences:sources.organizeOffDescription")}
+                </FieldDescription>
+              </FieldContent>
+            </Field>
+
+            <div className="sources-section__format">
+              <label
+                className="sources-section__format-label"
+                htmlFor={formatId}
+              >
+                {t("preferences:sources.pathFormat")}
+              </label>
+              <TextInput
+                id={formatId}
+                value={formatDrafts[source.id] ?? source.pathFormat ?? ""}
+                placeholder={t("preferences:sources.useDefaultFormat")}
+                spellCheck={false}
+                disabled={busy}
+                onChange={(e) =>
+                  setFormatDrafts((prev) => ({
+                    ...prev,
+                    [source.id]: e.target.value,
+                  }))
+                }
+                onBlur={() => commitFormat(source)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                }}
+              />
+              <p className="sources-section__description">
+                {t("preferences:sources.defaultFormat")}{" "}
+                <code>{defaultFormat}</code>
+              </p>
+            </div>
+          </div>
+
+          <div
+            className="sources-section__actions"
+            role="group"
+            aria-label={t("preferences:sources.actionsAria", { name })}
+          >
+            {rescanButton(source)}
+            {!source.importTarget ? (
+              <Button
+                size="sm"
+                disabled={busy || offline}
+                onClick={() => void makeImportTarget(source)}
+              >
+                <IconImport aria-hidden />
+                {t("preferences:sources.importHere")}
+              </Button>
+            ) : null}
+            <Button
+              size="sm"
+              disabled={busy}
+              onClick={() => void relocate(source)}
+            >
+              <IconOpenFolder aria-hidden />
+              {t("preferences:sources.changeLocation")}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => {
+                setError(null);
+                setRemoving(source);
+              }}
+            >
+              <IconDelete aria-hidden />
+              {t("preferences:sources.remove")}
+            </Button>
+          </div>
+        </div>
+      </li>
+    );
+  };
+
+  /** Other: loose files played where they are. A bucket, not a folder. */
+  const renderOther = (source: Source) => {
+    const name = sourceDisplayName(source);
+    return (
+      <section className="sources-section__other" aria-label={name}>
+        <div className="sources-section__item">
+          <span className="sources-section__icon">
+            <IconFolderLink aria-hidden />
+          </span>
+          <div className="sources-section__body">
+            <span className="sources-section__name">{name}</span>
+            {renderCounts(source)}
+            <p className="sources-section__description">
+              {t("preferences:sources.otherDescription")}
+            </p>
+            <div
+              className="sources-section__actions"
+              role="group"
+              aria-label={t("preferences:sources.actionsAria", { name })}
+            >
+              {rescanButton(source)}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  };
+
   return (
     <div className="preferences__panel sources-section">
       <p className="preferences__hint">
         {t("preferences:sources.description")}
       </p>
 
-      <ul className="sources-section__list">
-        {ordered.map((source) => {
-          const count = counts.get(source.id) ?? { total: 0, missing: 0 };
-          const name = sourceDisplayName(source);
-          const role = sourceRole(source);
-          const offline =
-            role !== "other" && statuses[source.id] === "unreachable";
-          const busy = busyId != null;
-          const organizeId = `source-organize-${source.id}`;
-          const formatId = `source-format-${source.id}`;
-          return (
-            <li
-              key={source.id}
-              className="sources-section__item"
-              data-source-kind={role}
+      {folders.length > 0 ? (
+        <>
+          <ul className="sources-section__list">
+            {folders.map((source) => renderFolder(source))}
+          </ul>
+          <Button
+            variant="secondary"
+            className="preferences__action-btn"
+            disabled={busyId != null}
+            isLoading={busyId === "add"}
+            onClick={() => void addFolder()}
+          >
+            <IconPlus aria-hidden />
+            {t("preferences:sources.addFolder")}
+          </Button>
+        </>
+      ) : (
+        <div className="sources-section__empty">
+          <p className="sources-section__empty-title">
+            {t("preferences:sources.emptyTitle")}
+          </p>
+          <p className="sources-section__description">
+            {t("preferences:sources.emptyBody")}
+          </p>
+          <div className="sources-section__actions">
+            <Button
+              variant="secondary"
+              disabled={busyId != null}
+              isLoading={busyId === "add"}
+              onClick={() => void addFolder()}
             >
-              <span className="sources-section__icon">{sourceIcon(role)}</span>
-              <div className="sources-section__body">
-                <div className="sources-section__heading">
-                  <span className="sources-section__name">{name}</span>
-                  {source.importTarget ? (
-                    <Badge
-                      variant="accent"
-                      title={t("preferences:sources.importTargetHint")}
-                    >
-                      {t("preferences:sources.importTarget")}
-                    </Badge>
-                  ) : null}
-                  {offline ? (
-                    <Badge
-                      className="sources-section__offline"
-                      title={t("preferences:sources.offlineHint")}
-                    >
-                      <IconDisconnected aria-hidden />
-                      {t("preferences:sources.offline")}
-                    </Badge>
-                  ) : null}
-                </div>
-                {source.rootPath ? (
-                  <code
-                    className="sources-section__path"
-                    title={source.rootPath}
-                  >
-                    {/* Ellipsize the start, so the folder name stays visible. */}
-                    <bdo dir="ltr">{source.rootPath}</bdo>
-                  </code>
-                ) : null}
-                <p className="sources-section__meta">
-                  {t("preferences:sources.trackCount", { count: count.total })}
-                  {count.missing > 0 ? (
-                    <>
-                      {" · "}
-                      <span className="sources-section__missing">
-                        {t("preferences:sources.missingCount", {
-                          count: count.missing,
-                        })}
-                      </span>
-                    </>
-                  ) : null}
-                </p>
-                <p className="sources-section__description">
-                  {role === "default"
-                    ? t("preferences:sources.defaultDescription")
-                    : role === "other"
-                      ? t("preferences:sources.otherDescription")
-                      : offline
-                        ? t("preferences:sources.offlineHint")
-                        : t("preferences:sources.userDescription")}
-                </p>
+              <IconPlus aria-hidden />
+              {t("preferences:sources.addFolder")}
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={busyId != null}
+              isLoading={busyId === "managed"}
+              onClick={() => void addManagedFolder()}
+            >
+              <IconFolderCog aria-hidden />
+              {t("preferences:sources.manageTracks")}
+            </Button>
+          </div>
+        </div>
+      )}
 
-                {role !== "other" ? (
-                  <div className="sources-section__settings">
-                    <Field
-                      orientation="horizontal"
-                      className="sources-section__organize"
-                    >
-                      <Switch
-                        id={organizeId}
-                        checked={source.autoOrganize}
-                        disabled={busy}
-                        onChange={(e) =>
-                          toggleOrganize(source, e.target.checked)
-                        }
-                      />
-                      <FieldContent>
-                        <FieldLabel htmlFor={organizeId}>
-                          {t("preferences:sources.organize")}
-                        </FieldLabel>
-                        <FieldDescription>
-                          {source.autoOrganize
-                            ? t("preferences:sources.organizeOnDescription")
-                            : t("preferences:sources.organizeOffDescription")}
-                        </FieldDescription>
-                      </FieldContent>
-                    </Field>
-
-                    <div className="sources-section__format">
-                      <label
-                        className="sources-section__format-label"
-                        htmlFor={formatId}
-                      >
-                        {t("preferences:sources.pathFormat")}
-                      </label>
-                      <TextInput
-                        id={formatId}
-                        value={
-                          formatDrafts[source.id] ?? source.pathFormat ?? ""
-                        }
-                        placeholder={t("preferences:sources.useDefaultFormat")}
-                        spellCheck={false}
-                        disabled={busy}
-                        onChange={(e) =>
-                          setFormatDrafts((prev) => ({
-                            ...prev,
-                            [source.id]: e.target.value,
-                          }))
-                        }
-                        onBlur={() => commitFormat(source)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") e.currentTarget.blur();
-                        }}
-                      />
-                      <p className="sources-section__description">
-                        {t("preferences:sources.defaultFormat")}{" "}
-                        <code>{defaultFormat}</code>
-                      </p>
-                    </div>
-                  </div>
-                ) : null}
-
-                <div
-                  className="sources-section__actions"
-                  role="group"
-                  aria-label={t("preferences:sources.actionsAria", { name })}
-                >
-                  <Button
-                    size="sm"
-                    disabled={busy}
-                    isLoading={rescanningId === source.id}
-                    onClick={() => void rescan(source)}
-                  >
-                    <IconRefresh aria-hidden />
-                    {rescanningId === source.id
-                      ? t("preferences:sources.rescanning")
-                      : t("preferences:sources.rescan")}
-                  </Button>
-                  {role !== "other" && !source.importTarget ? (
-                    <Button
-                      size="sm"
-                      disabled={busy || offline}
-                      onClick={() => void makeImportTarget(source)}
-                    >
-                      <IconImport aria-hidden />
-                      {t("preferences:sources.importHere")}
-                    </Button>
-                  ) : null}
-                  {role === "user" ? (
-                    <>
-                      <Button
-                        size="sm"
-                        disabled={busy}
-                        onClick={() => void relocate(source)}
-                      >
-                        <IconOpenFolder aria-hidden />
-                        {t("preferences:sources.changeLocation")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={busy}
-                        onClick={() => {
-                          setError(null);
-                          setRemoving(source);
-                        }}
-                      >
-                        <IconDelete aria-hidden />
-                        {t("preferences:sources.remove")}
-                      </Button>
-                    </>
-                  ) : null}
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-
-      <Button
-        variant="secondary"
-        className="preferences__action-btn"
-        disabled={busyId != null}
-        isLoading={busyId === "add"}
-        onClick={() => void addFolder()}
-      >
-        <IconPlus aria-hidden />
-        {t("preferences:sources.addFolder")}
-      </Button>
+      {other ? renderOther(other) : null}
 
       {notice ? (
         <p className="preferences__hint" role="status">
@@ -479,6 +533,16 @@ export function SourcesSection() {
             count: removing ? trackCount(removing) : 0,
           })}
         </p>
+        {removing?.rootPath ? (
+          <p>
+            {t("preferences:sources.removeKeepsFolder", {
+              path: removing.rootPath,
+            })}
+          </p>
+        ) : null}
+        {removing?.importTarget ? (
+          <p>{t("preferences:sources.removeImportTarget")}</p>
+        ) : null}
       </AlertConfirmation>
     </div>
   );

@@ -31,10 +31,8 @@ function source(patch: Partial<Source>): Source {
   };
 }
 
-const builtIns = [
-  source({ id: 1, name: "Tracks", rootPath: "/Users/me/Spiral/Tracks" }),
-  source({ id: 2, name: "Other", rootPath: null }),
-];
+/** A new library: no sources yet, only the built-in Other bucket. */
+const builtIns = [source({ id: 2, name: "Other", rootPath: null })];
 
 describe("FoldersStep", () => {
   beforeEach(() => {

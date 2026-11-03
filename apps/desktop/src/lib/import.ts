@@ -5,6 +5,7 @@ import {
 } from "./pendingImportTrack";
 import { yieldForInteraction } from "./scheduling";
 import { t } from "./i18n";
+import { describeSourceError } from "./sourceAccess";
 import {
   findLibraryDuplicate,
   findTrackAtSourcePath,
@@ -423,8 +424,7 @@ export async function commitImportEntries(
         throw err;
       }
       result.failed += 1;
-      const message = err instanceof Error ? err.message : String(err);
-      result.errors.push(`${sourcePath}: ${message}`);
+      result.errors.push(`${sourcePath}: ${describeSourceError(err)}`);
       options.onTrackFailed?.(pendingId);
       console.error(`Failed to import ${sourcePath}:`, err);
     }

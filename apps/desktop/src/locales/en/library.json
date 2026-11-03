@@ -383,7 +383,6 @@
     }
   },
   "sources": {
-    "defaultName": "Tracks",
     "otherName": "Other files",
     "missingSince": "File missing since {{date}}",
     "missingNow": "File missing",

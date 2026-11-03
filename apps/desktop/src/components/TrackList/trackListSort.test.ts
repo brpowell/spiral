@@ -204,7 +204,7 @@ describe("nextSort", () => {
 });
 
 describe("compareTracks source", () => {
-  it("puts the default source first, then added folders, then Other", () => {
+  it("puts folders in the order added, then Other", () => {
     const tracks = [
       track({ id: 1, sourceId: 2 }),
       track({ id: 2, sourceId: 4 }),

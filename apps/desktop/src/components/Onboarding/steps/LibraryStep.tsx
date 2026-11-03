@@ -1,12 +1,10 @@
 import { Trans, useTranslation } from "react-i18next";
 import { shortenHomePath, useHomeDir } from "../../../lib/homePath";
-import { DEFAULT_SOURCE_ID } from "../../../lib/sourceAccess";
 import { useLibrarySettingsStore } from "../../../store/useLibrarySettingsStore";
 import {
   useOnboardingStore,
   type MusicChoice,
 } from "../../../store/useOnboardingStore";
-import { useSourcesStore } from "../../../store/useSourcesStore";
 import { RadioGroup, RadioGroupItem } from "../../common/RadioGroup/RadioGroup";
 import { IconFolderCog, IconFolderPen } from "../../icons";
 
@@ -16,9 +14,9 @@ const CHOICES: { id: MusicChoice; Icon: typeof IconFolderCog }[] = [
 ];
 
 /**
- * "Where do you keep your music?": starting a new collection in the Spiral
- * folder (the card says where), or pointing Spiral at folders that are
- * already organized. The second answer adds a step for picking those folders.
+ * "How do you want your music organized?": let Spiral manage a Tracks folder
+ * (the card says where), or use folders the user picks. The second answer
+ * adds a step for picking those folders, and makes no Tracks folder.
  */
 export function LibraryStep() {
   const { t } = useTranslation("common");
@@ -61,17 +59,11 @@ export function LibraryStep() {
 }
 
 /**
- * Where a new collection goes: the default source, the Spiral folder's Tracks.
- * Shown with the home folder as `~` so it reads short.
+ * Where a new collection goes: the Spiral folder's Tracks, which Spiral
+ * creates and manages when this answer is applied. Shown with the home
+ * folder as `~` so it reads short.
  */
 function useNewCollectionPath(): string {
-  const rootPath = useSourcesStore(
-    (s) => s.sourcesById.get(DEFAULT_SOURCE_ID)?.rootPath,
-  );
-  const libraryRoot = useLibrarySettingsStore((s) => s.settings?.libraryRoot);
-  const home = useHomeDir();
-  const path =
-    rootPath ??
-    (libraryRoot ? `${libraryRoot.replace(/[\\/]+$/, "")}/Tracks` : "");
-  return shortenHomePath(path, home);
+  const mediaFolder = useLibrarySettingsStore((s) => s.settings?.mediaFolder);
+  return shortenHomePath(mediaFolder ?? "", useHomeDir());
 }

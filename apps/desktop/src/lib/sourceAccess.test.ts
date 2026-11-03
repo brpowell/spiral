@@ -6,7 +6,7 @@ import {
   describeSourceError,
   sourceDisplayName,
   sourceErrorCode,
-  sourceRole,
+  isOtherSource,
   sourceSortRank,
 } from "./sourceAccess";
 
@@ -98,20 +98,21 @@ describe("source helpers", () => {
     expect(counts.size).toBe(2);
   });
 
-  it("names the built-in sources and uses folder names for added ones", () => {
+  it("names Other and uses the stored name for every folder", () => {
     expect(sourceDisplayName(managed)).toBe("Tracks");
+    expect(sourceDisplayName({ ...managed, name: "Music" })).toBe("Music");
     expect(sourceDisplayName(external)).toBe("Other files");
     expect(sourceDisplayName(rock)).toBe("Rock");
   });
 
-  it("tells the built-in sources from the user's folders", () => {
-    expect(sourceRole(managed)).toBe("default");
-    expect(sourceRole(external)).toBe("other");
-    expect(sourceRole(rock)).toBe("user");
+  it("tells Other from the user's folders, Tracks included", () => {
+    expect(isOtherSource(managed)).toBe(false);
+    expect(isOtherSource(external)).toBe(true);
+    expect(isOtherSource(rock)).toBe(false);
   });
 
-  it("sorts the library first and other files last", () => {
-    expect(sourceSortRank(undefined)).toBe(sourceSortRank(1));
+  it("sorts folders in the order added and other files last", () => {
+    expect(sourceSortRank(undefined)).toBeLessThan(sourceSortRank(1));
     expect(sourceSortRank(1)).toBeLessThan(sourceSortRank(3));
     expect(sourceSortRank(3)).toBeLessThan(sourceSortRank(4));
     expect(sourceSortRank(4)).toBeLessThan(sourceSortRank(2));

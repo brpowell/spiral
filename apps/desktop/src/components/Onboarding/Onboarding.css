@@ -203,6 +203,12 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
   grid-row: 4;
 }
 
+/* An error applying the answer: under the note, in the space below. */
+.onboarding__panel--centered > :nth-child(4) {
+  grid-row: 5;
+  align-self: start;
+}
+
 .onboarding__panel--centered .onboarding__title {
   margin: 0;
 }

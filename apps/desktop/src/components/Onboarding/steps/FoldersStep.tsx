@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { describeSourceError, sourceRole } from "../../../lib/sourceAccess";
+import { describeSourceError, isOtherSource } from "../../../lib/sourceAccess";
 import { addSource, pickMusicFolder, removeSource } from "../../../lib/tauri";
 import { useOnboardingStore } from "../../../store/useOnboardingStore";
 import { usePlayerStore } from "../../../store/usePlayerStore";
@@ -25,7 +25,7 @@ export function FoldersStep() {
   const [adding, setAdding] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const folders = sources.filter((source) => sourceRole(source) === "user");
+  const folders = sources.filter((source) => !isOtherSource(source));
 
   const add = async () => {
     if (adding) return;

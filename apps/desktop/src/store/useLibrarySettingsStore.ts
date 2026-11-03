@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { afterUiTransition } from "../lib/scheduling";
 import {
+  getImportSource,
   getLibrarySettings,
   saveLibrarySettings as persistLibrarySettings,
   setImportSource,
@@ -38,11 +39,16 @@ interface LibrarySettingsState {
   setPreferencesOpen: (open: boolean) => void;
   openPreferences: (section?: PreferencesSectionId) => void;
   consumePreferencesFocusSection: () => PreferencesSectionId | null;
-  saveLibrarySettings: (patch: LibrarySettingsPatch) => Promise<LibrarySettings>;
+  saveLibrarySettings: (
+    patch: LibrarySettingsPatch,
+  ) => Promise<LibrarySettings>;
   applyLibrarySettings: (settings: LibrarySettings) => void;
   resolveImportMode: () => Promise<ImportChoice>;
   /** Answer the import prompt. Remembering a copy into another source makes it the import source. */
-  confirmImportChoice: (choice: ImportChoice, remember: boolean) => Promise<void>;
+  confirmImportChoice: (
+    choice: ImportChoice,
+    remember: boolean,
+  ) => Promise<void>;
   cancelImportChoice: () => void;
 }
 
@@ -100,7 +106,13 @@ export const useLibrarySettingsStore = create<LibrarySettingsState>(
 
     resolveImportMode: async () => {
       const settings = get().settings ?? (await get().loadSettings());
-      if (settings.importMode === "copy") return { mode: "copy" };
+      // A saved "copy" asks instead while there's no folder to copy into.
+      if (
+        settings.importMode === "copy" &&
+        (await getImportSource().catch(() => null))?.copyAvailable
+      ) {
+        return { mode: "copy" };
+      }
       if (settings.importMode === "reference") return { mode: "reference" };
 
       return new Promise<ImportChoice>((resolve, reject) => {
