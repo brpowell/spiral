@@ -14,15 +14,12 @@
   "library": {
     "location": "Spiral folder",
     "locationDescription": "Spiral keeps its database, artwork, and its Tracks folder here.",
-    "pathFormat": "Default path format",
-    "placeholders": "Placeholders:",
     "importMode": "When adding files from elsewhere…",
     "importCopy": "Add to Spiral",
     "importReference": "Keep files where they are",
     "importAsk": "Always ask",
     "reloadFailed": "Spiral folder moved, but reload failed: {{message}}",
-    "importModeDescription": "“Add to Spiral” copies files into the import target source (see Sources). “Keep files where they are” plays them from their current location and never changes them.",
-    "pathFormatDescription": "Organized sources without their own format use this. Changing it doesn't move files already in place."
+    "importModeDescription": "“Add to Spiral” copies files into the import target source (see Sources). “Keep files where they are” plays them from their current location and never changes them."
   },
   "relocate": {
     "switchTitle": "Switch Spiral folder?",

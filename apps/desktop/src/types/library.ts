@@ -18,10 +18,9 @@ export interface LibrarySettings {
   artworkFolder: string;
   databasePath: string;
   /**
-   * Default organize path, relative to a source's folder, for sources without
-   * their own. Use `/` between folders.
+   * Spiral's organize path, relative to a source's folder, for sources
+   * without their own. Users can't change it; they override it per source.
    */
-  organizePathFormat: string;
   defaultOrganizePathFormat: string;
   importMode: ImportMode;
   cdMetadataFetchMode: CdMetadataFetchMode;
@@ -38,7 +37,6 @@ export interface LibrarySettings {
 
 export interface LibrarySettingsPatch {
   libraryRoot?: string;
-  organizePathFormat?: string;
   importMode?: ImportMode;
   cdMetadataFetchMode?: CdMetadataFetchMode;
   cdImportProfileId?: string;

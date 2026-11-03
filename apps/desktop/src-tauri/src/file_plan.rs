@@ -273,13 +273,12 @@ impl OrganizeRow {
 
 /// The path format organizing `source_id` uses: `format` when given, else
 /// the one it is organized with, else (organizing is off, which is when it
-/// gets turned on) its own format or `default_format`, the global one.
+/// gets turned on) its own format or Spiral's built-in one.
 fn organize_format(
     conn: &Connection,
     source_id: i64,
     format: Option<String>,
     organized_with: Option<String>,
-    default_format: &str,
 ) -> Result<String, String> {
     if let Some(format) = format.filter(|f| !f.trim().is_empty()).or(organized_with) {
         return Ok(format);
@@ -290,13 +289,13 @@ fn organize_format(
     Ok(source
         .path_format
         .filter(|f| !f.trim().is_empty())
-        .unwrap_or_else(|| default_format.to_string()))
+        .unwrap_or_else(library_organize::default_organize_path_format))
 }
 
 /// Plan moving every present track of a source to where its path format puts
 /// it, as organizing on import and tag edit would. `format` overrides the
-/// source's format (to preview one before saving it); `default_format` is the
-/// global format a source without its own inherits. Reads only.
+/// source's format (to preview one before saving it); a source without its
+/// own uses Spiral's built-in format. Reads only.
 ///
 /// Targets that are taken (a file on disk, another row, or an earlier track in
 /// the plan) get a numbered name as [`library_organize::unique_path`] would.
@@ -306,15 +305,14 @@ pub fn plan_organize_source(
     conn: &Connection,
     source_id: i64,
     format: Option<String>,
-    default_format: &str,
 ) -> Result<FilePlan, String> {
     if source_id == sources::OTHER_SOURCE_ID {
         return Err("Other has no folder, so it can't be organized".to_string());
     }
     // Where organizing writes, as import does; fails when a user source's
     // folder isn't reachable.
-    let target = sources::write_target(conn, source_id, default_format)?;
-    let format = organize_format(conn, source_id, format, target.path_format, default_format)?;
+    let target = sources::write_target(conn, source_id)?;
+    let format = organize_format(conn, source_id, format, target.path_format)?;
     let root = target.root;
     let roots = SourceRoots::load(conn).map_err(|e| e.to_string())?;
     // Targets a walk of this source would skip: the Spiral folder's data,
@@ -1050,13 +1048,7 @@ mod tests {
         }
 
         fn plan(&self, source_id: i64) -> FilePlan {
-            plan_organize_source(
-                &lock(&self.db),
-                source_id,
-                Some(FORMAT.into()),
-                "{title}.{ext}",
-            )
-            .unwrap()
+            plan_organize_source(&lock(&self.db), source_id, Some(FORMAT.into())).unwrap()
         }
 
         fn apply(&self, plan: &FilePlan) -> ApplySummary {
@@ -1110,23 +1102,16 @@ mod tests {
     }
 
     #[test]
-    fn source_format_then_global_default_are_used_when_none_is_given() {
+    fn source_format_then_the_built_in_default_are_used_when_none_is_given() {
         let fx = Fixture::new("formats");
         let src = fx.source("Collection");
         let a = fx.track(src, "Collection/x.wav", "Band", "Album", "Song");
         let plan = |format: Option<&str>| {
             let conn = lock(&fx.db);
-            targets(
-                &plan_organize_source(
-                    &conn,
-                    src,
-                    format.map(String::from),
-                    "{artist}/{title}.{ext}",
-                )
-                .unwrap(),
-            )
+            targets(&plan_organize_source(&conn, src, format.map(String::from)).unwrap())
         };
-        assert_eq!(plan(None), vec![(a, "Band/Song.wav".into(), None)]);
+        // No format of its own: `{albumArtist}/{album}/{trackNumber:02} - {title}.{ext}`.
+        assert_eq!(plan(None), vec![(a, "Band/Album/Song.wav".into(), None)]);
         sources::set_source_path_format(&lock(&fx.db), src, Some("{album}/{title}.{ext}".into()))
             .unwrap();
         assert_eq!(plan(None), vec![(a, "Album/Song.wav".into(), None)]);
@@ -1230,13 +1215,8 @@ mod tests {
         // path order).
         let a = fx.track(src, "Collection/A/Song.wav", "Band", "Album", "First");
         let b = fx.track(src, "Collection/B/x.wav", "A", "", "Song");
-        let plan = plan_organize_source(
-            &lock(&fx.db),
-            src,
-            Some("{artist}/{title}.{ext}".into()),
-            "",
-        )
-        .unwrap();
+        let plan = plan_organize_source(&lock(&fx.db), src, Some("{artist}/{title}.{ext}".into()))
+            .unwrap();
         assert_eq!(
             targets(&plan),
             vec![
@@ -1304,7 +1284,7 @@ mod tests {
         let src = fx.source("Collection");
         fx.track(src, "Collection/a.wav", "Band", "Album", "Song");
         fs::rename(fx.path("Collection"), fx.path("Unplugged")).unwrap();
-        assert!(plan_organize_source(&lock(&fx.db), src, None, FORMAT).is_err());
+        assert!(plan_organize_source(&lock(&fx.db), src, None).is_err());
     }
 
     #[cfg(unix)]
@@ -1332,8 +1312,8 @@ mod tests {
     fn other_and_unknown_sources_cannot_be_planned() {
         let fx = Fixture::new("other");
         let conn = lock(&fx.db);
-        assert!(plan_organize_source(&conn, sources::OTHER_SOURCE_ID, None, FORMAT).is_err());
-        assert!(plan_organize_source(&conn, 99, None, FORMAT).is_err());
+        assert!(plan_organize_source(&conn, sources::OTHER_SOURCE_ID, None).is_err());
+        assert!(plan_organize_source(&conn, 99, None).is_err());
     }
 
     #[test]

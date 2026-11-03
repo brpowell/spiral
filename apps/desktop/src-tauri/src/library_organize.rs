@@ -4,7 +4,8 @@ use crate::models::TrackMetadataUpdate;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub const DEFAULT_TRACK_FILENAME_FORMAT: &str = "{trackNumber:02} - {title}";
+/// The path format a source without its own is organized with. Spiral
+/// defines it; users override it per source.
 pub const DEFAULT_ORGANIZE_PATH_FORMAT: &str =
     "{albumArtist}/{album}/{trackNumber:02} - {title}.{ext}";
 
@@ -138,10 +139,6 @@ impl<'a> From<&'a TrackMetadataUpdate> for OrganizeMetadata<'a> {
             genre: m.genre.as_deref(),
         }
     }
-}
-
-pub fn default_track_filename_format() -> String {
-    DEFAULT_TRACK_FILENAME_FORMAT.to_string()
 }
 
 /// Expand `{placeholders}` in `template`. When `ext` is set, `{ext}` resolves to the file extension.

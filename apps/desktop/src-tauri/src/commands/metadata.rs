@@ -466,10 +466,9 @@ pub async fn clear_metadata_cache(app: AppHandle) -> Result<(), String> {
 fn organize_for_track(
     conn: &rusqlite::Connection,
     track: &Track,
-    global_format: &str,
 ) -> Result<Option<(PathBuf, String)>, String> {
-    let Some(format) = sources::organize_settings(conn, track.source_id, global_format)
-        .map_err(|e| e.to_string())?
+    let Some(format) =
+        sources::organize_settings(conn, track.source_id).map_err(|e| e.to_string())?
     else {
         return Ok(None);
     };
@@ -517,7 +516,7 @@ pub fn write_track_metadata(
         let existing = db::get_track_by_id(&conn, track_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("Track {track_id} not found"))?;
-        let organize = organize_for_track(&conn, &existing, &library.organize_path_format)?;
+        let organize = organize_for_track(&conn, &existing)?;
         (existing, organize)
     };
     // The stored path decides which file is written, not the caller's copy.
@@ -760,23 +759,28 @@ mod tests {
         let user_root = tmp.0.join("Collection");
 
         // New user sources aren't organized.
-        assert_eq!(organize_for_track(&conn, &user, FORMAT).unwrap(), None);
+        assert_eq!(organize_for_track(&conn, &user).unwrap(), None);
 
+        // Organized without its own format: Spiral's built-in one.
         sources::set_source_organize(&conn, user.source_id, true).unwrap();
         assert_eq!(
-            organize_for_track(&conn, &user, FORMAT).unwrap(),
-            Some((user_root.clone(), FORMAT.to_string()))
+            organize_for_track(&conn, &user).unwrap(),
+            Some((
+                user_root.clone(),
+                crate::library_organize::DEFAULT_ORGANIZE_PATH_FORMAT.to_string()
+            ))
         );
         sources::set_source_path_format(&conn, user.source_id, Some("{title}.{ext}".into()))
             .unwrap();
+        // Its own format wins.
         assert_eq!(
-            organize_for_track(&conn, &user, FORMAT).unwrap(),
+            organize_for_track(&conn, &user).unwrap(),
             Some((user_root, "{title}.{ext}".to_string()))
         );
 
         // Other is never organized, and tag writes to it are allowed.
         assert_eq!(
-            organize_for_track(&conn, &track(&conn, t.other), FORMAT).unwrap(),
+            organize_for_track(&conn, &track(&conn, t.other)).unwrap(),
             None
         );
         let loose = ogg::copy_minimal(&tmp.0, "x.ogg");

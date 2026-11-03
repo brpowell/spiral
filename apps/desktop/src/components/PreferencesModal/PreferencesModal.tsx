@@ -1,14 +1,7 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import {
-  formatOrganizeRelativePath,
-  GENERIC_ORGANIZE_PATH_SAMPLE,
-  isDefaultOrganizePathFormat,
-  trackToOrganizePathSample,
-  type OrganizePathSample,
-} from "../../lib/organizePathFormat";
 import {
   DEFAULT_CD_IMPORT_PROFILE_ID,
   ENCODING_PROFILE_SELECT_OPTIONS,
@@ -148,10 +141,6 @@ export function PreferencesModal() {
   const [activeSection, setActiveSection] =
     useState<PreferencesSectionId>("library");
   const [libraryRoot, setLibraryRoot] = useState("");
-  const [organizePathFormat, setOrganizePathFormat] = useState("");
-  const [previewSample, setPreviewSample] = useState<OrganizePathSample>(
-    GENERIC_ORGANIZE_PATH_SAMPLE,
-  );
   const anyTagWriteWarningDismissed = useTagWriteConfirmStore((state) =>
     Object.values(state.dismissed).some(Boolean),
   );
@@ -211,7 +200,6 @@ export function PreferencesModal() {
     const focus = consumePreferencesFocusSection();
     setActiveSection(focus ?? "library");
     setLibraryRoot(current.libraryRoot);
-    setOrganizePathFormat(current.organizePathFormat);
     setError(null);
     setRelocateInfo(null);
     setRelocateBusy(false);
@@ -220,16 +208,6 @@ export function PreferencesModal() {
     setClearHistoryOpen(false);
     closeClearRangeMenu();
     setDefaultPublisherIdLoaded(false);
-    const tracks = usePlayerStore.getState().library;
-    if (tracks.length > 0) {
-      setPreviewSample(
-        trackToOrganizePathSample(
-          tracks[Math.floor(Math.random() * tracks.length)]!,
-        ),
-      );
-    } else {
-      setPreviewSample(GENERIC_ORGANIZE_PATH_SAMPLE);
-    }
   }, [open, closeClearRangeMenu, consumePreferencesFocusSection]);
 
   useEffect(() => {
@@ -253,11 +231,6 @@ export function PreferencesModal() {
       cancelled = true;
     };
   }, [open, activeSection, defaultPublisherIdLoaded]);
-
-  const organizePreviewPath = useMemo(() => {
-    if (!settings) return null;
-    return formatOrganizeRelativePath(organizePathFormat, previewSample);
-  }, [settings, organizePathFormat, previewSample]);
 
   if (!settings) return null;
 
@@ -358,21 +331,9 @@ export function PreferencesModal() {
     }
   };
 
-  const commitOrganizePathFormat = (value: string = organizePathFormat) => {
-    if (value === settings.organizePathFormat) return;
-    patchSettings({ organizePathFormat: value });
-  };
-
   const flushTextFields = () => {
     const current = useLibrarySettingsStore.getState().settings;
     if (!current) return;
-    if (
-      organizePathFormat !== current.organizePathFormat &&
-      !relocateInfo &&
-      !relocateBusy
-    ) {
-      patchSettings({ organizePathFormat });
-    }
     // Discard unconfirmed library-root edits when closing preferences.
     if (libraryRoot.trim() !== current.libraryRoot && !relocateInfo) {
       setLibraryRoot(current.libraryRoot);
@@ -551,60 +512,6 @@ export function PreferencesModal() {
                     </Button>
                   </div>
                 </FormField>
-
-                <Separator />
-
-                <div className="preferences__organize-path">
-                  <FormField
-                    label={t("preferences:library.pathFormat")}
-                    description={
-                      <>
-                        {t("preferences:library.pathFormatDescription")}
-                        {organizePreviewPath != null ? (
-                          <>
-                            {" "}
-                            <span aria-live="polite">
-                              <code>{organizePreviewPath}</code>
-                            </span>
-                          </>
-                        ) : null}
-                      </>
-                    }
-                  >
-                    <div className="preferences__path-row">
-                      <TextInput
-                        value={organizePathFormat}
-                        onChange={(e) => setOrganizePathFormat(e.target.value)}
-                        onBlur={() => commitOrganizePathFormat()}
-                        spellCheck={false}
-                      />
-                      <Button
-                        size="sm"
-                        disabled={isDefaultOrganizePathFormat(
-                          organizePathFormat,
-                        )}
-                        onClick={() => {
-                          const next = settings.defaultOrganizePathFormat;
-                          setOrganizePathFormat(next);
-                          commitOrganizePathFormat(next);
-                        }}
-                      >
-                        <IconReset />
-                        {t("common:reset")}
-                      </Button>
-                    </div>
-                  </FormField>
-                  <p className="preferences__hint">
-                    <span className="preferences__hint-label">
-                      {t("preferences:library.placeholders")}
-                    </span>{" "}
-                    <code>{"{albumArtist}"}</code>, <code>{"{artist}"}</code>,{" "}
-                    <code>{"{album}"}</code>, <code>{"{title}"}</code>,{" "}
-                    <code>{"{trackNumber:02}"}</code>,{" "}
-                    <code>{"{discNumber:02}"}</code>, <code>{"{year}"}</code>,{" "}
-                    <code>{"{genre}"}</code>, <code>{"{ext}"}</code>
-                  </p>
-                </div>
 
                 <Separator />
 

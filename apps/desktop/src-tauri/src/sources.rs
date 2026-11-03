@@ -737,13 +737,13 @@ pub fn import_target(conn: &Connection) -> Result<ImportTarget, rusqlite::Error>
 }
 
 /// The path format a source's files are organized with: its own, else
-/// `global_format`. `None` when organizing is off for it (always for Other).
-/// Import, replace, convert and tag edits use this, as does the organize
-/// planner.
+/// Spiral's built-in [`library_organize::default_organize_path_format`]
+/// (there is no user-wide default). `None` when organizing is off for it
+/// (always for Other). Import, replace, convert and tag edits use this, as
+/// does the organize planner.
 pub fn organize_settings(
     conn: &Connection,
     source_id: i64,
-    global_format: &str,
 ) -> Result<Option<String>, rusqlite::Error> {
     if source_id == OTHER_SOURCE_ID {
         return Ok(None);
@@ -759,7 +759,7 @@ pub fn organize_settings(
         Some((true, format)) => Some(
             format
                 .filter(|f| !f.trim().is_empty())
-                .unwrap_or_else(|| global_format.to_string()),
+                .unwrap_or_else(crate::library_organize::default_organize_path_format),
         ),
         _ => None,
     })
@@ -778,11 +778,7 @@ pub struct WriteTarget {
 /// go to the import source instead, and fail with [`NO_SOURCE`] when there is
 /// none. Fails with [`SOURCE_UNAVAILABLE`] when the folder isn't reachable,
 /// so nothing is written to (or created on) a drive that isn't there.
-pub fn write_target(
-    conn: &Connection,
-    source_id: i64,
-    global_format: &str,
-) -> Result<WriteTarget, String> {
+pub fn write_target(conn: &Connection, source_id: i64) -> Result<WriteTarget, String> {
     let source_id = if source_id == OTHER_SOURCE_ID {
         import_source_id(conn)
             .map_err(|e| e.to_string())?
@@ -801,8 +797,7 @@ pub fn write_target(
             root.display()
         ));
     }
-    let path_format =
-        organize_settings(conn, source_id, global_format).map_err(|e| e.to_string())?;
+    let path_format = organize_settings(conn, source_id).map_err(|e| e.to_string())?;
     Ok(WriteTarget {
         source_id,
         root,
@@ -1441,43 +1436,40 @@ mod tests {
         let (conn, roots) = library(&tmp);
         let rock = add(&conn, &roots, &tmp.dir("Rock")).unwrap();
         let tracks = create_managed_source(&conn, &roots).unwrap().id;
-        let global = "{albumArtist}/{album}/{title}.{ext}";
+        let built_in = crate::library_organize::DEFAULT_ORGANIZE_PATH_FORMAT;
 
-        // `Tracks` starts organized with the global format.
+        // `Tracks` starts organized with Spiral's built-in format.
         assert_eq!(
-            organize_settings(&conn, tracks, global).unwrap(),
-            Some(global.to_string())
+            organize_settings(&conn, tracks).unwrap(),
+            Some(built_in.to_string())
         );
-        assert_eq!(organize_settings(&conn, rock.id, global).unwrap(), None);
-        assert_eq!(
-            organize_settings(&conn, OTHER_SOURCE_ID, global).unwrap(),
-            None
-        );
-        assert_eq!(organize_settings(&conn, 999, global).unwrap(), None);
+        assert_eq!(organize_settings(&conn, rock.id).unwrap(), None);
+        assert_eq!(organize_settings(&conn, OTHER_SOURCE_ID).unwrap(), None);
+        assert_eq!(organize_settings(&conn, 999).unwrap(), None);
 
         set_source_organize(&conn, rock.id, true).unwrap();
         assert_eq!(
-            organize_settings(&conn, rock.id, global).unwrap(),
-            Some(global.to_string())
+            organize_settings(&conn, rock.id).unwrap(),
+            Some(built_in.to_string())
         );
         set_source_path_format(&conn, rock.id, Some("{title}.{ext}".into())).unwrap();
         assert_eq!(
-            organize_settings(&conn, rock.id, global).unwrap(),
+            organize_settings(&conn, rock.id).unwrap(),
             Some("{title}.{ext}".to_string())
         );
         set_source_organize(&conn, tracks, false).unwrap();
-        assert_eq!(organize_settings(&conn, tracks, global).unwrap(), None);
+        assert_eq!(organize_settings(&conn, tracks).unwrap(), None);
     }
 
     #[test]
     fn write_targets_follow_the_source_and_send_other_to_the_import_source() {
         let tmp = TempDir::new("write-target");
         let (conn, roots) = library(&tmp);
-        let global = "{title}.{ext}";
+        let built_in = crate::library_organize::DEFAULT_ORGANIZE_PATH_FORMAT;
         let rock = add(&conn, &roots, &tmp.dir("Rock")).unwrap();
 
         // No import target yet: Other's files have nowhere to go.
-        assert!(write_target(&conn, OTHER_SOURCE_ID, global)
+        assert!(write_target(&conn, OTHER_SOURCE_ID)
             .unwrap_err()
             .starts_with(NO_SOURCE));
 
@@ -1485,13 +1477,10 @@ mod tests {
         let to_tracks = WriteTarget {
             source_id: tracks,
             root: tracks_folder(&roots),
-            path_format: Some(global.into()),
+            path_format: Some(built_in.into()),
         };
-        assert_eq!(write_target(&conn, tracks, global).unwrap(), to_tracks);
-        assert_eq!(
-            write_target(&conn, OTHER_SOURCE_ID, global).unwrap(),
-            to_tracks
-        );
+        assert_eq!(write_target(&conn, tracks).unwrap(), to_tracks);
+        assert_eq!(write_target(&conn, OTHER_SOURCE_ID).unwrap(), to_tracks);
 
         set_import_source(&conn, rock.id).unwrap();
         let to_rock = WriteTarget {
@@ -1499,15 +1488,12 @@ mod tests {
             root: tmp.0.join("Rock"),
             path_format: None,
         };
-        assert_eq!(write_target(&conn, rock.id, global).unwrap(), to_rock);
-        assert_eq!(
-            write_target(&conn, OTHER_SOURCE_ID, global).unwrap(),
-            to_rock
-        );
+        assert_eq!(write_target(&conn, rock.id).unwrap(), to_rock);
+        assert_eq!(write_target(&conn, OTHER_SOURCE_ID).unwrap(), to_rock);
 
         // An unplugged folder is never written to (or created).
         std::fs::remove_dir(tmp.0.join("Rock")).unwrap();
-        assert!(write_target(&conn, rock.id, global)
+        assert!(write_target(&conn, rock.id)
             .unwrap_err()
             .starts_with(SOURCE_UNAVAILABLE));
         assert!(!tmp.0.join("Rock").exists());

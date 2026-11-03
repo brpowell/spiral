@@ -492,9 +492,8 @@ fn trash_sidecar(audio_path: &Path) -> Result<(), String> {
 fn replacement_destination(
     conn: &rusqlite::Connection,
     track: &Track,
-    global_format: &str,
 ) -> Result<(sources::WriteTarget, PathBuf), String> {
-    let target = sources::write_target(conn, track.source_id, global_format)?;
+    let target = sources::write_target(conn, track.source_id)?;
     let old_path = Path::new(&track.file_path);
     let folder = match (&target.path_format, old_path.parent()) {
         (None, Some(parent)) if target.source_id == track.source_id => parent.to_path_buf(),
@@ -561,11 +560,7 @@ pub fn replace_track_from_import(
         let destination = if mode == "reference" {
             None
         } else {
-            Some(replacement_destination(
-                &conn,
-                &existing,
-                &resolved.organize_path_format,
-            )?)
+            Some(replacement_destination(&conn, &existing)?)
         };
         let old_root = sources::SourceRoots::load(&conn)
             .map_err(|e| e.to_string())?
@@ -759,8 +754,7 @@ fn convert_track_impl(
         let existing = db::get_track_by_id(&conn, track_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("Track {track_id} not found"))?;
-        let (target, folder) =
-            replacement_destination(&conn, &existing, &resolved.organize_path_format)?;
+        let (target, folder) = replacement_destination(&conn, &existing)?;
         let old_root = sources::SourceRoots::load(&conn)
             .map_err(|e| e.to_string())?
             .root(existing.source_id)
@@ -956,8 +950,6 @@ mod tests {
         use crate::source_test_support::*;
         use crate::sources::OTHER_SOURCE_ID;
 
-        const FORMAT: &str = "{artist}/{album}/{title}.{ext}";
-
         #[test]
         fn ratings_are_written_to_every_sources_files() {
             let conn = conn();
@@ -1000,15 +992,27 @@ mod tests {
             let a = insert_track(&conn, "A/a.mp3", organized_id);
             let b = insert_track(&conn, "Sub/b.mp3", loose_id);
 
-            let (target, folder) =
-                replacement_destination(&conn, &track_in(&conn, a), FORMAT).unwrap();
+            // Organized without its own format: Spiral's built-in one.
+            let (target, folder) = replacement_destination(&conn, &track_in(&conn, a)).unwrap();
             assert_eq!(target.source_id, organized_id);
-            assert_eq!(target.path_format.as_deref(), Some(FORMAT));
+            assert_eq!(
+                target.path_format.as_deref(),
+                Some(crate::library_organize::DEFAULT_ORGANIZE_PATH_FORMAT)
+            );
             assert_eq!(folder, organized);
 
+            // Its own format wins.
+            crate::sources::set_source_path_format(
+                &conn,
+                organized_id,
+                Some("{title}.{ext}".into()),
+            )
+            .unwrap();
+            let (target, _) = replacement_destination(&conn, &track_in(&conn, a)).unwrap();
+            assert_eq!(target.path_format.as_deref(), Some("{title}.{ext}"));
+
             // Not organized: the replacement lands beside the old file.
-            let (target, folder) =
-                replacement_destination(&conn, &track_in(&conn, b), FORMAT).unwrap();
+            let (target, folder) = replacement_destination(&conn, &track_in(&conn, b)).unwrap();
             assert_eq!((target.source_id, target.path_format), (loose_id, None));
             assert_eq!(folder, loose);
         }
@@ -1022,8 +1026,7 @@ mod tests {
             crate::sources::set_import_source(&conn, target_id).unwrap();
             let x = insert_track(&conn, "/elsewhere/x.mp3", OTHER_SOURCE_ID);
 
-            let (target, folder) =
-                replacement_destination(&conn, &track_in(&conn, x), FORMAT).unwrap();
+            let (target, folder) = replacement_destination(&conn, &track_in(&conn, x)).unwrap();
             assert_eq!((target.source_id, target.path_format), (target_id, None));
             assert_eq!(folder, target_root);
         }
@@ -1033,7 +1036,7 @@ mod tests {
             let conn = conn();
             let x = insert_track(&conn, "/elsewhere/x.mp3", OTHER_SOURCE_ID);
             // Replace and convert both find their destination here.
-            let err = replacement_destination(&conn, &track_in(&conn, x), FORMAT).unwrap_err();
+            let err = replacement_destination(&conn, &track_in(&conn, x)).unwrap_err();
             assert!(err.starts_with(sources::NO_SOURCE), "{err}");
         }
 
@@ -1043,7 +1046,7 @@ mod tests {
             let conn = conn();
             let gone = add_user_source(&conn, &tmp.0.join("Unplugged"));
             let u = insert_track(&conn, "u.mp3", gone);
-            assert!(replacement_destination(&conn, &track_in(&conn, u), FORMAT).is_err());
+            assert!(replacement_destination(&conn, &track_in(&conn, u)).is_err());
         }
 
         /// Remove a track's row the way `remove_track` does, returning it.

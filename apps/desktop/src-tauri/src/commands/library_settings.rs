@@ -42,7 +42,6 @@ pub fn prepare_import_file(
         &source_path,
         &mode,
         source_id,
-        &resolved.organize_path_format,
         resolved.lyrics_sidecar_sync_enabled,
     )
 }
@@ -52,7 +51,6 @@ fn prepare_import(
     source_path: &str,
     mode: &str,
     source_id: Option<i64>,
-    global_format: &str,
     lyrics_sidecar_enabled: bool,
 ) -> Result<String, String> {
     if mode == "reference" {
@@ -71,7 +69,7 @@ fn prepare_import(
                     )
                 })?,
         };
-        sources::write_target(&conn, id, global_format)?
+        sources::write_target(&conn, id)?
     };
     import_files::prepare_import_file(
         source_path,
@@ -147,8 +145,6 @@ mod tests {
         use std::path::Path;
         use std::sync::Mutex;
 
-        const GLOBAL: &str = "{artist}/{title}.{ext}";
-
         #[test]
         fn imports_are_copied_into_the_import_source_its_own_way() {
             let tmp = TempDir::new("import-target");
@@ -168,15 +164,35 @@ mod tests {
             };
 
             set_target(organized_id);
-            let copied = prepare_import(&state, &incoming, "copy", None, GLOBAL, false).unwrap();
+            let copied = prepare_import(&state, &incoming, "copy", None, false).unwrap();
             let copied = Path::new(&copied);
             assert!(copied.starts_with(&organized), "{}", copied.display());
             assert!(copied.ends_with("x.ogg"), "{}", copied.display());
             assert!(copied.is_file());
 
             set_target(loose_id);
-            let copied = prepare_import(&state, &incoming, "copy", None, GLOBAL, false).unwrap();
+            let copied = prepare_import(&state, &incoming, "copy", None, false).unwrap();
             assert_eq!(Path::new(&copied), loose.join("song.ogg"));
+        }
+
+        #[test]
+        fn an_organized_source_without_its_own_format_uses_the_built_in_one() {
+            let tmp = TempDir::new("import-built-in-format");
+            let conn = conn();
+            let organized = tmp.dir("Organized");
+            let id = add_user_source(&conn, &organized);
+            sources::set_source_organize(&conn, id, true).unwrap();
+            sources::set_import_source(&conn, id).unwrap();
+            let state = DbState(Mutex::new(conn));
+            let incoming = ogg::copy_minimal(&tmp.dir("Incoming"), "song.ogg");
+
+            let copied =
+                prepare_import(&state, &incoming.to_string_lossy(), "copy", None, false).unwrap();
+            // `{albumArtist}/{album}/{trackNumber:02} - {title}.{ext}`: two
+            // folders deep, never left at the source's top level.
+            let relative = Path::new(&copied).strip_prefix(&organized).unwrap();
+            assert_eq!(relative.components().count(), 3, "{}", relative.display());
+            assert_eq!(relative.extension().and_then(|e| e.to_str()), Some("ogg"));
         }
 
         #[test]
@@ -192,8 +208,7 @@ mod tests {
             let incoming = ogg::copy_minimal(&tmp.dir("Incoming"), "song.ogg");
             let incoming = incoming.to_string_lossy();
 
-            let copied =
-                prepare_import(&state, &incoming, "copy", Some(chosen_id), GLOBAL, false).unwrap();
+            let copied = prepare_import(&state, &incoming, "copy", Some(chosen_id), false).unwrap();
             assert_eq!(Path::new(&copied), chosen.join("song.ogg"));
             assert!(!target.join("song.ogg").exists());
 
@@ -201,9 +216,7 @@ mod tests {
             std::fs::create_dir(&offline).unwrap();
             let offline_id = add_user_source(&state.0.lock().unwrap(), &offline);
             std::fs::remove_dir(&offline).unwrap();
-            assert!(
-                prepare_import(&state, &incoming, "copy", Some(offline_id), GLOBAL, false).is_err()
-            );
+            assert!(prepare_import(&state, &incoming, "copy", Some(offline_id), false).is_err());
         }
 
         #[test]
@@ -213,10 +226,10 @@ mod tests {
             let file = ogg::copy_minimal(&tmp.dir("Incoming"), "song.ogg");
             let path = file.to_string_lossy();
 
-            let err = prepare_import(&state, &path, "copy", None, GLOBAL, false).unwrap_err();
+            let err = prepare_import(&state, &path, "copy", None, false).unwrap_err();
             assert!(err.starts_with(sources::NO_SOURCE), "{err}");
             assert_eq!(
-                prepare_import(&state, &path, "reference", None, GLOBAL, false).unwrap(),
+                prepare_import(&state, &path, "reference", None, false).unwrap(),
                 path
             );
             let target = sources::import_target(&state.0.lock().unwrap()).unwrap();
@@ -238,8 +251,8 @@ mod tests {
 
             let state = DbState(Mutex::new(conn));
             let file = ogg::copy_minimal(&tmp.dir("Incoming"), "song.ogg");
-            let err = prepare_import(&state, &file.to_string_lossy(), "copy", None, GLOBAL, false)
-                .unwrap_err();
+            let err =
+                prepare_import(&state, &file.to_string_lossy(), "copy", None, false).unwrap_err();
             assert!(err.starts_with(sources::SOURCE_UNAVAILABLE), "{err}");
             assert!(!target.exists());
         }
@@ -251,20 +264,15 @@ mod tests {
             let file = ogg::copy_minimal(&tmp.0, "song.ogg");
             let path = file.to_string_lossy();
             assert_eq!(
-                prepare_import(&state, &path, "reference", None, GLOBAL, false).unwrap(),
+                prepare_import(&state, &path, "reference", None, false).unwrap(),
                 path
             );
             assert_eq!(std::fs::read_dir(&tmp.0).unwrap().count(), 1);
             let missing = tmp.0.join("gone.ogg");
-            assert!(prepare_import(
-                &state,
-                &missing.to_string_lossy(),
-                "reference",
-                None,
-                GLOBAL,
-                false
-            )
-            .is_err());
+            assert!(
+                prepare_import(&state, &missing.to_string_lossy(), "reference", None, false)
+                    .is_err()
+            );
         }
     }
 
