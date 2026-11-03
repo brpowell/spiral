@@ -148,7 +148,7 @@ pub fn merge_duplicate_tracks(conn: &Connection) -> rusqlite::Result<usize> {
 }
 
 /// Move `drop`'s history to `keep` and delete `drop`.
-fn merge_into(conn: &Connection, keep: i64, drop: i64) -> rusqlite::Result<()> {
+pub(crate) fn merge_into(conn: &Connection, keep: i64, drop: i64) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE tracks SET
             play_count = play_count + (SELECT play_count FROM tracks WHERE id = ?2),
