@@ -52,11 +52,9 @@
   flex-shrink: 0;
 }
 
-/* Green whatever the theme's accent is; the stroke thickens the thin glyph. */
+/* Green whatever the theme's accent is: the success colour. */
 .sources-section__default svg {
   color: var(--color-alert-success);
-  stroke: currentColor;
-  stroke-width: 1.25px;
 }
 
 .sources-section__offline {
