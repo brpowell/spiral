@@ -753,7 +753,6 @@ mod tests {
             &conn,
             Path::new("/managed/m.ogg"),
             &tmp.0.join("Collection/u.ogg"),
-            Path::new("/x.ogg"),
         );
         let user = track(&conn, t.user);
         let user_root = tmp.0.join("Collection");
@@ -777,17 +776,5 @@ mod tests {
             organize_for_track(&conn, &user).unwrap(),
             Some((user_root, "{title}.{ext}".to_string()))
         );
-
-        // Other is never organized, and tag writes to it are allowed.
-        assert_eq!(
-            organize_for_track(&conn, &track(&conn, t.other)).unwrap(),
-            None
-        );
-        let loose = ogg::copy_minimal(&tmp.0, "x.ogg");
-        assert_eq!(
-            write_track_file(&loose, &edit(), None, false).unwrap(),
-            None
-        );
-        assert_eq!(title_on_disk(&loose).as_deref(), Some("New Title"));
     }
 }

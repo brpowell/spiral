@@ -14,7 +14,7 @@ pub const MEDIA_DIR_NAME: &str = "Tracks";
 pub const ARTWORK_DIR_NAME: &str = "Artwork";
 pub const DATABASE_FILE_NAME: &str = "Library.db";
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LibrarySettings {
     /// Root directory for the Spiral library (`Tracks/` + `Artwork/` + `Library.db`).
@@ -24,15 +24,10 @@ pub struct LibrarySettings {
     /// own. Read once by [`take_legacy_auto_organize`], then dropped.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auto_organize: Option<bool>,
-    #[serde(default = "default_import_mode")]
-    pub import_mode: String,
     // There is no user-wide path format: a source without its own uses
     // Spiral's built-in one. Old `organizePathFormat` and
-    // `trackFilenameFormat` keys in settings.json are ignored on read.
-}
-
-fn default_import_mode() -> String {
-    "ask".to_string()
+    // `trackFilenameFormat` keys in settings.json are ignored on read, as is
+    // `importMode`: every import copies into a source folder.
 }
 
 fn default_cd_metadata_fetch_mode() -> String {
@@ -156,16 +151,6 @@ impl Default for MusicBrainzSettings {
     fn default() -> Self {
         Self {
             confirm_external_links: default_confirm_musicbrainz_external_links(),
-        }
-    }
-}
-
-impl Default for LibrarySettings {
-    fn default() -> Self {
-        Self {
-            library_root: None,
-            auto_organize: None,
-            import_mode: default_import_mode(),
         }
     }
 }
@@ -437,7 +422,6 @@ pub struct LibrarySettingsResponse {
     pub media_folder: String,
     pub artwork_folder: String,
     pub database_path: String,
-    pub import_mode: String,
     /// The format a source without its own is organized with.
     pub default_organize_path_format: String,
     pub default_library_root: String,
@@ -594,7 +578,6 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
         media_folder,
         artwork_folder,
         database_path,
-        import_mode: stored.import_mode,
         default_organize_path_format: crate::library_organize::default_organize_path_format(),
         default_library_root: default_root.to_string_lossy().into_owned(),
         listening_history_enabled: listening_history.enabled,
@@ -613,8 +596,6 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
 pub struct LibrarySettingsPatch {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub library_root: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub import_mode: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub listening_history_enabled: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -644,11 +625,6 @@ pub fn merge_library_settings(
             settings.library.library_root = None;
         } else {
             settings.library.library_root = Some(library_root);
-        }
-    }
-    if let Some(import_mode) = patch.import_mode {
-        if !import_mode.is_empty() {
-            settings.library.import_mode = import_mode;
         }
     }
     if let Some(enabled) = patch.listening_history_enabled {
@@ -698,19 +674,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn old_path_format_settings_are_ignored_and_dropped() {
+    fn old_path_format_and_import_mode_settings_are_ignored_and_dropped() {
         let stored: LibrarySettings = serde_json::from_str(
-            r#"{"importMode":"copy","organizePathFormat":"{title}.{ext}","trackFilenameFormat":"{title}"}"#,
+            r#"{"importMode":"reference","organizePathFormat":"{title}.{ext}","trackFilenameFormat":"{title}"}"#,
         )
         .unwrap();
-        assert_eq!(stored.import_mode, "copy");
         let written = serde_json::to_value(&stored).unwrap();
+        assert!(written.get("importMode").is_none(), "{written}");
         assert!(written.get("organizePathFormat").is_none(), "{written}");
         assert!(written.get("trackFilenameFormat").is_none(), "{written}");
 
-        // A patch carrying the old key changes nothing.
+        // A patch carrying an old key changes nothing.
         let patch: LibrarySettingsPatch =
-            serde_json::from_str(r#"{"organizePathFormat":"{title}.{ext}"}"#).unwrap();
+            serde_json::from_str(r#"{"importMode":"copy","organizePathFormat":"{title}.{ext}"}"#)
+                .unwrap();
         assert!(serde_json::to_value(&patch)
             .unwrap()
             .as_object()

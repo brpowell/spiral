@@ -1,6 +1,6 @@
 //! File watchers for library sources: one recursive watcher per source
-//! folder (Other has none, and there may be no sources at all), so files added,
-//! changed, renamed or deleted there show up without a rescan.
+//! folder (there may be no sources at all), so files added, changed, renamed
+//! or deleted there show up without a rescan.
 //!
 //! Events are coalesced per source until the folder has been quiet for
 //! [`QUIET`], then that source's changed paths are reconciled off the event
@@ -298,8 +298,6 @@ pub fn sync(app: &AppHandle) {
         let wanted = match sources::list_sources(&conn) {
             Ok(list) => list
                 .into_iter()
-                // Other has no folder; every other source is watched.
-                .filter(|s| s.id != sources::OTHER_SOURCE_ID)
                 .filter_map(|s| Some((s.id, PathBuf::from(s.root_path?))))
                 .collect(),
             Err(err) => {

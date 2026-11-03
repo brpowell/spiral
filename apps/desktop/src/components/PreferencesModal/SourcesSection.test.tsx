@@ -50,15 +50,6 @@ const sources: Source[] = [
     createdAt: "2026-01-01T00:00:00Z",
   },
   {
-    id: 2,
-    rootPath: null,
-    name: "External",
-    autoOrganize: false,
-    pathFormat: null,
-    importTarget: false,
-    createdAt: "2026-01-01T00:00:00Z",
-  },
-  {
     id: 3,
     rootPath: "/Volumes/Big/Music",
     name: "Music",
@@ -82,7 +73,7 @@ const track = (id: number, sourceId: number, missingSince?: string) =>
 function item(name: string): HTMLElement {
   return screen
     .getByRole("button", { name: `Actions for ${name}` })
-    .closest("li, section") as HTMLElement;
+    .closest("li") as HTMLElement;
 }
 
 /** Opens a row's more menu and picks an item from it. */
@@ -167,7 +158,6 @@ describe("SourcesSection", () => {
       await within(tracks).findByText("~/Music/Spiral Library/Tracks"),
     ).toBeTruthy();
     expect(within(tracks).getByText(/^1 track/)).toBeTruthy();
-    expect(within(item("Other files")).getByText("0 tracks")).toBeTruthy();
 
     const music = item("Music");
     expect(within(music).getByText("/Volumes/Big/Music")).toBeTruthy();
@@ -183,22 +173,12 @@ describe("SourcesSection", () => {
     expect(within(item("Tracks")).queryByText("Offline")).toBeNull();
   });
 
-  it("shows Other apart from the folders", async () => {
-    await renderSection();
-    const list = screen.getAllByRole("list")[0];
-    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
-    expect(within(list).queryByText("Other files")).toBeNull();
-    expect(screen.getByRole("region", { name: "Other files" })).toBeTruthy();
-  });
-
   it("shows an empty state with ways to add a folder when there are none", async () => {
-    tauri.listSources.mockResolvedValue([sources[1]]);
+    tauri.listSources.mockResolvedValue([]);
     render(<SourcesSection />);
     expect(await screen.findByText("No music folders yet")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Add folder/ })).toBeTruthy();
     expect(screen.queryByRole("checkbox")).toBeNull();
-    // Other is still shown, and isn't counted as a folder.
-    expect(screen.getByRole("region", { name: "Other files" })).toBeTruthy();
 
     tauri.createManagedSource.mockResolvedValue(sources[0]);
     fireEvent.click(
@@ -232,11 +212,6 @@ describe("SourcesSection", () => {
       "Rescan",
       "Remove…",
     ]);
-  });
-
-  it("offers only Rescan for Other", async () => {
-    await renderSection();
-    expect(await menuItems("Other files")).toEqual(["Rescan"]);
   });
 
   it("rescans from the menu", async () => {
@@ -368,7 +343,7 @@ describe("SourcesSection", () => {
   it("makes a folder the default from its menu", async () => {
     tauri.getSourceStatuses.mockResolvedValue([]);
     tauri.setImportSource.mockResolvedValue({
-      ...sources[2],
+      ...sources[1],
       importTarget: true,
     });
     await renderSection();
@@ -433,7 +408,7 @@ describe("SourcesSection", () => {
   it("changes a folder's location on Save", async () => {
     tauri.pickMusicFolder.mockResolvedValue("/Volumes/New/Music");
     tauri.relocateSource.mockResolvedValue({
-      ...sources[2],
+      ...sources[1],
       rootPath: "/Volumes/New/Music",
     });
     await renderSection();
@@ -556,7 +531,7 @@ describe("SourcesSection", () => {
   it("turns organize on directly for a folder with no tracks", async () => {
     usePlayerStore.setState({ library: [track(1, 1)] });
     tauri.setSourceOrganize.mockResolvedValue({
-      ...sources[2],
+      ...sources[1],
       autoOrganize: true,
     });
     await renderSection();
@@ -592,7 +567,6 @@ describe("SourcesSection", () => {
     tauri.listSources.mockResolvedValue([
       { ...sources[0], pathFormat: "{title}.{ext}" },
       sources[1],
-      sources[2],
     ]);
     await renderSection();
     const edit = await openEdit("Tracks");
@@ -617,7 +591,7 @@ describe("SourcesSection", () => {
 
   it("saves a format for an unorganized folder without moving files", async () => {
     tauri.setSourcePathFormat.mockResolvedValue({
-      ...sources[2],
+      ...sources[1],
       pathFormat: "{title}.{ext}",
     });
     await renderSection();
@@ -649,7 +623,7 @@ describe("SourcesSection", () => {
   it("adds a picked folder", async () => {
     tauri.pickMusicFolder.mockResolvedValue("/Volumes/Big/Jazz");
     tauri.addSource.mockResolvedValue({
-      ...sources[2],
+      ...sources[1],
       id: 4,
       name: "Jazz",
       rootPath: "/Volumes/Big/Jazz",

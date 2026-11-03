@@ -391,7 +391,6 @@ export async function saveTrack(track: TrackInput): Promise<Track> {
 export async function replaceTrackFromImport(options: {
   trackId: number;
   sourcePath: string;
-  mode: "copy" | "reference";
   track: TrackInput;
 }): Promise<Track> {
   const row = await invoke<Record<string, unknown>>(
@@ -399,7 +398,6 @@ export async function replaceTrackFromImport(options: {
     {
       trackId: options.trackId,
       sourcePath: options.sourcePath,
-      mode: options.mode,
       track: options.track,
     },
   );
@@ -438,12 +436,7 @@ export async function getConvertProfileOptions(
  * folder; the `kept*` outcomes mean deleting it was refused.
  */
 export type RemovedFile =
-  | "notRequested"
-  | "trashed"
-  | "notFound"
-  | "keptInOther"
-  | "keptMissing"
-  | "keptShared";
+  "notRequested" | "trashed" | "notFound" | "keptMissing" | "keptShared";
 
 export async function removeTrack(
   trackId: number,
@@ -1540,17 +1533,15 @@ export async function saveLibrarySettings(
 }
 
 /**
- * Copy a file into a source (`sourceId`, else the import source), or with
- * `reference` leave it where it is. Returns the path to save.
+ * Copy a file into a source (`sourceId`, else the import source). A file
+ * already in a source folder stays where it is. Returns the path to save.
  */
 export async function prepareImportFile(
   sourcePath: string,
-  mode: "copy" | "reference",
   sourceId?: number | null,
 ): Promise<string> {
   return invoke<string>("prepare_import_file", {
     sourcePath,
-    mode,
     sourceId: sourceId ?? null,
   });
 }

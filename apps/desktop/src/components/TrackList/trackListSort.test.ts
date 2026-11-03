@@ -204,7 +204,7 @@ describe("nextSort", () => {
 });
 
 describe("compareTracks source", () => {
-  it("puts folders in the order added, then Other", () => {
+  it("puts folders in the order added", () => {
     const tracks = [
       track({ id: 1, sourceId: 2 }),
       track({ id: 2, sourceId: 4 }),
@@ -214,10 +214,10 @@ describe("compareTracks source", () => {
     const asc = [...tracks].sort((a, b) =>
       compareTracks(a, b, "source", "asc"),
     );
-    expect(asc.map((t) => t.sourceId)).toEqual([1, 3, 4, 2]);
+    expect(asc.map((t) => t.sourceId)).toEqual([1, 2, 3, 4]);
     const desc = [...tracks].sort((a, b) =>
       compareTracks(a, b, "source", "desc"),
     );
-    expect(desc.map((t) => t.sourceId)).toEqual([2, 4, 3, 1]);
+    expect(desc.map((t) => t.sourceId)).toEqual([4, 3, 2, 1]);
   });
 });

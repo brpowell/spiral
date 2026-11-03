@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useShortenHomePath } from "../../../lib/homePath";
-import { describeSourceError, isOtherSource } from "../../../lib/sourceAccess";
+import { describeSourceError } from "../../../lib/sourceAccess";
 import { addSource, pickMusicFolder, removeSource } from "../../../lib/tauri";
 import { useOnboardingStore } from "../../../store/useOnboardingStore";
 import { usePlayerStore } from "../../../store/usePlayerStore";
@@ -27,7 +27,6 @@ export function FoldersStep() {
   const [adding, setAdding] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const folders = sources.filter((source) => !isOtherSource(source));
 
   const add = async () => {
     if (adding) return;
@@ -65,12 +64,12 @@ export function FoldersStep() {
 
   return (
     <div className="onboarding-folders">
-      {folders.length > 0 ? (
+      {sources.length > 0 ? (
         <ul
           className="onboarding-folders__list"
           aria-label={t("onboarding.folders.listAria")}
         >
-          {folders.map((source) => (
+          {sources.map((source) => (
             <li key={source.id} className="onboarding-folders__item">
               <span className="onboarding-folders__icon" aria-hidden="true">
                 <IconOpenFolder width={20} height={20} />

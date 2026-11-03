@@ -5,7 +5,6 @@ import {
   type ImportChoice,
 } from "../../store/useLibrarySettingsStore";
 import { useSourcesStore } from "../../store/useSourcesStore";
-import type { LibrarySettings } from "../../types/library";
 import type { Source } from "../../types/source";
 import { ImportChoiceModal } from "./ImportChoiceModal";
 
@@ -36,7 +35,6 @@ const source = (patch: Partial<Source> & Pick<Source, "id" | "name">) =>
   }) as Source;
 
 const tracks = source({ id: 1, name: "Tracks", autoOrganize: true });
-const other = source({ id: 2, name: "External", rootPath: null });
 const music = source({ id: 3, name: "Music", importTarget: true });
 const archive = source({ id: 4, name: "Archive" });
 
@@ -51,116 +49,85 @@ function setSources(
   });
 }
 
-/** Opens the prompt the way an import does, and resolves with the user's choice. */
-function prompt(): Promise<ImportChoice> {
-  return useLibrarySettingsStore.getState().resolveImportMode();
+/** Asks where to copy the way an import does, resolving with the answer. */
+function destination(): Promise<ImportChoice> {
+  return useLibrarySettingsStore.getState().resolveImportDestination();
 }
 
 describe("ImportChoiceModal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    tauri.saveLibrarySettings.mockImplementation((patch) =>
-      Promise.resolve({ importMode: "ask", ...patch }),
-    );
     tauri.listSources.mockResolvedValue([]);
     tauri.getSourceStatuses.mockResolvedValue([]);
+    useLibrarySettingsStore.setState({ importPrompt: null });
+  });
+
+  it("copies into a reachable import target without asking", async () => {
     tauri.getImportSource.mockResolvedValue({
       source: music,
       copyAvailable: true,
     });
-    useLibrarySettingsStore.setState({
-      settings: { importMode: "ask" } as LibrarySettings,
-      importPrompt: null,
-    });
-  });
-
-  it("copies into the import target with no picker when it's the only folder", async () => {
-    setSources([{ ...tracks, importTarget: true }, other]);
+    setSources([tracks, music]);
     render(<ImportChoiceModal />);
-    const choice = prompt();
-    fireEvent.click(
-      await screen.findByRole("button", { name: /Add to Spiral/ }),
-    );
-    await expect(choice).resolves.toEqual({
-      mode: "copy",
-      sourceId: undefined,
-    });
-    expect(screen.queryByLabelText("Copy into")).toBeNull();
+    await expect(destination()).resolves.toEqual({});
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("offers a destination picker, starting at the import target", async () => {
-    setSources([tracks, other, music, archive]);
-    render(<ImportChoiceModal />);
-    const choice = prompt();
-    const picker = await screen.findByLabelText("Copy into");
-    expect(picker).toHaveValue("3");
-    const names = Array.from(
-      (picker as HTMLSelectElement).options,
-      (option) => option.textContent,
-    );
-    expect(names).toEqual(["Tracks", "Music", "Archive"]);
+  describe("when the import target can't take the copy", () => {
+    beforeEach(() => {
+      tauri.getImportSource.mockResolvedValue({
+        source: music,
+        copyAvailable: false,
+      });
+    });
 
-    fireEvent.change(picker, { target: { value: "4" } });
-    fireEvent.click(screen.getByRole("button", { name: /Add to Spiral/ }));
-    await expect(choice).resolves.toEqual({ mode: "copy", sourceId: 4 });
-    expect(tauri.setImportSource).not.toHaveBeenCalled();
+    it("picks another folder for this import only", async () => {
+      setSources([tracks, music, archive], { 3: "unreachable" });
+      render(<ImportChoiceModal />);
+      const choice = destination();
+      const picker = (await screen.findByLabelText(
+        "Copy into",
+      )) as HTMLSelectElement;
+      expect(picker).toHaveValue("1");
+      expect(
+        Array.from(picker.options, (option) => [
+          option.textContent,
+          option.disabled,
+        ]),
+      ).toEqual([
+        ["Tracks", false],
+        ["Music (offline)", true],
+        ["Archive", false],
+      ]);
+      expect(screen.getByText(/default folder isn't connected/)).toBeTruthy();
+
+      fireEvent.change(picker, { target: { value: "4" } });
+      fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+      await expect(choice).resolves.toEqual({ sourceId: 4 });
+      expect(tauri.setImportSource).not.toHaveBeenCalled();
+    });
+
+    it("cancels the import", async () => {
+      setSources([tracks, music], { 3: "unreachable" });
+      render(<ImportChoiceModal />);
+      const choice = destination();
+      fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+      await expect(choice).rejects.toThrow("Import cancelled");
+    });
+
+    it("with every folder offline, offers only adding one", async () => {
+      setSources([music], { 3: "unreachable" });
+      render(<ImportChoiceModal />);
+      void destination();
+      expect(
+        await screen.findByText(/music folders aren't connected/),
+      ).toBeTruthy();
+      expect(screen.queryByLabelText("Copy into")).toBeNull();
+      expect(screen.getByRole("button", { name: "Copy" })).toBeDisabled();
+    });
   });
 
-  it("keeps files where they are in Other, whatever the picker says", async () => {
-    setSources([tracks, other, music]);
-    render(<ImportChoiceModal />);
-    const choice = prompt();
-    fireEvent.change(await screen.findByLabelText("Copy into"), {
-      target: { value: "1" },
-    });
-    fireEvent.click(
-      screen.getByRole("button", { name: /Keep files where they are/ }),
-    );
-    await expect(choice).resolves.toEqual({
-      mode: "reference",
-      sourceId: undefined,
-    });
-  });
-
-  it("disables an offline destination", async () => {
-    setSources([tracks, other, music, archive], { 4: "unreachable" });
-    render(<ImportChoiceModal />);
-    void prompt();
-    const picker = (await screen.findByLabelText(
-      "Copy into",
-    )) as HTMLSelectElement;
-    const archiveOption = Array.from(picker.options).find(
-      (option) => option.value === "4",
-    )!;
-    expect(archiveOption.textContent).toBe("Archive (offline)");
-    expect(archiveOption.disabled).toBe(true);
-  });
-
-  it("remembering a copy into another source makes it the import target", async () => {
-    tauri.setImportSource.mockResolvedValue({ ...archive, importTarget: true });
-    setSources([tracks, other, music, archive]);
-    render(<ImportChoiceModal />);
-    const choice = prompt();
-    fireEvent.change(await screen.findByLabelText("Copy into"), {
-      target: { value: "4" },
-    });
-    fireEvent.click(screen.getByRole("checkbox", { name: "Don't ask again" }));
-    fireEvent.click(screen.getByRole("button", { name: /Add to Spiral/ }));
-    await expect(choice).resolves.toEqual({ mode: "copy", sourceId: 4 });
-    expect(tauri.saveLibrarySettings).toHaveBeenCalledWith({
-      importMode: "copy",
-    });
-    await waitFor(() => expect(tauri.setImportSource).toHaveBeenCalledWith(4));
-  });
-
-  it("skips the prompt when Preferences says always copy", async () => {
-    useLibrarySettingsStore.setState({
-      settings: { importMode: "copy" } as LibrarySettings,
-    });
-    await expect(prompt()).resolves.toEqual({ mode: "copy" });
-  });
-
-  describe("with no folder to copy into", () => {
+  describe("with no import target", () => {
     beforeEach(() => {
       tauri.getImportSource.mockResolvedValue({
         source: null,
@@ -168,84 +135,44 @@ describe("ImportChoiceModal", () => {
       });
     });
 
-    it("disables copying, says how to enable it, and starts on keeping files", async () => {
-      setSources([other]);
+    it("makes the folder picked the import target", async () => {
+      tauri.setImportSource.mockResolvedValue({
+        ...archive,
+        importTarget: true,
+      });
+      setSources([tracks, archive]);
       render(<ImportChoiceModal />);
-      void prompt();
-
-      expect(await screen.findByText(/No music folders yet/)).toBeTruthy();
-      expect(
-        screen.getByRole("button", { name: /Add to Spiral/ }),
-      ).toBeDisabled();
-      expect(screen.queryByLabelText("Copy into")).toBeNull();
-      expect(screen.queryByRole("alert")).toBeNull();
-      await waitFor(() =>
-        expect(
-          screen.getByRole("button", { name: /Keep files where they are/ }),
-        ).toHaveFocus(),
-      );
+      const choice = destination();
+      const picker = await screen.findByLabelText("Copy into");
+      expect(screen.getByText(/becomes your default folder/)).toBeTruthy();
+      fireEvent.change(picker, { target: { value: "4" } });
+      fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+      await expect(choice).resolves.toEqual({ sourceId: 4 });
+      expect(tauri.setImportSource).toHaveBeenCalledWith(4);
     });
 
-    it("adds a folder from the dialog and makes it the import target", async () => {
+    it("with no folders, adds one and copies into it", async () => {
       const added = source({ id: 5, name: "Rips" });
       const target = { ...added, importTarget: true };
       tauri.pickMusicFolder.mockResolvedValue("/Music/Rips");
       tauri.addSource.mockResolvedValue(added);
       tauri.setImportSource.mockResolvedValue(target);
-      tauri.listSources.mockResolvedValue([other, target]);
-      setSources([other]);
+      tauri.listSources.mockResolvedValue([target]);
+      setSources([]);
       render(<ImportChoiceModal />);
-      const choice = prompt();
-      const addFolder = await screen.findByRole("button", {
-        name: /Add a folder/,
-      });
+      const choice = destination();
 
-      tauri.getImportSource.mockResolvedValue({
-        source: target,
-        copyAvailable: true,
-      });
-      fireEvent.click(addFolder);
-      await waitFor(() =>
-        expect(
-          screen.getByRole("button", { name: /Add to Spiral/ }),
-        ).not.toBeDisabled(),
-      );
+      expect(await screen.findByText(/No music folders yet/)).toBeTruthy();
+      const copy = screen.getByRole("button", { name: "Copy" });
+      expect(copy).toBeDisabled();
+      fireEvent.click(screen.getByRole("button", { name: /Add a folder/ }));
+      await waitFor(() => expect(copy).not.toBeDisabled());
       expect(tauri.addSource).toHaveBeenCalledWith("/Music/Rips");
       expect(tauri.setImportSource).toHaveBeenCalledWith(5);
+      expect(screen.getByLabelText("Copy into")).toHaveValue("5");
 
-      fireEvent.click(screen.getByRole("button", { name: /Add to Spiral/ }));
-      await expect(choice).resolves.toEqual({
-        mode: "copy",
-        sourceId: undefined,
-      });
-    });
-
-    it("lets a copy go into a folder picked below when none is the target", async () => {
-      setSources([other, archive]);
-      render(<ImportChoiceModal />);
-      const choice = prompt();
-      const picker = await screen.findByLabelText("Copy into");
-      expect(picker).toHaveValue("4");
-      fireEvent.click(screen.getByRole("button", { name: /Add to Spiral/ }));
-      await expect(choice).resolves.toEqual({ mode: "copy", sourceId: 4 });
-    });
-
-    it("asks instead of copying when Preferences says always copy", async () => {
-      setSources([other]);
-      useLibrarySettingsStore.setState({
-        settings: { importMode: "copy" } as LibrarySettings,
-      });
-      render(<ImportChoiceModal />);
-      const choice = prompt();
-      fireEvent.click(
-        await screen.findByRole("button", {
-          name: /Keep files where they are/,
-        }),
-      );
-      await expect(choice).resolves.toEqual({
-        mode: "reference",
-        sourceId: undefined,
-      });
+      fireEvent.click(copy);
+      await expect(choice).resolves.toEqual({ sourceId: 5 });
     });
   });
 });

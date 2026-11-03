@@ -4,10 +4,8 @@
 //! source's root, so moving a folder (or the whole Spiral folder) is a single
 //! root update. Sources are the folders the user chose, each with its own
 //! `auto_organize` flag and optional `path_format` (NULL inherits the global
-//! format). There may be none at all. One row is built in:
-//! - Other ([`OTHER_SOURCE_ID`]) has no root. It holds loose files referenced
-//!   one at a time, by absolute path, and is never organized. It is a bucket,
-//!   not a folder the user chose, and can't be removed.
+//! format). There may be none at all. A file outside every source's folder
+//! is not in the library; importing one copies it into the import target.
 //!
 //! A source may sit inside the Spiral folder (onboarding's `Tracks`, see
 //! [`create_managed_source`]). Its root is then stored relative to the Spiral
@@ -23,16 +21,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-pub const OTHER_SOURCE_ID: i64 = 2;
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Source {
     pub id: i64,
     pub name: String,
     /// The folder the source's files live in, as an absolute path. `None` for
-    /// Other, and for a source inside the Spiral folder when the Spiral folder
-    /// isn't known (in-memory test databases).
+    /// a source inside the Spiral folder when the Spiral folder isn't known
+    /// (in-memory test databases).
     pub root_path: Option<String>,
     pub auto_organize: bool,
     /// Path format for organizing this source; `None` inherits the global one.
@@ -203,8 +199,8 @@ impl SourceRoots {
         Ok(Self { roots, spiral })
     }
 
-    /// The source's root folder. `None` for Other, and for a source inside the
-    /// Spiral folder when the Spiral folder isn't known.
+    /// The source's root folder. `None` for a source inside the Spiral folder
+    /// when the Spiral folder isn't known.
     pub fn root(&self, source_id: i64) -> Option<&Path> {
         self.roots.get(&source_id).map(PathBuf::as_path)
     }
@@ -220,52 +216,47 @@ impl SourceRoots {
         all
     }
 
-    /// The absolute path of a track stored as `rel_path` in `source_id`. An
-    /// absolute `rel_path` (Other's tracks) is returned as it is.
+    /// The absolute path of a track stored as `rel_path` in `source_id`. When
+    /// the root isn't known, `rel_path` is returned as it is.
     pub fn resolve(&self, source_id: i64, rel_path: &str) -> String {
         match self.root(source_id) {
-            Some(root) if !Path::new(rel_path).is_absolute() => {
-                join_rel_path(root, rel_path).to_string_lossy().into_owned()
-            }
-            _ => rel_path.to_string(),
+            Some(root) => join_rel_path(root, rel_path).to_string_lossy().into_owned(),
+            None => rel_path.to_string(),
         }
     }
 
     /// What to store as `rel_path` for the file at `path` in `source_id`:
-    /// relative to the source's root, or absolute for Other (and for a source
-    /// whose root isn't known). Fails when the file is not inside the root.
+    /// relative to the source's root. Fails when the file is not inside the
+    /// root, or the root isn't known.
     pub fn relative_path(&self, source_id: i64, path: &Path) -> Result<String, String> {
-        match self.root(source_id) {
-            Some(root) => relative_to(path, root).ok_or_else(|| {
-                format!(
-                    "{} is not inside the source folder {}",
-                    path.display(),
-                    root.display()
-                )
-            }),
-            None => Ok(path.to_string_lossy().into_owned()),
-        }
+        let root = self
+            .root(source_id)
+            .ok_or_else(|| format!("{NO_SOURCE}: source {source_id} has no folder"))?;
+        relative_to(path, root).ok_or_else(|| {
+            format!(
+                "{} is not inside the source folder {}",
+                path.display(),
+                root.display()
+            )
+        })
     }
 
     /// Where to store a file at `path`: in `preferred` if it is inside that
     /// source's folder, else in the source with the deepest root containing
-    /// it, else in Other by absolute path. The Spiral folder's data never
+    /// it. `None` when no source holds it; the Spiral folder's data never
     /// belongs to a source.
-    pub fn locate(&self, path: &Path, preferred: i64) -> (i64, String) {
-        let other = || (OTHER_SOURCE_ID, path.to_string_lossy().into_owned());
+    pub fn locate(&self, path: &Path, preferred: i64) -> Option<(i64, String)> {
         if self
             .spiral
             .as_deref()
             .is_some_and(|folder| is_spiral_data(path, folder))
         {
-            return other();
+            return None;
         }
-        if let Ok(rel) = self.relative_path(preferred, path) {
-            if preferred != OTHER_SOURCE_ID || self.deepest(path).is_none() {
-                return (preferred, rel);
-            }
+        match self.relative_path(preferred, path) {
+            Ok(rel) => Some((preferred, rel)),
+            Err(_) => self.deepest(path),
         }
-        self.deepest(path).unwrap_or_else(other)
     }
 
     fn deepest(&self, path: &Path) -> Option<(i64, String)> {
@@ -279,15 +270,12 @@ impl SourceRoots {
     }
 
     /// Every `(source_id, rel_path)` a track at `path` could be stored as:
-    /// relative to each source root containing it, and absolute (Other).
+    /// relative to each source root containing it.
     pub fn candidates(&self, path: &Path) -> Vec<(i64, String)> {
-        let mut out: Vec<(i64, String)> = self
-            .roots
+        self.roots
             .iter()
             .filter_map(|(id, root)| relative_to(path, root).map(|rel| (*id, rel)))
-            .collect();
-        out.push((OTHER_SOURCE_ID, path.to_string_lossy().into_owned()));
-        out
+            .collect()
     }
 }
 
@@ -350,7 +338,7 @@ pub fn stored_roots(conn: &Connection) -> Result<Vec<(i64, String)>, rusqlite::E
     Ok(rows)
 }
 
-/// Every source's absolute root (every source but Other), by id.
+/// Every source's absolute root, by id.
 pub fn source_roots(conn: &Connection) -> Result<Vec<(i64, PathBuf)>, rusqlite::Error> {
     Ok(SourceRoots::load(conn)?.all())
 }
@@ -386,61 +374,44 @@ impl<'a> Resolver<'a> {
         })
     }
 
-    fn source_for(&self, path: &Path) -> i64 {
+    fn source_for(&self, path: &Path) -> Option<i64> {
         if is_spiral_data(path, &self.roots.library_root) {
-            return OTHER_SOURCE_ID;
+            return None;
         }
         self.sources
             .iter()
             .filter(|(_, root)| is_within(path, root))
             .max_by_key(|(_, root)| root.components().count())
-            .map_or(OTHER_SOURCE_ID, |(id, _)| *id)
+            .map(|(id, _)| *id)
     }
 }
 
-/// The source a file at `path` belongs to: the deepest source containing it,
-/// else Other. The Spiral folder's data (artwork, packs) is always Other.
+/// The source a file at `path` belongs to: the deepest source containing it.
+/// `None` when no source holds it; the Spiral folder's data (artwork, packs)
+/// never belongs to one.
 pub fn source_for_path(
     conn: &Connection,
     roots: &LibraryRoots,
     path: &Path,
-) -> Result<i64, rusqlite::Error> {
+) -> Result<Option<i64>, rusqlite::Error> {
     Ok(Resolver::new(conn, roots)?.source_for(path))
 }
 
-/// Move Other's tracks whose files fall under a source into it, storing their
-/// paths relative to its root. Run when the database opens and when a source
-/// is added; a no-op once they are assigned. Returns how many moved.
-pub fn assign_other_tracks(
+/// Like [`source_for_path`], failing with [`NO_SOURCE`] when no source holds
+/// the file.
+pub fn require_source_for_path(
     conn: &Connection,
     roots: &LibraryRoots,
-) -> Result<usize, rusqlite::Error> {
-    let resolver = Resolver::new(conn, roots)?;
-    let source_roots = SourceRoots::load(conn)?;
-    let tracks: Vec<(i64, String)> = conn
-        .prepare("SELECT id, rel_path FROM tracks WHERE source_id = ?1")?
-        .query_map(params![OTHER_SOURCE_ID], |row| {
-            Ok((row.get(0)?, row.get(1)?))
-        })?
-        .collect::<Result<_, _>>()?;
-
-    let mut moved = 0;
-    for (id, file_path) in tracks {
-        let path = Path::new(&file_path);
-        let source_id = resolver.source_for(path);
-        if source_id == OTHER_SOURCE_ID {
-            continue;
-        }
-        let Ok(rel_path) = source_roots.relative_path(source_id, path) else {
-            continue;
-        };
-        conn.execute(
-            "UPDATE tracks SET source_id = ?1, rel_path = ?2 WHERE id = ?3",
-            params![source_id, rel_path, id],
-        )?;
-        moved += 1;
-    }
-    Ok(moved)
+    path: &Path,
+) -> Result<i64, String> {
+    source_for_path(conn, roots, path)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| {
+            format!(
+                "{NO_SOURCE}: {} is not inside a source folder",
+                path.display()
+            )
+        })
 }
 
 /// Error prefixes, so the UI can explain them. The first three come from
@@ -449,8 +420,8 @@ pub const SOURCE_NOT_FOLDER: &str = "source_not_folder";
 /// The folder is the Spiral folder, or its database, artwork or packs.
 pub const SOURCE_SPIRAL_DATA: &str = "source_spiral_data";
 pub const SOURCE_OVERLAP: &str = "source_overlap";
-/// There is no source to copy a file into: no import target is set (for an
-/// import, or a replace or convert of one of Other's tracks).
+/// There is no source for a file: no import target is set to copy an import
+/// into, or a file to add is outside every source's folder.
 pub const NO_SOURCE: &str = "no_source";
 /// The source's folder isn't reachable (an unplugged drive), so nothing is
 /// written to it.
@@ -510,8 +481,8 @@ fn get_source_or_err(conn: &Connection, id: i64) -> Result<Source, String> {
         .ok_or_else(|| not_found(id))
 }
 
-/// Add a folder as a source, with organize off. Other's tracks already under
-/// it move to the new source. `name` defaults to the folder name.
+/// Add a folder as a source, with organize off. `name` defaults to the folder
+/// name.
 pub fn add_source(
     conn: &Connection,
     roots: &LibraryRoots,
@@ -528,16 +499,12 @@ pub fn add_source(
         .unwrap_or_else(|| root.to_string_lossy().into_owned());
 
     let stored = stored_root(conn, &root)?;
-    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
-    tx.execute(
+    conn.execute(
         "INSERT INTO sources (name, root_path, created_at) VALUES (?1, ?2, ?3)",
         params![name, stored, Utc::now().to_rfc3339()],
     )
     .map_err(|e| e.to_string())?;
-    let id = tx.last_insert_rowid();
-    assign_other_tracks(&tx, roots).map_err(|e| e.to_string())?;
-    tx.commit().map_err(|e| e.to_string())?;
-    get_source_or_err(conn, id)
+    get_source_or_err(conn, conn.last_insert_rowid())
 }
 
 /// The source whose folder is the Spiral folder's `Tracks`, if any.
@@ -572,14 +539,11 @@ pub fn create_managed_source(conn: &Connection, roots: &LibraryRoots) -> Result<
 }
 
 /// Remove a source and its tracks' rows (with their play history, playlist
-/// entries and lyrics). The files stay where they are. Any source but Other
-/// can be removed. If it was the import target, the source with the lowest id
+/// entries and lyrics). The files stay where they are. If it was the import
+/// target, the source with the lowest id
 /// whose folder is reachable becomes the target, or none does. Returns how
 /// many track rows were removed.
 pub fn remove_source(conn: &Connection, id: i64) -> Result<usize, String> {
-    if id == OTHER_SOURCE_ID {
-        return Err("Other can't be removed".to_string());
-    }
     let source = get_source_or_err(conn, id)?;
     let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
     let removed = tx
@@ -613,7 +577,6 @@ pub fn set_source_root(
     id: i64,
     new_root: &str,
 ) -> Result<Source, String> {
-    refuse_other(id, "be moved")?;
     get_source_or_err(conn, id)?;
     let new_root = PathBuf::from(new_root.trim());
     validate_source_root(conn, roots, &new_root, Some(id))?;
@@ -623,13 +586,6 @@ pub fn set_source_root(
     )
     .map_err(|e| e.to_string())?;
     get_source_or_err(conn, id)
-}
-
-fn refuse_other(id: i64, what: &str) -> Result<(), String> {
-    if id == OTHER_SOURCE_ID {
-        return Err(format!("Other has no folder, so it can't {what}"));
-    }
-    Ok(())
 }
 
 fn update_source(
@@ -654,7 +610,6 @@ pub fn set_source_organize(
     id: i64,
     auto_organize: bool,
 ) -> Result<Source, String> {
-    refuse_other(id, "be organized")?;
     update_source(
         conn,
         id,
@@ -669,7 +624,6 @@ pub fn set_source_path_format(
     id: i64,
     path_format: Option<String>,
 ) -> Result<Source, String> {
-    refuse_other(id, "have a path format")?;
     let path_format = path_format
         .map(|f| f.trim().to_string())
         .filter(|f| !f.is_empty());
@@ -683,7 +637,6 @@ pub fn set_source_path_format(
 
 /// Make `id` the source new imports are copied into.
 pub fn set_import_source(conn: &Connection, id: i64) -> Result<Source, String> {
-    refuse_other(id, "receive imports")?;
     get_source_or_err(conn, id)?;
     let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
     tx.execute(
@@ -717,7 +670,7 @@ pub struct ImportTarget {
     /// The import target, if one is set.
     pub source: Option<Source>,
     /// True when a copy import can run now: the target is set and its folder
-    /// is reachable. "Keep files where they are" imports work regardless.
+    /// is reachable.
     pub copy_available: bool,
 }
 
@@ -738,16 +691,13 @@ pub fn import_target(conn: &Connection) -> Result<ImportTarget, rusqlite::Error>
 
 /// The path format a source's files are organized with: its own, else
 /// Spiral's built-in [`library_organize::default_organize_path_format`]
-/// (there is no user-wide default). `None` when organizing is off for it
-/// (always for Other). Import, replace, convert and tag edits use this, as
-/// does the organize planner.
+/// (there is no user-wide default). `None` when organizing is off for it.
+/// Import, replace, convert and tag edits use this, as does the organize
+/// planner.
 pub fn organize_settings(
     conn: &Connection,
     source_id: i64,
 ) -> Result<Option<String>, rusqlite::Error> {
-    if source_id == OTHER_SOURCE_ID {
-        return Ok(None);
-    }
     let row: Option<(bool, Option<String>)> = conn
         .query_row(
             "SELECT auto_organize, path_format FROM sources WHERE id = ?1",
@@ -774,18 +724,10 @@ pub struct WriteTarget {
     pub path_format: Option<String>,
 }
 
-/// Where a new file for `source_id` goes. Other has no folder, so its files
-/// go to the import source instead, and fail with [`NO_SOURCE`] when there is
-/// none. Fails with [`SOURCE_UNAVAILABLE`] when the folder isn't reachable,
-/// so nothing is written to (or created on) a drive that isn't there.
+/// Where a new file for `source_id` goes. Fails with [`SOURCE_UNAVAILABLE`]
+/// when the folder isn't reachable, so nothing is written to (or created on)
+/// a drive that isn't there.
 pub fn write_target(conn: &Connection, source_id: i64) -> Result<WriteTarget, String> {
-    let source_id = if source_id == OTHER_SOURCE_ID {
-        import_source_id(conn)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| format!("{NO_SOURCE}: there is no source folder to copy files into"))?
-    } else {
-        source_id
-    };
     let roots = SourceRoots::load(conn).map_err(|e| e.to_string())?;
     let root = roots
         .root(source_id)
@@ -904,15 +846,10 @@ mod tests {
     }
 
     #[test]
-    fn a_new_library_has_no_sources_but_other() {
+    fn a_new_library_has_no_sources() {
         let tmp = TempDir::new("seed");
         let (conn, _) = library(&tmp);
-        let sources = list_sources(&conn).unwrap();
-        assert_eq!(sources.len(), 1);
-        let other = &sources[0];
-        assert_eq!(other.id, OTHER_SOURCE_ID);
-        assert!(!other.auto_organize && !other.import_target);
-        assert_eq!(other.root_path, None);
+        assert!(list_sources(&conn).unwrap().is_empty());
         assert_eq!(import_source_id(&conn).unwrap(), None);
         assert_eq!(
             import_target(&conn).unwrap(),
@@ -924,18 +861,9 @@ mod tests {
     }
 
     #[test]
-    fn schema_protects_other_only() {
+    fn schema_keeps_roots_unique_and_set() {
         let conn = mem_conn();
-        assert!(conn
-            .execute(
-                "DELETE FROM sources WHERE id = ?1",
-                params![OTHER_SOURCE_ID]
-            )
-            .is_err());
-        assert!(conn
-            .execute("UPDATE sources SET root_path = '/x' WHERE id = 2", [])
-            .is_err());
-        // Only Other goes without a root.
+        // Every source has a root.
         assert!(conn
             .execute(
                 "INSERT INTO sources (name, created_at) VALUES ('x', 'now')",
@@ -957,18 +885,12 @@ mod tests {
         assert!(conn
             .execute("UPDATE sources SET id = 99 WHERE id = ?1", params![id])
             .is_err());
-        // Roots are unique, and Other is never organized or imported into.
+        // Roots are unique.
         assert!(conn
             .execute(
                 "INSERT INTO sources (name, root_path, created_at) VALUES ('b', '/a', 'now')",
                 [],
             )
-            .is_err());
-        assert!(conn
-            .execute("UPDATE sources SET auto_organize = 1 WHERE id = 2", [])
-            .is_err());
-        assert!(conn
-            .execute("UPDATE sources SET import_target = 1 WHERE id = 2", [])
             .is_err());
         // At most one import target.
         conn.execute(
@@ -983,9 +905,8 @@ mod tests {
                 params![id]
             )
             .is_err());
-        // Any source with a root can go, the import target included.
-        conn.execute("DELETE FROM sources WHERE root_path IS NOT NULL", [])
-            .unwrap();
+        // Any source can go, the import target included.
+        conn.execute("DELETE FROM sources", []).unwrap();
     }
 
     #[test]
@@ -1008,7 +929,6 @@ mod tests {
         .unwrap();
         let source = conn.last_insert_rowid();
         insert_track(&conn, "a.mp3", source);
-        insert_track(&conn, "/x/a.mp3", OTHER_SOURCE_ID);
         let duplicate = conn.execute(
             "INSERT INTO tracks (title, rel_path, date_added, source_id) VALUES ('S', 'a.mp3', 'now', ?1)",
             params![source],
@@ -1026,7 +946,6 @@ mod tests {
         let resolver = SourceRoots::load(&conn).unwrap();
 
         assert_eq!(resolver.root(tracks), Some(media.as_path()));
-        assert_eq!(resolver.root(OTHER_SOURCE_ID), None);
         assert_eq!(
             resolver.resolve(tracks, "Artist/Album/a.mp3"),
             s(&media.join("Artist").join("Album").join("a.mp3"))
@@ -1035,7 +954,6 @@ mod tests {
             resolver.resolve(rock.id, "b.flac"),
             s(&tmp.0.join("Collection/Rock/b.flac"))
         );
-        assert_eq!(resolver.resolve(OTHER_SOURCE_ID, "/x/c.wav"), "/x/c.wav");
 
         // And back, with `/` separators whatever the platform.
         let file = media.join("Artist").join("a.mp3");
@@ -1043,28 +961,23 @@ mod tests {
             resolver.relative_path(tracks, &file).unwrap(),
             "Artist/a.mp3"
         );
-        assert_eq!(
-            resolver.relative_path(OTHER_SOURCE_ID, &file).unwrap(),
-            s(&file)
-        );
         assert!(resolver.relative_path(rock.id, &file).is_err());
         assert!(resolver.relative_path(tracks, &media).is_err());
 
         // `locate` keeps a preferred source that contains the file, else finds one.
         let rock_file = tmp.0.join("Collection/Rock/d.mp3");
         assert_eq!(
+            resolver.locate(&rock_file, rock.id),
+            Some((rock.id, "d.mp3".to_string()))
+        );
+        assert_eq!(
             resolver.locate(&rock_file, tracks),
-            (rock.id, "d.mp3".to_string())
+            Some((rock.id, "d.mp3".to_string()))
         );
-        assert_eq!(
-            resolver.locate(&rock_file, OTHER_SOURCE_ID),
-            (rock.id, "d.mp3".to_string())
-        );
+        // A file outside every source has no place in the library.
         let loose = tmp.0.join("Downloads/e.mp3");
-        assert_eq!(
-            resolver.locate(&loose, rock.id),
-            (OTHER_SOURCE_ID, s(&loose))
-        );
+        assert_eq!(resolver.locate(&loose, rock.id), None);
+        assert!(resolver.candidates(&loose).is_empty());
     }
 
     #[test]
@@ -1082,18 +995,15 @@ mod tests {
         let music_id = conn.last_insert_rowid();
         let resolver = SourceRoots::load(&conn).unwrap();
         let pack_sound = roots.library_root.join("Packs/sounds/click.wav");
+        assert_eq!(resolver.locate(&pack_sound, music_id), None);
         assert_eq!(
-            resolver.locate(&pack_sound, music_id),
-            (OTHER_SOURCE_ID, s(&pack_sound))
-        );
-        assert_eq!(
-            resolver.locate(&music.join("a.mp3"), OTHER_SOURCE_ID),
-            (music_id, "a.mp3".to_string())
+            resolver.locate(&music.join("a.mp3"), music_id),
+            Some((music_id, "a.mp3".to_string()))
         );
     }
 
     #[test]
-    fn without_a_spiral_folder_relative_roots_are_unknown_and_paths_stay_absolute() {
+    fn without_a_spiral_folder_relative_roots_are_unknown() {
         let conn = mem_conn();
         conn.execute(
             "INSERT INTO sources (name, root_path, created_at) VALUES ('Tracks', 'Tracks', 'now')",
@@ -1103,13 +1013,11 @@ mod tests {
         let id = conn.last_insert_rowid();
         let resolver = SourceRoots::load(&conn).unwrap();
         assert_eq!(resolver.root(id), None);
-        assert_eq!(
-            resolver
-                .relative_path(id, Path::new("/music/a.mp3"))
-                .unwrap(),
-            "/music/a.mp3"
-        );
-        assert_eq!(resolver.resolve(id, "/music/a.mp3"), "/music/a.mp3");
+        assert!(resolver
+            .relative_path(id, Path::new("/music/a.mp3"))
+            .unwrap_err()
+            .starts_with(NO_SOURCE));
+        assert_eq!(resolver.resolve(id, "a.mp3"), "a.mp3");
         assert_eq!(get_source(&conn, id).unwrap().unwrap().root_path, None);
     }
 
@@ -1143,7 +1051,6 @@ mod tests {
         let track = crate::db::get_track_by_id(&conn, id).unwrap().unwrap();
         assert_eq!(track.file_path, s(&new_root.join("Artist").join("a.mp3")));
 
-        assert!(set_source_root(&conn, &roots, OTHER_SOURCE_ID, &s(&new_root)).is_err());
         let artwork = s(&tmp.dir("Music/Spiral Library/Artwork"));
         assert!(set_source_root(&conn, &roots, rock.id, &artwork)
             .unwrap_err()
@@ -1175,7 +1082,7 @@ mod tests {
         assert_eq!(a.path_format, None);
         assert_ne!(a.id, b.id);
         assert_ne!(b.id, c.id);
-        assert_eq!(list_sources(&conn).unwrap().len(), 4);
+        assert_eq!(list_sources(&conn).unwrap().len(), 3);
     }
 
     #[test]
@@ -1190,7 +1097,7 @@ mod tests {
         for result in [equal, inside, containing] {
             assert!(result.unwrap_err().starts_with(SOURCE_OVERLAP));
         }
-        assert_eq!(list_sources(&conn).unwrap().len(), 2);
+        assert_eq!(list_sources(&conn).unwrap().len(), 1);
     }
 
     #[test]
@@ -1213,7 +1120,7 @@ mod tests {
         }
         // The database is a file, never a folder.
         assert!(add(&conn, &roots, &roots.library_root.join("Library.db")).is_err());
-        assert_eq!(list_sources(&conn).unwrap().len(), 1);
+        assert_eq!(list_sources(&conn).unwrap().len(), 0);
     }
 
     #[test]
@@ -1270,17 +1177,14 @@ mod tests {
         .unwrap();
         let music = conn.last_insert_rowid();
         let resolve = |p: PathBuf| source_for_path(&conn, &roots, &p).unwrap();
-        assert_eq!(resolve(tracks_folder(&roots).join("A/a.mp3")), tracks);
+        assert_eq!(resolve(tracks_folder(&roots).join("A/a.mp3")), Some(tracks));
         assert_eq!(
             resolve(roots.library_root.join("Packs/sounds/click.wav")),
-            OTHER_SOURCE_ID
+            None
         );
-        assert_eq!(
-            resolve(roots.library_root.join("Artwork/a.mp3")),
-            OTHER_SOURCE_ID
-        );
-        assert_eq!(resolve(roots.library_root.join("b.mp3")), music);
-        assert_eq!(resolve(tmp.0.join("Music/SomeArtist/c.mp3")), music);
+        assert_eq!(resolve(roots.library_root.join("Artwork/a.mp3")), None);
+        assert_eq!(resolve(roots.library_root.join("b.mp3")), Some(music));
+        assert_eq!(resolve(tmp.0.join("Music/SomeArtist/c.mp3")), Some(music));
         assert!(is_spiral_data(
             &roots.library_root.join("Library.db"),
             &roots.library_root
@@ -1324,7 +1228,7 @@ mod tests {
     }
 
     #[test]
-    fn source_for_path_prefers_the_deepest_source_then_other() {
+    fn source_for_path_prefers_the_deepest_source() {
         let tmp = TempDir::new("resolve");
         let (conn, roots) = library(&tmp);
         let rock = add(&conn, &roots, &tmp.dir("Collection/Rock")).unwrap();
@@ -1341,47 +1245,19 @@ mod tests {
         let tracks = create_managed_source(&conn, &roots).unwrap().id;
 
         let resolve = |p: PathBuf| source_for_path(&conn, &roots, &p).unwrap();
-        assert_eq!(resolve(tmp.0.join("Collection/Rock/a.mp3")), rock.id);
-        assert_eq!(resolve(live.join("b.mp3")), live_id);
-        assert_eq!(resolve(tracks_folder(&roots).join("A/B/c.mp3")), tracks);
-        assert_eq!(resolve(roots.library_root.join("d.mp3")), OTHER_SOURCE_ID);
+        assert_eq!(resolve(tmp.0.join("Collection/Rock/a.mp3")), Some(rock.id));
+        assert_eq!(resolve(live.join("b.mp3")), Some(live_id));
         assert_eq!(
-            resolve(tmp.0.join("Collection/RockAndRoll/e.mp3")),
-            OTHER_SOURCE_ID
+            resolve(tracks_folder(&roots).join("A/B/c.mp3")),
+            Some(tracks)
         );
-        assert_eq!(resolve(tmp.0.join("Downloads/f.mp3")), OTHER_SOURCE_ID);
-    }
-
-    #[test]
-    fn assign_other_tracks_backfills_sources() {
-        let tmp = TempDir::new("backfill");
-        let (conn, roots) = library(&tmp);
-        let tracks = create_managed_source(&conn, &roots).unwrap().id;
-        let in_tracks = tracks_folder(&roots).join("A/a.mp3");
-        let default_track = insert_track(&conn, &s(&in_tracks), OTHER_SOURCE_ID);
-        let elsewhere_file = tmp.0.join("Downloads/b.mp3");
-        let elsewhere = insert_track(&conn, &s(&elsewhere_file), OTHER_SOURCE_ID);
-        let source_file = tmp.dir("Collection").join("Sub").join("c.mp3");
-        let in_source = insert_track(&conn, &s(&source_file), OTHER_SOURCE_ID);
-
-        assert_eq!(assign_other_tracks(&conn, &roots).unwrap(), 1);
-        assert_eq!(
-            track_location(&conn, default_track),
-            (tracks, "A/a.mp3".into())
-        );
-        assert_eq!(
-            track_location(&conn, elsewhere),
-            (OTHER_SOURCE_ID, s(&elsewhere_file))
-        );
-        assert_eq!(track_location(&conn, in_source).0, OTHER_SOURCE_ID);
-
-        // Adding a source claims Other's tracks inside it.
-        let collection = add(&conn, &roots, &tmp.0.join("Collection")).unwrap();
-        assert_eq!(
-            track_location(&conn, in_source),
-            (collection.id, "Sub/c.mp3".into())
-        );
-        assert_eq!(assign_other_tracks(&conn, &roots).unwrap(), 0);
+        assert_eq!(resolve(roots.library_root.join("d.mp3")), None);
+        assert_eq!(resolve(tmp.0.join("Collection/RockAndRoll/e.mp3")), None);
+        let downloads = tmp.0.join("Downloads/f.mp3");
+        assert_eq!(resolve(downloads.clone()), None);
+        assert!(require_source_for_path(&conn, &roots, &downloads)
+            .unwrap_err()
+            .starts_with(NO_SOURCE));
     }
 
     #[test]
@@ -1394,7 +1270,6 @@ mod tests {
         let rock_track = insert_track(&conn, "a.mp3", rock.id);
         let jazz_track = insert_track(&conn, "b.mp3", jazz.id);
         let tracks_track = insert_track(&conn, "c.mp3", tracks.id);
-        let other_track = insert_track(&conn, "/x/d.mp3", OTHER_SOURCE_ID);
         let remaining = || -> Vec<i64> {
             conn.prepare("SELECT id FROM tracks ORDER BY id")
                 .unwrap()
@@ -1406,28 +1281,23 @@ mod tests {
 
         assert_eq!(remove_source(&conn, rock.id).unwrap(), 1);
         assert_eq!(get_source(&conn, rock.id).unwrap(), None);
-        assert_eq!(remaining(), vec![jazz_track, tracks_track, other_track]);
+        assert_eq!(remaining(), vec![jazz_track, tracks_track]);
         assert!(!remaining().contains(&rock_track));
         assert!(tmp.0.join("Rock").is_dir());
 
         // `Tracks` is an ordinary source: it goes, its files stay.
         std::fs::write(tracks_folder(&roots).join("c.mp3"), b"x").unwrap();
         assert_eq!(remove_source(&conn, tracks.id).unwrap(), 1);
-        assert_eq!(remaining(), vec![jazz_track, other_track]);
+        assert_eq!(remaining(), vec![jazz_track]);
         assert!(tracks_folder(&roots).join("c.mp3").is_file());
         assert_eq!(managed_source_id(&conn, &roots).unwrap(), None);
 
-        assert!(remove_source(&conn, OTHER_SOURCE_ID).is_err());
         assert!(remove_source(&conn, 999).is_err());
 
         // Down to no sources at all.
         remove_source(&conn, jazz.id).unwrap();
-        let left = list_sources(&conn).unwrap();
-        assert_eq!(
-            left.iter().map(|s| s.id).collect::<Vec<_>>(),
-            vec![OTHER_SOURCE_ID]
-        );
-        assert_eq!(remaining(), vec![other_track]);
+        assert!(list_sources(&conn).unwrap().is_empty());
+        assert!(remaining().is_empty());
     }
 
     #[test]
@@ -1444,7 +1314,6 @@ mod tests {
             Some(built_in.to_string())
         );
         assert_eq!(organize_settings(&conn, rock.id).unwrap(), None);
-        assert_eq!(organize_settings(&conn, OTHER_SOURCE_ID).unwrap(), None);
         assert_eq!(organize_settings(&conn, 999).unwrap(), None);
 
         set_source_organize(&conn, rock.id, true).unwrap();
@@ -1462,16 +1331,11 @@ mod tests {
     }
 
     #[test]
-    fn write_targets_follow_the_source_and_send_other_to_the_import_source() {
+    fn write_targets_follow_the_source() {
         let tmp = TempDir::new("write-target");
         let (conn, roots) = library(&tmp);
         let built_in = crate::library_organize::DEFAULT_ORGANIZE_PATH_FORMAT;
         let rock = add(&conn, &roots, &tmp.dir("Rock")).unwrap();
-
-        // No import target yet: Other's files have nowhere to go.
-        assert!(write_target(&conn, OTHER_SOURCE_ID)
-            .unwrap_err()
-            .starts_with(NO_SOURCE));
 
         let tracks = create_managed_source(&conn, &roots).unwrap().id;
         let to_tracks = WriteTarget {
@@ -1480,16 +1344,15 @@ mod tests {
             path_format: Some(built_in.into()),
         };
         assert_eq!(write_target(&conn, tracks).unwrap(), to_tracks);
-        assert_eq!(write_target(&conn, OTHER_SOURCE_ID).unwrap(), to_tracks);
 
-        set_import_source(&conn, rock.id).unwrap();
         let to_rock = WriteTarget {
             source_id: rock.id,
             root: tmp.0.join("Rock"),
             path_format: None,
         };
         assert_eq!(write_target(&conn, rock.id).unwrap(), to_rock);
-        assert_eq!(write_target(&conn, OTHER_SOURCE_ID).unwrap(), to_rock);
+        assert!(write_target(&conn, 999).unwrap_err().starts_with(NO_SOURCE));
+        set_import_source(&conn, rock.id).unwrap();
 
         // An unplugged folder is never written to (or created).
         std::fs::remove_dir(tmp.0.join("Rock")).unwrap();
@@ -1536,7 +1399,7 @@ mod tests {
     }
 
     #[test]
-    fn organize_and_path_format_are_per_source_except_other() {
+    fn organize_and_path_format_are_per_source() {
         let tmp = TempDir::new("organize");
         let (conn, roots) = library(&tmp);
         let rock = add(&conn, &roots, &tmp.dir("Rock")).unwrap();
@@ -1551,7 +1414,6 @@ mod tests {
                 .unwrap()
                 .auto_organize
         );
-        assert!(set_source_organize(&conn, OTHER_SOURCE_ID, true).is_err());
         assert!(set_source_organize(&conn, 999, true).is_err());
 
         let format = "{artist}/{title}".to_string();
@@ -1568,7 +1430,6 @@ mod tests {
                 .path_format,
             None
         );
-        assert!(set_source_path_format(&conn, OTHER_SOURCE_ID, Some("x".into())).is_err());
     }
 
     #[test]
@@ -1585,7 +1446,6 @@ mod tests {
         assert!(set_import_source(&conn, jazz.id).unwrap().import_target);
         assert_eq!(import_source_id(&conn).unwrap(), Some(jazz.id));
         assert!(!get_source(&conn, tracks).unwrap().unwrap().import_target);
-        assert!(set_import_source(&conn, OTHER_SOURCE_ID).is_err());
         assert!(set_import_source(&conn, 999).is_err());
         assert_eq!(import_source_id(&conn).unwrap(), Some(jazz.id));
 
@@ -1632,7 +1492,7 @@ mod tests {
         let again = create_managed_source(&conn, &roots).unwrap();
         assert_eq!(again.id, tracks.id);
         assert!(!again.auto_organize);
-        assert_eq!(list_sources(&conn).unwrap().len(), 2);
+        assert_eq!(list_sources(&conn).unwrap().len(), 1);
 
         // Removed and created again, it doesn't take over another import target.
         remove_source(&conn, tracks.id).unwrap();

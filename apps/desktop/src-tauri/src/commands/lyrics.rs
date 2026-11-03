@@ -163,20 +163,16 @@ mod tests {
     #[test]
     fn fetched_lyrics_reach_every_sources_files() {
         let tmp = TempDir::new("lyrics");
-        let files: Vec<_> = ["m", "u", "x"]
+        let files: Vec<_> = ["m", "u"]
             .iter()
             .map(|name| ogg::copy_minimal(&tmp.dir(name), &format!("{name}.ogg")))
             .collect();
         let conn = conn();
-        let t = source_tracks(&conn, &files[0], &files[1], &files[2]);
+        let t = source_tracks(&conn, &files[0], &files[1]);
         let state = DbState(Mutex::new(conn));
         let lyrics = synced();
 
-        for (id, file) in [
-            (t.managed, &files[0]),
-            (t.user, &files[1]),
-            (t.other, &files[2]),
-        ] {
+        for (id, file) in [(t.managed, &files[0]), (t.user, &files[1])] {
             let before = std::fs::read(file).unwrap();
             save_lyrics(&state, id, Some(&lyrics), true).unwrap();
 

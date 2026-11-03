@@ -51,7 +51,6 @@ export interface ParsedImportEntry {
 
 export interface CommitImportOptions {
   onProgress?: (current: number, total: number) => void;
-  mode: "copy" | "reference";
   /** Copies go into this source; the import source when unset. */
   destinationSourceId?: number | null;
   /** Pre-resolved duplicate actions keyed by pending import id. */
@@ -395,7 +394,6 @@ export async function commitImportEntries(
           const updated = await replaceTrackFromImport({
             trackId: existing.id,
             sourcePath,
-            mode: options.mode,
             track,
           });
           options.onTrackReplaced?.(pendingId, updated);
@@ -412,7 +410,6 @@ export async function commitImportEntries(
 
       const finalPath = await prepareImportFile(
         sourcePath,
-        options.mode,
         options.destinationSourceId,
       );
       const saved = await saveTrack({ ...metadata, filePath: finalPath });

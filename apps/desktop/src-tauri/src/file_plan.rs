@@ -306,9 +306,6 @@ pub fn plan_organize_source(
     source_id: i64,
     format: Option<String>,
 ) -> Result<FilePlan, String> {
-    if source_id == sources::OTHER_SOURCE_ID {
-        return Err("Other has no folder, so it can't be organized".to_string());
-    }
     // Where organizing writes, as import does; fails when a user source's
     // folder isn't reachable.
     let target = sources::write_target(conn, source_id)?;
@@ -1309,10 +1306,9 @@ mod tests {
     }
 
     #[test]
-    fn other_and_unknown_sources_cannot_be_planned() {
-        let fx = Fixture::new("other");
+    fn unknown_sources_cannot_be_planned() {
+        let fx = Fixture::new("unknown");
         let conn = lock(&fx.db);
-        assert!(plan_organize_source(&conn, sources::OTHER_SOURCE_ID, None).is_err());
         assert!(plan_organize_source(&conn, 99, None).is_err());
     }
 

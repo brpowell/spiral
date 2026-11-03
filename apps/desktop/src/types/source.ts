@@ -22,10 +22,7 @@ export interface Source {
 export interface ImportTarget {
   /** The import target, or null when none is set. */
   source: Source | null;
-  /**
-   * True when copying is possible now: a target is set and its folder is
-   * reachable. "Keep files where they are" imports work regardless.
-   */
+  /** True when copying is possible now: a target is set and its folder is reachable. */
   copyAvailable: boolean;
 }
 

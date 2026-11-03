@@ -22,22 +22,12 @@ pub struct ImportDestination<'a> {
     pub path_format: Option<&'a str>,
 }
 
-/// A file imported where it is ("Keep files where they are"): it must exist,
-/// and is saved at its own path (in Other, unless a source's folder holds it).
-pub fn reference_import_file(source_path: &str) -> Result<String, String> {
-    if !Path::new(source_path).is_file() {
-        return Err(format!("Source is not a file: {source_path}"));
-    }
-    Ok(source_path.to_string())
-}
-
-/// Copy (or reference) an import source into the library.
+/// Copy an import source into a source folder.
 ///
 /// When `allow_overwrite` is set (track replace), that path may be reused even
 /// if a file already exists there.
 pub fn prepare_import_file(
     source_path: &str,
-    mode: &str,
     dest: ImportDestination<'_>,
     lyrics_sidecar_enabled: bool,
     allow_overwrite: Option<&Path>,
@@ -45,14 +35,6 @@ pub fn prepare_import_file(
     let source = Path::new(source_path);
     if !source.is_file() {
         return Err(format!("Source is not a file: {source_path}"));
-    }
-
-    if mode == "reference" {
-        return Ok(source_path.to_string());
-    }
-
-    if mode != "copy" {
-        return Err(format!("Invalid import mode: {mode}"));
     }
 
     let media = dest.folder;
@@ -128,28 +110,6 @@ mod tests {
     }
 
     #[test]
-    fn reference_mode_returns_source() {
-        let dir = std::env::temp_dir().join(format!("spiral-test-{}", std::process::id()));
-        let _ = fs::create_dir_all(&dir);
-        let source = dir.join("song.mp3");
-        {
-            let mut f = fs::File::create(&source).unwrap();
-            writeln!(f, "test").unwrap();
-        }
-        let media = dir.join("media");
-        let result = prepare_import_file(
-            source.to_str().unwrap(),
-            "reference",
-            organized(&media),
-            true,
-            None,
-        )
-        .unwrap();
-        assert_eq!(result, source.to_string_lossy());
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
     fn copy_onto_itself_keeps_the_file_intact() {
         let dir =
             std::env::temp_dir().join(format!("spiral-import-same-file-{}", std::process::id()));
@@ -160,14 +120,9 @@ mod tests {
         let source = media.join("song.mp3");
         fs::write(&source, b"intact-audio").unwrap();
 
-        let result = prepare_import_file(
-            source.to_str().unwrap(),
-            "copy",
-            flat(&media),
-            false,
-            Some(&source),
-        )
-        .unwrap();
+        let result =
+            prepare_import_file(source.to_str().unwrap(), flat(&media), false, Some(&source))
+                .unwrap();
 
         assert_eq!(result, source.to_string_lossy());
         assert_eq!(fs::read(&source).unwrap(), b"intact-audio");
@@ -192,8 +147,7 @@ mod tests {
 
         let media = dir.join("media");
         let result =
-            prepare_import_file(source.to_str().unwrap(), "copy", flat(&media), true, None)
-                .unwrap();
+            prepare_import_file(source.to_str().unwrap(), flat(&media), true, None).unwrap();
 
         let dest = PathBuf::from(&result);
         assert!(dest.is_file());
@@ -222,8 +176,7 @@ mod tests {
 
         let media = dir.join("media");
         let result =
-            prepare_import_file(source.to_str().unwrap(), "copy", flat(&media), false, None)
-                .unwrap();
+            prepare_import_file(source.to_str().unwrap(), flat(&media), false, None).unwrap();
 
         let dest = PathBuf::from(&result);
         assert!(dest.is_file());
@@ -256,14 +209,8 @@ mod tests {
         }
 
         let media = dir.join("media");
-        let result = prepare_import_file(
-            source.to_str().unwrap(),
-            "copy",
-            organized(&media),
-            true,
-            None,
-        )
-        .unwrap();
+        let result =
+            prepare_import_file(source.to_str().unwrap(), organized(&media), true, None).unwrap();
 
         let dest = PathBuf::from(&result);
         assert!(dest.is_file());
@@ -294,7 +241,6 @@ mod tests {
 
         let result = prepare_import_file(
             incoming.to_str().unwrap(),
-            "copy",
             flat(&media),
             false,
             Some(&existing),

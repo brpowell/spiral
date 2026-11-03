@@ -5,7 +5,7 @@ use crate::models::{
     LyricsSource, Playlist, PlaylistImageMode, RecordListenEventResult, Track, TrackInput,
     TrackLyricsRecord, TrackMetadataUpdate,
 };
-use crate::sources::{self, LibraryRoots, SourceRoots};
+use crate::sources::{self, SourceRoots};
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use std::collections::HashMap;
@@ -141,9 +141,6 @@ pub fn open(db_path: &Path) -> Result<Connection, rusqlite::Error> {
         sources::attach_spiral_folder(&conn, library_root)?;
     }
     db_migrations::run(&conn, file_path)?;
-    if let Some(library_root) = library_root {
-        sources::assign_other_tracks(&conn, &LibraryRoots::for_library_root(library_root))?;
-    }
     Ok(conn)
 }
 
@@ -474,7 +471,15 @@ pub fn update_track(
                 params![id],
                 |row| row.get(0),
             )?;
-            Some(SourceRoots::load(conn)?.locate(Path::new(path), source_id))
+            let location = SourceRoots::load(conn)?
+                .locate(Path::new(path), source_id)
+                .ok_or_else(|| {
+                    path_error(format!(
+                        "{}: {path} is not inside a source folder",
+                        sources::NO_SOURCE
+                    ))
+                })?;
+            Some(location)
         }
         None => None,
     };
@@ -1153,7 +1158,7 @@ pub fn get_lyrics_for_track_ids(
 mod tests {
     use super::*;
     use crate::models::{LyricsFormat, LyricsLine, LyricsSource, TrackInput, TrackMetadataUpdate};
-    use crate::sources::OTHER_SOURCE_ID;
+    use crate::sources::LibraryRoots;
 
     /// The source [`test_conn`] adds, rooted at `/music`.
     const MUSIC_SOURCE_ID: i64 = 3;
@@ -1692,13 +1697,6 @@ mod tests {
             );",
         )
         .unwrap();
-        conn.execute(
-            "INSERT INTO tracks (title, file_path, date_added)
-             VALUES ('Legacy', '/music/legacy.mp3', '2020-01-01T00:00:00Z')",
-            [],
-        )
-        .unwrap();
-
         db_migrations::run(&conn, None).unwrap();
 
         let columns = db_migrations::table_columns(&conn, "tracks").unwrap();
@@ -1713,13 +1711,6 @@ mod tests {
                 "missing migrated column {name}"
             );
         }
-
-        let track = get_track_by_id(&conn, 1).unwrap().unwrap();
-        assert_eq!(track.title, "Legacy");
-        assert_eq!(track.recording_mbid, None);
-        assert_eq!(track.release_mbid, None);
-        assert!(track.artist_mbids.is_empty());
-        assert!(track.album_artist_mbids.is_empty());
     }
 
     #[test]
@@ -1928,24 +1919,38 @@ mod tests {
     #[test]
     fn save_track_sets_source_on_insert_and_keeps_it_on_refresh() {
         let conn = test_conn();
-        let id = save_track(&conn, &sample_input("/elsewhere/a.mp3"), OTHER_SOURCE_ID).unwrap();
+        let id = save_track(&conn, &sample_input("/music/sub/a.mp3"), MUSIC_SOURCE_ID).unwrap();
         let track = get_track_by_id(&conn, id).unwrap().unwrap();
-        assert_eq!(track.source_id, OTHER_SOURCE_ID);
+        assert_eq!(track.source_id, MUSIC_SOURCE_ID);
         assert_eq!(track.missing_since, None);
 
-        save_track(&conn, &sample_input("/elsewhere/a.mp3"), MUSIC_SOURCE_ID).unwrap();
+        conn.execute(
+            "INSERT INTO sources (name, root_path, created_at) VALUES ('Sub', '/music/sub', 'now')",
+            [],
+        )
+        .unwrap();
+        let sub = conn.last_insert_rowid();
+        save_track(&conn, &sample_input("/music/sub/a.mp3"), sub).unwrap();
         assert_eq!(
             get_track_by_id(&conn, id).unwrap().unwrap().source_id,
-            OTHER_SOURCE_ID
+            MUSIC_SOURCE_ID
         );
 
+        // A file outside every source has no row to go in.
+        assert!(save_track(&conn, &sample_input("/elsewhere/b.mp3"), MUSIC_SOURCE_ID).is_err());
+
         // Only into a source whose folder holds the file.
-        assert!(set_track_source(&conn, id, MUSIC_SOURCE_ID).is_err());
-        let music = save_track(&conn, &sample_input("/music/b.mp3"), OTHER_SOURCE_ID).unwrap();
-        set_track_source(&conn, music, MUSIC_SOURCE_ID).unwrap();
+        conn.execute(
+            "INSERT INTO sources (name, root_path, created_at) VALUES ('Jazz', '/jazz', 'now')",
+            [],
+        )
+        .unwrap();
+        assert!(set_track_source(&conn, id, conn.last_insert_rowid()).is_err());
+        set_track_source(&conn, id, sub).unwrap();
+        let track = get_track_by_id(&conn, id).unwrap().unwrap();
         assert_eq!(
-            get_track_by_id(&conn, music).unwrap().unwrap().source_id,
-            MUSIC_SOURCE_ID
+            (track.source_id, track.file_path.as_str()),
+            (sub, "/music/sub/a.mp3")
         );
     }
 
@@ -1960,51 +1965,20 @@ mod tests {
             .unwrap()
             .id;
 
-        let save = |path: std::path::PathBuf| {
-            let source = sources::source_for_path(&conn, &roots, &path).unwrap();
-            let id = save_track(&conn, &sample_input(&path.to_string_lossy()), source).unwrap();
-            get_track_by_id(&conn, id).unwrap().unwrap().source_id
-        };
-        // A copy import lands in the tracks folder; a reference stays put.
-        assert_eq!(save(tracks.join("A/a.mp3")), tracks_id);
-        assert_eq!(save(dir.join("Downloads/b.mp3")), OTHER_SOURCE_ID);
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn open_backfills_tracks_in_the_tracks_folder_to_managed() {
-        let dir = std::env::temp_dir().join(format!("spiral-db-backfill-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        let library_root = dir.join("Spiral Library");
-        let media = crate::settings::media_folder_for_root(&library_root);
-        std::fs::create_dir_all(&media).unwrap();
-        let db_path = crate::settings::database_path_for_root(&library_root);
-
-        // A library as v2 left it: no sources yet.
-        {
-            let conn = Connection::open(&db_path).unwrap();
-            conn.execute_batch(
-                &std::fs::read_to_string(
-                    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/db/v2.sql"),
-                )
-                .unwrap(),
-            )
-            .unwrap();
-            conn.execute(
-                "UPDATE tracks SET file_path = ?1 WHERE id = 1",
-                params![media.join("Artist/a.mp3").to_string_lossy()],
-            )
-            .unwrap();
-        }
-
-        // The library's `Tracks` source (id 1, from before v6) claims it.
-        let conn = open(&db_path).unwrap();
-        assert_eq!(get_track_by_id(&conn, 1).unwrap().unwrap().source_id, 1);
+        let source = |path: &Path| sources::source_for_path(&conn, &roots, path).unwrap();
+        // A copy import lands in the tracks folder; a file elsewhere has no source.
+        let copied = tracks.join("A/a.mp3");
+        let id = save_track(
+            &conn,
+            &sample_input(&copied.to_string_lossy()),
+            source(&copied).unwrap(),
+        )
+        .unwrap();
         assert_eq!(
-            get_track_by_id(&conn, 2).unwrap().unwrap().source_id,
-            OTHER_SOURCE_ID
+            get_track_by_id(&conn, id).unwrap().unwrap().source_id,
+            tracks_id
         );
-        drop(conn);
+        assert_eq!(source(&dir.join("Downloads/b.mp3")), None);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2193,6 +2167,20 @@ mod tests {
             Self { root, conn, tracks }
         }
 
+        /// Add `<root>/<name>` as a source.
+        fn add_source(&self, name: &str) -> i64 {
+            let folder = self.root.join(name);
+            std::fs::create_dir_all(&folder).unwrap();
+            sources::add_source(
+                &self.conn,
+                &LibraryRoots::for_library_root(&self.root),
+                &folder.to_string_lossy(),
+                None,
+            )
+            .unwrap()
+            .id
+        }
+
         fn location(&self, id: i64) -> (i64, String) {
             self.conn
                 .query_row(
@@ -2226,27 +2214,32 @@ mod tests {
         assert_eq!(track_id_for_path(&lib.conn, &path).unwrap(), Some(id));
 
         // Saving the same file again refreshes the row, whatever source is asked for.
-        let again = save_track(&lib.conn, &sample_input(&path), OTHER_SOURCE_ID).unwrap();
+        let elsewhere = lib.add_source("Elsewhere");
+        let again = save_track(&lib.conn, &sample_input(&path), elsewhere).unwrap();
         assert_eq!(again, id);
         assert_eq!(get_all_tracks(&lib.conn).unwrap().len(), 1);
 
         // A new row's file must be inside the source it is saved to.
-        let loose = lib.root.join("loose.mp3").to_string_lossy().into_owned();
+        let loose = lib.root.join("Elsewhere").join("loose.mp3");
+        let loose = loose.to_string_lossy();
         assert!(save_track(&lib.conn, &sample_input(&loose), lib.tracks).is_err());
-        let other = save_track(&lib.conn, &sample_input(&loose), OTHER_SOURCE_ID).unwrap();
-        assert_eq!(lib.location(other), (OTHER_SOURCE_ID, loose.clone()));
-
-        // Moving a track to another source re-bases its path.
-        set_track_source(&lib.conn, other, OTHER_SOURCE_ID).unwrap();
+        let other = save_track(&lib.conn, &sample_input(&loose), elsewhere).unwrap();
+        assert_eq!(lib.location(other), (elsewhere, "loose.mp3".into()));
         assert!(set_track_source(&lib.conn, other, lib.tracks).is_err());
-        assert_eq!(lib.location(other), (OTHER_SOURCE_ID, loose));
+        assert_eq!(lib.location(other), (elsewhere, "loose.mp3".into()));
     }
 
     #[test]
     fn update_track_follows_a_file_into_another_source() {
         let lib = TempLibrary::new("follow");
-        let loose = lib.root.join("loose.mp3").to_string_lossy().into_owned();
-        let id = save_track(&lib.conn, &sample_input(&loose), OTHER_SOURCE_ID).unwrap();
+        let elsewhere = lib.add_source("Elsewhere");
+        let loose = lib.root.join("Elsewhere").join("loose.mp3");
+        let id = save_track(
+            &lib.conn,
+            &sample_input(&loose.to_string_lossy()),
+            elsewhere,
+        )
+        .unwrap();
         let organized = lib.root.join("Tracks").join("A").join("b.mp3");
         update_track(
             &lib.conn,
@@ -2263,5 +2256,18 @@ mod tests {
         let track = get_track_by_id(&lib.conn, id).unwrap().unwrap();
         assert_eq!(track.file_path, organized.to_string_lossy());
         assert_eq!(track.source_id, lib.tracks);
+
+        // Never out of every source.
+        let outside = std::env::temp_dir().join("spiral-outside/c.mp3");
+        let err = update_track(
+            &lib.conn,
+            id,
+            &TrackMetadataUpdate::default(),
+            Some(&outside.to_string_lossy()),
+            None,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains(sources::NO_SOURCE), "{err}");
+        assert_eq!(lib.location(id), (lib.tracks, "A/b.mp3".into()));
     }
 }

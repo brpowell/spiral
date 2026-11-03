@@ -4,17 +4,15 @@
 //! that source (read in place, never moved), files whose size or modification
 //! time changed since they were last read are read again, and tracks whose
 //! file is gone get `missing_since`. A track is never deleted here; when its
-//! file comes back the mark is cleared. Every source with a folder is walked,
-//! wherever it is. Other has no folder, so its tracks only get
-//! the missing marks. Hidden files and folders (e.g. `.spiral-convert`) are
+//! file comes back the mark is cleared. Every source's folder is walked,
+//! wherever it is. Hidden files and folders (e.g. `.spiral-convert`) are
 //! skipped.
 //!
 //! A file found on disk matches a row by the file, not the path string: on a
 //! case- or normalization-insensitive volume a row may hold another spelling
 //! of the path (after a rename that only changed case), and that row is
 //! re-pointed to the spelling on disk rather than marked missing beside a new
-//! duplicate. So the walk agrees with Other's missing marks, which ask the
-//! file system whether the stored path names a file.
+//! duplicate.
 //!
 //! Reconciling is idempotent and serialized, so the startup pass, a manual
 //! rescan and the file watcher can all call it. Files are read without holding
@@ -283,18 +281,17 @@ pub fn reconcile_source(
     let source = sources::get_source(&lock(db), source_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Source {source_id} not found"))?;
-    // Every source with a folder is walked; Other only gets missing marks.
+    // A source whose folder isn't known (inside an unknown Spiral folder)
+    // has nothing to compare against, so it is left alone.
     match source.root_path.as_deref() {
-        Some(root) if source_id != sources::OTHER_SOURCE_ID => {
-            reconcile_watched(db, ctx, source_id, root, scope)
-        }
-        _ => mark_missing(db, ctx, source_id, scope),
+        Some(root) => reconcile_watched(db, ctx, source_id, root, scope),
+        None => Ok(ReconcileSummary::new(source_id)),
     }
 }
 
 /// Reconcile every source: merge rows that name the same file, then a full
-/// pass over each source's folder, and missing marks for Other. Used at startup to catch what changed while
-/// Spiral was closed.
+/// pass over each source's folder. Used at startup to catch what changed
+/// while Spiral was closed.
 pub fn reconcile_all(db: &Mutex<Connection>, ctx: &ScanContext) -> Vec<ReconcileSummary> {
     // Rows an earlier scan duplicated under another spelling of a path.
     {
@@ -326,34 +323,6 @@ pub fn reconcile_all(db: &Mutex<Connection>, ctx: &ScanContext) -> Vec<Reconcile
 }
 
 /// Set or clear `missing_since` from whether each track's file exists.
-fn mark_missing(
-    db: &Mutex<Connection>,
-    ctx: &ScanContext,
-    source_id: i64,
-    scope: ReconcileScope<'_>,
-) -> Result<ReconcileSummary, String> {
-    let coverage = coverage(scope, None, &ctx.roots);
-    let known = known_tracks(&lock(db), source_id, coverage.as_ref())?;
-    let mut summary = ReconcileSummary::new(source_id);
-    let changes: Vec<(i64, bool)> = known
-        .iter()
-        .filter_map(|(path, track)| {
-            let exists = Path::new(path).is_file();
-            (exists == track.missing).then_some((track.id, !exists))
-        })
-        .collect();
-    let conn = lock(db);
-    for (id, missing) in changes {
-        set_missing(&conn, id, missing)?;
-        if missing {
-            summary.missing += 1;
-        } else {
-            summary.restored += 1;
-        }
-    }
-    Ok(summary)
-}
-
 fn reconcile_watched(
     db: &Mutex<Connection>,
     ctx: &ScanContext,
@@ -512,7 +481,7 @@ fn read_track(ctx: &ScanContext, path: &str) -> Result<crate::models::TrackInput
 }
 
 /// Save a track read from a source's folder and make sure it belongs to it (a
-/// row already at this path, e.g. an external reference, is claimed).
+/// row already at this path in another source is claimed).
 fn save(
     conn: &Connection,
     input: &crate::models::TrackInput,
@@ -595,7 +564,6 @@ pub fn remove_source(
 mod tests {
     use super::*;
     use crate::db_migrations;
-    use crate::sources::OTHER_SOURCE_ID;
     use crate::test_fixtures::wav;
     use std::fs;
 
@@ -884,19 +852,16 @@ mod tests {
     }
 
     #[test]
-    fn a_source_in_the_spiral_folder_is_walked_and_other_gets_missing_marks() {
+    fn a_source_in_the_spiral_folder_is_walked() {
         let fx = Fixture::new("default");
         let tracks = fx.managed();
         let managed = fx.wav("Music/Spiral Library/Tracks/a.wav");
-        let external = fx.wav("Downloads/b.wav");
-        for (path, source) in [(&managed, tracks), (&external, OTHER_SOURCE_ID)] {
-            let input = crate::models::TrackInput {
-                title: "Song".into(),
-                file_path: s(path),
-                ..Default::default()
-            };
-            db::save_track(&lock(&fx.db), &input, source).unwrap();
-        }
+        let input = crate::models::TrackInput {
+            title: "Song".into(),
+            file_path: s(&managed),
+            ..Default::default()
+        };
+        db::save_track(&lock(&fx.db), &input, tracks).unwrap();
         // Dropped into the tracks folder in Finder.
         let dropped = fx.wav("Music/Spiral Library/Tracks/Artist/dropped.wav");
         // Never walked: hidden folders (convert scratch) and the rest of the
@@ -904,7 +869,7 @@ mod tests {
         fx.wav("Music/Spiral Library/Tracks/.spiral-convert/1.wav");
         fx.wav("Music/Spiral Library/Tracks/._a.wav");
         fx.wav("Music/Spiral Library/Packs/sounds/pack/click.wav");
-        // Other is never walked, so files beside its tracks stay out.
+        // Nor is anything outside every source.
         fx.wav("Downloads/c.wav");
 
         assert_eq!(fx.reconcile(tracks), summary(tracks, 1, 0, 0, 0));
@@ -916,19 +881,8 @@ mod tests {
             ]
         );
         fs::remove_file(&managed).unwrap();
-        fs::remove_file(&external).unwrap();
         let all = reconcile_all(&fx.db, &fx.ctx);
-        assert_eq!(
-            all,
-            vec![
-                summary(OTHER_SOURCE_ID, 0, 0, 1, 0),
-                summary(tracks, 0, 0, 1, 0),
-            ]
-        );
-        assert_eq!(
-            fx.tracks(OTHER_SOURCE_ID),
-            vec![(s(&external), "Song".into(), true)]
-        );
+        assert_eq!(all, vec![summary(tracks, 0, 0, 1, 0)]);
 
         // Written again, so it is read again as well as restored.
         fx.wav("Music/Spiral Library/Tracks/a.wav");
@@ -943,25 +897,6 @@ mod tests {
             summary(tracks, 1, 0, 0, 0)
         );
         assert_eq!(fx.tracks(tracks).len(), 3);
-    }
-
-    #[test]
-    fn a_new_file_already_referenced_as_external_joins_the_source() {
-        let fx = Fixture::new("claim");
-        let id = fx.watch("Collection");
-        let a = fx.wav("Collection/a.wav");
-        // Referenced from elsewhere after the folder was added.
-        let input = crate::models::TrackInput {
-            title: "Song".into(),
-            file_path: s(&a),
-            ..Default::default()
-        };
-        db::save_track(&lock(&fx.db), &input, OTHER_SOURCE_ID).unwrap();
-
-        assert_eq!(fx.reconcile(id), summary(id, 1, 0, 0, 0));
-        assert_eq!(fx.tracks(id).len(), 1);
-        assert!(fx.tracks(OTHER_SOURCE_ID).is_empty());
-        assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 0));
     }
 
     #[test]
@@ -1087,8 +1022,6 @@ mod tests {
         assert_ne!(new_cache, old_cache);
         assert!(new_cache.is_file());
         assert!(!old_cache.exists());
-
-        assert!(relocate_source(&fx.db, &fx.ctx, OTHER_SOURCE_ID, &s(&fx.path("New"))).is_err());
     }
 
     #[test]

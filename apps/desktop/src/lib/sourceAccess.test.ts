@@ -6,7 +6,6 @@ import {
   describeSourceError,
   sourceDisplayName,
   sourceErrorCode,
-  isOtherSource,
   sourceSortRank,
 } from "./sourceAccess";
 
@@ -29,26 +28,16 @@ const managed = source({
   autoOrganize: true,
   importTarget: true,
 });
-const external = source({ id: 2 });
 const rock = source({ id: 3, name: "Rock", rootPath: "/Music/Rock" });
 
 describe("canDeleteFromDisk", () => {
-  it("allows deleting files in every source with a folder", () => {
-    expect(canDeleteFromDisk({ sourceId: 1 })).toBe(true);
-    expect(canDeleteFromDisk({ sourceId: 3 })).toBe(true);
-    expect(canDeleteFromDisk({ sourceId: 9 })).toBe(true);
+  it("allows deleting a present track's file", () => {
     expect(canDeleteFromDisk({})).toBe(true);
-  });
-
-  it("keeps Other's loose files on disk", () => {
-    expect(canDeleteFromDisk({ sourceId: 2 })).toBe(false);
+    expect(canDeleteFromDisk({ missingSince: null })).toBe(true);
   });
 
   it("never deletes a missing track's file", () => {
-    expect(canDeleteFromDisk({ sourceId: 1, missingSince: "then" })).toBe(
-      false,
-    );
-    expect(canDeleteFromDisk({ sourceId: 3, missingSince: null })).toBe(true);
+    expect(canDeleteFromDisk({ missingSince: "then" })).toBe(false);
   });
 });
 
@@ -98,23 +87,15 @@ describe("source helpers", () => {
     expect(counts.size).toBe(2);
   });
 
-  it("names Other and uses the stored name for every folder", () => {
+  it("uses the stored name for every folder", () => {
     expect(sourceDisplayName(managed)).toBe("Tracks");
     expect(sourceDisplayName({ ...managed, name: "Music" })).toBe("Music");
-    expect(sourceDisplayName(external)).toBe("Other files");
     expect(sourceDisplayName(rock)).toBe("Rock");
   });
 
-  it("tells Other from the user's folders, Tracks included", () => {
-    expect(isOtherSource(managed)).toBe(false);
-    expect(isOtherSource(external)).toBe(true);
-    expect(isOtherSource(rock)).toBe(false);
-  });
-
-  it("sorts folders in the order added and other files last", () => {
+  it("sorts folders in the order added", () => {
     expect(sourceSortRank(undefined)).toBeLessThan(sourceSortRank(1));
-    expect(sourceSortRank(1)).toBeLessThan(sourceSortRank(3));
-    expect(sourceSortRank(3)).toBeLessThan(sourceSortRank(4));
-    expect(sourceSortRank(4)).toBeLessThan(sourceSortRank(2));
+    expect(sourceSortRank(1)).toBeLessThan(sourceSortRank(2));
+    expect(sourceSortRank(2)).toBeLessThan(sourceSortRank(3));
   });
 });
