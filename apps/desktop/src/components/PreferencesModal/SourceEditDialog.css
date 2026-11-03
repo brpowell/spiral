@@ -80,10 +80,11 @@
   margin-top: 0.35rem;
 }
 
-/* Stronger than Disclosure's default muted trigger, so the tokens are found. */
+/* Part of the field, not a second label: the hint's size and muted colour,
+   with medium weight so the tokens are still found. */
 .source-edit__tokens > .disclosure__trigger {
+  font-size: 0.82rem;
   font-weight: var(--weight-medium);
-  color: var(--color-text-primary);
 }
 
 .source-edit__token-list {

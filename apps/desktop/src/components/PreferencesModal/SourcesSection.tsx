@@ -392,8 +392,6 @@ export function SourcesSection() {
       className="sources-section"
       label={t("preferences:sources.title")}
       labelId={headingId}
-      description={t("preferences:sources.description")}
-      descriptionPosition="below-label"
     >
       <div
         className="sources-section__content"
@@ -475,24 +473,24 @@ export function SourcesSection() {
         <AlertConfirmation
           open={removing != null}
           onClose={() => setRemoving(null)}
-          title={t("preferences:sources.removeTitle", {
-            name: removing ? sourceDisplayName(removing) : "",
-          })}
+          title={t("preferences:sources.removeTitle")}
           confirmLabel={t("preferences:sources.removeConfirm")}
           onConfirm={confirmRemove}
         >
+          {/* Which folder this is, shown like its card in the list. */}
+          {removing?.rootPath ? (
+            <div className="sources-section__remove-folder">
+              <IconOpenFolder aria-hidden />
+              <code title={removing.rootPath}>
+                {displayPath(removing.rootPath)}
+              </code>
+            </div>
+          ) : null}
           <p>
             {t("preferences:sources.removeBody", {
               count: removing ? trackCount(removing) : 0,
             })}
           </p>
-          {removing?.rootPath ? (
-            <p>
-              {t("preferences:sources.removeKeepsFolder", {
-                path: displayPath(removing.rootPath),
-              })}
-            </p>
-          ) : null}
           {removing?.importTarget ? (
             <p>{t("preferences:sources.removeDefault")}</p>
           ) : null}

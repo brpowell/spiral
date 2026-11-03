@@ -120,6 +120,31 @@
   margin-top: 0.35rem;
 }
 
+/* The folder being removed, atop the Remove prompt: same card as the list. */
+.sources-section__remove-folder {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  background: var(--color-surface-raised, var(--color-surface));
+}
+
+.sources-section__remove-folder svg {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  color: var(--color-text-secondary);
+}
+
+.sources-section__remove-folder code {
+  min-width: 0;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
 /* No folders yet: what to do about it, in place of the list. */
 .sources-section__empty {
   display: flex;

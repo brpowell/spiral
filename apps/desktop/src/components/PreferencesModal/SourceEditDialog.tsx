@@ -97,6 +97,7 @@ export function SourceEditDialog({
   const [format, setFormat] = useState("");
   const [saving, setSaving] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [tokensOpen, setTokensOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useFocusTrap(dialogRef, open);
@@ -135,6 +136,7 @@ export function SourceEditDialog({
     setAutoOrganize(requested.autoOrganize);
     setFormat(requested.pathFormat ?? "");
     setSaving(false);
+    setTokensOpen(false);
     setError(null);
     setDiscardPrompt(false);
   }, [requested, setDiscardPrompt]);
@@ -263,7 +265,13 @@ export function SourceEditDialog({
             </p>
             <Disclosure
               className="source-edit__tokens"
-              label={t("preferences:sources.formatTokens")}
+              open={tokensOpen}
+              onOpenChange={setTokensOpen}
+              label={
+                tokensOpen
+                  ? t("preferences:sources.hideFormatTokens")
+                  : t("preferences:sources.formatTokens")
+              }
             >
               <ul className="source-edit__token-list">
                 {PATH_FORMAT_TOKENS.map((token) => (

@@ -151,6 +151,8 @@ describe("SourcesSection", () => {
     await renderSection();
     // A labelled group inside Preferences → Library, not a section of its own.
     expect(screen.getByRole("group", { name: "Music folders" })).toBeTruthy();
+    // Just the label: the folder cards speak for themselves.
+    expect(screen.queryByText(/plays music from these folders/)).toBeNull();
 
     const tracks = item("Tracks");
     expect(
@@ -285,6 +287,10 @@ describe("SourcesSection", () => {
       within(dialog).getByRole("button", { name: "Show path tokens" }),
     );
     expect(within(dialog).getByText("Track title")).toBeTruthy();
+    // Open, the trigger says what clicking it again does.
+    expect(
+      within(dialog).getByRole("button", { name: "Hide path tokens" }),
+    ).toBeTruthy();
 
     const input = within(dialog).getByLabelText(
       "Path format",
@@ -641,7 +647,7 @@ describe("SourcesSection", () => {
     chooseFromMenu("Music", /Remove/);
 
     const dialog = await screen.findByRole("dialog", {
-      name: "Remove “Music”?",
+      name: "Remove music source?",
     });
     expect(dialog.textContent).toMatch(/2 tracks leave your library/);
     expect(dialog.textContent).toMatch(
@@ -655,19 +661,22 @@ describe("SourcesSection", () => {
     await waitFor(() => expect(loadLibrary).toHaveBeenCalled());
   });
 
-  it("says removing Tracks keeps its folder and files on disk", async () => {
+  it("shows the folder being removed and that its files stay", async () => {
     tauri.removeSource.mockResolvedValue(1);
     await renderSection();
     chooseFromMenu("Tracks", /Remove/);
 
     const dialog = await screen.findByRole("dialog", {
-      name: "Remove “Tracks”?",
+      name: "Remove music source?",
     });
-    expect(dialog.textContent).toMatch(/1 track leaves your library/);
-    expect(dialog.textContent).toMatch(/files on disk stay untouched/);
-    expect(dialog.textContent).toMatch(
-      /folder and its files stay at ~\/Music\/Spiral Library\/Tracks/,
-    );
+    // The folder's path heads the prompt, above the explanation.
+    const path = within(dialog).getByText("~/Music/Spiral Library/Tracks");
+    const body = within(dialog).getByText(/1 track leaves your library/);
+    expect(
+      path.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(dialog.textContent).toMatch(/file on disk stays untouched/);
+    expect(dialog.textContent).not.toMatch(/You can add it back later/);
     expect(dialog.textContent).toMatch(/It's your default folder/);
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
