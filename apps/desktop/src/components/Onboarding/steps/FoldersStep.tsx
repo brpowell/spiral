@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useShortenHomePath } from "../../../lib/homePath";
 import { describeSourceError, isOtherSource } from "../../../lib/sourceAccess";
 import { addSource, pickMusicFolder, removeSource } from "../../../lib/tauri";
 import { useOnboardingStore } from "../../../store/useOnboardingStore";
@@ -20,6 +21,7 @@ import { IconClose, IconOpenFolder, IconPlus } from "../../icons";
  */
 export function FoldersStep() {
   const { t } = useTranslation("common");
+  const displayPath = useShortenHomePath();
   const sources = useSourcesStore((s) => s.sources);
   const addedSourceIds = useOnboardingStore((s) => s.addedSourceIds);
   const [adding, setAdding] = useState(false);
@@ -79,7 +81,7 @@ export function FoldersStep() {
                   className="onboarding-folders__path"
                   title={source.rootPath ?? undefined}
                 >
-                  {source.rootPath}
+                  {source.rootPath ? displayPath(source.rootPath) : null}
                 </span>
               </span>
               {addedSourceIds.includes(source.id) ? (

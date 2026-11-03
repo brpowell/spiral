@@ -43,19 +43,20 @@
 .sources-section__status {
   display: inline-flex;
   align-items: center;
-  gap: 0.2rem;
-  vertical-align: bottom;
+  gap: 0.25rem;
 }
 
 .sources-section__status svg {
-  width: 0.95em;
-  height: 0.95em;
+  width: 1.15em;
+  height: 1.15em;
   flex-shrink: 0;
 }
 
-/* Green whatever the theme's accent is: the success colour. */
+/* Green whatever the theme's accent is; the stroke thickens the thin glyph. */
 .sources-section__default svg {
   color: var(--color-alert-success);
+  stroke: currentColor;
+  stroke-width: 1.25px;
 }
 
 .sources-section__offline {
@@ -71,6 +72,19 @@
   white-space: nowrap;
   direction: rtl;
   text-align: left;
+}
+
+/* Counts and status, spaced apart with a faint dot between. */
+.sources-section__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 0.55rem;
+}
+
+.sources-section__sep {
+  color: var(--color-text-muted, var(--color-text-secondary));
+  opacity: 0.6;
 }
 
 .sources-section__meta,

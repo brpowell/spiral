@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { useShortenHomePath } from "../../lib/homePath";
 import {
   GENERIC_ORGANIZE_PATH_SAMPLE,
   trackToOrganizePathSample,
@@ -72,6 +73,7 @@ export function SourcesSection() {
   const loadStatuses = useSourcesStore((s) => s.loadStatuses);
   const applySource = useSourcesStore((s) => s.applySource);
   const library = usePlayerStore((s) => s.library);
+  const displayPath = useShortenHomePath();
   const defaultFormat = useLibrarySettingsStore(
     (s) => s.settings?.organizePathFormat ?? "",
   );
@@ -253,41 +255,50 @@ export function SourcesSection() {
       );
     }
     const count = counts.get(source.id) ?? { total: 0, missing: 0 };
+    const parts: ReactNode[] = [
+      t("preferences:sources.trackCount", { count: count.total }),
+    ];
+    if (count.missing > 0) {
+      parts.push(
+        <span className="sources-section__missing">
+          {t("preferences:sources.missingCount", { count: count.missing })}
+        </span>,
+      );
+    }
+    if (source.importTarget) {
+      parts.push(
+        <span
+          className="sources-section__status sources-section__default"
+          title={t("preferences:sources.defaultHint")}
+        >
+          <IconCheck aria-hidden />
+          {t("preferences:sources.defaultBadge")}
+        </span>,
+      );
+    }
+    if (isOffline(source)) {
+      parts.push(
+        <span
+          className="sources-section__status sources-section__offline"
+          title={t("preferences:sources.offlineHint")}
+        >
+          <IconDisconnected aria-hidden />
+          {t("preferences:sources.offline")}
+        </span>,
+      );
+    }
     return (
       <p className="sources-section__meta">
-        {t("preferences:sources.trackCount", { count: count.total })}
-        {count.missing > 0 ? (
-          <>
-            {" · "}
-            <span className="sources-section__missing">
-              {t("preferences:sources.missingCount", { count: count.missing })}
-            </span>
-          </>
-        ) : null}
-        {source.importTarget ? (
-          <>
-            {" · "}
-            <span
-              className="sources-section__status sources-section__default"
-              title={t("preferences:sources.defaultHint")}
-            >
-              <IconCheck aria-hidden />
-              {t("preferences:sources.defaultBadge")}
-            </span>
-          </>
-        ) : null}
-        {isOffline(source) ? (
-          <>
-            {" · "}
-            <span
-              className="sources-section__status sources-section__offline"
-              title={t("preferences:sources.offlineHint")}
-            >
-              <IconDisconnected aria-hidden />
-              {t("preferences:sources.offline")}
-            </span>
-          </>
-        ) : null}
+        {parts.map((part, i) => (
+          <Fragment key={i}>
+            {i > 0 ? (
+              <span className="sources-section__sep" aria-hidden>
+                ·
+              </span>
+            ) : null}
+            {part}
+          </Fragment>
+        ))}
       </p>
     );
   };
@@ -370,7 +381,7 @@ export function SourcesSection() {
           {source.rootPath ? (
             <code className="sources-section__path" title={source.rootPath}>
               {/* Ellipsize the start, so the folder name stays visible. */}
-              <bdo dir="ltr">{source.rootPath}</bdo>
+              <bdo dir="ltr">{displayPath(source.rootPath)}</bdo>
             </code>
           ) : null}
           {renderMeta(source)}
@@ -499,7 +510,7 @@ export function SourcesSection() {
         {removing?.rootPath ? (
           <p>
             {t("preferences:sources.removeKeepsFolder", {
-              path: removing.rootPath,
+              path: displayPath(removing.rootPath),
             })}
           </p>
         ) : null}

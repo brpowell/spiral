@@ -35,6 +35,9 @@ vi.mock("../../lib/tauri", () => tauri);
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn().mockResolvedValue(() => {}),
 }));
+vi.mock("@tauri-apps/api/path", () => ({
+  homeDir: vi.fn().mockResolvedValue("/Users/me"),
+}));
 
 const sources: Source[] = [
   {
@@ -158,7 +161,8 @@ describe("SourcesSection", () => {
 
     const tracks = item("Tracks");
     expect(
-      within(tracks).getByText("/Users/me/Music/Spiral Library/Tracks"),
+      // Home is written as ~; paths outside it stay in full.
+      await within(tracks).findByText("~/Music/Spiral Library/Tracks"),
     ).toBeTruthy();
     expect(within(tracks).getByText(/^1 track/)).toBeTruthy();
     expect(within(item("Other files")).getByText("0 tracks")).toBeTruthy();
@@ -207,9 +211,9 @@ describe("SourcesSection", () => {
     const tracks = item("Tracks");
     // No name row: the path heads the card, with the default noted inline.
     expect(within(tracks).queryByText("Tracks")).toBeNull();
-    expect(within(tracks).getByText(/^1 track/).textContent).toBe(
-      "1 track · Default",
-    );
+    const meta = within(tracks).getByText(/^1 track/);
+    expect(meta.textContent).toBe("1 track·Default");
+    expect(within(meta).getByText("Default").querySelector("svg")).toBeTruthy();
     expect(within(tracks).queryByRole("checkbox")).toBeNull();
     expect(within(tracks).queryByLabelText("Path format")).toBeNull();
     expect(within(tracks).getAllByRole("button")).toHaveLength(1);
@@ -256,7 +260,7 @@ describe("SourcesSection", () => {
     await renderSection();
     const dialog = await openEdit("Tracks");
     expect(
-      within(dialog).getByText("/Users/me/Music/Spiral Library/Tracks"),
+      within(dialog).getByText("~/Music/Spiral Library/Tracks"),
     ).toBeTruthy();
     expect(
       within(dialog).getByRole("checkbox", {
@@ -686,7 +690,7 @@ describe("SourcesSection", () => {
     expect(dialog.textContent).toMatch(/1 track leaves your library/);
     expect(dialog.textContent).toMatch(/files on disk stay untouched/);
     expect(dialog.textContent).toMatch(
-      /folder and its files stay at \/Users\/me\/Music\/Spiral Library\/Tracks/,
+      /folder and its files stay at ~\/Music\/Spiral Library\/Tracks/,
     );
     expect(dialog.textContent).toMatch(/It's your default folder/);
 

@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useShortenHomePath } from "../../lib/homePath";
 import {
   formatOrganizeRelativePath,
   type OrganizePathSample,
@@ -84,6 +85,7 @@ export function SourceEditDialog({
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const formatRef = useRef<HTMLInputElement>(null);
+  const displayPath = useShortenHomePath();
   const open = requested != null;
   // Keep showing the last source while the dialog animates closed.
   const [shown, setShown] = useState<Source | null>(requested);
@@ -207,7 +209,9 @@ export function SourceEditDialog({
               {t("preferences:sources.location")}
             </span>
             <div className="source-edit__location">
-              <code className="source-edit__path">{rootPath}</code>
+              <code className="source-edit__path" title={rootPath}>
+                {displayPath(rootPath)}
+              </code>
               <Button
                 size="sm"
                 disabled={busy}
