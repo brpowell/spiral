@@ -2,17 +2,15 @@ import type { Source } from "../types/source";
 import type { Track } from "../types/track";
 import { t } from "./i18n";
 
-/** Built-in source rows; folders the user adds get ids from 3 up. */
-export const DEFAULT_SOURCE_ID = 1;
+/**
+ * Other: the built-in bucket for loose files, which has no folder. It isn't a
+ * source the user chose, so it is never listed or counted among them. Every
+ * other row is a folder the user chose (`Tracks` included).
+ */
 export const OTHER_SOURCE_ID = 2;
 
-/** The default source (the Spiral folder's tracks), a folder the user added, or Other. */
-export type SourceRole = "default" | "user" | "other";
-
-export function sourceRole(source: Pick<Source, "id">): SourceRole {
-  if (source.id === DEFAULT_SOURCE_ID) return "default";
-  if (source.id === OTHER_SOURCE_ID) return "other";
-  return "user";
+export function isOtherSource(source: Pick<Source, "id">): boolean {
+  return source.id === OTHER_SOURCE_ID;
 }
 
 /**
@@ -72,17 +70,14 @@ export function countTracksBySource(
   return counts;
 }
 
-/** Display name for a source: "Tracks" and "Other files" for the built-ins, else the stored name. */
+/** Display name for a source: "Other files" for Other, else the stored name. */
 export function sourceDisplayName(source: Pick<Source, "id" | "name">): string {
-  const role = sourceRole(source);
-  if (role === "default") return t("library:sources.defaultName");
-  if (role === "other") return t("library:sources.otherName");
-  return source.name;
+  return isOtherSource(source) ? t("library:sources.otherName") : source.name;
 }
 
-/** Sort rank for the source column: the default source, then added folders, then Other. */
+/** Sort rank for the source column: folders in the order added, then Other. */
 export function sourceSortRank(sourceId: number | undefined): number {
-  if (sourceId == null || sourceId === DEFAULT_SOURCE_ID) return 0;
+  if (sourceId == null) return 0;
   if (sourceId === OTHER_SOURCE_ID) return Number.MAX_SAFE_INTEGER;
   return sourceId;
 }

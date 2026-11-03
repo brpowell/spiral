@@ -1,4 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Source } from "../types/source";
+
+const tauri = vi.hoisted(() => ({
+  createManagedSource: vi.fn(),
+  removeSource: vi.fn(),
+  listSources: vi.fn(),
+  getSourceStatuses: vi.fn(),
+}));
+vi.mock("../lib/tauri", () => tauri);
+
+const tracks = {
+  id: 1,
+  name: "Tracks",
+  rootPath: "/Music/Spiral/Tracks",
+  autoOrganize: true,
+  pathFormat: null,
+  importTarget: true,
+  createdAt: "2026-01-01T00:00:00Z",
+} as Source;
 
 async function freshStore() {
   vi.resetModules();
@@ -77,5 +96,54 @@ describe("useOnboardingStore", () => {
     store.getState().noteSourceAdded(4);
     store.getState().noteSourceRemoved(3);
     expect(store.getState().addedSourceIds).toEqual([4]);
+  });
+
+  describe("applying the first answer", () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      tauri.listSources.mockResolvedValue([]);
+      tauri.getSourceStatuses.mockResolvedValue([]);
+      tauri.createManagedSource.mockResolvedValue(tracks);
+      tauri.removeSource.mockResolvedValue(0);
+    });
+
+    it("has Spiral manage a Tracks folder for a new collection, once", async () => {
+      const store = await freshStore();
+      store.getState().setMusicChoice("new");
+      await store.getState().applyMusicChoice();
+      await store.getState().applyMusicChoice();
+      expect(tauri.createManagedSource).toHaveBeenCalledTimes(1);
+      expect(store.getState().managedSourceId).toBe(1);
+      expect(tauri.removeSource).not.toHaveBeenCalled();
+    });
+
+    it("makes no Tracks folder for the user's own folders", async () => {
+      const store = await freshStore();
+      store.getState().setMusicChoice("existing");
+      await store.getState().applyMusicChoice();
+      expect(tauri.createManagedSource).not.toHaveBeenCalled();
+      expect(tauri.removeSource).not.toHaveBeenCalled();
+    });
+
+    it("removes the Tracks folder it made when the answer changes to own folders", async () => {
+      const store = await freshStore();
+      store.getState().setMusicChoice("new");
+      await store.getState().applyMusicChoice();
+      store.getState().setMusicChoice("existing");
+      await store.getState().applyMusicChoice();
+      expect(tauri.removeSource).toHaveBeenCalledWith(1);
+      expect(store.getState().managedSourceId).toBeNull();
+    });
+
+    it("never removes a Tracks folder that was already a source", async () => {
+      tauri.listSources.mockResolvedValue([tracks]);
+      const store = await freshStore();
+      store.getState().setMusicChoice("new");
+      await store.getState().applyMusicChoice();
+      store.getState().setMusicChoice("existing");
+      await store.getState().applyMusicChoice();
+      expect(store.getState().managedSourceId).toBeNull();
+      expect(tauri.removeSource).not.toHaveBeenCalled();
+    });
   });
 });

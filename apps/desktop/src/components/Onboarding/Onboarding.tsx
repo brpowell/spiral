@@ -16,6 +16,7 @@ import {
   useOnboardingStore,
   type OnboardingStepId,
 } from "../../store/useOnboardingStore";
+import { describeSourceError } from "../../lib/sourceAccess";
 import { Button } from "../common/Button/Button";
 import { FadingScroller } from "./FadingScroller";
 import { TransportPreview } from "./TransportPreview";
@@ -76,6 +77,9 @@ function OnboardingOverlay() {
   const next = useOnboardingStore((s) => s.next);
   const back = useOnboardingStore((s) => s.back);
   const musicChoice = useOnboardingStore((s) => s.musicChoice);
+  const applyMusicChoice = useOnboardingStore((s) => s.applyMusicChoice);
+  const [advancing, setAdvancing] = useState(false);
+  const [stepError, setStepError] = useState<string | null>(null);
   const logoRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<SpiralMotionController | null>(null);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -172,7 +176,20 @@ function OnboardingOverlay() {
       {t(`onboarding.${id}.description`)}
     </p>
   );
-  const goNext = () => {
+  const goNext = async () => {
+    if (advancing) return;
+    if (id === "library") {
+      setAdvancing(true);
+      setStepError(null);
+      try {
+        await applyMusicChoice();
+      } catch (err) {
+        setStepError(describeSourceError(err));
+        return;
+      } finally {
+        setAdvancing(false);
+      }
+    }
     setNavigated(true);
     next();
   };
@@ -214,6 +231,11 @@ function OnboardingOverlay() {
               <Content />
             </FadingScroller>
             {layout === "centered" ? description : null}
+            {stepError && id === "library" ? (
+              <p className="onboarding__error" role="alert">
+                {stepError}
+              </p>
+            ) : null}
           </div>
           <footer className="onboarding__footer">
             <span className="onboarding__progress">
@@ -238,7 +260,8 @@ function OnboardingOverlay() {
                 variant="primary"
                 // The first step needs an answer before it can move on.
                 disabled={id === "library" && musicChoice == null}
-                onClick={isLast ? () => setLeaving(true) : goNext}
+                isLoading={advancing}
+                onClick={isLast ? () => setLeaving(true) : () => void goNext()}
               >
                 {isLast ? t("onboarding.finish") : t("onboarding.next")}
               </Button>

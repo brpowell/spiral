@@ -18,6 +18,7 @@ const tauri = vi.hoisted(() => ({
   listSources: vi.fn(),
   getSourceStatuses: vi.fn(),
   addSource: vi.fn(),
+  createManagedSource: vi.fn(),
   pickMusicFolder: vi.fn(),
   relocateSource: vi.fn(),
   removeSource: vi.fn(),
@@ -39,7 +40,7 @@ const sources: Source[] = [
   {
     id: 1,
     rootPath: "/Users/me/Music/Spiral Library/Tracks",
-    name: "Spiral",
+    name: "Tracks",
     autoOrganize: true,
     pathFormat: null,
     importTarget: true,
@@ -69,7 +70,7 @@ const track = (id: number, sourceId: number, missingSince?: string) =>
   ({ id, title: `T${id}`, sourceId, missingSince }) as Track;
 
 function item(name: string): HTMLElement {
-  return screen.getByText(name).closest("li")!;
+  return screen.getByText(name).closest("li, section") as HTMLElement;
 }
 
 const plan: FilePlanSummary = {
@@ -141,7 +142,32 @@ describe("SourcesSection", () => {
     expect(within(item("Tracks")).queryByText("Offline")).toBeNull();
   });
 
-  it("gives the default source organize, a format and import controls, but no remove", async () => {
+  it("shows Other apart from the folders", async () => {
+    await renderSection();
+    const list = screen.getAllByRole("list")[0];
+    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(list).queryByText("Other files")).toBeNull();
+    expect(screen.getByRole("region", { name: "Other files" })).toBeTruthy();
+  });
+
+  it("shows an empty state with ways to add a folder when there are none", async () => {
+    tauri.listSources.mockResolvedValue([sources[1]]);
+    render(<SourcesSection />);
+    expect(await screen.findByText("No music folders yet")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Add folder/ })).toBeTruthy();
+    expect(screen.queryByRole("switch")).toBeNull();
+    // Other is still shown, and isn't counted as a folder.
+    expect(screen.getByRole("region", { name: "Other files" })).toBeTruthy();
+
+    tauri.createManagedSource.mockResolvedValue(sources[0]);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Let Spiral manage a Tracks folder" }),
+    );
+    await waitFor(() => expect(tauri.createManagedSource).toHaveBeenCalled());
+    await waitFor(() => expect(tauri.listSources).toHaveBeenCalledTimes(2));
+  });
+
+  it("gives Tracks every control, like any folder", async () => {
     await renderSection();
     const tracks = item("Tracks");
     expect(
@@ -158,10 +184,10 @@ describe("SourcesSection", () => {
     expect(
       within(tracks).queryByRole("button", { name: /Import here/ }),
     ).toBeNull();
-    expect(within(tracks).queryByRole("button", { name: /Remove/ })).toBeNull();
+    expect(within(tracks).getByRole("button", { name: /Remove/ })).toBeTruthy();
     expect(
-      within(tracks).queryByRole("button", { name: /Change location/ }),
-    ).toBeNull();
+      within(tracks).getByRole("button", { name: /Change location/ }),
+    ).toBeTruthy();
   });
 
   it("gives a user source every control", async () => {
@@ -392,5 +418,26 @@ describe("SourcesSection", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
     await waitFor(() => expect(tauri.removeSource).toHaveBeenCalledWith(3));
     await waitFor(() => expect(loadLibrary).toHaveBeenCalled());
+  });
+
+  it("says removing Tracks keeps its folder and files on disk", async () => {
+    tauri.removeSource.mockResolvedValue(1);
+    await renderSection();
+    fireEvent.click(
+      within(item("Tracks")).getByRole("button", { name: /Remove/ }),
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Remove “Tracks”?",
+    });
+    expect(dialog.textContent).toMatch(/1 track leaves your library/);
+    expect(dialog.textContent).toMatch(/files on disk stay untouched/);
+    expect(dialog.textContent).toMatch(
+      /folder and its files stay at \/Users\/me\/Music\/Spiral Library\/Tracks/,
+    );
+    expect(dialog.textContent).toMatch(/It's your import target/);
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(tauri.removeSource).toHaveBeenCalledWith(1));
   });
 });

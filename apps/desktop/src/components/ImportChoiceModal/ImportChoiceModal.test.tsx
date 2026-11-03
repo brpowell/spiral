@@ -11,6 +11,9 @@ import { ImportChoiceModal } from "./ImportChoiceModal";
 
 const tauri = vi.hoisted(() => ({
   setImportSource: vi.fn(),
+  getImportSource: vi.fn(),
+  addSource: vi.fn(),
+  pickMusicFolder: vi.fn(),
   saveLibrarySettings: vi.fn(),
   getLibrarySettings: vi.fn(),
   listSources: vi.fn(),
@@ -32,7 +35,7 @@ const source = (patch: Partial<Source> & Pick<Source, "id" | "name">) =>
     ...patch,
   }) as Source;
 
-const tracks = source({ id: 1, name: "Spiral", autoOrganize: true });
+const tracks = source({ id: 1, name: "Tracks", autoOrganize: true });
 const other = source({ id: 2, name: "External", rootPath: null });
 const music = source({ id: 3, name: "Music", importTarget: true });
 const archive = source({ id: 4, name: "Archive" });
@@ -61,6 +64,10 @@ describe("ImportChoiceModal", () => {
     );
     tauri.listSources.mockResolvedValue([]);
     tauri.getSourceStatuses.mockResolvedValue([]);
+    tauri.getImportSource.mockResolvedValue({
+      source: music,
+      copyAvailable: true,
+    });
     useLibrarySettingsStore.setState({
       settings: { importMode: "ask" } as LibrarySettings,
       importPrompt: null,
@@ -151,5 +158,94 @@ describe("ImportChoiceModal", () => {
       settings: { importMode: "copy" } as LibrarySettings,
     });
     await expect(prompt()).resolves.toEqual({ mode: "copy" });
+  });
+
+  describe("with no folder to copy into", () => {
+    beforeEach(() => {
+      tauri.getImportSource.mockResolvedValue({
+        source: null,
+        copyAvailable: false,
+      });
+    });
+
+    it("disables copying, says how to enable it, and starts on keeping files", async () => {
+      setSources([other]);
+      render(<ImportChoiceModal />);
+      void prompt();
+
+      expect(await screen.findByText(/No music folders yet/)).toBeTruthy();
+      expect(
+        screen.getByRole("button", { name: /Add to Spiral/ }),
+      ).toBeDisabled();
+      expect(screen.queryByLabelText("Copy into")).toBeNull();
+      expect(screen.queryByRole("alert")).toBeNull();
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: /Keep files where they are/ }),
+        ).toHaveFocus(),
+      );
+    });
+
+    it("adds a folder from the dialog and makes it the import target", async () => {
+      const added = source({ id: 5, name: "Rips" });
+      const target = { ...added, importTarget: true };
+      tauri.pickMusicFolder.mockResolvedValue("/Music/Rips");
+      tauri.addSource.mockResolvedValue(added);
+      tauri.setImportSource.mockResolvedValue(target);
+      tauri.listSources.mockResolvedValue([other, target]);
+      setSources([other]);
+      render(<ImportChoiceModal />);
+      const choice = prompt();
+      const addFolder = await screen.findByRole("button", {
+        name: /Add a folder/,
+      });
+
+      tauri.getImportSource.mockResolvedValue({
+        source: target,
+        copyAvailable: true,
+      });
+      fireEvent.click(addFolder);
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: /Add to Spiral/ }),
+        ).not.toBeDisabled(),
+      );
+      expect(tauri.addSource).toHaveBeenCalledWith("/Music/Rips");
+      expect(tauri.setImportSource).toHaveBeenCalledWith(5);
+
+      fireEvent.click(screen.getByRole("button", { name: /Add to Spiral/ }));
+      await expect(choice).resolves.toEqual({
+        mode: "copy",
+        sourceId: undefined,
+      });
+    });
+
+    it("lets a copy go into a folder picked below when none is the target", async () => {
+      setSources([other, archive]);
+      render(<ImportChoiceModal />);
+      const choice = prompt();
+      const picker = await screen.findByLabelText("Copy into");
+      expect(picker).toHaveValue("4");
+      fireEvent.click(screen.getByRole("button", { name: /Add to Spiral/ }));
+      await expect(choice).resolves.toEqual({ mode: "copy", sourceId: 4 });
+    });
+
+    it("asks instead of copying when Preferences says always copy", async () => {
+      setSources([other]);
+      useLibrarySettingsStore.setState({
+        settings: { importMode: "copy" } as LibrarySettings,
+      });
+      render(<ImportChoiceModal />);
+      const choice = prompt();
+      fireEvent.click(
+        await screen.findByRole("button", {
+          name: /Keep files where they are/,
+        }),
+      );
+      await expect(choice).resolves.toEqual({
+        mode: "reference",
+        sourceId: undefined,
+      });
+    });
   });
 });
