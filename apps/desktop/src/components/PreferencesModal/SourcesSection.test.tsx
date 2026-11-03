@@ -158,6 +158,8 @@ describe("SourcesSection", () => {
 
   it("lists every source with its path and counts", async () => {
     await renderSection();
+    // A labelled group inside Preferences → Library, not a section of its own.
+    expect(screen.getByRole("group", { name: "Music folders" })).toBeTruthy();
 
     const tracks = item("Tracks");
     expect(

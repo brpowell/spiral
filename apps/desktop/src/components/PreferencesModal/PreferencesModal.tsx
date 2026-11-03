@@ -475,6 +475,35 @@ export function PreferencesModal() {
           <div className="preferences__content">
             {activeSection === "library" && (
               <div className="preferences__panel">
+                {/* The folders Spiral plays from come first: they're what the
+                    library is. The Spiral folder itself is rarely changed. */}
+                <SourcesSection />
+
+                <Separator />
+
+                <FormField
+                  label={t("preferences:library.importMode")}
+                  labelId={importModeLabelId}
+                  description={t("preferences:library.importModeDescription")}
+                >
+                  <RadioGroup
+                    name="importMode"
+                    value={settings.importMode}
+                    onChange={(importMode) => patchSettings({ importMode })}
+                    variant="button"
+                    orientation="horizontal"
+                    aria-labelledby={importModeLabelId}
+                  >
+                    {IMPORT_MODE_OPTIONS.map((opt) => (
+                      <RadioGroupItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </RadioGroupItem>
+                    ))}
+                  </RadioGroup>
+                </FormField>
+
+                <Separator />
+
                 <FormField
                   label={t("preferences:library.location")}
                   description={t("preferences:library.locationDescription")}
@@ -512,33 +541,8 @@ export function PreferencesModal() {
                     </Button>
                   </div>
                 </FormField>
-
-                <Separator />
-
-                <FormField
-                  label={t("preferences:library.importMode")}
-                  labelId={importModeLabelId}
-                  description={t("preferences:library.importModeDescription")}
-                >
-                  <RadioGroup
-                    name="importMode"
-                    value={settings.importMode}
-                    onChange={(importMode) => patchSettings({ importMode })}
-                    variant="button"
-                    orientation="horizontal"
-                    aria-labelledby={importModeLabelId}
-                  >
-                    {IMPORT_MODE_OPTIONS.map((opt) => (
-                      <RadioGroupItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </RadioGroupItem>
-                    ))}
-                  </RadioGroup>
-                </FormField>
               </div>
             )}
-
-            {activeSection === "sources" && <SourcesSection />}
 
             {activeSection === "cd" && (
               <div className="preferences__panel">

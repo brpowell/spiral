@@ -3,7 +3,6 @@
   "categoriesAria": "Preference categories",
   "sections": {
     "library": "Library",
-    "sources": "Sources",
     "cd": "CD",
     "playback": "Playback",
     "listening": "Privacy",
@@ -19,7 +18,7 @@
     "importReference": "Keep files where they are",
     "importAsk": "Always ask",
     "reloadFailed": "Spiral folder moved, but reload failed: {{message}}",
-    "importModeDescription": "“Add to Spiral” copies files into your default folder (see Sources). “Keep files where they are” plays them from their current location and never changes them."
+    "importModeDescription": "“Add to Spiral” copies files into your default music folder. “Keep files where they are” plays them from their current location and never changes them."
   },
   "relocate": {
     "switchTitle": "Switch Spiral folder?",
@@ -36,6 +35,7 @@
     "empty": "Or start a new, empty Spiral folder here."
   },
   "sources": {
+    "title": "Music folders",
     "description": "Spiral plays music from these folders. Each one can be organized by Spiral, or left exactly as you keep it.",
     "addFolder": "Add folder…",
     "emptyTitle": "No music folders yet",
