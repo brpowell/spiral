@@ -1,4 +1,11 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  Fragment,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useShortenHomePath } from "../../lib/homePath";
 import {
@@ -28,6 +35,7 @@ import { useSourcesStore } from "../../store/useSourcesStore";
 import type { ReconcileSummary, Source } from "../../types/source";
 import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
 import { Button } from "../common/Button/Button";
+import { FormField } from "../common/Field/Field";
 import {
   ContextMenuItem,
   ContextMenuSeparator,
@@ -60,13 +68,14 @@ interface PendingOrganize extends OrganizeRequest {
 }
 
 /**
- * Preferences → Sources: the folders Spiral plays music from, which may be
+ * Preferences → Library → Music folders: the folders Spiral plays music from, which may be
  * none. Other (loose files with no folder) is shown apart and isn't counted
  * among them. Each folder shows only its path and counts; everything else is
  * under its menu.
  */
 export function SourcesSection() {
   const { t } = useTranslation(["preferences", "common"]);
+  const headingId = useId();
   const sources = useSourcesStore((s) => s.sources);
   const statuses = useSourcesStore((s) => s.statuses);
   const loadSources = useSourcesStore((s) => s.loadSources);
@@ -414,38 +423,26 @@ export function SourcesSection() {
   };
 
   return (
-    <div className="preferences__panel sources-section">
-      <p className="preferences__hint">
-        {t("preferences:sources.description")}
-      </p>
-
-      {folders.length > 0 ? (
-        <>
-          <ul className="sources-section__list">
-            {folders.map((source) => renderFolder(source))}
-          </ul>
-          <Button
-            variant="secondary"
-            className="preferences__action-btn"
-            disabled={busyId != null}
-            isLoading={busyId === "add"}
-            onClick={() => void addFolder()}
-          >
-            <IconPlus aria-hidden />
-            {t("preferences:sources.addFolder")}
-          </Button>
-        </>
-      ) : (
-        <div className="sources-section__empty">
-          <p className="sources-section__empty-title">
-            {t("preferences:sources.emptyTitle")}
-          </p>
-          <p className="sources-section__description">
-            {t("preferences:sources.emptyBody")}
-          </p>
-          <div className="sources-section__actions">
+    <FormField
+      className="sources-section"
+      label={t("preferences:sources.title")}
+      labelId={headingId}
+      description={t("preferences:sources.description")}
+      descriptionPosition="below-label"
+    >
+      <div
+        className="sources-section__content"
+        role="group"
+        aria-labelledby={headingId}
+      >
+        {folders.length > 0 ? (
+          <>
+            <ul className="sources-section__list">
+              {folders.map((source) => renderFolder(source))}
+            </ul>
             <Button
               variant="secondary"
+              className="preferences__action-btn"
               disabled={busyId != null}
               isLoading={busyId === "add"}
               onClick={() => void addFolder()}
@@ -453,71 +450,91 @@ export function SourcesSection() {
               <IconPlus aria-hidden />
               {t("preferences:sources.addFolder")}
             </Button>
-            <Button
-              variant="ghost"
-              disabled={busyId != null}
-              isLoading={busyId === "managed"}
-              onClick={() => void addManagedFolder()}
-            >
-              <IconFolderCog aria-hidden />
-              {t("preferences:sources.manageTracks")}
-            </Button>
+          </>
+        ) : (
+          <div className="sources-section__empty">
+            <p className="sources-section__empty-title">
+              {t("preferences:sources.emptyTitle")}
+            </p>
+            <p className="sources-section__description">
+              {t("preferences:sources.emptyBody")}
+            </p>
+            <div className="sources-section__actions">
+              <Button
+                variant="secondary"
+                disabled={busyId != null}
+                isLoading={busyId === "add"}
+                onClick={() => void addFolder()}
+              >
+                <IconPlus aria-hidden />
+                {t("preferences:sources.addFolder")}
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={busyId != null}
+                isLoading={busyId === "managed"}
+                onClick={() => void addManagedFolder()}
+              >
+                <IconFolderCog aria-hidden />
+                {t("preferences:sources.manageTracks")}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {other ? renderOther(other) : null}
+        {other ? renderOther(other) : null}
 
-      {notice ? (
-        <p className="preferences__hint" role="status">
-          {notice}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="preferences__error" role="alert">
-          {error}
-        </p>
-      ) : null}
-
-      <SourceEditDialog
-        source={editing}
-        defaultFormat={defaultFormat}
-        previewSample={previewSample}
-        onClose={() => setEditing(null)}
-        onSave={saveEdits}
-      />
-
-      <OrganizePreviewDialog
-        request={organizing}
-        onClose={() => setOrganizing(null)}
-        onApplied={organizeApplied}
-      />
-
-      <AlertConfirmation
-        open={removing != null}
-        onClose={() => setRemoving(null)}
-        title={t("preferences:sources.removeTitle", {
-          name: removing ? sourceDisplayName(removing) : "",
-        })}
-        confirmLabel={t("preferences:sources.removeConfirm")}
-        onConfirm={confirmRemove}
-      >
-        <p>
-          {t("preferences:sources.removeBody", {
-            count: removing ? trackCount(removing) : 0,
-          })}
-        </p>
-        {removing?.rootPath ? (
-          <p>
-            {t("preferences:sources.removeKeepsFolder", {
-              path: displayPath(removing.rootPath),
-            })}
+        {notice ? (
+          <p className="preferences__hint" role="status">
+            {notice}
           </p>
         ) : null}
-        {removing?.importTarget ? (
-          <p>{t("preferences:sources.removeDefault")}</p>
+        {error ? (
+          <p className="preferences__error" role="alert">
+            {error}
+          </p>
         ) : null}
-      </AlertConfirmation>
-    </div>
+
+        <SourceEditDialog
+          source={editing}
+          defaultFormat={defaultFormat}
+          previewSample={previewSample}
+          onClose={() => setEditing(null)}
+          onSave={saveEdits}
+        />
+
+        <OrganizePreviewDialog
+          request={organizing}
+          onClose={() => setOrganizing(null)}
+          onApplied={organizeApplied}
+        />
+
+        <AlertConfirmation
+          open={removing != null}
+          onClose={() => setRemoving(null)}
+          title={t("preferences:sources.removeTitle", {
+            name: removing ? sourceDisplayName(removing) : "",
+          })}
+          confirmLabel={t("preferences:sources.removeConfirm")}
+          onConfirm={confirmRemove}
+        >
+          <p>
+            {t("preferences:sources.removeBody", {
+              count: removing ? trackCount(removing) : 0,
+            })}
+          </p>
+          {removing?.rootPath ? (
+            <p>
+              {t("preferences:sources.removeKeepsFolder", {
+                path: displayPath(removing.rootPath),
+              })}
+            </p>
+          ) : null}
+          {removing?.importTarget ? (
+            <p>{t("preferences:sources.removeDefault")}</p>
+          ) : null}
+        </AlertConfirmation>
+      </div>
+    </FormField>
   );
 }
