@@ -75,7 +75,7 @@ export function SourcesSection() {
   const library = usePlayerStore((s) => s.library);
   const displayPath = useShortenHomePath();
   const defaultFormat = useLibrarySettingsStore(
-    (s) => s.settings?.organizePathFormat ?? "",
+    (s) => s.settings?.defaultOrganizePathFormat ?? "",
   );
 
   const [busyId, setBusyId] = useState<number | "add" | "managed" | null>(null);

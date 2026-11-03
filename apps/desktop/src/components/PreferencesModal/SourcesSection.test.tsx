@@ -142,7 +142,7 @@ describe("SourcesSection", () => {
     });
     useLibrarySettingsStore.setState({
       settings: {
-        organizePathFormat: "{albumArtist}/{album}/{title}.{ext}",
+        defaultOrganizePathFormat: "{albumArtist}/{album}/{title}.{ext}",
       } as LibrarySettings,
     });
     usePlayerStore.setState({

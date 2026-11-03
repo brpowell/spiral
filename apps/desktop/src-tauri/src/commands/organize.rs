@@ -65,10 +65,9 @@ fn plan_organize(
     source_id: i64,
     path_format: Option<String>,
 ) -> Result<FilePlan, String> {
-    let default_format = settings::resolved_library_settings(app).organize_path_format;
     let state = app.state::<DbState>();
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    file_plan::plan_organize_source(&conn, source_id, path_format, &default_format)
+    file_plan::plan_organize_source(&conn, source_id, path_format)
 }
 
 /// What organizing a source would do, for the user to confirm: how many
