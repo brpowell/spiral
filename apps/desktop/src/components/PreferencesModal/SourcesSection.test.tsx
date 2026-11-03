@@ -73,6 +73,32 @@ function item(name: string): HTMLElement {
   return screen.getByText(name).closest("li, section") as HTMLElement;
 }
 
+/** Opens a row's more menu and picks an item from it. */
+function chooseFromMenu(name: string, label: RegExp) {
+  fireEvent.click(screen.getByRole("button", { name: `Actions for ${name}` }));
+  fireEvent.click(screen.getByRole("menuitem", { name: label }));
+}
+
+/** Opens a folder's edit dialog. */
+async function openEdit(name: string): Promise<HTMLElement> {
+  chooseFromMenu(name, /^Edit/);
+  return screen.findByRole("dialog", { name: `Edit “${name}”` });
+}
+
+/** The labels in a row's more menu, which is closed again afterwards. */
+async function menuItems(name: string): Promise<string[]> {
+  const trigger = screen.getByRole("button", { name: `Actions for ${name}` });
+  fireEvent.click(trigger);
+  const items = screen
+    .getAllByRole("menuitem")
+    .map((el) => el.textContent ?? "");
+  fireEvent.click(trigger);
+  await waitFor(() =>
+    expect(screen.queryAllByRole("menuitem")).toHaveLength(0),
+  );
+  return items;
+}
+
 const plan: FilePlanSummary = {
   moves: 2,
   renamed: 0,
@@ -167,54 +193,38 @@ describe("SourcesSection", () => {
     await waitFor(() => expect(tauri.listSources).toHaveBeenCalledTimes(2));
   });
 
-  it("gives Tracks every control, like any folder", async () => {
+  it("keeps a folder card to its path and counts", async () => {
     await renderSection();
     const tracks = item("Tracks");
-    expect(
-      within(tracks).getByRole("switch", { name: "Organize files" }),
-    ).toBeChecked();
-    expect(within(tracks).getByLabelText("Path format")).toHaveAttribute(
-      "placeholder",
-      "Use default format",
-    );
-    expect(
-      within(tracks).getByText("{albumArtist}/{album}/{title}.{ext}"),
-    ).toBeTruthy();
-    expect(within(tracks).getByText("Import target")).toBeTruthy();
-    expect(
-      within(tracks).queryByRole("button", { name: /Import here/ }),
-    ).toBeNull();
-    expect(within(tracks).getByRole("button", { name: /Remove/ })).toBeTruthy();
-    expect(
-      within(tracks).getByRole("button", { name: /Change location/ }),
-    ).toBeTruthy();
+    expect(within(tracks).getByText("Default")).toBeTruthy();
+    expect(within(tracks).queryByRole("switch")).toBeNull();
+    expect(within(tracks).queryByLabelText("Path format")).toBeNull();
+    expect(within(tracks).getAllByRole("button")).toHaveLength(1);
+    expect(within(item("Music")).queryByText("Default")).toBeNull();
   });
 
-  it("gives a user source every control", async () => {
+  it("offers Edit, Rescan and Remove for every folder, Tracks included", async () => {
     await renderSection();
-    const music = item("Music");
-    expect(
-      within(music).getByRole("switch", { name: "Organize files" }),
-    ).not.toBeChecked();
-    expect(within(music).getByLabelText("Path format")).toBeTruthy();
-    expect(within(music).getByRole("button", { name: /Rescan/ })).toBeTruthy();
-    expect(
-      within(music).getByRole("button", { name: /Change location/ }),
-    ).toBeTruthy();
-    expect(within(music).getByRole("button", { name: /Remove/ })).toBeTruthy();
-    expect(within(music).queryByText("Import target")).toBeNull();
+    expect(await menuItems("Tracks")).toEqual(["Edit…", "Rescan", "Remove…"]);
+    expect(await menuItems("Music")).toEqual(["Edit…", "Rescan", "Remove…"]);
   });
 
-  it("gives Other no organize, format, import or remove controls", async () => {
+  it("offers only Rescan for Other", async () => {
     await renderSection();
-    const other = item("Other files");
-    expect(within(other).queryByRole("switch")).toBeNull();
-    expect(within(other).queryByLabelText("Path format")).toBeNull();
-    expect(
-      within(other).queryByRole("button", { name: /Import here/ }),
-    ).toBeNull();
-    expect(within(other).queryByRole("button", { name: /Remove/ })).toBeNull();
-    expect(within(other).getByRole("button", { name: /Rescan/ })).toBeTruthy();
+    expect(await menuItems("Other files")).toEqual(["Rescan"]);
+  });
+
+  it("rescans from the menu", async () => {
+    tauri.rescanSource.mockResolvedValue({
+      added: 1,
+      updated: 0,
+      missing: 0,
+      restored: 0,
+    });
+    await renderSection();
+    chooseFromMenu("Music", /Rescan/);
+    await waitFor(() => expect(tauri.rescanSource).toHaveBeenCalledWith(3));
+    expect(await screen.findByText(/Scan finished: 1 added/)).toBeTruthy();
   });
 
   it("has no writable switch or read-only badge", async () => {
@@ -223,25 +233,115 @@ describe("SourcesSection", () => {
     expect(screen.queryByText(/edit tags in this folder/)).toBeNull();
   });
 
-  it("makes a source the import target", async () => {
+  it("shows a folder's settings in the edit dialog", async () => {
+    await renderSection();
+    const dialog = await openEdit("Tracks");
+    expect(
+      within(dialog).getByText("/Users/me/Music/Spiral Library/Tracks"),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByRole("switch", { name: "Organize files" }),
+    ).toBeChecked();
+    // Already the default: it can only move to another folder.
+    const makeDefault = within(dialog).getByRole("switch", {
+      name: "Default folder",
+    });
+    expect(makeDefault).toBeChecked();
+    expect(makeDefault).toBeDisabled();
+    expect(within(dialog).getByLabelText("Path format")).toHaveAttribute(
+      "placeholder",
+      "Use default format",
+    );
+    expect(
+      within(dialog).getByText("{albumArtist}/{album}/{title}.{ext}"),
+    ).toBeTruthy();
+  });
+
+  it("changes nothing until Save, and nothing on Cancel", async () => {
+    await renderSection();
+    const dialog = await openEdit("Music");
+    fireEvent.click(
+      within(dialog).getByRole("switch", { name: "Organize files" }),
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(tauri.setSourceOrganize).not.toHaveBeenCalled();
+    expect(tauri.previewOrganizeSource).not.toHaveBeenCalled();
+  });
+
+  it("makes a folder the default", async () => {
     tauri.getSourceStatuses.mockResolvedValue([]);
     tauri.setImportSource.mockResolvedValue({
       ...sources[2],
       importTarget: true,
     });
     await renderSection();
+    const dialog = await openEdit("Music");
     fireEvent.click(
-      within(item("Music")).getByRole("button", { name: /Import here/ }),
+      within(dialog).getByRole("switch", { name: "Default folder" }),
     );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(tauri.setImportSource).toHaveBeenCalledWith(3));
-    expect(tauri.listSources).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  it("previews before organizing a source that has tracks", async () => {
+  it("won't make an offline folder the default", async () => {
     await renderSection();
-    fireEvent.click(
-      within(item("Music")).getByRole("switch", { name: "Organize files" }),
+    await waitFor(() =>
+      expect(within(item("Music")).getByText("Offline")).toBeTruthy(),
     );
+    const dialog = await openEdit("Music");
+    expect(
+      within(dialog).getByRole("switch", { name: "Default folder" }),
+    ).toBeDisabled();
+  });
+
+  it("changes a folder's location on Save", async () => {
+    tauri.pickMusicFolder.mockResolvedValue("/Volumes/New/Music");
+    tauri.relocateSource.mockResolvedValue({
+      ...sources[2],
+      rootPath: "/Volumes/New/Music",
+    });
+    await renderSection();
+    const dialog = await openEdit("Music");
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: /Change location/ }),
+    );
+    expect(await within(dialog).findByText("/Volumes/New/Music")).toBeTruthy();
+    expect(tauri.relocateSource).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(tauri.relocateSource).toHaveBeenCalledWith(
+        3,
+        "/Volumes/New/Music",
+      ),
+    );
+  });
+
+  it("keeps the dialog open with a readable error when saving fails", async () => {
+    tauri.pickMusicFolder.mockResolvedValue("/Volumes/Big/Music/Rock");
+    tauri.relocateSource.mockRejectedValue(
+      "source_overlap: /Volumes/Big/Music/Rock overlaps /Volumes/Big/Music",
+    );
+    await renderSection();
+    const dialog = await openEdit("Music");
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: /Change location/ }),
+    );
+    await within(dialog).findByText("/Volumes/Big/Music/Rock");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert.textContent).toMatch(/overlaps one of your sources/);
+    expect(screen.getByRole("dialog", { name: "Edit “Music”" })).toBeTruthy();
+  });
+
+  it("previews before organizing a folder that has tracks", async () => {
+    await renderSection();
+    const edit = await openEdit("Music");
+    fireEvent.click(
+      within(edit).getByRole("switch", { name: "Organize files" }),
+    );
+    fireEvent.click(within(edit).getByRole("button", { name: "Save" }));
     const dialog = await screen.findByRole("dialog", {
       name: "Organize “Music”?",
     });
@@ -257,11 +357,30 @@ describe("SourcesSection", () => {
     expect(await within(dialog).findByText(/Moved 2 files/)).toBeTruthy();
   });
 
+  it("organizes with a new format in one preview", async () => {
+    await renderSection();
+    const edit = await openEdit("Music");
+    fireEvent.click(
+      within(edit).getByRole("switch", { name: "Organize files" }),
+    );
+    fireEvent.change(within(edit).getByLabelText("Path format"), {
+      target: { value: "{artist}/{title}.{ext}" },
+    });
+    fireEvent.click(within(edit).getByRole("button", { name: "Save" }));
+    await screen.findByRole("dialog", { name: "Organize “Music”?" });
+    expect(tauri.previewOrganizeSource).toHaveBeenCalledWith(
+      3,
+      "{artist}/{title}.{ext}",
+    );
+  });
+
   it("leaves organize off when the preview is cancelled", async () => {
     await renderSection();
+    const edit = await openEdit("Music");
     fireEvent.click(
-      within(item("Music")).getByRole("switch", { name: "Organize files" }),
+      within(edit).getByRole("switch", { name: "Organize files" }),
     );
+    fireEvent.click(within(edit).getByRole("button", { name: "Save" }));
     const dialog = await screen.findByRole("dialog", {
       name: "Organize “Music”?",
     });
@@ -270,9 +389,6 @@ describe("SourcesSection", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(tauri.applyOrganizeSource).not.toHaveBeenCalled();
     expect(tauri.setSourceOrganize).not.toHaveBeenCalled();
-    expect(
-      within(item("Music")).getByRole("switch", { name: "Organize files" }),
-    ).not.toBeChecked();
   });
 
   it("turns organize off without a preview", async () => {
@@ -281,51 +397,49 @@ describe("SourcesSection", () => {
       autoOrganize: false,
     });
     await renderSection();
+    const edit = await openEdit("Tracks");
     fireEvent.click(
-      within(item("Tracks")).getByRole("switch", { name: "Organize files" }),
+      within(edit).getByRole("switch", { name: "Organize files" }),
     );
+    fireEvent.click(within(edit).getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(tauri.setSourceOrganize).toHaveBeenCalledWith(1, false),
     );
     expect(tauri.previewOrganizeSource).not.toHaveBeenCalled();
-    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  it("turns organize on directly for a source with no tracks", async () => {
+  it("turns organize on directly for a folder with no tracks", async () => {
     usePlayerStore.setState({ library: [track(1, 1)] });
     tauri.setSourceOrganize.mockResolvedValue({
       ...sources[2],
       autoOrganize: true,
     });
     await renderSection();
+    const edit = await openEdit("Music");
     fireEvent.click(
-      within(item("Music")).getByRole("switch", { name: "Organize files" }),
+      within(edit).getByRole("switch", { name: "Organize files" }),
     );
+    fireEvent.click(within(edit).getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(tauri.setSourceOrganize).toHaveBeenCalledWith(3, true),
     );
     expect(tauri.previewOrganizeSource).not.toHaveBeenCalled();
   });
 
-  it("previews a new format for an organized source", async () => {
+  it("previews a new format for an organized folder", async () => {
     await renderSection();
-    const input = within(item("Tracks")).getByLabelText("Path format");
-    fireEvent.change(input, { target: { value: "{artist}/{title}.{ext}" } });
-    fireEvent.blur(input);
-    const dialog = await screen.findByRole("dialog", {
-      name: "Organize “Tracks”?",
+    const edit = await openEdit("Tracks");
+    fireEvent.change(within(edit).getByLabelText("Path format"), {
+      target: { value: "{artist}/{title}.{ext}" },
     });
+    fireEvent.click(within(edit).getByRole("button", { name: "Save" }));
+    await screen.findByRole("dialog", { name: "Organize “Tracks”?" });
     expect(tauri.previewOrganizeSource).toHaveBeenCalledWith(
       1,
       "{artist}/{title}.{ext}",
     );
     expect(tauri.setSourcePathFormat).not.toHaveBeenCalled();
-
-    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(within(item("Tracks")).getByLabelText("Path format")).toHaveValue(
-      "",
-    );
   });
 
   it("goes back to the default format through the preview, then clears the override", async () => {
@@ -335,11 +449,14 @@ describe("SourcesSection", () => {
       sources[2],
     ]);
     await renderSection();
-    const input = within(item("Tracks")).getByLabelText("Path format");
+    const edit = await openEdit("Tracks");
+    const input = within(edit).getByLabelText("Path format");
     expect(input).toHaveValue("{title}.{ext}");
     fireEvent.change(input, { target: { value: "  " } });
-    fireEvent.blur(input);
-    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(edit).getByRole("button", { name: "Save" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Organize “Tracks”?",
+    });
     expect(tauri.previewOrganizeSource).toHaveBeenCalledWith(
       1,
       "{albumArtist}/{album}/{title}.{ext}",
@@ -352,16 +469,16 @@ describe("SourcesSection", () => {
     );
   });
 
-  it("saves a format for an unorganized source without moving files", async () => {
+  it("saves a format for an unorganized folder without moving files", async () => {
     tauri.setSourcePathFormat.mockResolvedValue({
       ...sources[2],
       pathFormat: "{title}.{ext}",
     });
     await renderSection();
-    const input = within(item("Music")).getByLabelText("Path format");
+    const edit = await openEdit("Music");
+    const input = within(edit).getByLabelText("Path format");
     fireEvent.change(input, { target: { value: "{title}.{ext}" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    fireEvent.blur(input);
     await waitFor(() =>
       expect(tauri.setSourcePathFormat).toHaveBeenCalledWith(
         3,
@@ -401,9 +518,7 @@ describe("SourcesSection", () => {
   it("confirms removal, saying the files stay on disk", async () => {
     tauri.removeSource.mockResolvedValue(2);
     await renderSection();
-    fireEvent.click(
-      within(item("Music")).getByRole("button", { name: /Remove/ }),
-    );
+    chooseFromMenu("Music", /Remove/);
 
     const dialog = await screen.findByRole("dialog", {
       name: "Remove “Music”?",
@@ -423,9 +538,7 @@ describe("SourcesSection", () => {
   it("says removing Tracks keeps its folder and files on disk", async () => {
     tauri.removeSource.mockResolvedValue(1);
     await renderSection();
-    fireEvent.click(
-      within(item("Tracks")).getByRole("button", { name: /Remove/ }),
-    );
+    chooseFromMenu("Tracks", /Remove/);
 
     const dialog = await screen.findByRole("dialog", {
       name: "Remove “Tracks”?",
@@ -435,7 +548,7 @@ describe("SourcesSection", () => {
     expect(dialog.textContent).toMatch(
       /folder and its files stay at \/Users\/me\/Music\/Spiral Library\/Tracks/,
     );
-    expect(dialog.textContent).toMatch(/It's your import target/);
+    expect(dialog.textContent).toMatch(/It's your default folder/);
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
     await waitFor(() => expect(tauri.removeSource).toHaveBeenCalledWith(1));

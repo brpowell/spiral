@@ -29,14 +29,14 @@
     "keepLocation": "Keep files where they are",
     "copyToLibrary": "Add to Spiral",
     "keepLocationDescription": "Play them from their current folder. Spiral won't move or change them.",
-    "copyToLibraryDescription": "Copy them into Spiral, organized if the import target is. The originals stay where they are.",
+    "copyToLibraryDescription": "Copy them into Spiral, organized if the default folder is. The originals stay where they are.",
     "copyToSourceDescription": "Copy them into the source chosen below. The originals stay where they are.",
     "copyUnavailableDescription": "Copy them into one of your music folders. The originals stay where they are.",
     "noFolders": "No music folders yet. Add one to copy files into it.",
     "foldersOffline": "Your music folders aren't connected right now. Connect one, or add another.",
     "addFolder": "Add a folder…",
     "destination": "Copy into",
-    "destinationDescription": "Remembering this choice also makes it your import target.",
+    "destinationDescription": "Remembering this choice also makes it your default folder.",
     "destinationOffline": "{{name}} (offline)"
   },
   "importDedupe": {

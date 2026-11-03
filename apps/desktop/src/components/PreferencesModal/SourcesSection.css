@@ -78,34 +78,11 @@
   color: var(--color-danger, #e55);
 }
 
-.sources-section__settings {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  margin-top: 0.35rem;
-  padding-top: 0.6rem;
-  border-top: 1px solid var(--color-border);
-}
-
-.sources-section__organize {
-  align-items: flex-start;
-  gap: 0.6rem;
-}
-
-.sources-section__organize > .switch {
+/* Sits at the top right of the card; the card's padding is enough room. */
+.sources-section__menu {
   flex-shrink: 0;
-  margin-top: 0.1rem;
-}
-
-.sources-section__format {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.sources-section__format-label {
-  font-size: 0.82rem;
-  font-weight: var(--weight-medium);
+  align-self: flex-start;
+  margin: -0.3rem -0.4rem 0 0;
 }
 
 .sources-section__actions {
