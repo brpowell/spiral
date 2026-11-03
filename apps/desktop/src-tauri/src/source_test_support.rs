@@ -1,7 +1,6 @@
 //! Databases and files for tests of code that treats sources differently.
 
 use crate::db_migrations;
-use crate::sources::OTHER_SOURCE_ID;
 use rusqlite::{params, Connection};
 use std::path::{Path, PathBuf};
 
@@ -46,8 +45,6 @@ pub struct SourceTracks {
     pub managed: i64,
     /// In a source the user added.
     pub user: i64,
-    /// In Other.
-    pub other: i64,
 }
 
 /// Add a user source rooted at `root`.
@@ -72,7 +69,7 @@ pub fn add_managed_source(conn: &Connection, root: &Path) -> i64 {
     id
 }
 
-/// Insert a track stored as `rel_path` (absolute for Other).
+/// Insert a track stored as `rel_path`.
 pub fn insert_track(conn: &Connection, rel_path: &str, source_id: i64) -> i64 {
     conn.execute(
         "INSERT INTO tracks (title, rel_path, date_added, source_id)
@@ -85,7 +82,7 @@ pub fn insert_track(conn: &Connection, rel_path: &str, source_id: i64) -> i64 {
 
 /// One track per kind of source, with files at the given paths. The managed
 /// and user sources are rooted at their file's folder.
-pub fn source_tracks(conn: &Connection, managed: &Path, user: &Path, other: &Path) -> SourceTracks {
+pub fn source_tracks(conn: &Connection, managed: &Path, user: &Path) -> SourceTracks {
     let managed_source = add_managed_source(conn, managed.parent().unwrap());
     let managed_name = managed.file_name().unwrap().to_string_lossy();
     let user_source = add_user_source(conn, user.parent().unwrap());
@@ -93,15 +90,9 @@ pub fn source_tracks(conn: &Connection, managed: &Path, user: &Path, other: &Pat
     SourceTracks {
         managed: insert_track(conn, &managed_name, managed_source),
         user: insert_track(conn, &user_name, user_source),
-        other: insert_track(conn, &other.to_string_lossy(), OTHER_SOURCE_ID),
     }
 }
 
 pub fn default_source_tracks(conn: &Connection) -> SourceTracks {
-    source_tracks(
-        conn,
-        Path::new("/managed/m.mp3"),
-        Path::new("/user/u.mp3"),
-        Path::new("/x.mp3"),
-    )
+    source_tracks(conn, Path::new("/managed/m.mp3"), Path::new("/user/u.mp3"))
 }

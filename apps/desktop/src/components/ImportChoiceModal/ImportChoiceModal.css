@@ -1,12 +1,8 @@
-.import-choice-modal__options {
-  margin-bottom: 0.85rem;
-}
-
 .import-choice-modal__destination {
   margin-bottom: 0.85rem;
 }
 
-/* How to make copying possible, under the disabled copy option. */
+/* Adding a folder, with why when there is none to copy into. */
 .import-choice-modal__enable {
   display: flex;
   align-items: center;

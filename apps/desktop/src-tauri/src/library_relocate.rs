@@ -267,12 +267,8 @@ pub(crate) fn migrate_moved_art_cache(
             .map_err(|e| e.to_string())?;
 
         for (id, rel_path, art_path) in tracks {
-            // Library-relative Artwork/ paths stay valid across the move, and
-            // absolute track paths didn't move.
-            if art_path.starts_with("Artwork/")
-                || art_path.starts_with("Artwork\\")
-                || Path::new(&rel_path).is_absolute()
-            {
+            // Library-relative Artwork/ paths stay valid across the move.
+            if art_path.starts_with("Artwork/") || art_path.starts_with("Artwork\\") {
                 continue;
             }
             let old_path = sources::join_rel_path(&old_source_root, &rel_path);
@@ -323,7 +319,9 @@ fn apply_library_root(app: &AppHandle, new_root: &str) -> Result<LibrarySettings
     Ok(resolved)
 }
 
-fn import_audio_as_reference(app: &AppHandle, state: &DbState, root: &Path) -> Result<u32, String> {
+/// Add the audio files under `root` to the library where they are. Only files
+/// inside a source's folder are added; the rest are skipped.
+fn index_audio_in_sources(app: &AppHandle, state: &DbState, root: &Path) -> Result<u32, String> {
     let paths = scan_folder_paths(&root.to_string_lossy())?;
     let app_data = settings::app_data_dir(app)?;
     let lyrics_sidecar = settings::lyrics_sidecar_sync_enabled(app);
@@ -343,8 +341,14 @@ fn import_audio_as_reference(app: &AppHandle, state: &DbState, root: &Path) -> R
                 continue;
             }
         };
-        let source_id = crate::sources::source_for_path(&conn, &roots, Path::new(&path))
-            .map_err(|e| e.to_string())?;
+        let source_id = match crate::sources::source_for_path(&conn, &roots, Path::new(&path)) {
+            Ok(Some(id)) => id,
+            Ok(None) => {
+                eprintln!("fresh import skip {path}: not inside a source folder");
+                continue;
+            }
+            Err(e) => return Err(e.to_string()),
+        };
         match db::save_track(&conn, &input, source_id) {
             Ok(id) => {
                 if let Err(e) = lyrics_normalize::persist_import_lyrics(&conn, id, &input.lyrics) {
@@ -521,7 +525,7 @@ pub fn relocate_library(
                         eprintln!("fresh import: add Tracks as a source: {err}");
                     }
                 }
-                let _ = import_audio_as_reference(app, state, &dest);
+                let _ = index_audio_in_sources(app, state, &dest);
             }
             Ok(resolved)
         }

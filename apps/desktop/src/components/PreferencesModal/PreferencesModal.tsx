@@ -33,7 +33,6 @@ import {
 } from "../../types/playbackSettings";
 import type {
   CdMetadataFetchMode,
-  ImportMode,
   LibraryDestinationInfo,
   LibraryRelocateMode,
   LibrarySettingsPatch,
@@ -133,7 +132,6 @@ export function PreferencesModal() {
   const { t } = useTranslation(["preferences", "common"]);
 
   const titleId = useId();
-  const importModeLabelId = useId();
   const cdMetadataFetchModeLabelId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const clearHistoryTriggerRef = useRef<HTMLButtonElement>(null);
@@ -233,12 +231,6 @@ export function PreferencesModal() {
   }, [open, activeSection, defaultPublisherIdLoaded]);
 
   if (!settings) return null;
-
-  const IMPORT_MODE_OPTIONS: { value: ImportMode; label: string }[] = [
-    { value: "copy", label: t("preferences:library.importCopy") },
-    { value: "reference", label: t("preferences:library.importReference") },
-    { value: "ask", label: t("preferences:library.importAsk") },
-  ];
 
   const CD_METADATA_FETCH_MODE_OPTIONS: {
     value: CdMetadataFetchMode;
@@ -478,29 +470,6 @@ export function PreferencesModal() {
                 {/* The folders Spiral plays from come first: they're what the
                     library is. The Spiral folder itself is rarely changed. */}
                 <SourcesSection />
-
-                <Separator />
-
-                <FormField
-                  label={t("preferences:library.importMode")}
-                  labelId={importModeLabelId}
-                  description={t("preferences:library.importModeDescription")}
-                >
-                  <RadioGroup
-                    name="importMode"
-                    value={settings.importMode}
-                    onChange={(importMode) => patchSettings({ importMode })}
-                    variant="button"
-                    orientation="horizontal"
-                    aria-labelledby={importModeLabelId}
-                  >
-                    {IMPORT_MODE_OPTIONS.map((opt) => (
-                      <RadioGroupItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </RadioGroupItem>
-                    ))}
-                  </RadioGroup>
-                </FormField>
 
                 <Separator />
 

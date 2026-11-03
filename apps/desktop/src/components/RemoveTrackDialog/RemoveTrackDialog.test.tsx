@@ -26,27 +26,6 @@ describe("RemoveTrackDialog", () => {
     expect(screen.queryByRole("note")).toBeNull();
   });
 
-  it("says which of Other's files will be kept on disk in a mixed selection", () => {
-    renderDialog([track(1, 1), track(2, 3), track(3, 2), track(4, 2)]);
-    expect(screen.getByRole("note").textContent).toBe(
-      "2 of these files are in Other files. They leave the library, but stay on disk.",
-    );
-    expect(
-      screen.getByRole("button", { name: "Remove and send to trash" }),
-    ).toBeTruthy();
-  });
-
-  it("only removes from the library when every file is in Other", () => {
-    renderDialog([track(1, 2), track(2, 2)]);
-    expect(screen.getByRole("note").textContent).toMatch(
-      /^These files are in Other files/,
-    );
-    expect(screen.queryByRole("button", { name: /delete/ })).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Remove from library" }),
-    ).toBeTruthy();
-  });
-
   it("only removes from the library when every track is missing", () => {
     renderDialog([track(1, 1, "then"), track(2, 3, "then")]);
     expect(screen.queryByRole("note")).toBeNull();
@@ -59,7 +38,7 @@ describe("RemoveTrackDialog", () => {
   it("still offers the Trash when only some tracks are missing", () => {
     renderDialog([track(1, 1), track(2, 1, "then")]);
     expect(screen.queryByRole("note")).toBeNull();
-    // Only the one present file outside Other goes to the Trash.
+    // Only the one present file goes to the Trash.
     expect(
       screen.getByRole("button", { name: "Remove and send to trash" }),
     ).toBeTruthy();

@@ -136,7 +136,6 @@ pub fn get_source_statuses(state: State<DbState>) -> Result<Vec<SourceStatus>, S
         sources::list_sources(&conn)
             .map_err(|e| e.to_string())?
             .into_iter()
-            .filter(|s| s.id != sources::OTHER_SOURCE_ID)
             .map(|s| s.id)
             .collect()
     };
@@ -199,8 +198,7 @@ pub fn remove_source(
     Ok(removed)
 }
 
-/// Look at a source's files again now. For Other, which has no folder, this
-/// only updates which tracks are missing.
+/// Look at a source's files again now.
 #[tauri::command]
 pub async fn rescan_source(app: AppHandle, source_id: i64) -> Result<ReconcileSummary, String> {
     reconcile_in_background(app, source_id).await

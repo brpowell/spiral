@@ -186,7 +186,6 @@ fn merge_into(conn: &Connection, keep: i64, drop: i64) -> rusqlite::Result<()> {
 pub(crate) mod tests {
     use super::*;
     use crate::source_test_support::*;
-    use crate::sources::OTHER_SOURCE_ID;
     use std::fs;
 
     #[test]
@@ -224,13 +223,13 @@ pub(crate) mod tests {
         let conn = conn();
         let file = tmp.0.join("song.mp3");
         fs::write(&file, b"x").unwrap();
-        let upper = alias(&file, "Song.mp3");
+        alias(&file, "Song.mp3");
         let source = add_user_source(&conn, &tmp.0);
         let a = insert_track(&conn, "song.mp3", source);
-        let b = insert_track(&conn, &upper.to_string_lossy(), OTHER_SOURCE_ID);
+        let b = insert_track(&conn, "Song.mp3", source);
         let unrelated = tmp.0.join("other.mp3");
         fs::write(&unrelated, b"y").unwrap();
-        insert_track(&conn, &unrelated.to_string_lossy(), OTHER_SOURCE_ID);
+        insert_track(&conn, "other.mp3", source);
 
         assert_eq!(other_rows_for_file(&conn, &file, a).unwrap(), vec![b]);
         assert!(other_rows_for_file(&conn, &unrelated, -1).unwrap().len() == 1);

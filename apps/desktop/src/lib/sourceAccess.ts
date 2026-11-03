@@ -3,26 +3,13 @@ import type { Track } from "../types/track";
 import { t } from "./i18n";
 
 /**
- * Other: the built-in bucket for loose files, which has no folder. It isn't a
- * source the user chose, so it is never listed or counted among them. Every
- * other row is a folder the user chose (`Tracks` included).
- */
-export const OTHER_SOURCE_ID = 2;
-
-export function isOtherSource(source: Pick<Source, "id">): boolean {
-  return source.id === OTHER_SOURCE_ID;
-}
-
-/**
  * Whether removing the track may also delete its file. Every source's files
- * can be deleted except Other's loose files, which stay on disk, and a
- * missing track's: its path may now name another track's file. Tracks still
- * importing have no source yet and land in a source folder.
+ * can be deleted except a missing track's: its path may now name another
+ * track's file. Tracks still importing have no source yet and land in a
+ * source folder.
  */
-export function canDeleteFromDisk(
-  track: Pick<Track, "sourceId" | "missingSince">,
-): boolean {
-  return track.sourceId !== OTHER_SOURCE_ID && !track.missingSince;
+export function canDeleteFromDisk(track: Pick<Track, "missingSince">): boolean {
+  return !track.missingSince;
 }
 
 /** Error prefixes the source, import, replace and convert commands return. */
@@ -70,14 +57,12 @@ export function countTracksBySource(
   return counts;
 }
 
-/** Display name for a source: "Other files" for Other, else the stored name. */
-export function sourceDisplayName(source: Pick<Source, "id" | "name">): string {
-  return isOtherSource(source) ? t("library:sources.otherName") : source.name;
+/** Display name for a source. */
+export function sourceDisplayName(source: Pick<Source, "name">): string {
+  return source.name;
 }
 
-/** Sort rank for the source column: folders in the order added, then Other. */
+/** Sort rank for the source column: folders in the order added. */
 export function sourceSortRank(sourceId: number | undefined): number {
-  if (sourceId == null) return 0;
-  if (sourceId === OTHER_SOURCE_ID) return Number.MAX_SAFE_INTEGER;
-  return sourceId;
+  return sourceId ?? 0;
 }

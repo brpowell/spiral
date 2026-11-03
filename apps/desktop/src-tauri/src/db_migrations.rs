@@ -65,6 +65,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "optional_sources",
         up: optional_sources,
     },
+    Migration {
+        version: 7,
+        name: "drop_other_source",
+        up: |conn, _| drop_other_source(conn),
+    },
 ];
 
 fn latest_version() -> i64 {
@@ -851,6 +856,33 @@ fn optional_sources(conn: &Connection, from: i64) -> Result<(), rusqlite::Error>
     Ok(())
 }
 
+/// Version 7: there is no Other bucket. Every track belongs to a source
+/// folder. Other (id 2) is deleted with its tracks, their play history,
+/// playlist entries and lyrics; their files stay on disk. Foreign keys are
+/// off while migrating, so the dependent rows are deleted here rather than by
+/// cascade. With no Other, every source has a root.
+fn drop_other_source(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute_batch(
+        "DROP TRIGGER sources_keep_other;
+        DROP TRIGGER sources_root_on_insert;
+        DROP TRIGGER sources_root_on_update;
+        DELETE FROM listen_events
+            WHERE track_id IN (SELECT id FROM tracks WHERE source_id = 2);
+        DELETE FROM playlist_tracks
+            WHERE track_id IN (SELECT id FROM tracks WHERE source_id = 2);
+        DELETE FROM track_lyrics
+            WHERE track_id IN (SELECT id FROM tracks WHERE source_id = 2);
+        DELETE FROM tracks WHERE source_id = 2;
+        DELETE FROM sources WHERE id = 2;
+        CREATE TRIGGER sources_root_on_insert BEFORE INSERT ON sources
+            WHEN new.root_path IS NULL
+            BEGIN SELECT RAISE(ABORT, 'every source has a root'); END;
+        CREATE TRIGGER sources_root_on_update BEFORE UPDATE OF id, root_path ON sources
+            WHEN new.id != old.id OR new.root_path IS NULL
+            BEGIN SELECT RAISE(ABORT, 'every source has a root'); END;",
+    )
+}
+
 /// The Spiral folder `db::open` recorded for this connection, if any. Spelled
 /// out here rather than shared with `sources`, so later changes there can't
 /// alter what migration 5 does.
@@ -1149,6 +1181,21 @@ mod tests {
             assert!(from > 0, "{name}: fixture must set PRAGMA user_version");
             let before = table_counts(&conn);
 
+            // A migration that intentionally changes row counts must adjust
+            // this assertion for the versions it affects. v3 adds `sources`
+            // with its two built-in rows, and v7 drops Other with its tracks
+            // and their rows.
+            let mut expected = before.clone();
+            if from < 3 {
+                expected.push(("sources".to_string(), 2));
+                expected.sort();
+            }
+            if from < 7 {
+                migrate_to(&conn, 6);
+                assert_eq!(table_counts(&conn), expected, "{name}: rows changed");
+                expected = without_other(&conn, expected);
+            }
+
             run(&conn, None).unwrap_or_else(|e| panic!("{name}: upgrade failed: {e}"));
 
             assert_eq!(schema_version(&conn).unwrap(), latest_version(), "{name}");
@@ -1158,16 +1205,32 @@ mod tests {
                 .unwrap();
             assert_eq!(integrity, "ok", "{name}");
             check_foreign_keys(&conn).unwrap_or_else(|e| panic!("{name}: {e}"));
-            // A migration that intentionally changes row counts must adjust
-            // this assertion for the versions it affects. v3 adds `sources`
-            // with its two built-in rows.
-            let mut expected = before.clone();
-            if from < 3 {
-                expected.push(("sources".to_string(), 2));
-                expected.sort();
-            }
             assert_eq!(table_counts(&conn), expected, "{name}: rows changed");
         }
+    }
+
+    /// `counts` less the rows v7 deletes: Other's source row, its tracks, and
+    /// their play history, playlist entries and lyrics.
+    fn without_other(conn: &Connection, counts: Vec<(String, i64)>) -> Vec<(String, i64)> {
+        let of_other = |table: &str| -> i64 {
+            let sql = match table {
+                "sources" => "SELECT COUNT(*) FROM sources WHERE id = 2".to_string(),
+                "tracks" => "SELECT COUNT(*) FROM tracks WHERE source_id = 2".to_string(),
+                "listen_events" | "playlist_tracks" | "track_lyrics" => format!(
+                    "SELECT COUNT(*) FROM {table}
+                     WHERE track_id IN (SELECT id FROM tracks WHERE source_id = 2)"
+                ),
+                _ => return 0,
+            };
+            conn.query_row(&sql, [], |r| r.get(0)).unwrap()
+        };
+        counts
+            .into_iter()
+            .map(|(table, n)| {
+                let n = n - of_other(&table);
+                (table, n)
+            })
+            .collect()
     }
 
     fn load_fixture(version: i64) -> Connection {
@@ -1260,7 +1323,7 @@ mod tests {
     #[test]
     fn v4_adds_empty_file_stat_columns_and_keeps_sources() {
         let conn = load_fixture(3);
-        run(&conn, None).unwrap();
+        migrate_to(&conn, 4);
         type Row = (i64, i64, Option<String>, Option<i64>, Option<i64>);
         let rows: Vec<Row> = conn
             .prepare(
@@ -1388,7 +1451,8 @@ mod tests {
         );
 
         // Today's resolver (after v6 stores the default source's root) turns
-        // them back into the same absolute paths.
+        // them back into the same absolute paths. Other's tracks are gone
+        // after v7.
         run(&conn, None).unwrap();
         let paths: Vec<String> = crate::db::get_all_tracks(&conn)
             .unwrap()
@@ -1396,11 +1460,8 @@ mod tests {
             .map(|t| t.file_path.replace('\\', "/"))
             .collect();
         for expected in [
-            "/music/a.mp3",
-            "/music/b.mp3",
             "/collection/Sub/c.flac",
             "/library/Tracks/Artist Z/Album 3/d.mp3",
-            "/elsewhere/e.mp3",
         ] {
             assert!(
                 paths.iter().any(|p| p == expected),
@@ -1463,7 +1524,7 @@ mod tests {
 
         let conn = crate::db::open(&db_path).unwrap();
         assert_eq!(schema_version(&conn).unwrap(), latest_version());
-        assert_eq!(track_locations(&conn)[3], (4, 1, "Artist Z/d.mp3".into()));
+        assert!(track_locations(&conn).contains(&(4, 1, "Artist Z/d.mp3".into())));
         let track = crate::db::get_track_by_id(&conn, 4).unwrap().unwrap();
         assert_eq!(track.file_path, managed.to_string_lossy());
         assert!(dir.join("Library.db.bak-v4").is_file());
@@ -1482,7 +1543,7 @@ mod tests {
         .unwrap();
         let tracks_before = track_locations(&conn);
         assert!(tracks_before.iter().filter(|(_, s, _)| *s == 1).count() >= 3);
-        run(&conn, None).unwrap();
+        migrate_to(&conn, 6);
 
         assert_eq!(
             sources_rows(&conn),
@@ -1537,13 +1598,91 @@ mod tests {
     }
 
     #[test]
-    fn v6_gives_a_new_database_no_sources_but_other() {
+    fn a_new_database_has_no_sources() {
         let conn = mem();
         run(&conn, None).unwrap();
+        assert_eq!(sources_rows(&conn), vec![]);
+    }
+
+    #[test]
+    fn v7_drops_other_and_its_tracks_but_keeps_their_files() {
+        let dir = std::env::temp_dir().join(format!(
+            "spiral-migrate-v7-{}-{}",
+            std::process::id(),
+            Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+        std::fs::create_dir_all(dir.join("Tracks")).unwrap();
+        let loose = dir.join("Elsewhere").join("e.mp3");
+        std::fs::create_dir_all(loose.parent().unwrap()).unwrap();
+        std::fs::write(&loose, b"loose audio").unwrap();
+        let db_path = dir.join("Library.db");
+        {
+            let conn = Connection::open(&db_path).unwrap();
+            conn.execute_batch(&std::fs::read_to_string(fixtures_dir().join("v6.sql")).unwrap())
+                .unwrap();
+            // Other's track 5 is a real loose file, in playlist 2.
+            conn.execute(
+                "UPDATE tracks SET rel_path = ?1 WHERE id = 5",
+                params![loose.to_string_lossy()],
+            )
+            .unwrap();
+        }
+
+        let conn = crate::db::open(&db_path).unwrap();
+        assert_eq!(schema_version(&conn).unwrap(), latest_version());
+        assert!(dir.join("Library.db.bak-v6").is_file());
         assert_eq!(
             sources_rows(&conn),
-            vec![(2, "Other Files".into(), None, false, false)]
+            vec![
+                (1, "Tracks".into(), Some("Tracks".into()), true, true),
+                (
+                    3,
+                    "Collection".into(),
+                    Some("/collection".into()),
+                    false,
+                    false
+                ),
+            ]
         );
+        assert_eq!(
+            track_locations(&conn)
+                .into_iter()
+                .map(|(id, _, _)| id)
+                .collect::<Vec<_>>(),
+            vec![1, 2, 3, 4]
+        );
+        let playlist: Vec<i64> = conn
+            .prepare("SELECT track_id FROM playlist_tracks WHERE playlist_id = 2 ORDER BY position")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(playlist, [3, 4]);
+        let leftovers: i64 = conn
+            .query_row(
+                "SELECT (SELECT COUNT(*) FROM track_lyrics WHERE track_id = 5)
+                      + (SELECT COUNT(*) FROM listen_events WHERE track_id = 5)
+                      + (SELECT COUNT(*) FROM playlist_tracks WHERE track_id = 5)",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(leftovers, 0);
+        assert_eq!(std::fs::read(&loose).unwrap(), b"loose audio");
+
+        // Every source has a root now.
+        assert!(conn
+            .execute(
+                "INSERT INTO sources (name, root_path, created_at) VALUES ('X', NULL, 'now')",
+                [],
+            )
+            .is_err());
+        assert!(conn
+            .execute("UPDATE sources SET root_path = NULL WHERE id = 3", [])
+            .is_err());
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

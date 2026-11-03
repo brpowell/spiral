@@ -15,7 +15,6 @@ import {
 import {
   countTracksBySource,
   describeSourceError,
-  isOtherSource,
   sourceDisplayName,
 } from "../../lib/sourceAccess";
 import {
@@ -45,7 +44,6 @@ import {
   IconDelete,
   IconDisconnected,
   IconFolderCog,
-  IconFolderLink,
   IconOpenFolder,
   IconPencil,
   IconPlus,
@@ -68,10 +66,9 @@ interface PendingOrganize extends OrganizeRequest {
 }
 
 /**
- * Preferences → Library → Music folders: the folders Spiral plays music from, which may be
- * none. Other (loose files with no folder) is shown apart and isn't counted
- * among them. Each folder shows only its path and counts; everything else is
- * under its menu.
+ * Preferences → Library → Music folders: the folders Spiral plays music
+ * from, which may be none. Each folder shows only its path and counts;
+ * everything else is under its menu.
  */
 export function SourcesSection() {
   const { t } = useTranslation(["preferences", "common"]);
@@ -106,13 +103,9 @@ export function SourcesSection() {
 
   const counts = useMemo(() => countTracksBySource(library), [library]);
   const folders = useMemo(
-    () =>
-      sources
-        .filter((source) => !isOtherSource(source))
-        .sort((a, b) => a.id - b.id),
+    () => [...sources].sort((a, b) => a.id - b.id),
     [sources],
   );
-  const other = sources.find(isOtherSource) ?? null;
 
   const trackCount = (source: Source) => counts.get(source.id)?.total ?? 0;
   const isOffline = (source: Source) => statuses[source.id] === "unreachable";
@@ -316,29 +309,27 @@ export function SourcesSection() {
    * Rescan for every row; Edit and Remove only for folders, and Make default
    * for folders that aren't it (it acts at once, so it isn't in Edit).
    */
-  const renderMenu = (source: Source, name: string, folder: boolean) => (
+  const renderMenu = (source: Source, name: string) => (
     <MenuButton
       ariaLabel={t("preferences:sources.actionsAria", { name })}
       title={t("common:actions")}
       variant="ghost"
       className="sources-section__menu"
       disabled={busy}
-      layoutDeps={[folder, source.importTarget]}
+      layoutDeps={[source.importTarget]}
     >
       {(close) => (
         <>
-          {folder ? (
-            <ContextMenuItem
-              icon={<IconPencil />}
-              label={t("preferences:sources.edit")}
-              onClick={() => {
-                close();
-                setError(null);
-                setEditing(source);
-              }}
-            />
-          ) : null}
-          {folder && !source.importTarget ? (
+          <ContextMenuItem
+            icon={<IconPencil />}
+            label={t("preferences:sources.edit")}
+            onClick={() => {
+              close();
+              setError(null);
+              setEditing(source);
+            }}
+          />
+          {!source.importTarget ? (
             <ContextMenuItem
               icon={<IconCheck />}
               label={t("preferences:sources.makeDefault")}
@@ -357,21 +348,17 @@ export function SourcesSection() {
               void rescan(source);
             }}
           />
-          {folder ? (
-            <>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                icon={<IconDelete />}
-                label={t("preferences:sources.remove")}
-                className="context-menu__danger"
-                onClick={() => {
-                  close();
-                  setError(null);
-                  setRemoving(source);
-                }}
-              />
-            </>
-          ) : null}
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            icon={<IconDelete />}
+            label={t("preferences:sources.remove")}
+            className="context-menu__danger"
+            onClick={() => {
+              close();
+              setError(null);
+              setRemoving(source);
+            }}
+          />
         </>
       )}
     </MenuButton>
@@ -395,30 +382,8 @@ export function SourcesSection() {
           ) : null}
           {renderMeta(source)}
         </div>
-        {renderMenu(source, name, true)}
+        {renderMenu(source, name)}
       </li>
-    );
-  };
-
-  /** Other: loose files played where they are. A bucket, not a folder. */
-  const renderOther = (source: Source) => {
-    const name = sourceDisplayName(source);
-    return (
-      <section className="sources-section__other" aria-label={name}>
-        <div className="sources-section__item">
-          <span className="sources-section__icon">
-            <IconFolderLink aria-hidden />
-          </span>
-          <div className="sources-section__body">
-            <span className="sources-section__name">{name}</span>
-            {renderMeta(source)}
-            <p className="sources-section__description">
-              {t("preferences:sources.otherDescription")}
-            </p>
-          </div>
-          {renderMenu(source, name, false)}
-        </div>
-      </section>
     );
   };
 
@@ -481,8 +446,6 @@ export function SourcesSection() {
             </div>
           </div>
         )}
-
-        {other ? renderOther(other) : null}
 
         {notice ? (
           <p className="preferences__hint" role="status">

@@ -1,7 +1,7 @@
 import { useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { canDeleteFromDisk, OTHER_SOURCE_ID } from "../../lib/sourceAccess";
+import { canDeleteFromDisk } from "../../lib/sourceAccess";
 import type { Track } from "../../types/track";
 import { Button } from "../common/Button/Button";
 import {
@@ -49,11 +49,8 @@ export function RemoveTrackDialog({
 
   const count = tracks.length;
   const heading = t("removeTracks.title", { count });
-  // Other's loose files and missing tracks' files are only ever removed from
-  // the library, never deleted.
-  const inOther = tracks.filter(
-    (track) => track.sourceId === OTHER_SOURCE_ID,
-  ).length;
+  // Missing tracks' files are only ever removed from the library, never
+  // deleted.
   const deletable = tracks.filter(canDeleteFromDisk).length;
 
   return (
@@ -82,13 +79,6 @@ export function RemoveTrackDialog({
             );
           })}
         </ul>
-        {inOther > 0 ? (
-          <p className="remove-track-dialog__note" role="note">
-            {inOther === count
-              ? t("removeTracks.allKeptOnDisk", { count })
-              : t("removeTracks.keptOnDisk", { count: inOther })}
-          </p>
-        ) : null}
       </ModalBody>
 
       <ModalFooter onCancel={onClose}>

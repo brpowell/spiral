@@ -4,11 +4,7 @@
     "title_other": "Remove {{count}} tracks from library?",
     "removeFromLibrary": "Remove from library",
     "deleteFiles_one": "Remove and send to trash",
-    "deleteFiles_other": "Remove and send to trash",
-    "keptOnDisk_one": "{{count}} of these files is in Other files. It leaves the library, but stays on disk.",
-    "keptOnDisk_other": "{{count}} of these files are in Other files. They leave the library, but stay on disk.",
-    "allKeptOnDisk_one": "This file is in Other files. It leaves the library, but stays on disk.",
-    "allKeptOnDisk_other": "These files are in Other files. They leave the library, but stay on disk."
+    "deleteFiles_other": "Remove and send to trash"
   },
   "convert": {
     "title_one": "Convert track",
@@ -24,20 +20,15 @@
   },
   "importChoice": {
     "title": "Add music",
-    "description": "Choose how Spiral should handle these files.",
-    "dontAskAgain": "Don't ask again",
-    "keepLocation": "Keep files where they are",
-    "copyToLibrary": "Add to Spiral",
-    "keepLocationDescription": "Play them from their current folder. Spiral won't move or change them.",
-    "copyToLibraryDescription": "Copy them into Spiral, organized if the default folder is. The originals stay where they are.",
-    "copyToSourceDescription": "Copy them into the source chosen below. The originals stay where they are.",
-    "copyUnavailableDescription": "Copy them into one of your music folders. The originals stay where they are.",
+    "description": "Choose a music folder to copy these files into. The originals stay where they are.",
     "noFolders": "No music folders yet. Add one to copy files into it.",
     "foldersOffline": "Your music folders aren't connected right now. Connect one, or add another.",
     "addFolder": "Add a folder…",
     "destination": "Copy into",
-    "destinationDescription": "Remembering this choice also makes it your default folder.",
-    "destinationOffline": "{{name}} (offline)"
+    "destinationNewDefault": "It also becomes your default folder for new music.",
+    "destinationDefaultOffline": "Your default folder isn't connected, so these files go here instead.",
+    "destinationOffline": "{{name}} (offline)",
+    "copy": "Copy"
   },
   "importDedupe": {
     "title": "Duplicate track during import",

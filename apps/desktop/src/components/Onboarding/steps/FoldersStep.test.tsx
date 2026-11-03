@@ -34,21 +34,18 @@ function source(patch: Partial<Source>): Source {
   };
 }
 
-/** A new library: no sources yet, only the built-in Other bucket. */
-const builtIns = [source({ id: 2, name: "Other", rootPath: null })];
-
 describe("FoldersStep", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useOnboardingStore.setState({ addedSourceIds: [] });
     useSourcesStore.setState({
-      sources: builtIns,
-      sourcesById: new Map(builtIns.map((s) => [s.id, s])),
+      sources: [],
+      sourcesById: new Map(),
     });
     tauri.pickMusicFolder.mockResolvedValue("/Users/me/Music");
     tauri.addSource.mockResolvedValue(source({}));
     tauri.removeSource.mockResolvedValue(0);
-    tauri.listSources.mockResolvedValue(builtIns);
+    tauri.listSources.mockResolvedValue([]);
   });
 
   it("writes the home folder as ~ in folder paths", async () => {
@@ -127,8 +124,8 @@ describe("FoldersStep", () => {
   it("leaves folders that were already sources to Preferences", () => {
     const existing = source({ id: 5, name: "Old", rootPath: "/Old" });
     useSourcesStore.setState({
-      sources: [...builtIns, existing],
-      sourcesById: new Map([...builtIns, existing].map((s) => [s.id, s])),
+      sources: [existing],
+      sourcesById: new Map([[existing.id, existing]]),
     });
     render(<FoldersStep />);
     expect(screen.getByText("Old")).toBeInTheDocument();

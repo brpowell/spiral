@@ -1,5 +1,3 @@
-export type ImportMode = "ask" | "copy" | "reference";
-
 export type CdMetadataFetchMode = "ask" | "always" | "never";
 
 export type LibraryRelocateMode = "move" | "switch" | "fresh" | "freshImport";
@@ -22,7 +20,6 @@ export interface LibrarySettings {
    * without their own. Users can't change it; they override it per source.
    */
   defaultOrganizePathFormat: string;
-  importMode: ImportMode;
   cdMetadataFetchMode: CdMetadataFetchMode;
   cdImportProfileId: string;
   defaultLibraryRoot: string;
@@ -37,7 +34,6 @@ export interface LibrarySettings {
 
 export interface LibrarySettingsPatch {
   libraryRoot?: string;
-  importMode?: ImportMode;
   cdMetadataFetchMode?: CdMetadataFetchMode;
   cdImportProfileId?: string;
   listeningHistoryEnabled?: boolean;

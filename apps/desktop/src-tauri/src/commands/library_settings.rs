@@ -5,7 +5,8 @@ use crate::library_relocate::{self, LibraryRelocateMode};
 use crate::path_scope;
 use crate::rating_sync::RatingSync;
 use crate::settings::{self, LibrarySettingsPatch, LibrarySettingsResponse};
-use crate::sources;
+use crate::sources::{self, LibraryRoots};
+use std::path::Path;
 use tauri::{AppHandle, State};
 
 #[tauri::command]
@@ -24,23 +25,23 @@ pub fn save_library_settings(
     Ok(resolved)
 }
 
-/// Copy a file into `source_id` (the import source when not given), organized
-/// the way that source is, or (mode `reference`) leave it where it is.
-/// Returns the path to save.
+/// Copy a file into `source_id` (the import source when not given),
+/// organized the way that source is. A file already inside a source's folder
+/// is added where it is. Returns the path to save. Fails with
+/// [`sources::NO_SOURCE`] when there is no source to copy into.
 #[tauri::command]
 pub fn prepare_import_file(
     app: AppHandle,
     state: State<'_, DbState>,
     source_path: String,
-    mode: String,
     source_id: Option<i64>,
 ) -> Result<String, String> {
     path_scope::ensure_allowed(&app, &source_path)?;
     let resolved = settings::resolved_library_settings(&app);
     prepare_import(
         &state,
+        &LibraryRoots::from_settings(&resolved),
         &source_path,
-        &mode,
         source_id,
         resolved.lyrics_sidecar_sync_enabled,
     )
@@ -48,16 +49,21 @@ pub fn prepare_import_file(
 
 fn prepare_import(
     state: &DbState,
+    roots: &LibraryRoots,
     source_path: &str,
-    mode: &str,
     source_id: Option<i64>,
     lyrics_sidecar_enabled: bool,
 ) -> Result<String, String> {
-    if mode == "reference" {
-        return import_files::reference_import_file(source_path);
+    if !Path::new(source_path).is_file() {
+        return Err(format!("Source is not a file: {source_path}"));
     }
     let target = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
+        let in_source = sources::source_for_path(&conn, roots, Path::new(source_path))
+            .map_err(|e| e.to_string())?;
+        if in_source.is_some() {
+            return Ok(source_path.to_string());
+        }
         let id = match source_id {
             Some(id) => id,
             None => sources::import_source_id(&conn)
@@ -73,7 +79,6 @@ fn prepare_import(
     };
     import_files::prepare_import_file(
         source_path,
-        mode,
         import_files::ImportDestination {
             folder: &target.root,
             path_format: target.path_format.as_deref(),
@@ -137,13 +142,24 @@ mod tests {
     use super::nearest_existing_dir;
 
     mod import_target {
-        use super::super::prepare_import;
         use crate::commands::library::DbState;
         use crate::source_test_support::*;
-        use crate::sources;
+        use crate::sources::{self, LibraryRoots};
         use crate::test_fixtures::ogg;
         use std::path::Path;
         use std::sync::Mutex;
+
+        /// Import `path` into `source_id` (the import source when `None`),
+        /// with the Spiral folder at `<tmp>/Spiral`.
+        fn prepare_import(
+            state: &DbState,
+            tmp: &TempDir,
+            path: &str,
+            source_id: Option<i64>,
+        ) -> Result<String, String> {
+            let roots = LibraryRoots::for_library_root(&tmp.0.join("Spiral"));
+            super::super::prepare_import(state, &roots, path, source_id, false)
+        }
 
         #[test]
         fn imports_are_copied_into_the_import_source_its_own_way() {
@@ -164,14 +180,14 @@ mod tests {
             };
 
             set_target(organized_id);
-            let copied = prepare_import(&state, &incoming, "copy", None, false).unwrap();
+            let copied = prepare_import(&state, &tmp, &incoming, None).unwrap();
             let copied = Path::new(&copied);
             assert!(copied.starts_with(&organized), "{}", copied.display());
             assert!(copied.ends_with("x.ogg"), "{}", copied.display());
             assert!(copied.is_file());
 
             set_target(loose_id);
-            let copied = prepare_import(&state, &incoming, "copy", None, false).unwrap();
+            let copied = prepare_import(&state, &tmp, &incoming, None).unwrap();
             assert_eq!(Path::new(&copied), loose.join("song.ogg"));
         }
 
@@ -186,8 +202,7 @@ mod tests {
             let state = DbState(Mutex::new(conn));
             let incoming = ogg::copy_minimal(&tmp.dir("Incoming"), "song.ogg");
 
-            let copied =
-                prepare_import(&state, &incoming.to_string_lossy(), "copy", None, false).unwrap();
+            let copied = prepare_import(&state, &tmp, &incoming.to_string_lossy(), None).unwrap();
             // `{albumArtist}/{album}/{trackNumber:02} - {title}.{ext}`: two
             // folders deep, never left at the source's top level.
             let relative = Path::new(&copied).strip_prefix(&organized).unwrap();
@@ -208,7 +223,7 @@ mod tests {
             let incoming = ogg::copy_minimal(&tmp.dir("Incoming"), "song.ogg");
             let incoming = incoming.to_string_lossy();
 
-            let copied = prepare_import(&state, &incoming, "copy", Some(chosen_id), false).unwrap();
+            let copied = prepare_import(&state, &tmp, &incoming, Some(chosen_id)).unwrap();
             assert_eq!(Path::new(&copied), chosen.join("song.ogg"));
             assert!(!target.join("song.ogg").exists());
 
@@ -216,25 +231,59 @@ mod tests {
             std::fs::create_dir(&offline).unwrap();
             let offline_id = add_user_source(&state.0.lock().unwrap(), &offline);
             std::fs::remove_dir(&offline).unwrap();
-            assert!(prepare_import(&state, &incoming, "copy", Some(offline_id), false).is_err());
+            assert!(prepare_import(&state, &tmp, &incoming, Some(offline_id)).is_err());
         }
 
         #[test]
-        fn with_no_source_copies_are_refused_and_references_still_work() {
+        fn files_from_outside_every_source_are_copied_into_the_target() {
+            let tmp = TempDir::new("import-outside");
+            let conn = conn();
+            let target = tmp.dir("Target");
+            let id = add_user_source(&conn, &target);
+            sources::set_import_source(&conn, id).unwrap();
+            let state = DbState(Mutex::new(conn));
+            let file = ogg::copy_minimal(&tmp.dir("Downloads"), "song.ogg");
+
+            let copied = prepare_import(&state, &tmp, &file.to_string_lossy(), None).unwrap();
+            assert_eq!(Path::new(&copied), target.join("song.ogg"));
+            assert!(file.is_file());
+        }
+
+        #[test]
+        fn with_no_source_imports_are_refused() {
             let tmp = TempDir::new("import-no-source");
             let state = DbState(Mutex::new(conn()));
-            let file = ogg::copy_minimal(&tmp.dir("Incoming"), "song.ogg");
-            let path = file.to_string_lossy();
+            let dir = tmp.dir("Incoming");
+            let file = ogg::copy_minimal(&dir, "song.ogg");
 
-            let err = prepare_import(&state, &path, "copy", None, false).unwrap_err();
+            let err = prepare_import(&state, &tmp, &file.to_string_lossy(), None).unwrap_err();
             assert!(err.starts_with(sources::NO_SOURCE), "{err}");
-            assert_eq!(
-                prepare_import(&state, &path, "reference", None, false).unwrap(),
-                path
-            );
+            assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
             let target = sources::import_target(&state.0.lock().unwrap()).unwrap();
             assert_eq!(target.source, None);
             assert!(!target.copy_available);
+        }
+
+        #[test]
+        fn files_already_in_a_source_are_added_where_they_are() {
+            let tmp = TempDir::new("import-in-place");
+            let conn = conn();
+            let target = tmp.dir("Target");
+            let collection = tmp.dir("Collection");
+            let target_id = add_managed_source(&conn, &target);
+            add_user_source(&conn, &collection);
+            let state = DbState(Mutex::new(conn));
+            let file = ogg::copy_minimal(&tmp.dir("Collection/Album"), "song.ogg");
+            let path = file.to_string_lossy();
+
+            assert_eq!(prepare_import(&state, &tmp, &path, None).unwrap(), path);
+            assert_eq!(
+                prepare_import(&state, &tmp, &path, Some(target_id)).unwrap(),
+                path
+            );
+            assert_eq!(std::fs::read_dir(&target).unwrap().count(), 0);
+            let missing = tmp.0.join("Collection/gone.ogg");
+            assert!(prepare_import(&state, &tmp, &missing.to_string_lossy(), None).is_err());
         }
 
         #[test]
@@ -251,28 +300,9 @@ mod tests {
 
             let state = DbState(Mutex::new(conn));
             let file = ogg::copy_minimal(&tmp.dir("Incoming"), "song.ogg");
-            let err =
-                prepare_import(&state, &file.to_string_lossy(), "copy", None, false).unwrap_err();
+            let err = prepare_import(&state, &tmp, &file.to_string_lossy(), None).unwrap_err();
             assert!(err.starts_with(sources::SOURCE_UNAVAILABLE), "{err}");
             assert!(!target.exists());
-        }
-
-        #[test]
-        fn keeping_files_in_place_never_copies() {
-            let tmp = TempDir::new("import-reference");
-            let state = DbState(Mutex::new(conn()));
-            let file = ogg::copy_minimal(&tmp.0, "song.ogg");
-            let path = file.to_string_lossy();
-            assert_eq!(
-                prepare_import(&state, &path, "reference", None, false).unwrap(),
-                path
-            );
-            assert_eq!(std::fs::read_dir(&tmp.0).unwrap().count(), 1);
-            let missing = tmp.0.join("gone.ogg");
-            assert!(
-                prepare_import(&state, &missing.to_string_lossy(), "reference", None, false)
-                    .is_err()
-            );
         }
     }
 

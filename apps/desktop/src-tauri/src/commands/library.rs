@@ -186,13 +186,12 @@ pub fn save_track(
     let library = settings::resolved_library_settings(&app);
     let root = PathBuf::from(&library.library_root);
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    // Copies land in the tracks folder (managed); references resolve by location.
-    let source_id = sources::source_for_path(
+    // The file was copied into a source, or is already in one.
+    let source_id = sources::require_source_for_path(
         &conn,
         &LibraryRoots::from_settings(&library),
         Path::new(&track.file_path),
-    )
-    .map_err(|e| e.to_string())?;
+    )?;
     let id = db::save_track(&conn, &track, source_id).map_err(|e| {
         eprintln!("save_track error: {e}");
         e.to_string()
@@ -396,8 +395,6 @@ pub enum RemovedFile {
     Trashed,
     /// Nothing was at the track's path.
     NotFound,
-    /// In Other, whose loose files are never deleted.
-    KeptInOther,
     /// The track was marked missing, so its path can't be trusted to name
     /// its own file (it may be another track's, under another spelling).
     KeptMissing,
@@ -445,17 +442,13 @@ pub fn remove_track(
 }
 
 /// Move a removed track's file and lyrics sidecar to the Trash. The file is
-/// kept when it is one of Other's loose files, when the track was marked
-/// missing, or when another track row names the same file (compared on
-/// disk, not by path string).
+/// kept when the track was marked missing, or when another track row names
+/// the same file (compared on disk, not by path string).
 fn delete_removed_track_file(
     conn: &rusqlite::Connection,
     track: &Track,
     sidecar_enabled: bool,
 ) -> Result<RemovedFile, String> {
-    if track.source_id == sources::OTHER_SOURCE_ID {
-        return Ok(RemovedFile::KeptInOther);
-    }
     if track.missing_since.is_some() {
         return Ok(RemovedFile::KeptMissing);
     }
@@ -486,9 +479,9 @@ fn trash_sidecar(audio_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Where a replacement or converted file for `track` goes: its own source
-/// (Other's go to the import source). Organized sources build the path from
-/// the root; others keep the old file's folder when the source is unchanged.
+/// Where a replacement or converted file for `track` goes: its own source.
+/// Organized sources build the path from the root; others keep the old
+/// file's folder.
 fn replacement_destination(
     conn: &rusqlite::Connection,
     track: &Track,
@@ -496,24 +489,22 @@ fn replacement_destination(
     let target = sources::write_target(conn, track.source_id)?;
     let old_path = Path::new(&track.file_path);
     let folder = match (&target.path_format, old_path.parent()) {
-        (None, Some(parent)) if target.source_id == track.source_id => parent.to_path_buf(),
+        (None, Some(parent)) => parent.to_path_buf(),
         _ => target.root.clone(),
     };
     Ok((target, folder))
 }
 
 /// Move the file a replace or convert superseded to the Trash, with its
-/// lyrics sidecar. Other's loose files stay on disk, and so does a file
-/// another track row still names.
+/// lyrics sidecar. A file another track row still names stays on disk.
 fn remove_superseded_file(
     conn: &rusqlite::Connection,
     track_id: i64,
-    source_id: i64,
     source_root: Option<&Path>,
     old_path: &Path,
     sidecar_enabled: bool,
 ) {
-    if source_id == sources::OTHER_SOURCE_ID || !old_path.is_file() {
+    if !old_path.is_file() {
         return;
     }
     match track_identity::other_rows_for_file(conn, old_path, track_id) {
@@ -544,24 +535,18 @@ pub fn replace_track_from_import(
     state: State<DbState>,
     track_id: i64,
     source_path: String,
-    mode: String,
     track: TrackInput,
 ) -> Result<Track, String> {
     crate::path_scope::ensure_allowed(&app, &source_path)?;
     let resolved = settings::resolved_library_settings(&app);
     let sidecar_enabled = settings::lyrics_sidecar_sync_enabled(&app);
 
-    let (existing, mut metadata, destination, old_root) = {
+    let (existing, mut metadata, (target, folder), old_root) = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
         let existing = db::get_track_by_id(&conn, track_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("Track {track_id} not found"))?;
-        // A referenced replacement stays where it is, so it needs no folder.
-        let destination = if mode == "reference" {
-            None
-        } else {
-            Some(replacement_destination(&conn, &existing)?)
-        };
+        let destination = replacement_destination(&conn, &existing)?;
         let old_root = sources::SourceRoots::load(&conn)
             .map_err(|e| e.to_string())?
             .root(existing.source_id)
@@ -571,19 +556,15 @@ pub fn replace_track_from_import(
     };
 
     let old_path = PathBuf::from(&existing.file_path);
-    let new_path = match &destination {
-        None => import_files::reference_import_file(&source_path)?,
-        Some((target, folder)) => import_files::prepare_import_file(
-            &source_path,
-            &mode,
-            import_files::ImportDestination {
-                folder,
-                path_format: target.path_format.as_deref(),
-            },
-            sidecar_enabled,
-            Some(&old_path),
-        )?,
-    };
+    let new_path = import_files::prepare_import_file(
+        &source_path,
+        import_files::ImportDestination {
+            folder: &folder,
+            path_format: target.path_format.as_deref(),
+        },
+        sidecar_enabled,
+        Some(&old_path),
+    )?;
 
     let new_path_buf = PathBuf::from(&new_path);
 
@@ -613,13 +594,12 @@ pub fn replace_track_from_import(
             eprintln!("replace_track_from_import update error: {e}");
             e.to_string()
         })?;
-        sources::source_for_path(
+        let source_id = sources::require_source_for_path(
             &conn,
             &LibraryRoots::from_settings(&resolved),
             &new_path_buf,
-        )
-        .and_then(|source_id| db::set_track_source(&conn, track_id, source_id))
-        .map_err(|e| e.to_string())?;
+        )?;
+        db::set_track_source(&conn, track_id, source_id).map_err(|e| e.to_string())?;
         lyrics_normalize::persist_import_lyrics(&conn, track_id, &track.lyrics).map_err(|e| {
             eprintln!("persist_import_lyrics error: {e}");
             e.to_string()
@@ -636,7 +616,6 @@ pub fn replace_track_from_import(
         remove_superseded_file(
             &conn,
             track_id,
-            existing.source_id,
             old_root.as_deref(),
             &old_path,
             sidecar_enabled,
@@ -747,8 +726,8 @@ fn convert_track_impl(
     let profile = encoding_profiles::profile_from_id(profile_id)?;
     let resolved = settings::resolved_library_settings(&app);
 
-    // The converted file goes into the track's own source (Other's into the
-    // import source), organized the way that source is.
+    // The converted file goes into the track's own source, organized the way
+    // that source is.
     let (existing, target, folder, old_root) = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
         let existing = db::get_track_by_id(&conn, track_id)
@@ -865,7 +844,6 @@ fn convert_track_impl(
         remove_superseded_file(
             &conn,
             track_id,
-            existing.source_id,
             old_root.as_deref(),
             &old_path,
             resolved.lyrics_sidecar_sync_enabled,
@@ -948,17 +926,12 @@ mod tests {
     mod source_files {
         use super::super::*;
         use crate::source_test_support::*;
-        use crate::sources::OTHER_SOURCE_ID;
 
         #[test]
         fn ratings_are_written_to_every_sources_files() {
             let conn = conn();
             let t = default_source_tracks(&conn);
-            for (id, path) in [
-                (t.managed, "/managed/m.mp3"),
-                (t.user, "/user/u.mp3"),
-                (t.other, "/x.mp3"),
-            ] {
+            for (id, path) in [(t.managed, "/managed/m.mp3"), (t.user, "/user/u.mp3")] {
                 let (saved, file) = save_rating(&conn, id, 80).unwrap();
                 assert_eq!(file, path);
                 assert_eq!(
@@ -1018,29 +991,6 @@ mod tests {
         }
 
         #[test]
-        fn others_replacements_go_to_the_import_source() {
-            let tmp = TempDir::new("replace-other");
-            let conn = conn();
-            let target_root = tmp.dir("Target");
-            let target_id = add_user_source(&conn, &target_root);
-            crate::sources::set_import_source(&conn, target_id).unwrap();
-            let x = insert_track(&conn, "/elsewhere/x.mp3", OTHER_SOURCE_ID);
-
-            let (target, folder) = replacement_destination(&conn, &track_in(&conn, x)).unwrap();
-            assert_eq!((target.source_id, target.path_format), (target_id, None));
-            assert_eq!(folder, target_root);
-        }
-
-        #[test]
-        fn with_no_import_source_others_replacements_are_refused() {
-            let conn = conn();
-            let x = insert_track(&conn, "/elsewhere/x.mp3", OTHER_SOURCE_ID);
-            // Replace and convert both find their destination here.
-            let err = replacement_destination(&conn, &track_in(&conn, x)).unwrap_err();
-            assert!(err.starts_with(sources::NO_SOURCE), "{err}");
-        }
-
-        #[test]
         fn an_unreachable_source_refuses_replacements() {
             let tmp = TempDir::new("replace-offline");
             let conn = conn();
@@ -1057,10 +1007,10 @@ mod tests {
         }
 
         #[test]
-        fn delete_from_disk_trashes_every_source_but_other() {
+        fn delete_from_disk_trashes_from_every_source() {
             let tmp = TempDir::new("delete");
             let conn = conn();
-            let files: Vec<_> = ["m", "u", "x"]
+            let files: Vec<_> = ["m", "u"]
                 .iter()
                 .map(|name| audio_with_sidecar(&tmp.dir(name), name))
                 .collect();
@@ -1069,10 +1019,9 @@ mod tests {
             let ids = [
                 insert_track(&conn, "m.mp3", managed),
                 insert_track(&conn, "u.mp3", user),
-                insert_track(&conn, &files[2].0.to_string_lossy(), OTHER_SOURCE_ID),
             ];
 
-            for (id, (audio, sidecar)) in ids[..2].iter().zip(&files) {
+            for (id, (audio, sidecar)) in ids.iter().zip(&files) {
                 let track = remove_row(&conn, *id);
                 assert_eq!(
                     delete_removed_track_file(&conn, &track, true).unwrap(),
@@ -1081,14 +1030,6 @@ mod tests {
                 assert!(!audio.exists());
                 assert!(!sidecar.exists());
             }
-            let track = remove_row(&conn, ids[2]);
-            assert_eq!(
-                delete_removed_track_file(&conn, &track, true).unwrap(),
-                RemovedFile::KeptInOther
-            );
-            let (audio, sidecar) = &files[2];
-            assert!(audio.is_file());
-            assert!(sidecar.is_file());
         }
 
         #[test]
@@ -1117,10 +1058,10 @@ mod tests {
             let conn = conn();
             let (audio, sidecar) = audio_with_sidecar(&tmp.0, "song");
             // Another row for the same file under another case.
-            let alias = crate::track_identity::tests::alias(&audio, "SONG.mp3");
+            crate::track_identity::tests::alias(&audio, "SONG.mp3");
             let user = add_user_source(&conn, &tmp.0);
             let a = insert_track(&conn, "song.mp3", user);
-            insert_track(&conn, &alias.to_string_lossy(), OTHER_SOURCE_ID);
+            insert_track(&conn, "SONG.mp3", user);
 
             let track = remove_row(&conn, a);
             assert_eq!(
@@ -1130,7 +1071,7 @@ mod tests {
             assert!(audio.is_file() && sidecar.is_file());
 
             // The same file is kept when a replace supersedes it.
-            remove_superseded_file(&conn, a, user, Some(&tmp.0), &audio, true);
+            remove_superseded_file(&conn, a, Some(&tmp.0), &audio, true);
             assert!(audio.is_file() && sidecar.is_file());
         }
 
@@ -1216,21 +1157,17 @@ mod tests {
         }
 
         #[test]
-        fn superseded_files_are_removed_except_others() {
+        fn superseded_files_are_removed() {
             let tmp = TempDir::new("superseded");
             let conn = conn();
             let root = tmp.dir("Source");
             let nested = tmp.dir("Source/Artist/Album");
             let (old, sidecar) = audio_with_sidecar(&nested, "old");
-            remove_superseded_file(&conn, 1, 3, Some(&root), &old, true);
+            remove_superseded_file(&conn, 1, Some(&root), &old, true);
             assert!(!old.exists() && !sidecar.exists());
             // Emptied folders are pruned up to the source root.
             assert!(!tmp.0.join("Source/Artist").exists());
             assert!(root.is_dir());
-
-            let (loose, loose_sidecar) = audio_with_sidecar(&tmp.0, "loose");
-            remove_superseded_file(&conn, 1, OTHER_SOURCE_ID, None, &loose, true);
-            assert!(loose.is_file() && loose_sidecar.is_file());
         }
     }
 }
