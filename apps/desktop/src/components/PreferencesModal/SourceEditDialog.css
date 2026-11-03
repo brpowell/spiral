@@ -29,14 +29,14 @@
   overflow-wrap: anywhere;
 }
 
-.source-edit__switch {
+.source-edit__option {
   align-items: flex-start;
   gap: 0.6rem;
 }
 
-.source-edit__switch > .switch {
+.source-edit__option > .checkbox__input {
   flex-shrink: 0;
-  margin-top: 0.1rem;
+  margin-top: 0.2rem;
 }
 
 .source-edit__hint {

@@ -187,7 +187,7 @@ describe("SourcesSection", () => {
     render(<SourcesSection />);
     expect(await screen.findByText("No music folders yet")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Add folder/ })).toBeTruthy();
-    expect(screen.queryByRole("switch")).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
     // Other is still shown, and isn't counted as a folder.
     expect(screen.getByRole("region", { name: "Other files" })).toBeTruthy();
 
@@ -203,7 +203,7 @@ describe("SourcesSection", () => {
     await renderSection();
     const tracks = item("Tracks");
     expect(within(tracks).getByText("Default")).toBeTruthy();
-    expect(within(tracks).queryByRole("switch")).toBeNull();
+    expect(within(tracks).queryByRole("checkbox")).toBeNull();
     expect(within(tracks).queryByLabelText("Path format")).toBeNull();
     expect(within(tracks).getAllByRole("button")).toHaveLength(1);
     expect(within(item("Music")).queryByText("Default")).toBeNull();
@@ -246,16 +246,19 @@ describe("SourcesSection", () => {
       within(dialog).getByText("/Users/me/Music/Spiral Library/Tracks"),
     ).toBeTruthy();
     expect(
-      within(dialog).getByRole("switch", {
+      within(dialog).getByRole("checkbox", {
         name: "Automatically organize files",
       }),
     ).toBeChecked();
-    // Already the default: it can only move to another folder.
-    const makeDefault = within(dialog).getByRole("switch", {
-      name: "Default folder",
-    });
-    expect(makeDefault).toBeChecked();
-    expect(makeDefault).toBeDisabled();
+    // Already the default: said plainly, with nothing to toggle.
+    expect(
+      within(dialog).getByText(/This is your default folder/),
+    ).toBeTruthy();
+    expect(
+      within(dialog).queryByRole("checkbox", {
+        name: "Make this the default folder",
+      }),
+    ).toBeNull();
     // Blank uses the default, which shows as the placeholder.
     expect(within(dialog).getByLabelText("Path format")).toHaveAttribute(
       "placeholder",
@@ -307,7 +310,7 @@ describe("SourcesSection", () => {
     await renderSection();
     const dialog = await openEdit("Music");
     fireEvent.click(
-      within(dialog).getByRole("switch", {
+      within(dialog).getByRole("checkbox", {
         name: "Automatically organize files",
       }),
     );
@@ -326,7 +329,9 @@ describe("SourcesSection", () => {
     await renderSection();
     const dialog = await openEdit("Music");
     fireEvent.click(
-      within(dialog).getByRole("switch", { name: "Default folder" }),
+      within(dialog).getByRole("checkbox", {
+        name: "Make this the default folder",
+      }),
     );
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(tauri.setImportSource).toHaveBeenCalledWith(3));
@@ -340,8 +345,11 @@ describe("SourcesSection", () => {
     );
     const dialog = await openEdit("Music");
     expect(
-      within(dialog).getByRole("switch", { name: "Default folder" }),
+      within(dialog).getByRole("checkbox", {
+        name: "Make this the default folder",
+      }),
     ).toBeDisabled();
+    expect(within(dialog).getByText(/Reconnect it/)).toBeTruthy();
   });
 
   it("changes a folder's location on Save", async () => {
@@ -389,7 +397,7 @@ describe("SourcesSection", () => {
     await renderSection();
     const edit = await openEdit("Music");
     fireEvent.click(
-      within(edit).getByRole("switch", {
+      within(edit).getByRole("checkbox", {
         name: "Automatically organize files",
       }),
     );
@@ -413,7 +421,7 @@ describe("SourcesSection", () => {
     await renderSection();
     const edit = await openEdit("Music");
     fireEvent.click(
-      within(edit).getByRole("switch", {
+      within(edit).getByRole("checkbox", {
         name: "Automatically organize files",
       }),
     );
@@ -432,7 +440,7 @@ describe("SourcesSection", () => {
     await renderSection();
     const edit = await openEdit("Music");
     fireEvent.click(
-      within(edit).getByRole("switch", {
+      within(edit).getByRole("checkbox", {
         name: "Automatically organize files",
       }),
     );
@@ -455,7 +463,7 @@ describe("SourcesSection", () => {
     await renderSection();
     const edit = await openEdit("Tracks");
     fireEvent.click(
-      within(edit).getByRole("switch", {
+      within(edit).getByRole("checkbox", {
         name: "Automatically organize files",
       }),
     );
@@ -476,7 +484,7 @@ describe("SourcesSection", () => {
     await renderSection();
     const edit = await openEdit("Music");
     fireEvent.click(
-      within(edit).getByRole("switch", {
+      within(edit).getByRole("checkbox", {
         name: "Automatically organize files",
       }),
     );

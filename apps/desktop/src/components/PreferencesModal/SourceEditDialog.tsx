@@ -9,6 +9,7 @@ import { describeSourceError } from "../../lib/sourceAccess";
 import { pickMusicFolder } from "../../lib/tauri";
 import type { Source } from "../../types/source";
 import { Button } from "../common/Button/Button";
+import { Checkbox } from "../common/Checkbox/Checkbox";
 import { Disclosure } from "../common/Disclosure/Disclosure";
 import {
   Field,
@@ -23,7 +24,6 @@ import {
   ModalHeader,
   ModalTitle,
 } from "../common/Modal/Modal";
-import { Switch } from "../common/Switch/Switch";
 import { TextInput } from "../common/TextInput/TextInput";
 import { IconOpenFolder } from "../icons";
 import "./SourceEditDialog.css";
@@ -188,9 +188,6 @@ export function SourceEditDialog({
     onClose();
   };
 
-  // The default can only move to another folder, not be switched off here.
-  const defaultLocked = source.importTarget;
-
   return (
     <Modal
       open={open}
@@ -226,27 +223,40 @@ export function SourceEditDialog({
             </div>
           </div>
 
-          <Field orientation="horizontal" className="source-edit__switch">
-            <Switch
-              id={id("default")}
-              checked={makeDefault}
-              disabled={busy || defaultLocked || offline}
-              onChange={(e) => setMakeDefault(e.target.checked)}
-            />
-            <FieldContent>
-              <FieldLabel htmlFor={id("default")}>
+          {source.importTarget ? (
+            // Exactly one folder is the default, so the current one has
+            // nothing to toggle; another folder takes it over.
+            <div className="source-edit__field">
+              <span className="source-edit__label">
                 {t("preferences:sources.defaultFolder")}
-              </FieldLabel>
-              <FieldDescription>
-                {defaultLocked
-                  ? t("preferences:sources.defaultFolderCurrent")
-                  : t("preferences:sources.defaultFolderDescription")}
-              </FieldDescription>
-            </FieldContent>
-          </Field>
+              </span>
+              <p className="source-edit__hint">
+                {t("preferences:sources.defaultFolderCurrent")}
+              </p>
+            </div>
+          ) : (
+            <Field orientation="horizontal" className="source-edit__option">
+              <Checkbox
+                id={id("default")}
+                checked={makeDefault}
+                disabled={busy || offline}
+                onChange={(e) => setMakeDefault(e.target.checked)}
+              />
+              <FieldContent>
+                <FieldLabel htmlFor={id("default")}>
+                  {t("preferences:sources.makeDefault")}
+                </FieldLabel>
+                <FieldDescription>
+                  {offline
+                    ? t("preferences:sources.makeDefaultOffline")
+                    : t("preferences:sources.defaultFolderDescription")}
+                </FieldDescription>
+              </FieldContent>
+            </Field>
+          )}
 
-          <Field orientation="horizontal" className="source-edit__switch">
-            <Switch
+          <Field orientation="horizontal" className="source-edit__option">
+            <Checkbox
               id={id("organize")}
               checked={autoOrganize}
               disabled={busy}
