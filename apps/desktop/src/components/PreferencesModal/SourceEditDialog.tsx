@@ -149,13 +149,12 @@ export function SourceEditDialog({
     return next;
   };
 
+  const changes = edits();
+  // Compared by meaning, so editing a field back to how it was counts as clean.
+  const dirty = Object.keys(changes).length > 0;
+
   const save = async () => {
-    if (busy) return;
-    const changes = edits();
-    if (Object.keys(changes).length === 0) {
-      onClose();
-      return;
-    }
+    if (busy || !dirty) return;
     setSaving(true);
     setError(null);
     try {
@@ -328,7 +327,7 @@ export function SourceEditDialog({
       <ModalFooter onCancel={close} cancelDisabled={saving}>
         <Button
           variant="primary"
-          disabled={busy}
+          disabled={busy || !dirty}
           isLoading={saving}
           onClick={() => void save()}
         >

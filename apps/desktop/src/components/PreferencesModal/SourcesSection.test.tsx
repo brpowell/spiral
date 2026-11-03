@@ -306,6 +306,32 @@ describe("SourcesSection", () => {
     expect(input).toHaveValue("{artist}/{title}.{ext}");
   });
 
+  it("enables Save only once something has changed", async () => {
+    await renderSection();
+    const dialog = await openEdit("Music");
+    const save = within(dialog).getByRole("button", { name: "Save" });
+    expect(save).toBeDisabled();
+
+    const organize = within(dialog).getByRole("checkbox", {
+      name: "Automatically organize files",
+    });
+    fireEvent.click(organize);
+    expect(save).toBeEnabled();
+    fireEvent.click(organize);
+    expect(save).toBeDisabled();
+
+    // Whitespace means the default format, same as blank.
+    const input = within(dialog).getByLabelText("Path format");
+    fireEvent.change(input, { target: { value: "  " } });
+    expect(save).toBeDisabled();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(
+      screen.getByRole("dialog", { name: "Edit music source" }),
+    ).toBeTruthy();
+    fireEvent.change(input, { target: { value: "{title}.{ext}" } });
+    expect(save).toBeEnabled();
+  });
+
   it("changes nothing until Save, and nothing on Cancel", async () => {
     await renderSection();
     const dialog = await openEdit("Music");
