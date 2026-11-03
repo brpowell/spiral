@@ -62,11 +62,11 @@
   max-height: calc(100vh - 3rem);
 }
 
-/* Monospace reads larger than the text around it, so scale it down to match. */
+/* Monospace reads larger than the text around it, so scale it down to match.
+   Same colour as the "e.g." before it. */
 .source-edit__preview {
   font-size: 0.88em;
   overflow-wrap: anywhere;
-  color: var(--color-text-primary);
 }
 
 .source-edit__tokens {
