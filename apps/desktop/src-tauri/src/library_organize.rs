@@ -107,7 +107,7 @@ fn finalize_path_segment(segment: &str) -> String {
 fn ensure_stays_under_media_folder(dest: &Path, media_folder: &Path) -> Result<(), String> {
     if !dest.starts_with(media_folder) {
         return Err(format!(
-            "Organized path must stay inside the tracks folder: {}",
+            "Organized path must stay inside its music folder: {}",
             dest.display()
         ));
     }
@@ -493,6 +493,17 @@ pub fn relocate_track_after_metadata(
 mod tests {
     use super::*;
     use std::io::Write;
+
+    #[test]
+    fn organized_path_outside_its_folder_is_refused() {
+        let folder = Path::new("/Music/Collection");
+        assert!(ensure_stays_under_media_folder(&folder.join("A/b.mp3"), folder).is_ok());
+        let err = ensure_stays_under_media_folder(Path::new("/Music/b.mp3"), folder).unwrap_err();
+        assert_eq!(
+            err,
+            "Organized path must stay inside its music folder: /Music/b.mp3"
+        );
+    }
 
     #[test]
     fn build_organized_path_supports_custom_layout() {
