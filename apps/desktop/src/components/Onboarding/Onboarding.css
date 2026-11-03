@@ -285,59 +285,7 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
 }
 
 .onboarding-folders__list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
   width: 100%;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.onboarding-folders__item {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
-}
-
-.onboarding-folders__icon {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
-}
-
-.onboarding-folders__text {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.onboarding-folders__remove {
-  flex: none;
-  color: var(--color-text-secondary);
-}
-
-.onboarding-folders__name {
-  font-weight: 600;
-}
-
-.onboarding-folders__path {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
 }
 
 .onboarding-folders__add {

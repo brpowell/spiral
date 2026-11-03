@@ -122,6 +122,14 @@
     "failed": "{{count}} failed",
     "finished": "Refresh finished"
   },
+  "organize": {
+    "running": "Organizing “{{name}}”…",
+    "operation": "Organize",
+    "moved_one": "{{count}} file organized",
+    "moved_other": "{{count}} files organized",
+    "failed": "{{count}} failed",
+    "failedFallback": "Couldn't organize “{{name}}”"
+  },
   "convert": {
     "running_one": "Converting track…",
     "running_other": "Converting tracks…",
