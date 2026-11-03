@@ -67,7 +67,13 @@ const sources: Source[] = [
 ];
 
 const track = (id: number, sourceId: number, missingSince?: string) =>
-  ({ id, title: `T${id}`, sourceId, missingSince }) as Track;
+  ({
+    id,
+    title: `T${id}`,
+    filePath: `/x/T${id}.mp3`,
+    sourceId,
+    missingSince,
+  }) as Track;
 
 function item(name: string): HTMLElement {
   return screen.getByText(name).closest("li, section") as HTMLElement;
@@ -82,7 +88,7 @@ function chooseFromMenu(name: string, label: RegExp) {
 /** Opens a folder's edit dialog. */
 async function openEdit(name: string): Promise<HTMLElement> {
   chooseFromMenu(name, /^Edit/);
-  return screen.findByRole("dialog", { name: `Edit “${name}”` });
+  return screen.findByRole("dialog", { name: "Edit music source" });
 }
 
 /** The labels in a row's more menu, which is closed again afterwards. */
@@ -240,7 +246,9 @@ describe("SourcesSection", () => {
       within(dialog).getByText("/Users/me/Music/Spiral Library/Tracks"),
     ).toBeTruthy();
     expect(
-      within(dialog).getByRole("switch", { name: "Organize files" }),
+      within(dialog).getByRole("switch", {
+        name: "Automatically organize files",
+      }),
     ).toBeChecked();
     // Already the default: it can only move to another folder.
     const makeDefault = within(dialog).getByRole("switch", {
@@ -248,20 +256,60 @@ describe("SourcesSection", () => {
     });
     expect(makeDefault).toBeChecked();
     expect(makeDefault).toBeDisabled();
+    // Blank uses the default, which shows as the placeholder.
     expect(within(dialog).getByLabelText("Path format")).toHaveAttribute(
       "placeholder",
-      "Use default format",
+      "{albumArtist}/{album}/{title}.{ext}",
     );
-    expect(
-      within(dialog).getByText("{albumArtist}/{album}/{title}.{ext}"),
-    ).toBeTruthy();
+  });
+
+  it("previews the format with one of the folder's tracks", async () => {
+    usePlayerStore.setState({
+      library: [
+        {
+          ...track(1, 1),
+          title: "Blue",
+          artist: "Joni",
+          albumArtist: "Joni",
+          album: "Blue",
+          filePath: "/x/blue.flac",
+        } as Track,
+      ],
+    });
+    await renderSection();
+    const dialog = await openEdit("Tracks");
+    expect(within(dialog).getByText("Joni/Blue/Blue.flac")).toBeTruthy();
+    fireEvent.change(within(dialog).getByLabelText("Path format"), {
+      target: { value: "{artist} - {title}.{ext}" },
+    });
+    expect(within(dialog).getByText("Joni - Blue.flac")).toBeTruthy();
+  });
+
+  it("lists tokens in a disclosure and inserts one at the cursor", async () => {
+    await renderSection();
+    const dialog = await openEdit("Music");
+    expect(within(dialog).queryByText("Track title")).toBeNull();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Available tokens" }),
+    );
+    expect(within(dialog).getByText("Track title")).toBeTruthy();
+
+    const input = within(dialog).getByLabelText(
+      "Path format",
+    ) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "{artist}/.{ext}" } });
+    input.setSelectionRange(9, 9);
+    fireEvent.click(within(dialog).getByRole("button", { name: "{title}" }));
+    expect(input).toHaveValue("{artist}/{title}.{ext}");
   });
 
   it("changes nothing until Save, and nothing on Cancel", async () => {
     await renderSection();
     const dialog = await openEdit("Music");
     fireEvent.click(
-      within(dialog).getByRole("switch", { name: "Organize files" }),
+      within(dialog).getByRole("switch", {
+        name: "Automatically organize files",
+      }),
     );
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -332,14 +380,18 @@ describe("SourcesSection", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     const alert = await within(dialog).findByRole("alert");
     expect(alert.textContent).toMatch(/overlaps one of your sources/);
-    expect(screen.getByRole("dialog", { name: "Edit “Music”" })).toBeTruthy();
+    expect(
+      screen.getByRole("dialog", { name: "Edit music source" }),
+    ).toBeTruthy();
   });
 
   it("previews before organizing a folder that has tracks", async () => {
     await renderSection();
     const edit = await openEdit("Music");
     fireEvent.click(
-      within(edit).getByRole("switch", { name: "Organize files" }),
+      within(edit).getByRole("switch", {
+        name: "Automatically organize files",
+      }),
     );
     fireEvent.click(within(edit).getByRole("button", { name: "Save" }));
     const dialog = await screen.findByRole("dialog", {
@@ -361,7 +413,9 @@ describe("SourcesSection", () => {
     await renderSection();
     const edit = await openEdit("Music");
     fireEvent.click(
-      within(edit).getByRole("switch", { name: "Organize files" }),
+      within(edit).getByRole("switch", {
+        name: "Automatically organize files",
+      }),
     );
     fireEvent.change(within(edit).getByLabelText("Path format"), {
       target: { value: "{artist}/{title}.{ext}" },
@@ -378,7 +432,9 @@ describe("SourcesSection", () => {
     await renderSection();
     const edit = await openEdit("Music");
     fireEvent.click(
-      within(edit).getByRole("switch", { name: "Organize files" }),
+      within(edit).getByRole("switch", {
+        name: "Automatically organize files",
+      }),
     );
     fireEvent.click(within(edit).getByRole("button", { name: "Save" }));
     const dialog = await screen.findByRole("dialog", {
@@ -399,7 +455,9 @@ describe("SourcesSection", () => {
     await renderSection();
     const edit = await openEdit("Tracks");
     fireEvent.click(
-      within(edit).getByRole("switch", { name: "Organize files" }),
+      within(edit).getByRole("switch", {
+        name: "Automatically organize files",
+      }),
     );
     fireEvent.click(within(edit).getByRole("button", { name: "Save" }));
     await waitFor(() =>
@@ -418,7 +476,9 @@ describe("SourcesSection", () => {
     await renderSection();
     const edit = await openEdit("Music");
     fireEvent.click(
-      within(edit).getByRole("switch", { name: "Organize files" }),
+      within(edit).getByRole("switch", {
+        name: "Automatically organize files",
+      }),
     );
     fireEvent.click(within(edit).getByRole("button", { name: "Save" }));
     await waitFor(() =>

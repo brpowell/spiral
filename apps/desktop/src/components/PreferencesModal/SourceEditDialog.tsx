@@ -1,10 +1,15 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { describeSourceError, sourceDisplayName } from "../../lib/sourceAccess";
+import {
+  formatOrganizeRelativePath,
+  type OrganizePathSample,
+} from "../../lib/organizePathFormat";
+import { describeSourceError } from "../../lib/sourceAccess";
 import { pickMusicFolder } from "../../lib/tauri";
 import type { Source } from "../../types/source";
 import { Button } from "../common/Button/Button";
+import { Disclosure } from "../common/Disclosure/Disclosure";
 import {
   Field,
   FieldContent,
@@ -22,6 +27,19 @@ import { Switch } from "../common/Switch/Switch";
 import { TextInput } from "../common/TextInput/TextInput";
 import { IconOpenFolder } from "../icons";
 import "./SourceEditDialog.css";
+
+/** The placeholders a path format can use, in the order they're listed. */
+export const PATH_FORMAT_TOKENS = [
+  "albumArtist",
+  "artist",
+  "album",
+  "title",
+  "trackNumber:02",
+  "discNumber:02",
+  "year",
+  "genre",
+  "ext",
+] as const;
 
 /** A path format field's value as stored: blank means the default format. */
 export function normalizeFormat(value: string): string | null {
@@ -46,6 +64,8 @@ interface SourceEditDialogProps {
   offline: boolean;
   /** The global path format a source without its own uses. */
   defaultFormat: string;
+  /** The track the format preview is shown for. */
+  previewSample: OrganizePathSample;
   onClose: () => void;
   /** Applies the edits. Throwing keeps the dialog open with the error. */
   onSave: (source: Source, edits: SourceEdits) => Promise<void>;
@@ -59,12 +79,14 @@ export function SourceEditDialog({
   source: requested,
   offline,
   defaultFormat,
+  previewSample,
   onClose,
   onSave,
 }: SourceEditDialogProps) {
   const { t } = useTranslation(["preferences", "common"]);
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const formatRef = useRef<HTMLInputElement>(null);
   const open = requested != null;
   // Keep showing the last source while the dialog animates closed.
   const [shown, setShown] = useState<Source | null>(requested);
@@ -80,6 +102,13 @@ export function SourceEditDialog({
   const [error, setError] = useState<string | null>(null);
 
   useFocusTrap(dialogRef, open);
+
+  // Blank uses the default format, so preview that.
+  const preview = useMemo(
+    () =>
+      formatOrganizeRelativePath(format.trim() || defaultFormat, previewSample),
+    [format, defaultFormat, previewSample],
+  );
 
   // Start from the source as it is each time the dialog opens.
   useEffect(() => {
@@ -138,6 +167,22 @@ export function SourceEditDialog({
     }
   };
 
+  /** Puts a placeholder at the cursor, replacing any selection. */
+  const insertToken = (token: string) => {
+    const input = formatRef.current;
+    const text = `{${token}}`;
+    const current = format;
+    const start = input?.selectionStart ?? current.length;
+    const end = input?.selectionEnd ?? current.length;
+    const next = current.slice(0, start) + text + current.slice(end);
+    setFormat(next);
+    requestAnimationFrame(() => {
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(start + text.length, start + text.length);
+    });
+  };
+
   const close = () => {
     if (saving) return;
     onClose();
@@ -150,16 +195,14 @@ export function SourceEditDialog({
     <Modal
       open={open}
       onClose={close}
-      size="sm"
+      size="lg"
       panelClassName="source-edit"
       panelRef={dialogRef}
       labelledBy={titleId}
     >
       <ModalHeader>
         <ModalTitle id={titleId}>
-          {t("preferences:sources.editTitle", {
-            name: sourceDisplayName(source),
-          })}
+          {t("preferences:sources.editTitle")}
         </ModalTitle>
       </ModalHeader>
 
@@ -214,9 +257,7 @@ export function SourceEditDialog({
                 {t("preferences:sources.organize")}
               </FieldLabel>
               <FieldDescription>
-                {autoOrganize
-                  ? t("preferences:sources.organizeOnDescription")
-                  : t("preferences:sources.organizeOffDescription")}
+                {t("preferences:sources.organizeDescription")}
               </FieldDescription>
             </FieldContent>
           </Field>
@@ -226,9 +267,10 @@ export function SourceEditDialog({
               {t("preferences:sources.pathFormat")}
             </label>
             <TextInput
+              ref={formatRef}
               id={id("format")}
               value={format}
-              placeholder={t("preferences:sources.useDefaultFormat")}
+              placeholder={defaultFormat}
               spellCheck={false}
               disabled={busy}
               onChange={(e) => setFormat(e.target.value)}
@@ -236,10 +278,33 @@ export function SourceEditDialog({
                 if (e.key === "Enter") void save();
               }}
             />
-            <p className="source-edit__hint">
-              {t("preferences:sources.defaultFormat")}{" "}
-              <code>{defaultFormat}</code>
+            <p className="source-edit__hint" aria-live="polite">
+              {t("preferences:sources.formatPreview")}{" "}
+              <code className="source-edit__preview">{preview}</code>
             </p>
+            <Disclosure
+              className="source-edit__tokens"
+              label={t("preferences:sources.formatTokens")}
+            >
+              <ul className="source-edit__token-list">
+                {PATH_FORMAT_TOKENS.map((token) => (
+                  <li key={token}>
+                    <button
+                      type="button"
+                      className="source-edit__token"
+                      disabled={busy}
+                      title={t("preferences:sources.insertToken")}
+                      onClick={() => insertToken(token)}
+                    >
+                      <code>{`{${token}}`}</code>
+                    </button>
+                    <span className="source-edit__token-description">
+                      {t(`preferences:sources.tokens.${token.split(":")[0]}`)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Disclosure>
           </div>
 
           {error ? (

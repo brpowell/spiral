@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  GENERIC_ORGANIZE_PATH_SAMPLE,
+  trackToOrganizePathSample,
+} from "../../lib/organizePathFormat";
+import {
   countTracksBySource,
   describeSourceError,
   isOtherSource,
@@ -207,6 +211,16 @@ export function SourcesSection() {
     }
     await loadSources();
   };
+
+  /** One of the source's own tracks, so the format preview looks familiar. */
+  const previewSample = useMemo(() => {
+    const track = editing
+      ? library.find((t) => t.sourceId === editing.id)
+      : undefined;
+    return track
+      ? trackToOrganizePathSample(track)
+      : GENERIC_ORGANIZE_PATH_SAMPLE;
+  }, [editing, library]);
 
   const confirmRemove = async () => {
     if (!removing) return;
@@ -434,6 +448,7 @@ export function SourcesSection() {
         source={editing}
         offline={editing ? isOffline(editing) : false}
         defaultFormat={defaultFormat}
+        previewSample={previewSample}
         onClose={() => setEditing(null)}
         onSave={saveEdits}
       />
