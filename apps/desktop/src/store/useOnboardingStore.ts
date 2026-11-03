@@ -3,6 +3,7 @@ import {
   hasCompletedOnboarding,
   markOnboardingCompleted,
 } from "../lib/onboardingPreferences";
+import { organizeInBackground } from "../lib/organizeSource";
 import { createManagedSource, removeSource } from "../lib/tauri";
 import { useSourcesStore } from "./useSourcesStore";
 
@@ -44,7 +45,11 @@ interface OnboardingState {
   noteSourceRemoved: (id: number) => void;
   next: () => void;
   back: () => void;
-  /** Dismiss onboarding and remember that it has been seen. */
+  /**
+   * Dismiss onboarding and remember that it has been seen. Folders added with
+   * organizing on are organized now, in the background (the folders step
+   * only records the choice, so nothing moves mid-onboarding).
+   */
   finish: () => void;
 }
 
@@ -93,5 +98,11 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   finish: () => {
     markOnboardingCompleted();
     set({ open: false });
+    const added = new Set(get().addedSourceIds);
+    const jobs = useSourcesStore
+      .getState()
+      .sources.filter((source) => added.has(source.id) && source.autoOrganize)
+      .map((source) => ({ source }));
+    if (jobs.length > 0) void organizeInBackground(jobs, { scanFirst: true });
   },
 }));

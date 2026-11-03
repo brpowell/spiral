@@ -68,6 +68,12 @@ interface SourceEditDialogProps {
   onClose: () => void;
   /** Applies the edits. Throwing keeps the dialog open with the error. */
   onSave: (source: Source, edits: SourceEdits) => Promise<void>;
+  /**
+   * The source was just added: the dialog finishes adding it, so its button
+   * works with the defaults as they are, and cancelling calls this (to take
+   * the source back out) instead of {@link onClose}.
+   */
+  onCancelAdd?: () => void;
 }
 
 /**
@@ -80,6 +86,7 @@ export function SourceEditDialog({
   previewSample,
   onClose,
   onSave,
+  onCancelAdd,
 }: SourceEditDialogProps) {
   const { t } = useTranslation(["preferences", "common"]);
   const titleId = useId();
@@ -120,6 +127,9 @@ export function SourceEditDialog({
     if (pathFormat !== source.pathFormat) changes.pathFormat = pathFormat;
   }
   const dirty = Object.keys(changes).length > 0;
+  const adding = onCancelAdd != null;
+  // Cancelling an add takes the folder back out, so its edits go with it.
+  const cancel = onCancelAdd ?? onClose;
 
   const {
     discardPrompt,
@@ -127,7 +137,7 @@ export function SourceEditDialog({
     requestClose,
     handleBackdropClick,
     dismissDiscardPrompt,
-  } = useEditorDiscardPrompt(dirty, onClose, saving);
+  } = useEditorDiscardPrompt(dirty && !adding, cancel, saving);
 
   // Start from the source as it is each time the dialog opens.
   useEffect(() => {
@@ -160,7 +170,7 @@ export function SourceEditDialog({
   };
 
   const save = async () => {
-    if (busy || !dirty) return;
+    if (busy || (!dirty && !adding)) return;
     setSaving(true);
     setError(null);
     try {
@@ -200,7 +210,9 @@ export function SourceEditDialog({
     >
       <ModalHeader>
         <ModalTitle id={titleId}>
-          {t("preferences:sources.editTitle")}
+          {adding
+            ? t("preferences:sources.addTitle")
+            : t("preferences:sources.editTitle")}
         </ModalTitle>
       </ModalHeader>
 
@@ -226,72 +238,79 @@ export function SourceEditDialog({
             </div>
           </div>
 
-          <Field orientation="horizontal" className="source-edit__option">
-            <Checkbox
-              id={id("organize")}
-              checked={autoOrganize}
-              disabled={busy}
-              onChange={(e) => setAutoOrganize(e.target.checked)}
-            />
-            <FieldContent>
-              <FieldLabel htmlFor={id("organize")}>
-                {t("preferences:sources.organize")}
-              </FieldLabel>
-              <FieldDescription>
-                {t("preferences:sources.organizeDescription")}
-              </FieldDescription>
-            </FieldContent>
-          </Field>
+          {/* The format belongs to organizing: nested under it, and off with it. */}
+          <div className="source-edit__organize">
+            <Field orientation="horizontal" className="source-edit__option">
+              <Checkbox
+                id={id("organize")}
+                checked={autoOrganize}
+                disabled={busy}
+                onChange={(e) => setAutoOrganize(e.target.checked)}
+              />
+              <FieldContent>
+                <FieldLabel htmlFor={id("organize")}>
+                  {t("preferences:sources.organize")}
+                </FieldLabel>
+                <FieldDescription>
+                  {t("preferences:sources.organizeDescription")}
+                </FieldDescription>
+              </FieldContent>
+            </Field>
 
-          <div className="source-edit__field">
-            <label className="source-edit__label" htmlFor={id("format")}>
-              {t("preferences:sources.pathFormat")}
-            </label>
-            <TextInput
-              ref={formatRef}
-              id={id("format")}
-              value={format}
-              placeholder={defaultFormat}
-              spellCheck={false}
-              disabled={busy}
-              onChange={(e) => setFormat(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void save();
-              }}
-            />
-            <p className="source-edit__hint" aria-live="polite">
-              {t("preferences:sources.formatPreview")}{" "}
-              <code className="source-edit__preview">{preview}</code>
-            </p>
-            <Disclosure
-              className="source-edit__tokens"
-              open={tokensOpen}
-              onOpenChange={setTokensOpen}
-              label={
-                tokensOpen
-                  ? t("preferences:sources.hideFormatTokens")
-                  : t("preferences:sources.formatTokens")
-              }
+            <div
+              className="source-edit__field source-edit__format"
+              data-off={!autoOrganize || undefined}
+              inert={!autoOrganize || undefined}
             >
-              <ul className="source-edit__token-list">
-                {PATH_FORMAT_TOKENS.map((token) => (
-                  <li key={token}>
-                    <button
-                      type="button"
-                      className="source-edit__token"
-                      disabled={busy}
-                      title={t("preferences:sources.insertToken")}
-                      onClick={() => insertToken(token)}
-                    >
-                      <code>{`{${token}}`}</code>
-                    </button>
-                    <span className="source-edit__token-description">
-                      {t(`preferences:sources.tokens.${token.split(":")[0]}`)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </Disclosure>
+              <label className="source-edit__label" htmlFor={id("format")}>
+                {t("preferences:sources.pathFormat")}
+              </label>
+              <TextInput
+                ref={formatRef}
+                id={id("format")}
+                value={format}
+                placeholder={defaultFormat}
+                spellCheck={false}
+                disabled={busy || !autoOrganize}
+                onChange={(e) => setFormat(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void save();
+                }}
+              />
+              <p className="source-edit__hint" aria-live="polite">
+                {t("preferences:sources.formatPreview")}{" "}
+                <code className="source-edit__preview">{preview}</code>
+              </p>
+              <Disclosure
+                className="source-edit__tokens"
+                open={tokensOpen}
+                onOpenChange={setTokensOpen}
+                label={
+                  tokensOpen
+                    ? t("preferences:sources.hideFormatTokens")
+                    : t("preferences:sources.formatTokens")
+                }
+              >
+                <ul className="source-edit__token-list">
+                  {PATH_FORMAT_TOKENS.map((token) => (
+                    <li key={token}>
+                      <button
+                        type="button"
+                        className="source-edit__token"
+                        disabled={busy}
+                        title={t("preferences:sources.insertToken")}
+                        onClick={() => insertToken(token)}
+                      >
+                        <code>{`{${token}}`}</code>
+                      </button>
+                      <span className="source-edit__token-description">
+                        {t(`preferences:sources.tokens.${token.split(":")[0]}`)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </Disclosure>
+            </div>
           </div>
 
           {error ? (
@@ -309,11 +328,11 @@ export function SourceEditDialog({
       >
         <Button
           variant="primary"
-          disabled={busy || !dirty || discardPrompt}
+          disabled={busy || (!dirty && !adding) || discardPrompt}
           isLoading={saving}
           onClick={() => void save()}
         >
-          {t("common:save")}
+          {adding ? t("preferences:sources.addConfirm") : t("common:save")}
         </Button>
       </ModalFooter>
 
@@ -323,7 +342,7 @@ export function SourceEditDialog({
         onKeepEditing={dismissDiscardPrompt}
         onDiscard={() => {
           setDiscardPrompt(false);
-          onClose();
+          cancel();
         }}
       />
     </Modal>

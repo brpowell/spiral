@@ -1,19 +1,32 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useShortenHomePath } from "../../../lib/homePath";
-import { describeSourceError } from "../../../lib/sourceAccess";
-import { addSource, pickMusicFolder, removeSource } from "../../../lib/tauri";
+import {
+  countTracksBySource,
+  describeSourceError,
+} from "../../../lib/sourceAccess";
+import {
+  addSource,
+  pickMusicFolder,
+  removeSource,
+  setImportSource,
+} from "../../../lib/tauri";
 import { useOnboardingStore } from "../../../store/useOnboardingStore";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import { useSourcesStore } from "../../../store/useSourcesStore";
 import type { Source } from "../../../types/source";
 import { Button } from "../../common/Button/Button";
-import { IconClose, IconOpenFolder, IconPlus } from "../../icons";
+import { IconPlus } from "../../icons";
+import { SourceCard } from "../../PreferencesModal/SourceCard";
+import { SourceEditFlow } from "../../PreferencesModal/SourceEditFlow";
 
 /**
  * "It's already organized": add the root folders the user's music lives in.
  * Each becomes a source, played where it is and left unorganized. Lists every
  * folder source, so going Back and returning keeps what was added.
+ *
+ * Folders show as the same cards as in Preferences, actions in their menu.
+ * Each opens the Edit music source dialog once added, so its organize
+ * settings can be set (organizing starts off); Edit reopens it.
  *
  * Folders added here can be removed again. One that was already a source
  * (onboarding replayed) may carry playlists and history, so removing it is
@@ -21,12 +34,16 @@ import { IconClose, IconOpenFolder, IconPlus } from "../../icons";
  */
 export function FoldersStep() {
   const { t } = useTranslation("common");
-  const displayPath = useShortenHomePath();
   const sources = useSourcesStore((s) => s.sources);
+  const library = usePlayerStore((s) => s.library);
+  const counts = useMemo(() => countTracksBySource(library), [library]);
   const addedSourceIds = useOnboardingStore((s) => s.addedSourceIds);
   const [adding, setAdding] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Source | null>(null);
+  // The folder just added, whose dialog finishes adding it (Cancel undoes).
+  const [addingId, setAddingId] = useState<number | null>(null);
 
   const add = async () => {
     if (adding) return;
@@ -38,10 +55,22 @@ export function FoldersStep() {
       const source = await addSource(folder);
       useSourcesStore.getState().applySource(source);
       useOnboardingStore.getState().noteSourceAdded(source.id);
+      setAddingId(source.id);
+      setEditing(source);
     } catch (err) {
       setError(describeSourceError(err));
     } finally {
       setAdding(false);
+    }
+  };
+
+  const makeDefault = async (source: Source) => {
+    setError(null);
+    try {
+      await setImportSource(source.id);
+      await useSourcesStore.getState().loadSources();
+    } catch (err) {
+      setError(describeSourceError(err));
     }
   };
 
@@ -66,40 +95,27 @@ export function FoldersStep() {
     <div className="onboarding-folders">
       {sources.length > 0 ? (
         <ul
-          className="onboarding-folders__list"
+          className="sources-section__list onboarding-folders__list"
           aria-label={t("onboarding.folders.listAria")}
         >
           {sources.map((source) => (
-            <li key={source.id} className="onboarding-folders__item">
-              <span className="onboarding-folders__icon" aria-hidden="true">
-                <IconOpenFolder width={20} height={20} />
-              </span>
-              <span className="onboarding-folders__text">
-                <span className="onboarding-folders__name">{source.name}</span>
-                <span
-                  className="onboarding-folders__path"
-                  title={source.rootPath ?? undefined}
-                >
-                  {source.rootPath ? displayPath(source.rootPath) : null}
-                </span>
-              </span>
-              {addedSourceIds.includes(source.id) ? (
-                <Button
-                  variant="ghost"
-                  iconOnly
-                  className="onboarding-folders__remove"
-                  aria-label={t("onboarding.folders.remove", {
-                    name: source.name,
-                  })}
-                  title={t("onboarding.folders.remove", { name: source.name })}
-                  onClick={() => void remove(source)}
-                  disabled={removingId != null}
-                  isLoading={removingId === source.id}
-                >
-                  <IconClose aria-hidden />
-                </Button>
-              ) : null}
-            </li>
+            <SourceCard
+              key={source.id}
+              source={source}
+              count={counts.get(source.id) ?? { total: 0, missing: 0 }}
+              busy={removingId != null}
+              onEdit={() => {
+                setError(null);
+                setAddingId(null);
+                setEditing(source);
+              }}
+              onMakeDefault={() => void makeDefault(source)}
+              onRemove={
+                addedSourceIds.includes(source.id)
+                  ? () => void remove(source)
+                  : undefined
+              }
+            />
           ))}
         </ul>
       ) : null}
@@ -117,6 +133,15 @@ export function FoldersStep() {
           {error}
         </p>
       ) : null}
+      <SourceEditFlow
+        source={editing}
+        onClose={() => setEditing(null)}
+        onSaving={() => setError(null)}
+        deferOrganize
+        onCancelAdd={
+          addingId != null ? (source) => void remove(source) : undefined
+        }
+      />
     </div>
   );
 }

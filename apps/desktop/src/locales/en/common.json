@@ -30,8 +30,7 @@
       "title": "Add music sources",
       "description": "Choose one or more root folders where your music lives.",
       "add": "Add folder",
-      "listAria": "Your music folders",
-      "remove": "Remove {{name}}"
+      "listAria": "Your music folders"
     },
     "style": {
       "title": "Try on a style",

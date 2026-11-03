@@ -68,6 +68,8 @@
     "actionsAria": "Actions for {{name}}",
     "edit": "Edit…",
     "editTitle": "Edit music source",
+    "addTitle": "Add music source",
+    "addConfirm": "Add folder",
     "discardEdits": "Unsaved changes to this music source will be lost.",
     "location": "Location",
     "makeDefault": "Make default",

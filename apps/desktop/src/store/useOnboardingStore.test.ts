@@ -8,6 +8,8 @@ const tauri = vi.hoisted(() => ({
   getSourceStatuses: vi.fn(),
 }));
 vi.mock("../lib/tauri", () => tauri);
+const organize = vi.hoisted(() => ({ organizeInBackground: vi.fn() }));
+vi.mock("../lib/organizeSource", () => organize);
 
 const tracks = {
   id: 1,
@@ -28,6 +30,7 @@ describe("useOnboardingStore", () => {
   const storage = new Map<string, string>();
 
   beforeEach(() => {
+    vi.clearAllMocks();
     storage.clear();
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => storage.get(key) ?? null,
@@ -63,6 +66,31 @@ describe("useOnboardingStore", () => {
     store.getState().finish();
     store.getState().start();
     expect(store.getState().open).toBe(true);
+  });
+
+  it("organizes added folders with organizing on once it finishes", async () => {
+    const store = await freshStore();
+    const { useSourcesStore } = await import("./useSourcesStore");
+    const folder = (id: number, autoOrganize: boolean) =>
+      ({ ...tracks, id, autoOrganize, importTarget: false }) as Source;
+    const sources = [
+      tracks,
+      folder(3, true),
+      folder(4, false),
+      folder(5, true),
+    ];
+    // Tracks (1) wasn't added on the folders step, so it's left alone.
+    useSourcesStore.setState({ sources });
+    store.getState().noteSourceAdded(3);
+    store.getState().noteSourceAdded(4);
+    store.getState().noteSourceAdded(5);
+    expect(organize.organizeInBackground).not.toHaveBeenCalled();
+
+    store.getState().finish();
+    // One batch, so one toast covers every folder.
+    expect(organize.organizeInBackground.mock.calls).toEqual([
+      [[{ source: sources[1] }, { source: sources[3] }], { scanFirst: true }],
+    ]);
   });
 
   it("adds the folders step only for existing music", async () => {

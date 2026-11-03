@@ -51,9 +51,8 @@
 }
 
 /*
- * Button variant mirrors `.btn`: unselected sits up like secondary (face +
- * lip), selected stays down like a held primary — the same toggle as the
- * site ecosystem switch.
+ * Button variant: unselected sits up like a secondary `.btn` (face + lip);
+ * selected is pressed into the same well as the card variant.
  */
 .radio-group-item--button {
   box-sizing: border-box;
@@ -107,18 +106,37 @@
   --radio-btn-lip: inset 0 1px 2px rgb(0 0 0 / 0.14);
 }
 
-.radio-group-item--button.radio-group-item--checked {
-  top: 1px;
-  color: var(--color-accent-text, #fff);
-  background-color: var(--color-accent);
-  border-color: color-mix(in srgb, var(--color-accent) 78%, black);
-  --radio-btn-lip: inset 0 1px 2px rgb(0 0 0 / 0.18);
+/*
+ * The chosen option, in either variant, is pressed into a well: sunk 1px,
+ * an accent-tinted darker surface, an inner shadow and a faint accent ring.
+ */
+.radio-group-item--checked {
+  --radio-pressed-bg: color-mix(
+    in srgb,
+    var(--color-accent) 10%,
+    color-mix(in oklch, black 12%, var(--color-surface))
+  );
+  --radio-pressed-ring: inset 0 0 0 1px
+    color-mix(in srgb, var(--color-accent) 30%, transparent);
+  --radio-pressed-shadow: rgb(0 0 0 / 0.3);
 }
 
-.radio-group-item--button.radio-group-item--checked:hover:not(
-    .radio-group-item--disabled
-  ) {
-  background-color: color-mix(in srgb, #fff 8%, var(--color-accent));
+/* On light pages darkening reads as grey; lean on the tint, keep it shallow. */
+:root[data-appearance="light"] .radio-group-item--checked {
+  --radio-pressed-bg: color-mix(
+    in srgb,
+    var(--color-accent) 14%,
+    color-mix(in oklch, black 3%, var(--color-surface))
+  );
+  --radio-pressed-shadow: rgb(0 0 0 / 0.12);
+}
+
+.radio-group-item--button.radio-group-item--checked {
+  top: 1px;
+  color: var(--color-text-primary);
+  background-color: var(--radio-pressed-bg);
+  --radio-btn-lip:
+    inset 0 1px 3px var(--radio-pressed-shadow), var(--radio-pressed-ring);
 }
 
 .radio-group-item--button:has(.radio-group-item__input:focus-visible) {
@@ -185,14 +203,9 @@
 
 .radio-group-item--card.radio-group-item--checked {
   top: 1px;
-  background-color: color-mix(
-    in srgb,
-    var(--color-accent) 10%,
-    color-mix(in oklch, black 12%, var(--color-surface))
-  );
+  background-color: var(--radio-pressed-bg);
   --radio-card-lip:
-    inset 0 2px 6px rgb(0 0 0 / 0.35),
-    inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 30%, transparent);
+    inset 0 2px 6px var(--radio-pressed-shadow), var(--radio-pressed-ring);
 }
 
 .radio-group-item--card:has(.radio-group-item__input:focus-visible) {
