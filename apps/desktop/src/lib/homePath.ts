@@ -1,5 +1,5 @@
 import { homeDir } from "@tauri-apps/api/path";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 /**
  * `/Users/me/Music` → `~/Music` when `path` is inside `home`. Only for
@@ -34,4 +34,14 @@ export function useHomeDir(): string | null {
     };
   }, []);
   return home;
+}
+
+/**
+ * For showing paths: a function that writes the home folder as `~`. Paths
+ * show in full until the home folder loads. Keep the real path for anything
+ * that's acted on or copied into a command.
+ */
+export function useShortenHomePath(): (path: string) => string {
+  const home = useHomeDir();
+  return useCallback((path: string) => shortenHomePath(path, home), [home]);
 }

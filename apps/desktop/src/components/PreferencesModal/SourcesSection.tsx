@@ -1,5 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { useShortenHomePath } from "../../lib/homePath";
+import {
+  GENERIC_ORGANIZE_PATH_SAMPLE,
+  trackToOrganizePathSample,
+} from "../../lib/organizePathFormat";
 import {
   countTracksBySource,
   describeSourceError,
@@ -22,40 +27,32 @@ import { usePlayerStore } from "../../store/usePlayerStore";
 import { useSourcesStore } from "../../store/useSourcesStore";
 import type { ReconcileSummary, Source } from "../../types/source";
 import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
-import { Badge } from "../common/Badge/Badge";
 import { Button } from "../common/Button/Button";
 import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldLabel,
-} from "../common/Field/Field";
-import { Switch } from "../common/Switch/Switch";
-import { TextInput } from "../common/TextInput/TextInput";
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from "../ContextMenu/ContextMenu";
 import {
+  IconCheck,
   IconDelete,
   IconDisconnected,
   IconFolderCog,
   IconFolderLink,
-  IconImport,
   IconOpenFolder,
+  IconPencil,
   IconPlus,
   IconRefresh,
 } from "../icons";
+import { MenuButton } from "../MenuButton/MenuButton";
 import {
   OrganizePreviewDialog,
   type OrganizeRequest,
 } from "./OrganizePreviewDialog";
+import { SourceEditDialog, type SourceEdits } from "./SourceEditDialog";
 import "./SourcesSection.css";
 
 /** How often the offline badges refresh while the section is open. */
 export const SOURCE_STATUS_POLL_MS = 5000;
-
-/** A path format field's value as stored: blank means the default format. */
-function normalizeFormat(value: string): string | null {
-  const trimmed = value.trim();
-  return trimmed === "" ? null : trimmed;
-}
 
 interface PendingOrganize extends OrganizeRequest {
   /** Clear the source's own format once applied (it goes back to the default). */
@@ -65,7 +62,8 @@ interface PendingOrganize extends OrganizeRequest {
 /**
  * Preferences → Sources: the folders Spiral plays music from, which may be
  * none. Other (loose files with no folder) is shown apart and isn't counted
- * among them.
+ * among them. Each folder shows only its path and counts; everything else is
+ * under its menu.
  */
 export function SourcesSection() {
   const { t } = useTranslation(["preferences", "common"]);
@@ -75,6 +73,7 @@ export function SourcesSection() {
   const loadStatuses = useSourcesStore((s) => s.loadStatuses);
   const applySource = useSourcesStore((s) => s.applySource);
   const library = usePlayerStore((s) => s.library);
+  const displayPath = useShortenHomePath();
   const defaultFormat = useLibrarySettingsStore(
     (s) => s.settings?.organizePathFormat ?? "",
   );
@@ -83,10 +82,9 @@ export function SourcesSection() {
   const [rescanningId, setRescanningId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Source | null>(null);
   const [removing, setRemoving] = useState<Source | null>(null);
   const [organizing, setOrganizing] = useState<PendingOrganize | null>(null);
-  /** Path format edits not yet saved, by source id. */
-  const [formatDrafts, setFormatDrafts] = useState<Record<number, string>>({});
 
   useEffect(() => {
     void loadSources();
@@ -108,13 +106,7 @@ export function SourcesSection() {
   const other = sources.find(isOtherSource) ?? null;
 
   const trackCount = (source: Source) => counts.get(source.id)?.total ?? 0;
-
-  const clearDraft = (sourceId: number) =>
-    setFormatDrafts((prev) => {
-      const next = { ...prev };
-      delete next[sourceId];
-      return next;
-    });
+  const isOffline = (source: Source) => statuses[source.id] === "unreachable";
 
   const run = async (
     id: number | "add" | "managed",
@@ -166,54 +158,57 @@ export function SourcesSection() {
       }
     });
 
-  const relocate = (source: Source) =>
-    run(source.id, async () => {
-      const folder = await pickMusicFolder();
-      if (!folder) return;
-      applySource(await relocateSource(source.id, folder));
-      await loadStatuses();
-    });
-
-  const makeImportTarget = (source: Source) =>
+  const makeDefault = (source: Source) =>
     run(source.id, async () => {
       await setImportSource(source.id);
       await loadSources();
     });
 
-  /** Turning organize on moves existing files, so it goes through a preview. */
-  const toggleOrganize = (source: Source, on: boolean) => {
-    if (on && trackCount(source) > 0) {
-      setError(null);
-      setOrganizing({ source });
-      return;
+  /**
+   * Saves the edit dialog. A new location applies at once; turning
+   * organize on, or a new format for an organized source, moves files, so it
+   * goes through the preview (cancelling it leaves organizing as it was).
+   */
+  const saveEdits = async (source: Source, edits: SourceEdits) => {
+    setError(null);
+    setNotice(null);
+    let current = source;
+    if (edits.rootPath) {
+      current = await relocateSource(source.id, edits.rootPath);
+      applySource(current);
     }
-    void run(source.id, async () => {
-      applySource(await setSourceOrganize(source.id, on));
-    });
-  };
 
-  /** A new format for an organized source moves its files, so it is previewed too. */
-  const commitFormat = (source: Source) => {
-    const draft = formatDrafts[source.id];
-    if (draft === undefined) return;
-    const next = normalizeFormat(draft);
-    if (next === source.pathFormat) {
-      clearDraft(source.id);
-      return;
+    const formatChanged = edits.pathFormat !== undefined;
+    const nextFormat = formatChanged
+      ? (edits.pathFormat ?? null)
+      : current.pathFormat;
+    const organize = edits.autoOrganize ?? current.autoOrganize;
+    const movesFiles =
+      organize &&
+      trackCount(current) > 0 &&
+      (edits.autoOrganize === true || formatChanged);
+
+    if (movesFiles) {
+      setOrganizing(
+        formatChanged
+          ? {
+              source: current,
+              pathFormat: nextFormat ?? defaultFormat,
+              clearFormat: nextFormat == null,
+            }
+          : { source: current },
+      );
+    } else {
+      if (edits.autoOrganize !== undefined) {
+        current = await setSourceOrganize(source.id, edits.autoOrganize);
+      }
+      if (formatChanged) {
+        current = await setSourcePathFormat(source.id, nextFormat);
+      }
+      applySource(current);
     }
-    if (source.autoOrganize && trackCount(source) > 0) {
-      setError(null);
-      setOrganizing({
-        source,
-        pathFormat: next ?? defaultFormat,
-        clearFormat: next == null,
-      });
-      return;
-    }
-    void run(source.id, async () => {
-      applySource(await setSourcePathFormat(source.id, next));
-      clearDraft(source.id);
-    });
+    await loadSources();
+    await loadStatuses();
   };
 
   const organizeApplied = async () => {
@@ -221,15 +216,18 @@ export function SourcesSection() {
     if (organizing.clearFormat) {
       await setSourcePathFormat(organizing.source.id, null);
     }
-    clearDraft(organizing.source.id);
     await loadSources();
   };
 
-  const closeOrganize = () => {
-    // Cancelling leaves the setting as it was, so drop the unsaved format.
-    if (organizing) clearDraft(organizing.source.id);
-    setOrganizing(null);
-  };
+  /** One of the source's own tracks, so the format preview looks familiar. */
+  const previewSample = useMemo(() => {
+    const track = editing
+      ? library.find((t) => t.sourceId === editing.id)
+      : undefined;
+    return track
+      ? trackToOrganizePathSample(track)
+      : GENERIC_ORGANIZE_PATH_SAMPLE;
+  }, [editing, library]);
 
   const confirmRemove = async () => {
     if (!removing) return;
@@ -247,174 +245,148 @@ export function SourcesSection() {
 
   const busy = busyId != null;
 
-  const renderCounts = (source: Source) => {
+  /** Counts, then the folder's status (default, offline) inline after them. */
+  const renderMeta = (source: Source) => {
+    if (rescanningId === source.id) {
+      return (
+        <p className="sources-section__meta" role="status">
+          {t("preferences:sources.rescanning")}
+        </p>
+      );
+    }
     const count = counts.get(source.id) ?? { total: 0, missing: 0 };
+    const parts: ReactNode[] = [
+      t("preferences:sources.trackCount", { count: count.total }),
+    ];
+    if (count.missing > 0) {
+      parts.push(
+        <span className="sources-section__missing">
+          {t("preferences:sources.missingCount", { count: count.missing })}
+        </span>,
+      );
+    }
+    if (source.importTarget) {
+      parts.push(
+        <span
+          className="sources-section__status sources-section__default"
+          title={t("preferences:sources.defaultHint")}
+        >
+          <IconCheck aria-hidden />
+          {t("preferences:sources.defaultBadge")}
+        </span>,
+      );
+    }
+    if (isOffline(source)) {
+      parts.push(
+        <span
+          className="sources-section__status sources-section__offline"
+          title={t("preferences:sources.offlineHint")}
+        >
+          <IconDisconnected aria-hidden />
+          {t("preferences:sources.offline")}
+        </span>,
+      );
+    }
     return (
       <p className="sources-section__meta">
-        {t("preferences:sources.trackCount", { count: count.total })}
-        {count.missing > 0 ? (
-          <>
-            {" · "}
-            <span className="sources-section__missing">
-              {t("preferences:sources.missingCount", { count: count.missing })}
-            </span>
-          </>
-        ) : null}
+        {parts.map((part, i) => (
+          <Fragment key={i}>
+            {i > 0 ? (
+              <span className="sources-section__sep" aria-hidden>
+                ·
+              </span>
+            ) : null}
+            {part}
+          </Fragment>
+        ))}
       </p>
     );
   };
 
-  const rescanButton = (source: Source) => (
-    <Button
-      size="sm"
+  /**
+   * Rescan for every row; Edit and Remove only for folders, and Make default
+   * for folders that aren't it (it acts at once, so it isn't in Edit).
+   */
+  const renderMenu = (source: Source, name: string, folder: boolean) => (
+    <MenuButton
+      ariaLabel={t("preferences:sources.actionsAria", { name })}
+      title={t("common:actions")}
+      variant="ghost"
+      className="sources-section__menu"
       disabled={busy}
-      isLoading={rescanningId === source.id}
-      onClick={() => void rescan(source)}
+      layoutDeps={[folder, source.importTarget]}
     >
-      <IconRefresh aria-hidden />
-      {rescanningId === source.id
-        ? t("preferences:sources.rescanning")
-        : t("preferences:sources.rescan")}
-    </Button>
+      {(close) => (
+        <>
+          {folder ? (
+            <ContextMenuItem
+              icon={<IconPencil />}
+              label={t("preferences:sources.edit")}
+              onClick={() => {
+                close();
+                setError(null);
+                setEditing(source);
+              }}
+            />
+          ) : null}
+          {folder && !source.importTarget ? (
+            <ContextMenuItem
+              icon={<IconCheck />}
+              label={t("preferences:sources.makeDefault")}
+              disabled={isOffline(source)}
+              onClick={() => {
+                close();
+                void makeDefault(source);
+              }}
+            />
+          ) : null}
+          <ContextMenuItem
+            icon={<IconRefresh />}
+            label={t("preferences:sources.rescan")}
+            onClick={() => {
+              close();
+              void rescan(source);
+            }}
+          />
+          {folder ? (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                icon={<IconDelete />}
+                label={t("preferences:sources.remove")}
+                className="context-menu__danger"
+                onClick={() => {
+                  close();
+                  setError(null);
+                  setRemoving(source);
+                }}
+              />
+            </>
+          ) : null}
+        </>
+      )}
+    </MenuButton>
   );
 
-  /** A folder the user chose, `Tracks` included: every control applies. */
+  /** A folder the user chose, `Tracks` included. */
   const renderFolder = (source: Source) => {
+    // The path is what identifies a folder; the name only labels its menu.
     const name = sourceDisplayName(source);
-    const offline = statuses[source.id] === "unreachable";
-    const organizeId = `source-organize-${source.id}`;
-    const formatId = `source-format-${source.id}`;
     return (
       <li key={source.id} className="sources-section__item">
         <span className="sources-section__icon">
           <IconOpenFolder aria-hidden />
         </span>
         <div className="sources-section__body">
-          <div className="sources-section__heading">
-            <span className="sources-section__name">{name}</span>
-            {source.importTarget ? (
-              <Badge
-                variant="accent"
-                title={t("preferences:sources.importTargetHint")}
-              >
-                {t("preferences:sources.importTarget")}
-              </Badge>
-            ) : null}
-            {offline ? (
-              <Badge
-                className="sources-section__offline"
-                title={t("preferences:sources.offlineHint")}
-              >
-                <IconDisconnected aria-hidden />
-                {t("preferences:sources.offline")}
-              </Badge>
-            ) : null}
-          </div>
           {source.rootPath ? (
             <code className="sources-section__path" title={source.rootPath}>
               {/* Ellipsize the start, so the folder name stays visible. */}
-              <bdo dir="ltr">{source.rootPath}</bdo>
+              <bdo dir="ltr">{displayPath(source.rootPath)}</bdo>
             </code>
           ) : null}
-          {renderCounts(source)}
-          <p className="sources-section__description">
-            {offline
-              ? t("preferences:sources.offlineHint")
-              : t("preferences:sources.userDescription")}
-          </p>
-
-          <div className="sources-section__settings">
-            <Field
-              orientation="horizontal"
-              className="sources-section__organize"
-            >
-              <Switch
-                id={organizeId}
-                checked={source.autoOrganize}
-                disabled={busy}
-                onChange={(e) => toggleOrganize(source, e.target.checked)}
-              />
-              <FieldContent>
-                <FieldLabel htmlFor={organizeId}>
-                  {t("preferences:sources.organize")}
-                </FieldLabel>
-                <FieldDescription>
-                  {source.autoOrganize
-                    ? t("preferences:sources.organizeOnDescription")
-                    : t("preferences:sources.organizeOffDescription")}
-                </FieldDescription>
-              </FieldContent>
-            </Field>
-
-            <div className="sources-section__format">
-              <label
-                className="sources-section__format-label"
-                htmlFor={formatId}
-              >
-                {t("preferences:sources.pathFormat")}
-              </label>
-              <TextInput
-                id={formatId}
-                value={formatDrafts[source.id] ?? source.pathFormat ?? ""}
-                placeholder={t("preferences:sources.useDefaultFormat")}
-                spellCheck={false}
-                disabled={busy}
-                onChange={(e) =>
-                  setFormatDrafts((prev) => ({
-                    ...prev,
-                    [source.id]: e.target.value,
-                  }))
-                }
-                onBlur={() => commitFormat(source)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") e.currentTarget.blur();
-                }}
-              />
-              <p className="sources-section__description">
-                {t("preferences:sources.defaultFormat")}{" "}
-                <code>{defaultFormat}</code>
-              </p>
-            </div>
-          </div>
-
-          <div
-            className="sources-section__actions"
-            role="group"
-            aria-label={t("preferences:sources.actionsAria", { name })}
-          >
-            {rescanButton(source)}
-            {!source.importTarget ? (
-              <Button
-                size="sm"
-                disabled={busy || offline}
-                onClick={() => void makeImportTarget(source)}
-              >
-                <IconImport aria-hidden />
-                {t("preferences:sources.importHere")}
-              </Button>
-            ) : null}
-            <Button
-              size="sm"
-              disabled={busy}
-              onClick={() => void relocate(source)}
-            >
-              <IconOpenFolder aria-hidden />
-              {t("preferences:sources.changeLocation")}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={busy}
-              onClick={() => {
-                setError(null);
-                setRemoving(source);
-              }}
-            >
-              <IconDelete aria-hidden />
-              {t("preferences:sources.remove")}
-            </Button>
-          </div>
+          {renderMeta(source)}
         </div>
+        {renderMenu(source, name, true)}
       </li>
     );
   };
@@ -430,18 +402,12 @@ export function SourcesSection() {
           </span>
           <div className="sources-section__body">
             <span className="sources-section__name">{name}</span>
-            {renderCounts(source)}
+            {renderMeta(source)}
             <p className="sources-section__description">
               {t("preferences:sources.otherDescription")}
             </p>
-            <div
-              className="sources-section__actions"
-              role="group"
-              aria-label={t("preferences:sources.actionsAria", { name })}
-            >
-              {rescanButton(source)}
-            </div>
           </div>
+          {renderMenu(source, name, false)}
         </div>
       </section>
     );
@@ -513,9 +479,17 @@ export function SourcesSection() {
         </p>
       ) : null}
 
+      <SourceEditDialog
+        source={editing}
+        defaultFormat={defaultFormat}
+        previewSample={previewSample}
+        onClose={() => setEditing(null)}
+        onSave={saveEdits}
+      />
+
       <OrganizePreviewDialog
         request={organizing}
-        onClose={closeOrganize}
+        onClose={() => setOrganizing(null)}
         onApplied={organizeApplied}
       />
 
@@ -536,12 +510,12 @@ export function SourcesSection() {
         {removing?.rootPath ? (
           <p>
             {t("preferences:sources.removeKeepsFolder", {
-              path: removing.rootPath,
+              path: displayPath(removing.rootPath),
             })}
           </p>
         ) : null}
         {removing?.importTarget ? (
-          <p>{t("preferences:sources.removeImportTarget")}</p>
+          <p>{t("preferences:sources.removeDefault")}</p>
         ) : null}
       </AlertConfirmation>
     </div>
