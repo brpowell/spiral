@@ -56,7 +56,7 @@
     "organize": "Automatically organize files",
     "organizeDescription": "Files are renamed and sorted into subfolders based on the path format.",
     "pathFormat": "Path format",
-    "formatPreview": "Example:",
+    "formatPreview": "e.g.",
     "formatTokens": "Available tokens",
     "insertToken": "Insert into the path format",
     "tokens": {

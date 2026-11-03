@@ -281,7 +281,8 @@ describe("SourcesSection", () => {
     });
     await renderSection();
     const dialog = await openEdit("Tracks");
-    expect(within(dialog).getByText("Joni/Blue/Blue.flac")).toBeTruthy();
+    const example = within(dialog).getByText("Joni/Blue/Blue.flac");
+    expect(example.parentElement?.textContent).toBe("e.g. Joni/Blue/Blue.flac");
     fireEvent.change(within(dialog).getByLabelText("Path format"), {
       target: { value: "{artist} - {title}.{ext}" },
     });
