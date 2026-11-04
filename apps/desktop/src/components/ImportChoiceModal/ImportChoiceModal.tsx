@@ -60,6 +60,11 @@ export function ImportChoiceModal() {
     reachable[0]?.id ??
     null;
 
+  // Statuses otherwise only refresh while Preferences is open.
+  useEffect(() => {
+    if (open) void useSourcesStore.getState().loadStatuses();
+  }, [open]);
+
   useEffect(() => {
     if (open) {
       setDestination(initialDestination);

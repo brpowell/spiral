@@ -33,6 +33,7 @@ export interface ReconcileSummary {
   updated: number;
   missing: number;
   restored: number;
+  moved: number;
   failed: number;
   errors: string[];
 }

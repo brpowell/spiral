@@ -3,6 +3,7 @@ import { logActivityEntry } from "../../lib/activityLog";
 import { convertTracksSettleOptions } from "../../lib/convertTracks";
 import { t } from "../../lib/i18n";
 import { lyricsFetchBulkSettleOptions } from "../../lib/lyricsFetchToastSettle";
+import { organizeSettleOptions } from "../../lib/organizeSource";
 import {
   activityLogCopiedPayload,
   availableUpdatePayload,
@@ -18,9 +19,12 @@ import {
   diagnosticsSavedPayload,
   lyricsAmbiguousPayload,
   lyricsNoneMissingPayload,
+  organizeFailedPayload,
+  organizeRunningLabel,
   packDownloadFailedPayload,
   packUpdatesSettleOptions,
   playbackFileMissingPayload,
+  playbackFilesMissingPayload,
   libraryPlaybackFailedPayload,
   libraryLoadFailedPayload,
   importPickerFailedPayload,
@@ -228,6 +232,38 @@ function fireConvertOutcome(
   });
 }
 
+function fireOrganizeOutcome(
+  {
+    runInBackground,
+    dismissMs,
+    sleep,
+  }: Pick<ToastLabFireContext, "runInBackground" | "dismissMs" | "sleep">,
+  options: {
+    moved: number;
+    failed: number;
+    errors: string[];
+    stepMs?: number;
+  },
+): void {
+  const { moved, failed, errors, stepMs = 150 } = options;
+  void runInBackground({
+    key: "organize-sources",
+    label: organizeRunningLabel(EXAMPLE_FOLDER),
+    progressDisplay: "bar",
+    run: async (ctx) => {
+      const total = moved + failed;
+      for (let done = 1; done <= total; done++) {
+        ctx.setProgress(done, total);
+        await sleep(stepMs);
+      }
+      ctx.settleAs({
+        ...organizeSettleOptions({ moved, failed, errors }, [EXAMPLE_FOLDER]),
+        dismissMs,
+      });
+    },
+  });
+}
+
 function fireImportOutcome(
   {
     runInBackground,
@@ -376,6 +412,7 @@ export function toastLabUpdateAvailableActions() {
 }
 
 const EXAMPLE_TRACK = { title: "Example Track Title" };
+const EXAMPLE_FOLDER = "Music";
 
 export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
   // —— Queue & playlists ——
@@ -437,6 +474,15 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "playbackToast.ts",
     fire: ({ showErrorToast, dismissMs }) => {
       showErrorToast(playbackFileMissingPayload(EXAMPLE_TRACK, { dismissMs }));
+    },
+  },
+  {
+    id: "playback-files-missing",
+    group: "Playback",
+    buttonLabel: "N tracks skipped",
+    source: "playbackToast.ts",
+    fire: ({ showErrorToast, dismissMs }) => {
+      showErrorToast(playbackFilesMissingPayload(3, { dismissMs }));
     },
   },
   {
@@ -1637,6 +1683,77 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         failed: 3,
         errors,
       });
+    },
+  },
+
+  // —— Organize ——
+  {
+    id: "organize-running",
+    group: "Organize",
+    buttonLabel: "Organize · running",
+    source: "organizeSource.ts",
+    fire: (ctx) => {
+      fireOrganizeOutcome(ctx, {
+        moved: 12,
+        failed: 0,
+        errors: [],
+        stepMs: 1000,
+      });
+    },
+  },
+  {
+    id: "organize-ok",
+    group: "Organize",
+    buttonLabel: "Organize · success",
+    source: "organizeSource.ts",
+    fire: (ctx) => {
+      fireOrganizeOutcome(ctx, { moved: 12, failed: 0, errors: [] });
+    },
+  },
+  {
+    id: "organize-partial",
+    group: "Organize",
+    buttonLabel: "Organize · partial (1 fail)",
+    source: "organizeSource.ts",
+    fire: (ctx) => {
+      fireOrganizeOutcome(ctx, {
+        moved: 11,
+        failed: 1,
+        errors: ["Song B.flac: Permission denied"],
+      });
+    },
+  },
+  {
+    id: "organize-partial-multi",
+    group: "Organize",
+    buttonLabel: "Organize · partial (2+ fails)",
+    source: "organizeSource.ts",
+    fire: async (ctx) => {
+      const errors = [
+        "Song B.flac: Permission denied",
+        "Song C.flac: Permission denied",
+      ];
+      await seedToastLabLog(
+        ACTIVITY_LOG_DOMAINS.library,
+        "Toast Lab: sample organize summary",
+        { moved: 10, failed: 2, errors },
+      );
+      fireOrganizeOutcome(ctx, { moved: 10, failed: 2, errors });
+    },
+  },
+  {
+    id: "organize-offline",
+    group: "Organize",
+    buttonLabel: "Organize · folder offline",
+    source: "organizeSource.ts",
+    fire: ({ showErrorToast, dismissMs }) => {
+      showErrorToast(
+        organizeFailedPayload(
+          EXAMPLE_FOLDER,
+          "source_unavailable: the folder /Volumes/Music is not available",
+          { dismissMs },
+        ),
+      );
     },
   },
 

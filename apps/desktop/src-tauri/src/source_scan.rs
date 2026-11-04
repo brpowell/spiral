@@ -14,6 +14,11 @@
 //! re-pointed to the spelling on disk rather than marked missing beside a new
 //! duplicate.
 //!
+//! A file with no row of its own may be a track's file moved within the
+//! source: when exactly one of the source's rows has lost its file and stored
+//! this file's size and modification time, that row follows the file, keeping
+//! its play count and playlist entries. Moves between sources aren't detected.
+//!
 //! Reconciling is idempotent and serialized, so the startup pass, a manual
 //! rescan and the file watcher can all call it. Files are read without holding
 //! the database lock, and the lock is taken briefly for each write.
@@ -51,6 +56,9 @@ pub struct ReconcileSummary {
     pub updated: u32,
     pub missing: u32,
     pub restored: u32,
+    /// Rows that followed their file to a new path. A moved row counts only
+    /// here, even if it had been marked missing.
+    pub moved: u32,
     pub failed: u32,
     pub errors: Vec<String>,
 }
@@ -65,7 +73,7 @@ impl ReconcileSummary {
 
     /// True when any track row changed.
     pub fn changed(&self) -> bool {
-        self.added + self.updated + self.missing + self.restored > 0
+        self.added + self.updated + self.missing + self.restored + self.moved > 0
     }
 
     fn fail(&mut self, path: &str, err: impl std::fmt::Display) {
@@ -114,6 +122,7 @@ fn file_stat(path: &Path) -> Option<(i64, i64)> {
     Some((meta.len() as i64, mtime))
 }
 
+#[derive(Clone)]
 struct KnownTrack {
     id: i64,
     stat: Option<(i64, i64)>,
@@ -199,21 +208,34 @@ fn known_tracks(
     Ok(known)
 }
 
-/// The source's tracks by [`track_identity::path_key`], for finding the row
-/// of a file whose path is spelled differently on disk (another case or
-/// Unicode form) than in the database.
-fn tracks_by_key(
-    conn: &Connection,
-    source_id: i64,
-) -> Result<HashMap<String, Vec<(String, KnownTrack)>>, String> {
-    let mut by_key: HashMap<String, Vec<(String, KnownTrack)>> = HashMap::new();
+/// All of a source's tracks, for finding the row of a file with no row under
+/// its exact path.
+struct SourceRows {
+    /// By [`track_identity::path_key`], for a path spelled differently on
+    /// disk (another case or Unicode form) than in the database.
+    by_key: HashMap<String, Vec<(String, KnownTrack)>>,
+    /// By stored size and modification time, for a file that moved.
+    by_stat: HashMap<(i64, i64), Vec<(String, KnownTrack)>>,
+}
+
+fn source_rows(conn: &Connection, source_id: i64) -> Result<SourceRows, String> {
+    let mut rows = SourceRows {
+        by_key: HashMap::new(),
+        by_stat: HashMap::new(),
+    };
     for (path, track) in known_tracks(conn, source_id, None)? {
-        by_key
+        if let Some(stat) = track.stat {
+            rows.by_stat
+                .entry(stat)
+                .or_default()
+                .push((path.clone(), track.clone()));
+        }
+        rows.by_key
             .entry(track_identity::path_key(&path))
             .or_default()
             .push((path, track));
     }
-    Ok(by_key)
+    Ok(rows)
 }
 
 /// The row stored under another spelling of `path` that names the same file,
@@ -232,7 +254,22 @@ fn equivalent_track(
     Some(rows.swap_remove(at))
 }
 
-/// Point a track at the spelling of its path found on disk.
+/// The row a file with `stat` moved away from: the only one with that stored
+/// stat whose own file is gone, already marked missing or not. Two such rows
+/// could be either file, so neither is picked.
+fn moved_track(
+    by_stat: &HashMap<(i64, i64), Vec<(String, KnownTrack)>>,
+    matched: &HashSet<i64>,
+    stat: (i64, i64),
+) -> Option<(String, KnownTrack)> {
+    let mut gone = by_stat.get(&stat)?.iter().filter(|(stored, track)| {
+        !matched.contains(&track.id) && matches!(Path::new(stored).try_exists(), Ok(false))
+    });
+    let row = gone.next()?;
+    gone.next().is_none().then(|| row.clone())
+}
+
+/// Point a track at the path its file is at now.
 fn set_path(conn: &Connection, source_id: i64, id: i64, path: &str) -> Result<(), String> {
     let rel = SourceRoots::load(conn)
         .map_err(|e| e.to_string())?
@@ -361,8 +398,8 @@ fn reconcile_watched(
 
     let mut known = known_tracks(&lock(db), source_id, Some(&coverage))?;
     let mut summary = ReconcileSummary::new(source_id);
-    // Built the first time a file has no row under its exact path.
-    let mut by_key = None;
+    // Loaded the first time a file has no row under its exact path.
+    let mut rows = None;
     let mut matched = HashSet::new();
 
     for path in found {
@@ -370,16 +407,25 @@ fn reconcile_watched(
             continue;
         };
         let mut row = known.remove(&path);
+        let mut moved = false;
         if row.is_none() {
+            if rows.is_none() {
+                rows = Some(source_rows(&lock(db), source_id)?);
+            }
+            let SourceRows { by_key, by_stat } = rows.as_mut().unwrap();
             // A row may hold another spelling of this file's path, e.g. after
             // a rename that only changed case on a case-insensitive volume.
-            // Re-point it rather than adding a second row for the file.
-            if by_key.is_none() {
-                by_key = Some(tracks_by_key(&lock(db), source_id)?);
-            }
-            if let Some((stored, track)) =
-                equivalent_track(by_key.as_mut().unwrap(), &matched, &path)
-            {
+            // Or this may be a row's file, moved. Either way, re-point that
+            // row rather than adding a second one for the file. The row may
+            // be outside this pass's scope, as when a watcher reports a
+            // move's two halves separately.
+            let respelled = equivalent_track(by_key, &matched, &path);
+            let relocated = match respelled {
+                Some(_) => None,
+                None => moved_track(by_stat, &matched, stat),
+            };
+            moved = relocated.is_some();
+            if let Some((stored, track)) = respelled.or(relocated) {
                 known.remove(&stored);
                 set_path(&lock(db), source_id, track.id, &path)?;
                 row = Some(track);
@@ -406,7 +452,9 @@ fn reconcile_watched(
                         Err(err) => summary.fail(&path, err),
                     }
                 }
-                if track.missing {
+                if moved {
+                    summary.moved += 1;
+                } else if track.missing {
                     summary.restored += 1;
                 }
                 if changed || track.missing || track.stat != Some(stat) {
@@ -648,6 +696,45 @@ mod tests {
             tracks
         }
 
+        /// Give a track a play count and a playlist entry.
+        fn listen_and_list(&self, track: i64) {
+            let conn = lock(&self.db);
+            conn.execute(
+                "UPDATE tracks SET play_count = 3 WHERE id = ?1",
+                params![track],
+            )
+            .unwrap();
+            conn.execute_batch(&format!(
+                "INSERT INTO playlists (title, date_created, last_used_at)
+                 VALUES ('Mix', '2026-01-01', '2026-01-01');
+                 INSERT INTO playlist_tracks (playlist_id, track_id, position)
+                 VALUES (last_insert_rowid(), {track}, 0);"
+            ))
+            .unwrap();
+        }
+
+        /// A track's play count and how many playlist entries it has.
+        fn listens_and_lists(&self, track: i64) -> (i64, i64) {
+            lock(&self.db)
+                .query_row(
+                    "SELECT play_count,
+                       (SELECT COUNT(*) FROM playlist_tracks WHERE track_id = tracks.id)
+                     FROM tracks WHERE id = ?1",
+                    params![track],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .unwrap()
+        }
+
+        fn set_mtime(&self, path: &Path, secs: u64) {
+            fs::File::options()
+                .write(true)
+                .open(path)
+                .unwrap()
+                .set_modified(UNIX_EPOCH + std::time::Duration::from_secs(secs))
+                .unwrap();
+        }
+
         fn track_id(&self, path: &Path) -> i64 {
             db::track_id_for_path(&lock(&self.db), &path.to_string_lossy())
                 .unwrap()
@@ -679,6 +766,13 @@ mod tests {
             missing,
             restored,
             ..ReconcileSummary::default()
+        }
+    }
+
+    fn moved(source_id: i64, moved: u32) -> ReconcileSummary {
+        ReconcileSummary {
+            moved,
+            ..summary(source_id, 0, 0, 0, 0)
         }
     }
 
@@ -845,11 +939,179 @@ mod tests {
         fs::rename(fx.path("Collection/Old"), fx.path("Collection/New")).unwrap();
         let new = fx.path("Collection/New/a.wav");
         let changed = [fx.path("Collection/Old"), fx.path("Collection/New")];
-        assert_eq!(fx.reconcile_paths(id, &changed), summary(id, 1, 0, 1, 0));
+        let track = fx.track_id(&old);
+        assert_eq!(fx.reconcile_paths(id, &changed), moved(id, 1));
+        assert_eq!(fx.tracks(id), vec![(s(&new), "a".into(), false)]);
+        assert_eq!(fx.track_id(&new), track);
+    }
+
+    #[test]
+    fn a_moved_file_keeps_its_row() {
+        let fx = Fixture::new("move");
+        let id = fx.watch("Collection");
+        let old = fx.wav("Collection/a.wav");
+        fx.reconcile(id);
+        let track = fx.track_id(&old);
+        fx.listen_and_list(track);
+
+        let new = fx.path("Collection/Sorted/renamed.wav");
+        fs::create_dir_all(new.parent().unwrap()).unwrap();
+        fs::rename(&old, &new).unwrap();
+
+        assert_eq!(fx.reconcile(id), moved(id, 1));
+        assert_eq!(fx.tracks(id), vec![(s(&new), "a".into(), false)]);
+        assert_eq!(fx.track_id(&new), track);
+        assert_eq!(fx.listens_and_lists(track), (3, 1));
+        assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 0));
+    }
+
+    #[test]
+    fn moving_a_file_and_back_leaves_no_ghost() {
+        let fx = Fixture::new("move-back");
+        let id = fx.watch("Collection");
+        let home = fx.wav("Collection/a.wav");
+        let away = fx.path("Collection/b.wav");
+        fx.reconcile(id);
+        let track = fx.track_id(&home);
+        fx.listen_and_list(track);
+
+        fs::rename(&home, &away).unwrap();
+        assert_eq!(fx.reconcile(id), moved(id, 1));
+        fs::rename(&away, &home).unwrap();
+        assert_eq!(fx.reconcile(id), moved(id, 1));
+
+        assert_eq!(fx.tracks(id), vec![(s(&home), "a".into(), false)]);
+        assert_eq!(fx.track_id(&home), track);
+        assert_eq!(fx.listens_and_lists(track), (3, 1));
+    }
+
+    #[test]
+    fn a_move_seen_as_separate_delete_and_create_keeps_its_row() {
+        let fx = Fixture::new("move-split");
+        let id = fx.watch("Collection");
+        let old = fx.wav("Collection/Old/a.wav");
+        fx.reconcile(id);
+        let track = fx.track_id(&old);
+        let new = fx.path("Collection/New/a.wav");
+        fs::create_dir_all(new.parent().unwrap()).unwrap();
+        fs::rename(&old, &new).unwrap();
+
+        // The delete arrives first and marks the row missing, then the create
+        // reports a path that doesn't cover the row.
+        assert_eq!(
+            fx.reconcile_paths(id, std::slice::from_ref(&old)),
+            summary(id, 0, 0, 1, 0)
+        );
+        assert_eq!(fx.tracks(id), vec![(s(&old), "a".into(), true)]);
+        assert_eq!(
+            fx.reconcile_paths(id, std::slice::from_ref(&new)),
+            moved(id, 1)
+        );
+        assert_eq!(fx.tracks(id), vec![(s(&new), "a".into(), false)]);
+        assert_eq!(fx.track_id(&new), track);
+    }
+
+    #[test]
+    fn a_create_seen_before_its_delete_keeps_its_row() {
+        let fx = Fixture::new("move-create-first");
+        let id = fx.watch("Collection");
+        let old = fx.wav("Collection/Old/a.wav");
+        fx.reconcile(id);
+        let new = fx.path("Collection/New/a.wav");
+        fs::create_dir_all(new.parent().unwrap()).unwrap();
+        fs::rename(&old, &new).unwrap();
+
+        assert_eq!(
+            fx.reconcile_paths(id, std::slice::from_ref(&new)),
+            moved(id, 1)
+        );
+        assert_eq!(
+            fx.reconcile_paths(id, std::slice::from_ref(&old)),
+            summary(id, 0, 0, 0, 0)
+        );
+        assert_eq!(fx.tracks(id), vec![(s(&new), "a".into(), false)]);
+    }
+
+    #[test]
+    fn two_gone_rows_with_the_same_stat_are_not_guessed_between() {
+        let fx = Fixture::new("move-ambiguous");
+        let id = fx.watch("Collection");
+        let a = fx.wav("Collection/a.wav");
+        let b = fx.wav("Collection/b.wav");
+        fx.set_mtime(&a, 1_700_000_000);
+        fx.set_mtime(&b, 1_700_000_000);
+        fx.reconcile(id);
+
+        let c = fx.path("Collection/c.wav");
+        fs::rename(&a, &c).unwrap();
+        fs::remove_file(&b).unwrap();
+
+        assert_eq!(fx.reconcile(id), summary(id, 1, 0, 2, 0));
         assert_eq!(
             fx.tracks(id),
-            vec![(s(&new), "a".into(), false), (s(&old), "a".into(), true)]
+            vec![
+                (s(&a), "a".into(), true),
+                (s(&b), "b".into(), true),
+                (s(&c), "c".into(), false),
+            ]
         );
+    }
+
+    #[test]
+    fn a_row_whose_file_is_still_there_is_not_moved() {
+        let fx = Fixture::new("move-copy");
+        let id = fx.watch("Collection");
+        let a = fx.wav("Collection/a.wav");
+        fx.set_mtime(&a, 1_700_000_000);
+        fx.reconcile(id);
+
+        let copy = fx.path("Collection/copy.wav");
+        fs::copy(&a, &copy).unwrap();
+        fx.set_mtime(&copy, 1_700_000_000);
+
+        assert_eq!(fx.reconcile(id), summary(id, 1, 0, 0, 0));
+        assert_eq!(
+            fx.tracks(id),
+            vec![(s(&a), "a".into(), false), (s(&copy), "copy".into(), false)]
+        );
+    }
+
+    #[test]
+    fn a_row_without_a_stat_is_not_moved() {
+        let fx = Fixture::new("move-no-stat");
+        let id = fx.watch("Collection");
+        let old = fx.wav("Collection/a.wav");
+        fx.reconcile(id);
+        lock(&fx.db)
+            .execute(
+                "UPDATE tracks SET file_size = NULL, file_mtime_ms = NULL",
+                [],
+            )
+            .unwrap();
+
+        let new = fx.path("Collection/b.wav");
+        fs::rename(&old, &new).unwrap();
+
+        assert_eq!(fx.reconcile(id), summary(id, 1, 0, 1, 0));
+        assert_eq!(
+            fx.tracks(id),
+            vec![(s(&old), "a".into(), true), (s(&new), "b".into(), false)]
+        );
+    }
+
+    #[test]
+    fn a_file_moved_between_sources_is_a_new_row() {
+        let fx = Fixture::new("move-sources");
+        let from = fx.watch("Collection");
+        let to = fx.watch("Other");
+        let old = fx.wav("Collection/a.wav");
+        fx.reconcile(from);
+
+        let new = fx.path("Other/a.wav");
+        fs::rename(&old, &new).unwrap();
+
+        assert_eq!(fx.reconcile(to), summary(to, 1, 0, 0, 0));
+        assert_eq!(fx.reconcile(from), summary(from, 0, 0, 1, 0));
     }
 
     #[test]

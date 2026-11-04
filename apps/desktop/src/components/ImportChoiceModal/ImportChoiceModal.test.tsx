@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   useLibrarySettingsStore,
@@ -47,6 +47,13 @@ function setSources(
     sourcesById: new Map(list.map((s) => [s.id, s])),
     statuses,
   });
+  // The modal refreshes them when it opens.
+  tauri.getSourceStatuses.mockResolvedValue(
+    Object.entries(statuses).map(([sourceId, status]) => ({
+      sourceId: Number(sourceId),
+      status,
+    })),
+  );
 }
 
 /** Asks where to copy the way an import does, resolving with the answer. */
@@ -124,6 +131,28 @@ describe("ImportChoiceModal", () => {
       ).toBeTruthy();
       expect(screen.queryByLabelText("Copy into")).toBeNull();
       expect(screen.getByRole("button", { name: "Copy" })).toBeDisabled();
+    });
+
+    it("shows a folder that went offline since statuses last loaded", async () => {
+      const other = source({ id: 5, name: "Rips" });
+      tauri.getImportSource.mockResolvedValue({
+        source: music,
+        copyAvailable: false,
+      });
+      const reachable = source({ id: 6, name: "Live" });
+      setSources([music, other, reachable]);
+      tauri.getSourceStatuses.mockResolvedValue([
+        { sourceId: 3, status: "unreachable" },
+        { sourceId: 5, status: "unreachable" },
+        { sourceId: 6, status: "watching" },
+      ]);
+      render(<ImportChoiceModal />);
+      void destination().catch(() => {});
+
+      await waitFor(() =>
+        expect(screen.getByRole("option", { name: /Rips/ })).toBeDisabled(),
+      );
+      expect(screen.getByLabelText("Copy into")).toHaveValue("6");
     });
 
     it("with every folder offline, copies into a folder added there", async () => {

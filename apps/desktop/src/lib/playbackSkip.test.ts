@@ -56,6 +56,19 @@ describe("getNextSkippingKnownUnplayable", () => {
     ).toBe(3);
   });
 
+  it("reports each track it passes over", () => {
+    const skipped: number[] = [];
+    getNextSkippingKnownUnplayable(
+      [1, 2, 3],
+      1,
+      "off",
+      library,
+      getAutoplayNextId,
+      (id) => skipped.push(id),
+    );
+    expect(skipped).toEqual([2]);
+  });
+
   it("returns null when only missing tracks remain", () => {
     expect(
       getNextSkippingKnownUnplayable(

@@ -18,6 +18,9 @@
   },
   "playback": {
     "fileMissing": "File not found",
+    "filesMissing_one": "{{count}} track skipped",
+    "filesMissing_other": "{{count}} tracks skipped",
+    "filesMissingDetail": "Their files weren't found",
     "failed": "Playback failed",
     "failedDetail": "Something went wrong. Try again, or check the logs for details."
   },

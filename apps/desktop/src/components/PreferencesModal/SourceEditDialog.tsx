@@ -7,7 +7,7 @@ import {
   formatOrganizeRelativePath,
   type OrganizePathSample,
 } from "../../lib/organizePathFormat";
-import { describeSourceError } from "../../lib/sourceAccess";
+import { describeSourceError, sourceErrorCode } from "../../lib/sourceAccess";
 import { pickMusicFolder } from "../../lib/tauri";
 import type { Source } from "../../types/source";
 import { Button } from "../common/Button/Button";
@@ -179,6 +179,13 @@ export function SourceEditDialog({
     } catch (err) {
       setError(describeSourceError(err));
       setSaving(false);
+      // Refused while the folder is offline: it stays off until tried again.
+      if (
+        changes.autoOrganize &&
+        sourceErrorCode(err) === "source_unavailable"
+      ) {
+        setAutoOrganize(false);
+      }
     }
   };
 

@@ -250,13 +250,16 @@ describe("SourcesSection", () => {
     tauri.rescanSource.mockResolvedValue({
       added: 1,
       updated: 0,
+      moved: 2,
       missing: 0,
       restored: 0,
     });
     await renderSection();
     chooseFromMenu("Music", /Rescan/);
     await waitFor(() => expect(tauri.rescanSource).toHaveBeenCalledWith(3));
-    expect(await screen.findByText(/Scan finished: 1 added/)).toBeTruthy();
+    expect(
+      await screen.findByText(/Scan finished: 1 added, 0 updated, 2 moved/),
+    ).toBeTruthy();
   });
 
   it("has no writable switch or read-only badge", async () => {
@@ -512,6 +515,26 @@ describe("SourcesSection", () => {
     );
     await waitFor(() => expect(toastLabels()).toContain("2 files organized"));
     expect(tauri.rescanSource).not.toHaveBeenCalled();
+  });
+
+  it("refuses organizing while the folder is offline, leaving it off", async () => {
+    tauri.setSourceOrganize.mockRejectedValue(
+      "source_unavailable: the folder /Music/Collection is not available",
+    );
+    await renderSection();
+    const edit = await openEdit("Music");
+    const organize = within(edit).getByRole("checkbox", {
+      name: "Automatically organize files",
+    });
+    fireEvent.click(organize);
+    fireEvent.click(within(edit).getByRole("button", { name: "Save" }));
+
+    expect(await within(edit).findByRole("alert")).toHaveTextContent(
+      "That music folder isn't available. Connect its drive and try again.",
+    );
+    expect(organize).not.toBeChecked();
+    expect(tauri.applyOrganizeSource).not.toHaveBeenCalled();
+    expect(toastLabels()).toEqual([]);
   });
 
   it("saves a new format, then organizes by it", async () => {
