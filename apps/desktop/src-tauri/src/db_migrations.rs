@@ -29,46 +29,24 @@ use std::path::{Path, PathBuf};
 struct Migration {
     version: i64,
     name: &'static str,
-    /// Applies the migration. The second argument is the version the database
-    /// had when this run started (0 for a brand-new database).
-    up: fn(&Connection, i64) -> Result<(), rusqlite::Error>,
+    up: fn(&Connection) -> Result<(), rusqlite::Error>,
 }
 
 const MIGRATIONS: &[Migration] = &[
     Migration {
         version: 1,
         name: "baseline",
-        up: |conn, _| baseline_catch_up(conn),
+        up: baseline_catch_up,
     },
     Migration {
         version: 2,
         name: "artist_images_single_key",
-        up: |conn, _| artist_images_single_key(conn),
+        up: artist_images_single_key,
     },
     Migration {
         version: 3,
         name: "library_sources",
-        up: |conn, _| library_sources(conn),
-    },
-    Migration {
-        version: 4,
-        name: "track_file_stat",
-        up: |conn, _| track_file_stat(conn),
-    },
-    Migration {
-        version: 5,
-        name: "uniform_sources",
-        up: |conn, _| uniform_sources(conn),
-    },
-    Migration {
-        version: 6,
-        name: "optional_sources",
-        up: optional_sources,
-    },
-    Migration {
-        version: 7,
-        name: "drop_other_source",
-        up: |conn, _| drop_other_source(conn),
+        up: library_sources,
     },
 ];
 
@@ -129,7 +107,7 @@ fn apply_pending(conn: &Connection, current: i64, target: i64) -> Result<(), rus
             ))
         };
         conn.execute_batch("BEGIN IMMEDIATE")?;
-        let outcome = (migration.up)(conn, current)
+        let outcome = (migration.up)(conn)
             .and_then(|()| {
                 conn.execute_batch(&format!("PRAGMA user_version = {}", migration.version))
             })
@@ -528,198 +506,47 @@ fn artist_images_single_key(conn: &Connection) -> Result<(), rusqlite::Error> {
     )
 }
 
-/// v3: every track belongs to a library source. `managed` (id 1) is Spiral's
-/// tracks folder, `external` (id 2) holds files referenced one at a time, and
-/// `watched` rows are user folders indexed in place. The managed root is not
-/// stored: it follows the library location in settings. Existing tracks start
-/// as external; `sources::assign_external_tracks` moves the ones under the
-/// tracks folder to managed when the database is opened, since that needs the
-/// library location. Rebuilds `tracks` to add the `NOT NULL` foreign key.
+/// v3: a library is its Spiral folder plus music folders ("sources"), and a
+/// track is a path relative to its source's root instead of an absolute path.
+///
+/// - A `root_path` that isn't absolute is relative to the Spiral folder, so a
+///   source inside it follows the Spiral folder when that moves. `path_format`
+///   NULL means Spiral's built-in format, and `import_target` marks where new
+///   imports are copied (at most one row).
+/// - Tracks in the Spiral folder's `Tracks` folder move to a `Tracks` source,
+///   organized and the import target.
+/// - Any other track was referenced from where it lay. It is deleted with its
+///   play history, playlist entries and lyrics; its file stays on disk.
+///   Foreign keys are off while migrating, so the dependent rows are deleted
+///   here rather than by cascade.
+/// - With no track left there is no source: a brand-new database gets none,
+///   and `sources::ensure_a_source` adds `Tracks` when the library opens.
+///
+/// The Spiral folder comes from the per-connection `temp.spiral_folder` table
+/// that `db::open` fills in before migrating. When it isn't known (an
+/// in-memory database) no track can be placed, so every track is deleted.
 fn library_sources(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.execute_batch(
         "CREATE TABLE sources (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            kind TEXT NOT NULL CHECK (kind IN ('managed', 'watched', 'external')),
-            root_path TEXT,
-            name TEXT NOT NULL,
-            writable INTEGER NOT NULL DEFAULT 0 CHECK (writable IN (0, 1)),
-            created_at TEXT NOT NULL,
-            CHECK ((kind = 'watched') = (root_path IS NOT NULL))
-        );
-        CREATE UNIQUE INDEX idx_sources_single_kind ON sources(kind)
-            WHERE kind IN ('managed', 'external');
-        CREATE UNIQUE INDEX idx_sources_watched_root ON sources(root_path)
-            WHERE kind = 'watched';
-        CREATE TRIGGER sources_keep_builtin BEFORE DELETE ON sources
-            WHEN old.kind != 'watched'
-            BEGIN SELECT RAISE(ABORT, 'the managed and external sources cannot be removed'); END;
-        CREATE TRIGGER sources_keep_kind BEFORE UPDATE OF kind ON sources
-            WHEN new.kind != old.kind
-            BEGIN SELECT RAISE(ABORT, 'a source cannot change kind'); END;",
-    )?;
-    let now = Utc::now().to_rfc3339();
-    conn.execute(
-        "INSERT INTO sources (id, kind, root_path, name, writable, created_at)
-         VALUES (1, 'managed', NULL, 'Spiral Library', 1, ?1),
-                (2, 'external', NULL, 'Other Files', 0, ?1)",
-        params![now],
-    )?;
-
-    conn.execute_batch(
-        "CREATE TABLE tracks_new (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            artist TEXT,
-            album TEXT,
-            album_artist TEXT,
-            track_number INTEGER,
-            total_tracks INTEGER,
-            disc_number INTEGER,
-            total_discs INTEGER,
-            year INTEGER,
-            genre TEXT,
-            duration_seconds REAL,
-            sample_rate INTEGER,
-            bitrate INTEGER,
-            codec TEXT,
-            file_path TEXT NOT NULL UNIQUE,
-            art_path TEXT,
-            date_added TEXT NOT NULL,
-            play_count INTEGER NOT NULL DEFAULT 0,
-            last_played_at TEXT,
-            rating INTEGER NOT NULL DEFAULT 0,
-            recording_mbid TEXT,
-            release_mbid TEXT,
-            artist_mbids TEXT,
-            album_artist_mbids TEXT,
-            source_id INTEGER NOT NULL REFERENCES sources(id),
-            missing_since TEXT
-        );",
-    )?;
-
-    // Copy the columns this database has; very old libraries never gained some
-    // of them, and their new-table defaults stand in.
-    const COPIED_COLUMNS: &[&str] = &[
-        "id",
-        "title",
-        "artist",
-        "album",
-        "album_artist",
-        "track_number",
-        "total_tracks",
-        "disc_number",
-        "total_discs",
-        "year",
-        "genre",
-        "duration_seconds",
-        "sample_rate",
-        "bitrate",
-        "codec",
-        "file_path",
-        "art_path",
-        "date_added",
-        "play_count",
-        "last_played_at",
-        "rating",
-        "recording_mbid",
-        "release_mbid",
-        "artist_mbids",
-        "album_artist_mbids",
-    ];
-    let existing = table_columns(conn, "tracks")?;
-    let columns = COPIED_COLUMNS
-        .iter()
-        .filter(|c| existing.iter().any(|e| e == *c))
-        .copied()
-        .collect::<Vec<_>>()
-        .join(", ");
-    conn.execute_batch(&format!(
-        "INSERT INTO tracks_new ({columns}, source_id) SELECT {columns}, 2 FROM tracks;"
-    ))?;
-
-    conn.execute_batch(
-        "-- Keep AUTOINCREMENT from reusing ids of tracks deleted before the rebuild.
-        UPDATE sqlite_sequence
-            SET seq = MAX(seq, COALESCE((SELECT seq FROM sqlite_sequence WHERE name = 'tracks'), 0))
-            WHERE name = 'tracks_new';
-        INSERT INTO sqlite_sequence (name, seq)
-            SELECT 'tracks_new', seq FROM sqlite_sequence
-            WHERE name = 'tracks'
-              AND NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name = 'tracks_new');
-        DROP TABLE tracks;
-        ALTER TABLE tracks_new RENAME TO tracks;
-        CREATE INDEX idx_tracks_source_id ON tracks(source_id);",
-    )
-}
-
-/// v4: remember each track file's size and modification time as last read, so
-/// rescanning a watched folder re-reads only files whose size or time changed.
-/// NULL until a scan records them.
-fn track_file_stat(conn: &Connection) -> Result<(), rusqlite::Error> {
-    conn.execute_batch(
-        "ALTER TABLE tracks ADD COLUMN file_size INTEGER;
-        ALTER TABLE tracks ADD COLUMN file_mtime_ms INTEGER;",
-    )
-}
-
-/// v5: sources become uniform folders of tracks, and tracks store a path
-/// relative to their source's root instead of an absolute path.
-///
-/// - `sources` loses `kind` and `writable` and gains `auto_organize`,
-///   `path_format` (NULL inherits the global format) and `import_target`
-///   (where new imports are copied; at most one row). Ids 1 and 2 stay as the
-///   two built-in rows: 1 is the default source, whose root is not stored but
-///   is the Spiral folder's `Tracks` folder, and 2 is Other, loose files with
-///   no root. Triggers keep both from being deleted and keep their roots NULL.
-///   Managed becomes the default source (organized, import target), each
-///   watched folder keeps its row with organize off, and external becomes
-///   Other.
-/// - `tracks.file_path` becomes `rel_path`, unique per source. Other keeps
-///   absolute paths. A path outside its source's root moves to Other. When the
-///   Spiral folder isn't known (an in-memory database), default-source paths
-///   stay absolute, which still resolves to the same file.
-///
-/// The Spiral folder comes from the per-connection `temp.spiral_folder` table
-/// that `db::open` fills in before migrating.
-fn uniform_sources(conn: &Connection) -> Result<(), rusqlite::Error> {
-    conn.execute_batch(
-        "CREATE TABLE sources_new (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             root_path TEXT,
             auto_organize INTEGER NOT NULL DEFAULT 0 CHECK (auto_organize IN (0, 1)),
             path_format TEXT,
             import_target INTEGER NOT NULL DEFAULT 0 CHECK (import_target IN (0, 1)),
-            created_at TEXT NOT NULL,
-            CHECK (id IS NOT 2 OR (auto_organize = 0 AND path_format IS NULL AND import_target = 0))
+            created_at TEXT NOT NULL
         );
-        INSERT INTO sources_new (id, name, root_path, auto_organize, import_target, created_at)
-            SELECT id, name,
-                   CASE WHEN kind = 'watched' THEN root_path END,
-                   kind = 'managed', kind = 'managed', created_at
-            FROM sources;
-        -- Keep AUTOINCREMENT from reusing ids of removed folders.
-        UPDATE sqlite_sequence
-            SET seq = MAX(seq, COALESCE((SELECT seq FROM sqlite_sequence WHERE name = 'sources'), 0))
-            WHERE name = 'sources_new';
-        DROP TABLE sources;
-        ALTER TABLE sources_new RENAME TO sources;
         CREATE UNIQUE INDEX idx_sources_root ON sources(root_path);
         CREATE UNIQUE INDEX idx_sources_import_target ON sources(import_target)
             WHERE import_target = 1;
-        CREATE TRIGGER sources_keep_builtin BEFORE DELETE ON sources
-            WHEN old.id IN (1, 2)
-            BEGIN SELECT RAISE(ABORT, 'the default and Other sources cannot be removed'); END;
         CREATE TRIGGER sources_root_on_insert BEFORE INSERT ON sources
-            WHEN (new.root_path IS NULL) != (new.id IS NOT NULL AND new.id IN (1, 2))
-            BEGIN SELECT RAISE(ABORT, 'only the default and Other sources have no root'); END;
+            WHEN new.root_path IS NULL
+            BEGIN SELECT RAISE(ABORT, 'every source has a root'); END;
         CREATE TRIGGER sources_root_on_update BEFORE UPDATE OF id, root_path ON sources
-            WHEN new.id != old.id OR (new.root_path IS NULL) != (old.id IN (1, 2))
-            BEGIN SELECT RAISE(ABORT, 'only the default and Other sources have no root'); END;",
-    )?;
+            WHEN new.id != old.id OR new.root_path IS NULL
+            BEGIN SELECT RAISE(ABORT, 'every source has a root'); END;
 
-    conn.execute_batch(
-        "CREATE TABLE tracks_new (
+        CREATE TABLE tracks_new (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
             artist TEXT,
@@ -753,62 +580,81 @@ fn uniform_sources(conn: &Connection) -> Result<(), rusqlite::Error> {
         );",
     )?;
 
-    // Work out each track's new (source, rel_path) before copying.
+    // The tracks to keep, with their paths relative to the Tracks folder.
     let tracks_folder = migration_spiral_folder(conn)?.map(|f| f.join("Tracks"));
-    let roots: Vec<(i64, Option<PathBuf>)> = conn
-        .prepare("SELECT id, root_path FROM sources")?
+    let kept: Vec<(i64, String)> = conn
+        .prepare("SELECT id, file_path FROM tracks ORDER BY id")?
         .query_map([], |row| {
-            Ok((
-                row.get::<_, i64>(0)?,
-                row.get::<_, Option<String>>(1)?.map(PathBuf::from),
-            ))
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
         })?
-        .collect::<Result<_, _>>()?;
-    let rows: Vec<(i64, i64, String)> = conn
-        .prepare("SELECT id, source_id, file_path FROM tracks")?
-        .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
-        .collect::<Result<_, _>>()?;
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .filter_map(|(id, file_path)| {
+            let root = tracks_folder.as_deref()?;
+            Some((id, migration_relative_path(Path::new(&file_path), root)?))
+        })
+        .collect();
 
-    conn.execute_batch(
-        "INSERT INTO tracks_new (
-            id, title, artist, album, album_artist, track_number, total_tracks, disc_number,
-            total_discs, year, genre, duration_seconds, sample_rate, bitrate, codec, source_id,
-            rel_path, art_path, date_added, play_count, last_played_at, rating, recording_mbid,
-            release_mbid, artist_mbids, album_artist_mbids, missing_since, file_size, file_mtime_ms
-        )
-        SELECT
-            id, title, artist, album, album_artist, track_number, total_tracks, disc_number,
-            total_discs, year, genre, duration_seconds, sample_rate, bitrate, codec, source_id,
-            file_path, art_path, date_added, play_count, last_played_at, rating, recording_mbid,
-            release_mbid, artist_mbids, album_artist_mbids, missing_since, file_size, file_mtime_ms
-        FROM tracks;",
-    )?;
-    {
-        let mut update =
-            conn.prepare("UPDATE tracks_new SET source_id = ?1, rel_path = ?2 WHERE id = ?3")?;
-        for (id, source_id, file_path) in rows {
-            let root = match source_id {
-                1 => tracks_folder.clone(),
-                2 => continue,
-                _ => roots
-                    .iter()
-                    .find(|(sid, _)| *sid == source_id)
-                    .and_then(|(_, r)| r.clone()),
-            };
-            let Some(root) = root else {
-                // Default source with no known Spiral folder: keep the
-                // absolute path, which resolves to itself.
-                continue;
-            };
-            match migration_relative_path(Path::new(&file_path), &root) {
-                Some(rel) => update.execute(params![source_id, rel, id])?,
-                None => update.execute(params![2, file_path, id])?,
-            };
+    if !kept.is_empty() {
+        conn.execute(
+            "INSERT INTO sources (name, root_path, auto_organize, import_target, created_at)
+             VALUES ('Tracks', 'Tracks', 1, 1, ?1)",
+            params![Utc::now().to_rfc3339()],
+        )?;
+        let source_id = conn.last_insert_rowid();
+
+        // Copy the columns this database has; very old libraries never gained
+        // some of them, and their new-table defaults stand in.
+        const COPIED_COLUMNS: &[&str] = &[
+            "id",
+            "title",
+            "artist",
+            "album",
+            "album_artist",
+            "track_number",
+            "total_tracks",
+            "disc_number",
+            "total_discs",
+            "year",
+            "genre",
+            "duration_seconds",
+            "sample_rate",
+            "bitrate",
+            "codec",
+            "art_path",
+            "date_added",
+            "play_count",
+            "last_played_at",
+            "rating",
+            "recording_mbid",
+            "release_mbid",
+            "artist_mbids",
+            "album_artist_mbids",
+        ];
+        let existing = table_columns(conn, "tracks")?;
+        let columns = COPIED_COLUMNS
+            .iter()
+            .filter(|c| existing.iter().any(|e| e == *c))
+            .copied()
+            .collect::<Vec<_>>()
+            .join(", ");
+        // OR IGNORE: two paths through a symlink can name one file. The first
+        // row keeps it, and the other goes like a referenced track.
+        let mut copy = conn.prepare(&format!(
+            "INSERT OR IGNORE INTO tracks_new ({columns}, source_id, rel_path)
+             SELECT {columns}, ?1, ?2 FROM tracks WHERE id = ?3"
+        ))?;
+        for (id, rel_path) in kept {
+            copy.execute(params![source_id, rel_path, id])?;
         }
     }
 
     conn.execute_batch(
-        "UPDATE sqlite_sequence
+        "DELETE FROM listen_events WHERE track_id NOT IN (SELECT id FROM tracks_new);
+        DELETE FROM playlist_tracks WHERE track_id NOT IN (SELECT id FROM tracks_new);
+        DELETE FROM track_lyrics WHERE track_id NOT IN (SELECT id FROM tracks_new);
+        -- Keep AUTOINCREMENT from reusing ids of tracks deleted before the rebuild.
+        UPDATE sqlite_sequence
             SET seq = MAX(seq, COALESCE((SELECT seq FROM sqlite_sequence WHERE name = 'tracks'), 0))
             WHERE name = 'tracks_new';
         INSERT INTO sqlite_sequence (name, seq)
@@ -820,72 +666,9 @@ fn uniform_sources(conn: &Connection) -> Result<(), rusqlite::Error> {
     )
 }
 
-/// Version 6: sources are only the folders the user chose, and there may be
-/// none.
-/// - The default source (id 1) becomes an ordinary, removable source named
-///   `Tracks`, with its settings kept. Its root is stored as `Tracks`: a root
-///   that isn't absolute is relative to the Spiral folder, so a source inside
-///   it follows the Spiral folder when that moves. Its tracks' paths are
-///   already relative to it.
-/// - A brand-new database (`from` is 0) gets no `Tracks` source at all; the
-///   user adds one in onboarding.
-/// - Only Other (id 2) is protected now: it can't be deleted and is the only
-///   row without a root. No source needs to be the import target.
-fn optional_sources(conn: &Connection, from: i64) -> Result<(), rusqlite::Error> {
-    conn.execute_batch(
-        "DROP TRIGGER sources_keep_builtin;
-        DROP TRIGGER sources_root_on_insert;
-        DROP TRIGGER sources_root_on_update;
-        UPDATE sources SET name = 'Tracks', root_path = 'Tracks' WHERE id = 1;
-        CREATE TRIGGER sources_keep_other BEFORE DELETE ON sources
-            WHEN old.id = 2
-            BEGIN SELECT RAISE(ABORT, 'the Other source cannot be removed'); END;
-        CREATE TRIGGER sources_root_on_insert BEFORE INSERT ON sources
-            WHEN (new.root_path IS NULL) != (new.id IS 2)
-            BEGIN SELECT RAISE(ABORT, 'only the Other source has no root'); END;
-        CREATE TRIGGER sources_root_on_update BEFORE UPDATE OF id, root_path ON sources
-            WHEN new.id != old.id OR (new.root_path IS NULL) != (old.id = 2)
-            BEGIN SELECT RAISE(ABORT, 'only the Other source has no root'); END;",
-    )?;
-    if from == 0 {
-        conn.execute_batch(
-            "DELETE FROM tracks WHERE source_id = 1;
-            DELETE FROM sources WHERE id = 1;",
-        )?;
-    }
-    Ok(())
-}
-
-/// Version 7: there is no Other bucket. Every track belongs to a source
-/// folder. Other (id 2) is deleted with its tracks, their play history,
-/// playlist entries and lyrics; their files stay on disk. Foreign keys are
-/// off while migrating, so the dependent rows are deleted here rather than by
-/// cascade. With no Other, every source has a root.
-fn drop_other_source(conn: &Connection) -> Result<(), rusqlite::Error> {
-    conn.execute_batch(
-        "DROP TRIGGER sources_keep_other;
-        DROP TRIGGER sources_root_on_insert;
-        DROP TRIGGER sources_root_on_update;
-        DELETE FROM listen_events
-            WHERE track_id IN (SELECT id FROM tracks WHERE source_id = 2);
-        DELETE FROM playlist_tracks
-            WHERE track_id IN (SELECT id FROM tracks WHERE source_id = 2);
-        DELETE FROM track_lyrics
-            WHERE track_id IN (SELECT id FROM tracks WHERE source_id = 2);
-        DELETE FROM tracks WHERE source_id = 2;
-        DELETE FROM sources WHERE id = 2;
-        CREATE TRIGGER sources_root_on_insert BEFORE INSERT ON sources
-            WHEN new.root_path IS NULL
-            BEGIN SELECT RAISE(ABORT, 'every source has a root'); END;
-        CREATE TRIGGER sources_root_on_update BEFORE UPDATE OF id, root_path ON sources
-            WHEN new.id != old.id OR new.root_path IS NULL
-            BEGIN SELECT RAISE(ABORT, 'every source has a root'); END;",
-    )
-}
-
 /// The Spiral folder `db::open` recorded for this connection, if any. Spelled
 /// out here rather than shared with `sources`, so later changes there can't
-/// alter what migration 5 does.
+/// alter what migration 3 does.
 fn migration_spiral_folder(conn: &Connection) -> Result<Option<PathBuf>, rusqlite::Error> {
     let recorded: bool = conn.query_row(
         "SELECT COUNT(*) > 0 FROM sqlite_temp_master WHERE type = 'table' AND name = 'spiral_folder'",
@@ -1152,9 +935,10 @@ mod tests {
         }
     }
 
-    /// Each fixture is a database as an older schema version left it. It must
-    /// upgrade to the latest schema without losing rows or drifting from a
-    /// fresh database.
+    /// Each fixture is a database as an older schema version left it, with its
+    /// Spiral folder at `/library`. It must upgrade to the latest schema
+    /// without losing rows (beyond what v3 drops on purpose) or drifting from
+    /// a fresh database.
     #[test]
     fn every_fixture_upgrades_to_the_fresh_schema_without_data_loss() {
         let mut fixtures: Vec<_> = std::fs::read_dir(fixtures_dir())
@@ -1176,25 +960,20 @@ mod tests {
             conn.execute_batch(&std::fs::read_to_string(&path).unwrap())
                 .unwrap_or_else(|e| panic!("{name}: fixture failed to load: {e}"));
             conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+            crate::sources::attach_spiral_folder(&conn, Path::new("/library")).unwrap();
 
             let from = schema_version(&conn).unwrap();
             assert!(from > 0, "{name}: fixture must set PRAGMA user_version");
             let before = table_counts(&conn);
 
             // A migration that intentionally changes row counts must adjust
-            // this assertion for the versions it affects. v3 adds `sources`
-            // with its two built-in rows, and v7 drops Other with its tracks
-            // and their rows.
-            let mut expected = before.clone();
-            if from < 3 {
-                expected.push(("sources".to_string(), 2));
-                expected.sort();
-            }
-            if from < 7 {
-                migrate_to(&conn, 6);
-                assert_eq!(table_counts(&conn), expected, "{name}: rows changed");
-                expected = without_other(&conn, expected);
-            }
+            // this assertion for the versions it affects. v3 adds the `Tracks`
+            // source and drops referenced tracks with their rows.
+            let expected = if from < 3 {
+                after_v3(&conn, before)
+            } else {
+                before
+            };
 
             run(&conn, None).unwrap_or_else(|e| panic!("{name}: upgrade failed: {e}"));
 
@@ -1209,28 +988,32 @@ mod tests {
         }
     }
 
-    /// `counts` less the rows v7 deletes: Other's source row, its tracks, and
-    /// their play history, playlist entries and lyrics.
-    fn without_other(conn: &Connection, counts: Vec<(String, i64)>) -> Vec<(String, i64)> {
-        let of_other = |table: &str| -> i64 {
+    /// `counts` from a v2 database as v3 leaves them: plus the `Tracks` source,
+    /// less tracks outside `/library/Tracks` and their play history, playlist
+    /// entries and lyrics.
+    fn after_v3(conn: &Connection, counts: Vec<(String, i64)>) -> Vec<(String, i64)> {
+        const REFERENCED: &str =
+            "SELECT id FROM tracks WHERE file_path NOT LIKE '/library/Tracks/%'";
+        let dropped = |table: &str| -> i64 {
             let sql = match table {
-                "sources" => "SELECT COUNT(*) FROM sources WHERE id = 2".to_string(),
-                "tracks" => "SELECT COUNT(*) FROM tracks WHERE source_id = 2".to_string(),
-                "listen_events" | "playlist_tracks" | "track_lyrics" => format!(
-                    "SELECT COUNT(*) FROM {table}
-                     WHERE track_id IN (SELECT id FROM tracks WHERE source_id = 2)"
-                ),
+                "tracks" => format!("SELECT COUNT(*) FROM ({REFERENCED})"),
+                "listen_events" | "playlist_tracks" | "track_lyrics" => {
+                    format!("SELECT COUNT(*) FROM {table} WHERE track_id IN ({REFERENCED})")
+                }
                 _ => return 0,
             };
             conn.query_row(&sql, [], |r| r.get(0)).unwrap()
         };
-        counts
+        let mut counts: Vec<(String, i64)> = counts
             .into_iter()
             .map(|(table, n)| {
-                let n = n - of_other(&table);
+                let n = n - dropped(&table);
                 (table, n)
             })
-            .collect()
+            .collect();
+        counts.push(("sources".to_string(), 1));
+        counts.sort();
+        counts
     }
 
     fn load_fixture(version: i64) -> Connection {
@@ -1241,110 +1024,6 @@ mod tests {
         .unwrap();
         conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
         conn
-    }
-
-    #[test]
-    fn v3_seeds_sources_and_assigns_existing_tracks_to_external() {
-        let conn = load_fixture(2);
-        conn.execute("DELETE FROM tracks WHERE id = 2", []).unwrap();
-        let tracks_before: Vec<(i64, String, String)> = conn
-            .prepare("SELECT id, title, file_path FROM tracks ORDER BY id")
-            .unwrap()
-            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
-            .unwrap()
-            .collect::<Result<_, _>>()
-            .unwrap();
-
-        // Stop at v3, with foreign keys off for the rebuild as `run` does.
-        conn.execute_batch("PRAGMA foreign_keys = OFF;").unwrap();
-        migrate_to(&conn, 3);
-        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
-
-        let sources: Vec<(i64, String, Option<String>, bool)> = conn
-            .prepare("SELECT id, kind, root_path, writable FROM sources ORDER BY id")
-            .unwrap()
-            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
-            .unwrap()
-            .collect::<Result<_, _>>()
-            .unwrap();
-        assert_eq!(
-            sources,
-            vec![
-                (1, "managed".into(), None, true),
-                (2, "external".into(), None, false)
-            ]
-        );
-
-        let tracks_after: Vec<(i64, String, String, i64, Option<String>)> = conn
-            .prepare(
-                "SELECT id, title, file_path, source_id, missing_since FROM tracks ORDER BY id",
-            )
-            .unwrap()
-            .query_map([], |r| {
-                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
-            })
-            .unwrap()
-            .collect::<Result<_, _>>()
-            .unwrap();
-        assert_eq!(tracks_after.len(), tracks_before.len());
-        for ((id, title, path), after) in tracks_before.into_iter().zip(tracks_after) {
-            assert_eq!(after, (id, title, path, 2, None));
-        }
-
-        // Children still point at their tracks, and deleting cascades.
-        let lyrics: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM track_lyrics WHERE track_id = 1",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap();
-        assert_eq!(lyrics, 1);
-        conn.execute("DELETE FROM tracks WHERE id = 1", []).unwrap();
-        let orphans: i64 = conn
-            .query_row(
-                "SELECT (SELECT COUNT(*) FROM track_lyrics) + (SELECT COUNT(*) FROM listen_events)
-                      + (SELECT COUNT(*) FROM playlist_tracks)",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap();
-        assert_eq!(orphans, 0);
-
-        // Ids of tracks deleted before the rebuild are not reused.
-        conn.execute(
-            "INSERT INTO tracks (title, file_path, date_added, source_id) VALUES ('New', '/n.mp3', 'now', 2)",
-            [],
-        )
-        .unwrap();
-        assert_eq!(conn.last_insert_rowid(), 3);
-    }
-
-    #[test]
-    fn v4_adds_empty_file_stat_columns_and_keeps_sources() {
-        let conn = load_fixture(3);
-        migrate_to(&conn, 4);
-        type Row = (i64, i64, Option<String>, Option<i64>, Option<i64>);
-        let rows: Vec<Row> = conn
-            .prepare(
-                "SELECT id, source_id, missing_since, file_size, file_mtime_ms
-                 FROM tracks ORDER BY id",
-            )
-            .unwrap()
-            .query_map([], |r| {
-                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
-            })
-            .unwrap()
-            .collect::<Result<_, _>>()
-            .unwrap();
-        assert_eq!(
-            rows,
-            vec![
-                (1, 2, None, None, None),
-                (2, 2, None, None, None),
-                (3, 3, Some("2024-02-01T00:00:00Z".into()), None, None),
-            ]
-        );
     }
 
     fn sources_rows(conn: &Connection) -> Vec<(i64, String, Option<String>, bool, bool)> {
@@ -1369,99 +1048,88 @@ mod tests {
             .unwrap()
     }
 
-    #[test]
-    fn v5_makes_sources_uniform_and_track_paths_relative() {
-        let conn = load_fixture(4);
+    /// The v2 fixture upgraded with its Spiral folder at `/library`.
+    fn upgraded_fixture() -> Connection {
+        let conn = load_fixture(2);
         crate::sources::attach_spiral_folder(&conn, Path::new("/library")).unwrap();
-        migrate_to(&conn, 5);
+        run(&conn, None).unwrap();
+        conn
+    }
+
+    fn temp_library(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "spiral-migrate-{name}-{}-{}",
+            std::process::id(),
+            Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+        std::fs::create_dir_all(dir.join("Tracks")).unwrap();
+        dir
+    }
+
+    /// A v2 database file at `<dir>/Library.db` holding the fixture, its
+    /// tracks at `paths` by id and any other track removed.
+    fn write_v2_library(dir: &Path, paths: &[(i64, &Path)]) -> PathBuf {
+        let db_path = dir.join("Library.db");
+        let conn = Connection::open(&db_path).unwrap();
+        conn.execute_batch(&std::fs::read_to_string(fixtures_dir().join("v2.sql")).unwrap())
+            .unwrap();
+        let ids: Vec<String> = paths.iter().map(|(id, _)| id.to_string()).collect();
+        conn.execute(
+            &format!("DELETE FROM tracks WHERE id NOT IN ({})", ids.join(", ")),
+            [],
+        )
+        .unwrap();
+        for (id, path) in paths {
+            conn.execute(
+                "UPDATE tracks SET file_path = ?1 WHERE id = ?2",
+                params![path.to_string_lossy(), id],
+            )
+            .unwrap();
+        }
+        db_path
+    }
+
+    #[test]
+    fn v3_moves_tracks_in_the_tracks_folder_to_a_tracks_source() {
+        let conn = upgraded_fixture();
 
         assert_eq!(
             sources_rows(&conn),
-            vec![
-                (1, "Spiral Library".into(), None, true, true),
-                (2, "Other Files".into(), None, false, false),
-                (
-                    3,
-                    "Collection".into(),
-                    Some("/collection".into()),
-                    false,
-                    false
-                ),
-            ]
+            vec![(1, "Tracks".into(), Some("Tracks".into()), true, true)]
         );
-        assert!(!table_columns(&conn, "sources")
-            .unwrap()
-            .iter()
-            .any(|c| c == "kind" || c == "writable"));
-
+        let format: Option<String> = conn
+            .query_row("SELECT path_format FROM sources", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(format, None);
         assert_eq!(
             track_locations(&conn),
             vec![
-                // External tracks are Other's, by absolute path.
-                (1, 2, "/music/a.mp3".into()),
-                (2, 2, "/music/b.mp3".into()),
-                // Watched tracks are relative to their folder.
-                (3, 3, "Sub/c.flac".into()),
-                // Managed tracks are relative to the Spiral folder's Tracks.
-                (4, 1, "Artist Z/Album 3/d.mp3".into()),
-                // A watched track outside its folder falls back to Other.
-                (5, 2, "/elsewhere/e.mp3".into()),
+                (3, 1, "Artist Z/Album 3/c.mp3".into()),
+                (4, 1, "d.mp3".into()),
             ]
         );
 
         // Everything else about the rows survived the rebuild.
-        type Kept = (
-            String,
-            Option<String>,
-            Option<i64>,
-            Option<i64>,
-            Option<String>,
-        );
-        let kept: Vec<Kept> = conn
-            .prepare(
-                "SELECT title, missing_since, file_size, file_mtime_ms, recording_mbid
-                 FROM tracks WHERE id IN (1, 3, 4) ORDER BY id",
+        type Kept = (String, i64, i64, Option<String>, Option<i64>);
+        let kept: Kept = conn
+            .query_row(
+                "SELECT title, play_count, rating, missing_since, file_size
+                 FROM tracks WHERE id = 3",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
             )
-            .unwrap()
-            .query_map([], |r| {
-                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
-            })
-            .unwrap()
-            .collect::<Result<_, _>>()
             .unwrap();
-        assert_eq!(
-            kept,
-            vec![
-                (
-                    "Song A".into(),
-                    None,
-                    None,
-                    None,
-                    Some("11111111-1111-1111-1111-111111111111".into())
-                ),
-                (
-                    "Song C".into(),
-                    Some("2024-02-01T00:00:00Z".into()),
-                    Some(2048),
-                    Some(1700000000000),
-                    None
-                ),
-                ("Song D".into(), None, Some(4096), Some(1700000000001), None),
-            ]
-        );
+        assert_eq!(kept, ("Song C".into(), 3, 80, None, None));
 
-        // Today's resolver (after v6 stores the default source's root) turns
-        // them back into the same absolute paths. Other's tracks are gone
-        // after v7.
-        run(&conn, None).unwrap();
+        // Today's resolver turns them back into the same absolute paths.
         let paths: Vec<String> = crate::db::get_all_tracks(&conn)
             .unwrap()
             .into_iter()
             .map(|t| t.file_path.replace('\\', "/"))
             .collect();
         for expected in [
-            "/collection/Sub/c.flac",
-            "/library/Tracks/Artist Z/Album 3/d.mp3",
+            "/library/Tracks/Artist Z/Album 3/c.mp3",
+            "/library/Tracks/d.mp3",
         ] {
             assert!(
                 paths.iter().any(|p| p == expected),
@@ -1469,19 +1137,22 @@ mod tests {
             );
         }
 
-        // Ids of removed folders are not reused; children still cascade.
+        // Ids of tracks deleted before the rebuild are not reused.
         conn.execute(
-            "INSERT INTO sources (name, root_path, created_at) VALUES ('New', '/new', 'now')",
+            "INSERT INTO tracks (title, rel_path, date_added, source_id)
+             VALUES ('New', 'n.mp3', 'now', 1)",
             [],
         )
         .unwrap();
-        assert_eq!(conn.last_insert_rowid(), 5);
-        conn.execute("DELETE FROM tracks WHERE id = 4", []).unwrap();
+        assert_eq!(conn.last_insert_rowid(), 6);
+
+        // Children still point at their tracks, and deleting cascades.
+        conn.execute("DELETE FROM tracks WHERE id = 3", []).unwrap();
         let orphans: i64 = conn
             .query_row(
-                "SELECT (SELECT COUNT(*) FROM track_lyrics WHERE track_id = 4)
-                      + (SELECT COUNT(*) FROM listen_events WHERE track_id = 4)
-                      + (SELECT COUNT(*) FROM playlist_tracks WHERE track_id = 4)",
+                "SELECT (SELECT COUNT(*) FROM track_lyrics WHERE track_id = 3)
+                      + (SELECT COUNT(*) FROM listen_events WHERE track_id = 3)
+                      + (SELECT COUNT(*) FROM playlist_tracks WHERE track_id = 3)",
                 [],
                 |r| r.get(0),
             )
@@ -1490,111 +1161,58 @@ mod tests {
     }
 
     #[test]
-    fn v5_without_a_spiral_folder_keeps_default_paths_absolute() {
-        let conn = load_fixture(4);
-        migrate_to(&conn, 5);
-        let locations = track_locations(&conn);
+    fn v3_drops_referenced_tracks_with_their_rows() {
+        let conn = upgraded_fixture();
+
+        let ids = |sql: &str| -> Vec<i64> {
+            conn.prepare(sql)
+                .unwrap()
+                .query_map([], |r| r.get(0))
+                .unwrap()
+                .collect::<Result<_, _>>()
+                .unwrap()
+        };
+        assert_eq!(ids("SELECT id FROM tracks ORDER BY id"), [3, 4]);
+        assert_eq!(ids("SELECT track_id FROM track_lyrics"), [3]);
+        assert_eq!(ids("SELECT track_id FROM listen_events"), [3]);
         assert_eq!(
-            locations[3],
-            (4, 1, "/library/Tracks/Artist Z/Album 3/d.mp3".into())
+            ids("SELECT track_id FROM playlist_tracks WHERE playlist_id = 1"),
+            [3]
         );
-        assert_eq!(locations[2], (3, 3, "Sub/c.flac".into()));
+        assert_eq!(
+            ids("SELECT track_id FROM playlist_tracks WHERE playlist_id = 2 ORDER BY position"),
+            [3, 4]
+        );
+        // The playlists themselves stay.
+        assert_eq!(ids("SELECT id FROM playlists ORDER BY id"), [1, 2]);
     }
 
     #[test]
-    fn v5_upgrades_a_library_on_disk_when_opened() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-migrate-v5-{}-{}",
-            std::process::id(),
-            Utc::now().timestamp_nanos_opt().unwrap_or_default()
-        ));
-        std::fs::create_dir_all(dir.join("Tracks")).unwrap();
-        let db_path = dir.join("Library.db");
-        let managed = dir.join("Tracks").join("Artist Z").join("d.mp3");
-        {
-            let conn = Connection::open(&db_path).unwrap();
-            conn.execute_batch(&std::fs::read_to_string(fixtures_dir().join("v4.sql")).unwrap())
-                .unwrap();
+    fn v3_without_a_spiral_folder_drops_every_track() {
+        let conn = load_fixture(2);
+        run(&conn, None).unwrap();
+        assert_eq!(sources_rows(&conn), vec![]);
+        assert_eq!(track_locations(&conn), vec![]);
+        check_foreign_keys(&conn).unwrap();
+    }
+
+    #[test]
+    fn v3_sources_need_a_root_and_one_import_target() {
+        let conn = upgraded_fixture();
+        let add = |root: Option<&str>, import_target: bool| {
             conn.execute(
-                "UPDATE tracks SET file_path = ?1 WHERE id = 4",
-                params![managed.to_string_lossy()],
+                "INSERT INTO sources (name, root_path, import_target, created_at)
+                 VALUES ('X', ?1, ?2, 'now')",
+                params![root, import_target],
             )
-            .unwrap();
-        }
-
-        let conn = crate::db::open(&db_path).unwrap();
-        assert_eq!(schema_version(&conn).unwrap(), latest_version());
-        assert!(track_locations(&conn).contains(&(4, 1, "Artist Z/d.mp3".into())));
-        let track = crate::db::get_track_by_id(&conn, 4).unwrap().unwrap();
-        assert_eq!(track.file_path, managed.to_string_lossy());
-        assert!(dir.join("Library.db.bak-v4").is_file());
-        drop(conn);
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn v6_keeps_the_default_source_as_an_ordinary_tracks_source() {
-        let conn = load_fixture(5);
-        // The user's own settings for it survive.
-        conn.execute(
-            "UPDATE sources SET auto_organize = 0, path_format = '{artist}/{title}.{ext}' WHERE id = 1",
-            [],
-        )
-        .unwrap();
-        let tracks_before = track_locations(&conn);
-        assert!(tracks_before.iter().filter(|(_, s, _)| *s == 1).count() >= 3);
-        migrate_to(&conn, 6);
-
-        assert_eq!(
-            sources_rows(&conn),
-            vec![
-                (1, "Tracks".into(), Some("Tracks".into()), false, true),
-                (2, "Other Files".into(), None, false, false),
-                (
-                    3,
-                    "Collection".into(),
-                    Some("/collection".into()),
-                    false,
-                    false
-                ),
-            ]
-        );
-        let format: Option<String> = conn
-            .query_row("SELECT path_format FROM sources WHERE id = 1", [], |r| {
-                r.get(0)
-            })
-            .unwrap();
-        assert_eq!(format.as_deref(), Some("{artist}/{title}.{ext}"));
-        // Every track keeps its source and path, and a new source doesn't
-        // reuse a removed id.
-        assert_eq!(track_locations(&conn), tracks_before);
-        conn.execute(
-            "INSERT INTO sources (name, root_path, created_at) VALUES ('New', '/new', 'now')",
-            [],
-        )
-        .unwrap();
-        assert_eq!(conn.last_insert_rowid(), 5);
-
-        // Only Other is protected now.
-        assert!(conn
-            .execute("DELETE FROM sources WHERE id = 2", [])
-            .is_err());
+        };
+        assert!(add(None, false).is_err());
+        assert!(add(Some("Tracks"), false).is_err());
+        assert!(add(Some("/other"), true).is_err());
+        add(Some("/other"), false).unwrap();
         assert!(conn
             .execute("UPDATE sources SET root_path = NULL WHERE id = 1", [])
             .is_err());
-        conn.execute("DELETE FROM tracks WHERE source_id = 1", [])
-            .unwrap();
-        conn.execute("DELETE FROM sources WHERE id = 1", [])
-            .unwrap();
-        // With no import target at all.
-        let target: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM sources WHERE import_target = 1",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap();
-        assert_eq!(target, 0);
     }
 
     #[test]
@@ -1605,126 +1223,30 @@ mod tests {
     }
 
     #[test]
-    fn v7_drops_other_and_its_tracks_but_keeps_their_files() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-migrate-v7-{}-{}",
-            std::process::id(),
-            Utc::now().timestamp_nanos_opt().unwrap_or_default()
-        ));
-        std::fs::create_dir_all(dir.join("Tracks")).unwrap();
-        let loose = dir.join("Elsewhere").join("e.mp3");
-        std::fs::create_dir_all(loose.parent().unwrap()).unwrap();
-        std::fs::write(&loose, b"loose audio").unwrap();
-        let db_path = dir.join("Library.db");
-        {
-            let conn = Connection::open(&db_path).unwrap();
-            conn.execute_batch(&std::fs::read_to_string(fixtures_dir().join("v6.sql")).unwrap())
-                .unwrap();
-            // Other's track 5 is a real loose file, in playlist 2.
-            conn.execute(
-                "UPDATE tracks SET rel_path = ?1 WHERE id = 5",
-                params![loose.to_string_lossy()],
-            )
-            .unwrap();
-        }
-
-        let conn = crate::db::open(&db_path).unwrap();
-        assert_eq!(schema_version(&conn).unwrap(), latest_version());
-        assert!(dir.join("Library.db.bak-v6").is_file());
-        assert_eq!(
-            sources_rows(&conn),
-            vec![
-                (1, "Tracks".into(), Some("Tracks".into()), true, true),
-                (
-                    3,
-                    "Collection".into(),
-                    Some("/collection".into()),
-                    false,
-                    false
-                ),
-            ]
-        );
-        assert_eq!(
-            track_locations(&conn)
-                .into_iter()
-                .map(|(id, _, _)| id)
-                .collect::<Vec<_>>(),
-            vec![1, 2, 3, 4]
-        );
-        let playlist: Vec<i64> = conn
-            .prepare("SELECT track_id FROM playlist_tracks WHERE playlist_id = 2 ORDER BY position")
-            .unwrap()
-            .query_map([], |r| r.get(0))
-            .unwrap()
-            .collect::<Result<_, _>>()
-            .unwrap();
-        assert_eq!(playlist, [3, 4]);
-        let leftovers: i64 = conn
-            .query_row(
-                "SELECT (SELECT COUNT(*) FROM track_lyrics WHERE track_id = 5)
-                      + (SELECT COUNT(*) FROM listen_events WHERE track_id = 5)
-                      + (SELECT COUNT(*) FROM playlist_tracks WHERE track_id = 5)",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap();
-        assert_eq!(leftovers, 0);
-        assert_eq!(std::fs::read(&loose).unwrap(), b"loose audio");
-
-        // Every source has a root now.
-        assert!(conn
-            .execute(
-                "INSERT INTO sources (name, root_path, created_at) VALUES ('X', NULL, 'now')",
-                [],
-            )
-            .is_err());
-        assert!(conn
-            .execute("UPDATE sources SET root_path = NULL WHERE id = 3", [])
-            .is_err());
-        drop(conn);
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn v6_upgrades_a_v5_library_on_disk_with_every_track_in_tracks() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-migrate-v6-{}-{}",
-            std::process::id(),
-            Utc::now().timestamp_nanos_opt().unwrap_or_default()
-        ));
+    fn v3_upgrades_a_library_on_disk_when_opened() {
+        let dir = temp_library("v3");
         let tracks = dir.join("Tracks");
-        std::fs::create_dir_all(&tracks).unwrap();
-        let db_path = dir.join("Library.db");
-        {
-            let conn = Connection::open(&db_path).unwrap();
-            conn.execute_batch(&std::fs::read_to_string(fixtures_dir().join("v5.sql")).unwrap())
-                .unwrap();
-            // Like the user's library: every track in the default source (id 1).
-            conn.execute("DELETE FROM tracks WHERE source_id != 1", [])
-                .unwrap();
-            for n in 0..500 {
-                conn.execute(
-                    "INSERT INTO tracks (title, rel_path, date_added, source_id)
-                     VALUES ('Bulk', ?1, '2024-01-01T00:00:00Z', 1)",
-                    params![format!("Bulk/{n}.mp3")],
-                )
-                .unwrap();
-            }
-        }
+        let inside = tracks.join("Artist Z").join("c.mp3");
+        let referenced = dir.join("Elsewhere").join("a.mp3");
+        std::fs::create_dir_all(referenced.parent().unwrap()).unwrap();
+        std::fs::write(&referenced, b"referenced audio").unwrap();
+        let db_path = write_v2_library(&dir, &[(1, &referenced), (3, &inside)]);
 
-        let conn = crate::db::open(&db_path).unwrap();
+        let conn = crate::db::open_library(&db_path).unwrap();
         assert_eq!(schema_version(&conn).unwrap(), latest_version());
-        assert!(dir.join("Library.db.bak-v5").is_file());
-        let all = crate::db::get_all_tracks(&conn).unwrap();
-        assert_eq!(all.len(), 503);
-        assert!(all.iter().all(|t| t.source_id == 1));
-        let track = crate::db::get_track_by_id(&conn, 1).unwrap().unwrap();
+        assert!(dir.join("Library.db.bak-v2").is_file());
         assert_eq!(
-            Path::new(&track.file_path),
-            tracks.join("Artist X").join("Album 1").join("a.mp3")
+            track_locations(&conn),
+            vec![(3, 1, "Artist Z/c.mp3".into())]
         );
+        let track = crate::db::get_track_by_id(&conn, 3).unwrap().unwrap();
+        assert_eq!(Path::new(&track.file_path), inside);
         assert_eq!(track.play_count, 3);
-        assert_eq!(track.rating, 80);
+        assert_eq!(
+            std::fs::read(&referenced).unwrap(),
+            b"referenced audio",
+            "a dropped track's file stays on disk"
+        );
 
         let roots = crate::sources::LibraryRoots::for_library_root(&dir);
         assert_eq!(
@@ -1732,6 +1254,7 @@ mod tests {
             Some(1)
         );
         let listed = crate::sources::list_sources(&conn).unwrap();
+        assert_eq!(listed.len(), 1);
         assert_eq!(
             listed[0].root_path,
             Some(tracks.to_string_lossy().into_owned())
@@ -1739,13 +1262,42 @@ mod tests {
         let import = crate::sources::import_target(&conn).unwrap();
         assert_eq!(import.source.map(|s| s.id), Some(1));
         assert!(import.copy_available);
-        // Onboarding's "let Spiral manage my music" finds it already there.
-        assert_eq!(
-            crate::sources::create_managed_source(&conn, &roots)
-                .unwrap()
-                .id,
-            1
-        );
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn v3_library_with_only_referenced_tracks_gets_tracks_when_opened() {
+        let dir = temp_library("v3-referenced");
+        let db_path = write_v2_library(&dir, &[(1, Path::new("/music/a.mp3"))]);
+
+        let conn = crate::db::open(&db_path).unwrap();
+        assert_eq!(sources_rows(&conn), vec![]);
+        drop(conn);
+
+        let conn = crate::db::open_library(&db_path).unwrap();
+        assert_eq!(track_locations(&conn), vec![]);
+        let sources = sources_rows(&conn);
+        assert_eq!(sources.len(), 1);
+        assert_eq!(sources[0].1, "Tracks");
+        assert!(sources[0].3 && sources[0].4);
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn v3_keeps_one_track_for_two_paths_to_the_same_file() {
+        let dir = temp_library("v3-symlink");
+        let file = dir.join("Tracks").join("c.mp3");
+        std::fs::write(&file, b"audio").unwrap();
+        let alias = dir.join("Alias");
+        std::os::unix::fs::symlink(dir.join("Tracks"), &alias).unwrap();
+        let db_path = write_v2_library(&dir, &[(3, &file), (4, &alias.join("c.mp3"))]);
+
+        let conn = crate::db::open(&db_path).unwrap();
+        assert_eq!(track_locations(&conn), vec![(3, 1, "c.mp3".into())]);
+        check_foreign_keys(&conn).unwrap();
         drop(conn);
         let _ = std::fs::remove_dir_all(&dir);
     }
