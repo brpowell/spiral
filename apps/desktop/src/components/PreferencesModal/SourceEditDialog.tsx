@@ -238,6 +238,7 @@ export function SourceEditDialog({
               size="sm"
               disabled={busy}
               isLoading={picking}
+              loadingLabel={t("preferences:sources.changing")}
               onClick={() => void changeLocation()}
             >
               <IconOpenFolder aria-hidden />

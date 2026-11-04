@@ -132,6 +132,7 @@ export function FoldersStep() {
         className="onboarding-folders__add"
         onClick={() => void add()}
         isLoading={adding}
+        loadingLabel={t("onboarding.folders.adding")}
       >
         <IconPlus aria-hidden />
         {t("onboarding.folders.add")}

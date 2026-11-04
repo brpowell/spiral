@@ -167,6 +167,7 @@ export function ImportChoiceModal() {
             size="sm"
             variant="secondary"
             isLoading={addingFolder}
+            loadingLabel={t("importChoice.adding")}
             onClick={() => void addFolder()}
           >
             <IconPlus aria-hidden />

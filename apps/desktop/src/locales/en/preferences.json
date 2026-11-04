@@ -32,6 +32,7 @@
   "sources": {
     "title": "Music folders",
     "addFolder": "Add folder…",
+    "adding": "Adding…",
     "trackCount_one": "{{count}} track",
     "trackCount_other": "{{count}} tracks",
     "missingCount_one": "{{count}} missing",
@@ -61,6 +62,7 @@
     "rescan": "Rescan",
     "rescanning": "Scanning…",
     "changeLocation": "Change location…",
+    "changing": "Changing…",
     "remove": "Remove…",
     "removeLast": "Spiral needs at least one music folder.",
     "actionsAria": "Actions for {{name}}",

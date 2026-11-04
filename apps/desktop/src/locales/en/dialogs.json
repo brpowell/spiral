@@ -23,6 +23,7 @@
     "description": "Choose a music folder to copy these files into. The originals stay where they are.",
     "foldersOffline": "Your music folders aren't connected right now. Connect one, or add another.",
     "addFolder": "Add a folder…",
+    "adding": "Adding…",
     "destination": "Copy into",
     "destinationNewDefault": "It also becomes your default folder for new music.",
     "destinationDefaultOffline": "Your default folder isn't connected, so these files go here instead.",

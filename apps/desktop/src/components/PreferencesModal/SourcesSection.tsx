@@ -203,6 +203,7 @@ export function SourcesSection() {
           className="preferences__action-btn"
           disabled={busyId != null}
           isLoading={busyId === "add"}
+          loadingLabel={t("preferences:sources.adding")}
           onClick={() => void addFolder()}
         >
           <IconPlus aria-hidden />
