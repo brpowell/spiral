@@ -7,7 +7,6 @@ import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
 import { useSourcesStore } from "../../store/useSourcesStore";
 import { Button } from "../common/Button/Button";
 import { FormField } from "../common/Field/Field";
-import { NativeSelect } from "../common/NativeSelect/NativeSelect";
 import {
   Modal,
   ModalBody,
@@ -17,15 +16,15 @@ import {
   ModalHeaderMain,
   ModalTitle,
 } from "../common/Modal/Modal";
+import { Select } from "../common/Select/Select";
 import { IconPlus } from "../icons";
 
 import "./ImportChoiceModal.css";
 
 /**
- * Asks which music folder to copy files into. Imports only ask when the
- * import target can't take them: its folder is offline, or (defensively)
- * none is set. With every folder offline, it offers to add one. With no
- * import target, the folder picked becomes it.
+ * Asks where to copy files when the import target can't take them: its folder
+ * is offline, or (defensively) none is set, and then the folder picked becomes
+ * it. With every folder offline, the picker is disabled until one is added.
  */
 export function ImportChoiceModal() {
   const { t } = useTranslation("dialogs");
@@ -125,25 +124,22 @@ export function ImportChoiceModal() {
       <ModalHeader>
         <ModalHeaderMain>
           <ModalTitle id={titleId}>{t("importChoice.title")}</ModalTitle>
-          <ModalDescription>{t("importChoice.description")}</ModalDescription>
+          <ModalDescription>
+            {reachable.length > 0
+              ? t("importChoice.descriptionChoose")
+              : t("importChoice.descriptionAdd")}
+          </ModalDescription>
         </ModalHeaderMain>
       </ModalHeader>
 
       <ModalBody>
-        {reachable.length > 0 && destination != null ? (
-          <FormField
-            className="import-choice-modal__destination"
-            label={t("importChoice.destination")}
-            description={
-              importTargetId == null
-                ? t("importChoice.destinationNewDefault")
-                : t("importChoice.destinationDefaultOffline")
-            }
-          >
-            <NativeSelect
+        <FormField label={t("importChoice.destination")}>
+          <div className="import-choice-modal__destination">
+            <Select
               aria-label={t("importChoice.destination")}
-              value={String(destination)}
+              value={String(destination ?? importTargetId)}
               onChange={(value) => setDestination(Number(value))}
+              disabled={reachable.length === 0}
               options={sources.map((source) => ({
                 value: String(source.id),
                 label:
@@ -155,25 +151,18 @@ export function ImportChoiceModal() {
                 disabled: statuses[source.id] === "unreachable",
               }))}
             />
-          </FormField>
-        ) : null}
-        <div className="import-choice-modal__enable">
-          {reachable.length === 0 ? (
-            <p className="import-choice-modal__enable-text">
-              {t("importChoice.foldersOffline")}
-            </p>
-          ) : null}
-          <Button
-            size="sm"
-            variant="secondary"
-            isLoading={addingFolder}
-            loadingLabel={t("importChoice.adding")}
-            onClick={() => void addFolder()}
-          >
-            <IconPlus aria-hidden />
-            {t("importChoice.addFolder")}
-          </Button>
-        </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              isLoading={addingFolder}
+              loadingLabel={t("importChoice.adding")}
+              onClick={() => void addFolder()}
+            >
+              <IconPlus aria-hidden />
+              {t("importChoice.addFolder")}
+            </Button>
+          </div>
+        </FormField>
         {addError ? (
           <p className="import-choice-modal__error" role="alert">
             {addError}

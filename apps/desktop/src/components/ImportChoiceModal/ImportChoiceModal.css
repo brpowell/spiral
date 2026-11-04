@@ -1,21 +1,18 @@
+/* The picker takes the row; adding a folder sits beside it. */
 .import-choice-modal__destination {
-  margin-bottom: 0.85rem;
-}
-
-/* Adding a folder, with why when there is none to copy into. */
-.import-choice-modal__enable {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-  padding: 0 0.25rem;
+  gap: 0.5rem;
 }
 
-.import-choice-modal__enable-text {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
+.import-choice-modal__destination > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.import-choice-modal__destination > .btn {
+  flex-shrink: 0;
+  height: var(--control-height);
 }
 
 .import-choice-modal__error {
