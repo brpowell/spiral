@@ -43,7 +43,8 @@ The 24-track free-trial library cap, the Spiral Card (`.spcard`) registration fl
 
 User-facing copy belongs in `src/locales/en/` and is referenced via `t` / `useTranslation` — not hardcoded in components or `src/lib/`.
 
-- Follow [`.cursor/rules/i18n-ui-strings.mdc`](../../.cursor/rules/i18n-ui-strings.mdc) for all **new and touched** UI strings.
+- Extract strings you change in the same PR (boy scout); don't block unrelated work on extracting a whole feature. Use stable descriptive keys (`library.empty.tracks`) and i18n plurals/interpolation, not `count === 1 ? …` branches.
+- DEV-only copy (Developer menu, Toast Lab chrome, other debug UX) stays hardcoded English; pack/skin author content never goes in app catalogs.
 - React: `useTranslation()` / `<Trans>`. Non-React (`src/lib/`, menus, toasts): `t` / `i18n` from `src/lib/i18n`.
 - `t()` is typed from the English JSON catalogs (`TranslationKey` in `src/lib/i18nKeys.ts`). Use `tUnchecked` only for interpolated key paths.
 - `npm run lint:i18n` (also part of `npm run lint`) fails when a static `t("ns:key")` is missing from `src/locales/en`.

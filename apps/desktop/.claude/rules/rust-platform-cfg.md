@@ -1,7 +1,6 @@
 ---
-description: Silence Rust unused warnings for platform- or test-only symbols via cfg
-globs: src-tauri/**/*.rs
-alwaysApply: false
+paths:
+  - "src-tauri/**/*.rs"
 ---
 
 # Platform / test-gated Rust symbols
