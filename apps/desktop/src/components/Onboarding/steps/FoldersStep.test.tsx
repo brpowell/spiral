@@ -79,7 +79,10 @@ describe("FoldersStep", () => {
     vi.clearAllMocks();
     player.library = [];
     tauri.setImportSource.mockResolvedValue(undefined);
-    useOnboardingStore.setState({ addedSourceIds: [] });
+    useOnboardingStore.setState({
+      addedSourceIds: [],
+      placeholderSourceId: null,
+    });
     useSourcesStore.setState({
       sources: [],
       sourcesById: new Map(),
@@ -100,6 +103,24 @@ describe("FoldersStep", () => {
     tauri.setSourceOrganize.mockImplementation((id: number, on: boolean) =>
       Promise.resolve(source({ id, autoOrganize: on })),
     );
+  });
+
+  it("doesn't list a new library's placeholder Tracks", () => {
+    const tracks = source({
+      id: 1,
+      name: "Tracks",
+      rootPath: "/Users/me/Music/Spiral/Tracks",
+      importTarget: true,
+    });
+    useSourcesStore.setState({
+      sources: [tracks],
+      sourcesById: new Map([[1, tracks]]),
+    });
+    useOnboardingStore.setState({ placeholderSourceId: 1 });
+    render(<FoldersStep />);
+    expect(
+      screen.queryByRole("list", { name: "Your music folders" }),
+    ).toBeNull();
   });
 
   it("writes the home folder as ~ in folder paths", async () => {

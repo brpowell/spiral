@@ -4,7 +4,10 @@ import {
   markOnboardingCompleted,
 } from "../lib/onboardingPreferences";
 import { organizeInBackground } from "../lib/organizeSource";
+import { countTracksBySource } from "../lib/sourceAccess";
 import { createManagedSource, removeSource } from "../lib/tauri";
+import { useLibrarySettingsStore } from "./useLibrarySettingsStore";
+import { usePlayerStore } from "./usePlayerStore";
 import { useSourcesStore } from "./useSourcesStore";
 
 /** How the user answered "Where does your music live?" on the first step. */
@@ -30,17 +33,26 @@ interface OnboardingState {
   musicChoice: MusicChoice | null;
   /** Sources added on the folders step this run, which it may remove again. */
   addedSourceIds: readonly number[];
-  /** The managed `Tracks` source, when this run created it. */
-  managedSourceId: number | null;
+  /**
+   * The empty `Tracks` a new library starts with, while it stands in for the
+   * folders the user picks: hidden on the folders step, and removed once
+   * they've added one of their own.
+   */
+  placeholderSourceId: number | null;
   /** Show onboarding now. */
   start: () => void;
   setMusicChoice: (choice: MusicChoice) => void;
   /**
    * Act on the first step's answer before moving on: "new" has Spiral manage
-   * a `Tracks` folder; "existing" undoes one this run made, so only the
-   * folders the user picks become sources.
+   * a `Tracks` folder; "existing" sets aside the empty `Tracks` a new library
+   * starts with, so only the folders the user picks are shown.
    */
   applyMusicChoice: () => Promise<void>;
+  /**
+   * Leaving the folders step: once the user has a folder of their own, drop
+   * the placeholder `Tracks`. Their first folder becomes the default.
+   */
+  settleFolders: () => Promise<void>;
   noteSourceAdded: (id: number) => void;
   noteSourceRemoved: (id: number) => void;
   next: () => void;
@@ -58,33 +70,39 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   step: 0,
   musicChoice: null,
   addedSourceIds: [],
-  managedSourceId: null,
+  placeholderSourceId: null,
   start: () =>
     set({
       open: true,
       step: 0,
       musicChoice: null,
       addedSourceIds: [],
-      managedSourceId: null,
+      placeholderSourceId: null,
     }),
   setMusicChoice: (musicChoice) => set({ musicChoice }),
   applyMusicChoice: async () => {
-    const { musicChoice, managedSourceId } = get();
+    const { musicChoice } = get();
     const sources = useSourcesStore.getState();
     if (musicChoice === "new") {
-      if (managedSourceId != null) return;
+      sources.applySource(await createManagedSource());
+      set({ placeholderSourceId: null });
+    } else if (musicChoice === "existing") {
       await sources.loadSources();
-      const existed = new Set(
-        useSourcesStore.getState().sources.map((source) => source.id),
-      );
-      const source = await createManagedSource();
-      sources.applySource(source);
-      if (!existed.has(source.id)) set({ managedSourceId: source.id });
-    } else if (musicChoice === "existing" && managedSourceId != null) {
-      await removeSource(managedSourceId);
-      set({ managedSourceId: null });
-      await sources.loadSources();
+      set({ placeholderSourceId: findPlaceholderSource() });
     }
+  },
+  settleFolders: async () => {
+    const placeholder = get().placeholderSourceId;
+    if (placeholder == null) return;
+    const others = useSourcesStore
+      .getState()
+      .sources.filter((source) => source.id !== placeholder);
+    if (others.length === 0) return;
+    // Removing the default makes the lowest-id reachable folder the default:
+    // the first one the user added.
+    await removeSource(placeholder);
+    set({ placeholderSourceId: null });
+    await useSourcesStore.getState().loadSources();
   },
   noteSourceAdded: (id) =>
     set((s) => ({ addedSourceIds: [...s.addedSourceIds, id] })),
@@ -98,6 +116,9 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   finish: () => {
     markOnboardingCompleted();
     set({ open: false });
+    void get()
+      .settleFolders()
+      .catch((err) => console.error("settleFolders failed:", err));
     const added = new Set(get().addedSourceIds);
     const jobs = useSourcesStore
       .getState()
@@ -106,3 +127,17 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     if (jobs.length > 0) void organizeInBackground(jobs, { scanFirst: true });
   },
 }));
+
+/**
+ * The library's only source, when it's the managed `Tracks` with no tracks:
+ * the folder a new library starts with, not one the user chose.
+ */
+function findPlaceholderSource(): number | null {
+  const sources = useSourcesStore.getState().sources;
+  const tracksFolder = useLibrarySettingsStore.getState().settings?.mediaFolder;
+  if (sources.length !== 1 || tracksFolder == null) return null;
+  const [only] = sources;
+  if (only.rootPath !== tracksFolder) return null;
+  const counts = countTracksBySource(usePlayerStore.getState().library);
+  return (counts.get(only.id)?.total ?? 0) === 0 ? only.id : null;
+}

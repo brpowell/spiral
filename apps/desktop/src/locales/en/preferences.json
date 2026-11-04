@@ -32,9 +32,6 @@
   "sources": {
     "title": "Music folders",
     "addFolder": "Add folder…",
-    "emptyTitle": "No music folders yet",
-    "emptyBody": "Add the folders your music lives in, or let Spiral make a Tracks folder and keep it organized for you.",
-    "manageTracks": "Let Spiral manage a Tracks folder",
     "trackCount_one": "{{count}} track",
     "trackCount_other": "{{count}} tracks",
     "missingCount_one": "{{count}} missing",
@@ -65,6 +62,7 @@
     "rescanning": "Scanning…",
     "changeLocation": "Change location…",
     "remove": "Remove…",
+    "removeLast": "Spiral needs at least one music folder.",
     "actionsAria": "Actions for {{name}}",
     "edit": "Edit…",
     "editTitle": "Edit music source",

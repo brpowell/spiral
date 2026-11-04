@@ -7,7 +7,6 @@ import {
 } from "../../lib/sourceAccess";
 import {
   addSource,
-  createManagedSource,
   pickMusicFolder,
   removeSource,
   rescanSource,
@@ -19,7 +18,7 @@ import type { ReconcileSummary, Source } from "../../types/source";
 import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
 import { Button } from "../common/Button/Button";
 import { FormField } from "../common/Field/Field";
-import { IconFolderCog, IconOpenFolder, IconPlus } from "../icons";
+import { IconOpenFolder, IconPlus } from "../icons";
 import { SourceCard } from "./SourceCard";
 import { SourceEditFlow } from "./SourceEditFlow";
 import "./SourcesSection.css";
@@ -106,12 +105,6 @@ export function SourcesSection() {
       await usePlayerStore.getState().loadLibrary({ preservePlayback: true });
     });
 
-  const addManagedFolder = () =>
-    run("managed", async () => {
-      applySource(await createManagedSource());
-      await loadSources();
-    });
-
   const rescan = (source: Source) =>
     run(source.id, async () => {
       setRescanningId(source.id);
@@ -164,72 +157,44 @@ export function SourcesSection() {
         role="group"
         aria-labelledby={headingId}
       >
-        {folders.length > 0 ? (
-          <>
-            <ul className="sources-section__list">
-              {folders.map((source) => (
-                <SourceCard
-                  key={source.id}
-                  source={source}
-                  count={counts.get(source.id) ?? { total: 0, missing: 0 }}
-                  offline={isOffline(source)}
-                  rescanning={rescanningId === source.id}
-                  busy={busy}
-                  onEdit={() => {
-                    setError(null);
-                    setAddingId(null);
-                    setEditing(source);
-                  }}
-                  onMakeDefault={() => void makeDefault(source)}
-                  onRescan={() => void rescan(source)}
-                  onRemove={() => {
-                    setError(null);
-                    setRemoving(source);
-                  }}
-                />
-              ))}
-            </ul>
-            <Button
-              variant="secondary"
-              className="preferences__action-btn"
-              disabled={busyId != null}
-              isLoading={busyId === "add"}
-              onClick={() => void addFolder()}
-            >
-              <IconPlus aria-hidden />
-              {t("preferences:sources.addFolder")}
-            </Button>
-          </>
-        ) : (
-          <div className="sources-section__empty">
-            <p className="sources-section__empty-title">
-              {t("preferences:sources.emptyTitle")}
-            </p>
-            <p className="sources-section__description">
-              {t("preferences:sources.emptyBody")}
-            </p>
-            <div className="sources-section__actions">
-              <Button
-                variant="secondary"
-                disabled={busyId != null}
-                isLoading={busyId === "add"}
-                onClick={() => void addFolder()}
-              >
-                <IconPlus aria-hidden />
-                {t("preferences:sources.addFolder")}
-              </Button>
-              <Button
-                variant="ghost"
-                disabled={busyId != null}
-                isLoading={busyId === "managed"}
-                onClick={() => void addManagedFolder()}
-              >
-                <IconFolderCog aria-hidden />
-                {t("preferences:sources.manageTracks")}
-              </Button>
-            </div>
-          </div>
-        )}
+        <ul className="sources-section__list">
+          {folders.map((source) => (
+            <SourceCard
+              key={source.id}
+              source={source}
+              count={counts.get(source.id) ?? { total: 0, missing: 0 }}
+              offline={isOffline(source)}
+              rescanning={rescanningId === source.id}
+              busy={busy}
+              onEdit={() => {
+                setError(null);
+                setAddingId(null);
+                setEditing(source);
+              }}
+              onMakeDefault={() => void makeDefault(source)}
+              onRescan={() => void rescan(source)}
+              onRemove={() => {
+                setError(null);
+                setRemoving(source);
+              }}
+              removeDisabledReason={
+                folders.length === 1
+                  ? t("preferences:sources.removeLast")
+                  : undefined
+              }
+            />
+          ))}
+        </ul>
+        <Button
+          variant="secondary"
+          className="preferences__action-btn"
+          disabled={busyId != null}
+          isLoading={busyId === "add"}
+          onClick={() => void addFolder()}
+        >
+          <IconPlus aria-hidden />
+          {t("preferences:sources.addFolder")}
+        </Button>
 
         {notice ? (
           <p className="preferences__hint" role="status">

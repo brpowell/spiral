@@ -16,7 +16,8 @@ const CHOICES: { id: MusicChoice; Icon: typeof IconFolderCog }[] = [
 /**
  * "How do you want your music organized?": let Spiral manage a Tracks folder
  * (the card says where), or use folders the user picks. The second answer
- * adds a step for picking those folders, and makes no Tracks folder.
+ * adds a step for picking those folders; a new library's empty Tracks
+ * folder gives way to them.
  */
 export function LibraryStep() {
   const { t } = useTranslation("common");
