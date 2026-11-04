@@ -105,6 +105,21 @@ describe("organizeInBackground", () => {
     await vi.waitFor(() => expect(labels()).toEqual(["14 files organized"]));
   });
 
+  it("says a folder is offline in words, not its error code", async () => {
+    tauri.previewOrganizeSource.mockRejectedValue(
+      "source_unavailable: the folder /Volumes/Music is not available",
+    );
+    await organizeInBackground([{ source: music }]);
+    expect(useBackgroundTasksStore.getState().tasks).toEqual([
+      expect.objectContaining({
+        status: "error",
+        label: "Couldn't organize “hello”",
+        detail:
+          "That music folder isn't available. Connect its drive and try again.",
+      }),
+    ]);
+  });
+
   it("never shows a toast when nothing needs to move", async () => {
     tauri.previewOrganizeSource.mockResolvedValue({ moves: 0 });
     tauri.applyOrganizeSource.mockResolvedValue({

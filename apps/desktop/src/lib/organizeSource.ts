@@ -25,6 +25,7 @@ import {
   previewOrganizeSource,
   rescanSource,
 } from "./tauri";
+import { organizeFailedPayload, organizeRunningLabel } from "./toastPayloads";
 import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
 
 /**
@@ -119,10 +120,9 @@ export function organizeInBackground(
         const moves = await check(job);
         if (moves > 0) planned.push({ ...job, name, moves });
       } catch (err) {
-        useBackgroundTasksStore.getState().showErrorToast({
-          label: t("toasts:organize.failedFallback", { name }),
-          detail: errorMessage(err),
-        });
+        useBackgroundTasksStore
+          .getState()
+          .showErrorToast(organizeFailedPayload(name, err));
       }
     }
     if (planned.length > 0) await moveAll(planned);
@@ -156,7 +156,7 @@ export function organizeInBackground(
     return new Promise<void>((resolve) => {
       useBackgroundTasksStore.getState().runInBackground({
         key: "organize-sources",
-        label: t("toasts:organize.running", { name: planned[0].name }),
+        label: organizeRunningLabel(planned[0].name),
         progressDisplay: "bar",
         run: async (ctx) => {
           try {
@@ -177,7 +177,7 @@ export function organizeInBackground(
     const outcome: FilePlanApplySummary = { moved: 0, failed: 0, errors: [] };
     let before = 0;
     for (const job of planned) {
-      ctx.setLabel(t("toasts:organize.running", { name: job.name }));
+      ctx.setLabel(organizeRunningLabel(job.name));
       ctx.setProgress(before, total);
       const offset = before;
       const unlisten = await listen<FilePlanProgress>(
