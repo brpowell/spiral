@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { revealInFileManagerLabel } from "../../lib/fileManager";
 import { useShortenHomePath } from "../../lib/homePath";
 import { sourceDisplayName } from "../../lib/sourceAccess";
 import type { Source } from "../../types/source";
@@ -31,6 +32,8 @@ interface SourceCardProps {
   onEdit?: () => void;
   onMakeDefault?: () => void;
   onRescan?: () => void;
+  /** Show the folder in Finder (or the platform's file manager). */
+  onReveal?: () => void;
   onRemove?: () => void;
 }
 
@@ -47,6 +50,7 @@ export function SourceCard({
   onEdit,
   onMakeDefault,
   onRescan,
+  onReveal,
   onRemove,
 }: SourceCardProps) {
   const { t } = useTranslation(["preferences", "common"]);
@@ -167,6 +171,17 @@ export function SourceCard({
                 onClick={() => {
                   close();
                   onRescan();
+                }}
+              />
+            ) : null}
+            {onReveal ? (
+              <ContextMenuItem
+                icon={<IconOpenFolder />}
+                label={revealInFileManagerLabel()}
+                disabled={offline}
+                onClick={() => {
+                  close();
+                  onReveal();
                 }}
               />
             ) : null}

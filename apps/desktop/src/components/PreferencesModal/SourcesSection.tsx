@@ -11,6 +11,7 @@ import {
   pickMusicFolder,
   removeSource,
   rescanSource,
+  revealPathInFileManager,
   setImportSource,
 } from "../../lib/tauri";
 import { usePlayerStore } from "../../store/usePlayerStore";
@@ -131,6 +132,16 @@ export function SourcesSection() {
       }
     });
 
+  const reveal = async (source: Source) => {
+    if (!source.rootPath) return;
+    setError(null);
+    try {
+      await revealPathInFileManager(source.rootPath);
+    } catch (err) {
+      setError(describeSourceError(err));
+    }
+  };
+
   const makeDefault = (source: Source) =>
     run(source.id, async () => {
       await setImportSource(source.id);
@@ -182,6 +193,7 @@ export function SourcesSection() {
                   }}
                   onMakeDefault={() => void makeDefault(source)}
                   onRescan={() => void rescan(source)}
+                  onReveal={() => void reveal(source)}
                   onRemove={() => {
                     setError(null);
                     setRemoving(source);
