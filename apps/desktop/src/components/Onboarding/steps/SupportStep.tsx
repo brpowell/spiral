@@ -1,12 +1,12 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTranslation } from "react-i18next";
 import {
-  BUY_ME_A_COFFEE_URL,
   SPIRAL_DISCOVERY_URL,
   SPIRAL_DISCUSSIONS_URL,
   SPIRAL_GITHUB_URL,
 } from "../../About/aboutContent";
 import { Button } from "../../common/Button/Button";
+import { CoffeeButton } from "../../common/CoffeeButton/CoffeeButton";
 import { IconCompass, IconMessagesSquare, IconStarOutline } from "../../icons";
 
 /** The note on the left: gentle, and last so it never blocks setup. */
@@ -28,15 +28,7 @@ export function SupportActions() {
   const { t } = useTranslation("common");
   return (
     <div className="onboarding-support">
-      <Button
-        variant="primary"
-        size="lg"
-        className="onboarding-support__coffee"
-        onClick={() => void openUrl(BUY_ME_A_COFFEE_URL)}
-      >
-        <img src="/bmc/bmc-logo.svg" alt="" draggable={false} />
-        {t("onboarding.support.coffee")}
-      </Button>
+      <CoffeeButton size="lg" />
       <Button size="lg" onClick={() => void openUrl(SPIRAL_DISCUSSIONS_URL)}>
         <IconMessagesSquare />
         {t("onboarding.support.discussion")}

@@ -1,0 +1,18 @@
+/* The standard primary button, in Buy Me a Coffee yellow. */
+.btn.coffee-button,
+.btn.coffee-button:hover:not(:disabled) {
+  background-color: #ffdd00;
+  border-color: color-mix(in srgb, #ffdd00 70%, black);
+  color: #0d0c22;
+  font-weight: 600;
+}
+
+.btn.coffee-button:hover:not(:disabled) {
+  filter: brightness(1.04);
+}
+
+.btn.coffee-button > img {
+  height: 1.15em;
+  width: auto;
+  flex-shrink: 0;
+}

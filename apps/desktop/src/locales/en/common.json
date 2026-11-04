@@ -52,12 +52,12 @@
       "artists": "Buying merch, records, and tickets from your favorite artists and local shops helps the project spiritually. The discovery tool is a good place to start.",
       "closing": "No pressure though, I’m just glad you’re here 🤟.",
       "signature": "— Bryan",
-      "coffee": "Buy me a coffee",
       "discussion": "Join the discussion",
       "star": "Star on GitHub",
       "discovery": "Open the discovery tool"
     }
   },
+  "buyMeACoffee": "Buy me a coffee",
   "unknown": "Unknown",
   "unknownArtist": "Unknown Artist",
   "unknownAlbum": "Unknown Album",

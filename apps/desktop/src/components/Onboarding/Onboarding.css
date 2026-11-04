@@ -417,25 +417,6 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
   gap: 0.6rem;
 }
 
-/* The standard primary button, in Buy Me a Coffee yellow. */
-.onboarding-support .onboarding-support__coffee,
-.onboarding-support .onboarding-support__coffee:hover:not(:disabled) {
-  background-color: #ffdd00;
-  border-color: color-mix(in srgb, #ffdd00 70%, black);
-  color: #0d0c22;
-  font-weight: 600;
-}
-
-.onboarding-support .onboarding-support__coffee:hover:not(:disabled) {
-  filter: brightness(1.04);
-}
-
-.onboarding-support .btn > img {
-  height: 1.15em;
-  width: auto;
-  flex-shrink: 0;
-}
-
 @keyframes onboarding-panel-in {
   from {
     opacity: 0;

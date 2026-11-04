@@ -1,5 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTranslation } from "react-i18next";
+import { CoffeeButton } from "../common/CoffeeButton/CoffeeButton";
 import { TextLink } from "../common/TextLink/TextLink";
 import { CREDIT_ENTRIES } from "./aboutContent";
 
@@ -11,6 +12,7 @@ export function CreditsPanel() {
       <header className="about-credits__title-credit">
         <p className="about-credits__role">{t("credits.bryan.role")}</p>
         <p className="about-credits__name">{t("credits.bryan.name")}</p>
+        <CoffeeButton size="sm" className="about-credits__coffee" />
       </header>
 
       <p className="about-panel__intro">{t("credits.intro")}</p>
