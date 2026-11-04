@@ -1,14 +1,10 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import {
-  isExternalFileDrag,
-  pathsFromDataTransfer,
-} from "../../lib/dragDrop";
-import {
-  routeDroppedPaths,
-} from "../../lib/fileDropRouting";
+import { isExternalFileDrag, pathsFromDataTransfer } from "../../lib/dragDrop";
+import { routeDroppedPaths } from "../../lib/fileDropRouting";
 import { isTauri } from "../../lib/windowRole";
+import { useOnboardingStore } from "../../store/useOnboardingStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import "./ImportDropZone.css";
 
@@ -17,7 +13,7 @@ function handleDroppedPaths(
   importFromPaths: (paths: string[]) => void,
   position?: { x: number; y: number },
 ) {
-  if (paths.length === 0) return;
+  if (paths.length === 0 || useOnboardingStore.getState().open) return;
 
   if (routeDroppedPaths(paths, position) === "library") {
     importFromPaths(paths);
@@ -26,6 +22,7 @@ function handleDroppedPaths(
 
 export function ImportDropZone() {
   const [active, setActive] = useState(false);
+  const onboardingOpen = useOnboardingStore((s) => s.open);
   const importFromPaths = usePlayerStore((s) => s.importFromPaths);
   const importFromPathsRef = useRef(importFromPaths);
   importFromPathsRef.current = importFromPaths;
@@ -124,7 +121,7 @@ export function ImportDropZone() {
 
   return (
     <AnimatePresence>
-      {active && (
+      {active && !onboardingOpen && (
         <motion.div
           className="import-drop-zone"
           role="status"
