@@ -23,9 +23,9 @@ import "./ImportChoiceModal.css";
 
 /**
  * Asks which music folder to copy files into. Imports only ask when the
- * import target can't take them: none is set, or its folder is offline. With
- * no folder to copy into, it offers to add one. With no import target, the
- * folder picked becomes it.
+ * import target can't take them: its folder is offline, or (defensively)
+ * none is set. With every folder offline, it offers to add one. With no
+ * import target, the folder picked becomes it.
  */
 export function ImportChoiceModal() {
   const { t } = useTranslation("dialogs");
@@ -155,9 +155,7 @@ export function ImportChoiceModal() {
         <div className="import-choice-modal__enable">
           {reachable.length === 0 ? (
             <p className="import-choice-modal__enable-text">
-              {sources.length === 0
-                ? t("importChoice.noFolders")
-                : t("importChoice.foldersOffline")}
+              {t("importChoice.foldersOffline")}
             </p>
           ) : null}
           <Button

@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useOnboardingStore } from "../../store/useOnboardingStore";
+import { useSourcesStore } from "../../store/useSourcesStore";
+import type { Source } from "../../types/source";
 import {
   Onboarding,
   ONBOARDING_FADE_MS,
@@ -68,8 +70,9 @@ describe("Onboarding", () => {
       step: 0,
       musicChoice: null,
       addedSourceIds: [],
-      managedSourceId: null,
+      placeholderSourceId: null,
     });
+    useSourcesStore.setState({ sources: [], sourcesById: new Map() });
     vi.clearAllMocks();
     tauri.listSources.mockResolvedValue([]);
     tauri.getSourceStatuses.mockResolvedValue([]);
@@ -156,7 +159,7 @@ describe("Onboarding", () => {
       }),
     );
     await clickNext();
-    // Only the folders the user picks become sources: no Tracks.
+    // Only the folders the user picks are shown: no Tracks is made.
     expect(tauri.createManagedSource).not.toHaveBeenCalled();
     expect(
       screen.getByRole("heading", { name: "Add music sources" }),
@@ -165,8 +168,17 @@ describe("Onboarding", () => {
     expect(
       screen.getByRole("button", { name: "Add folder" }),
     ).toBeInTheDocument();
+    // It needs a folder before it moves on.
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    const music = { ...tracks, id: 3, rootPath: "/Music" } as Source;
+    act(() => {
+      useSourcesStore.setState({
+        sources: [music],
+        sourcesById: new Map([[3, music]]),
+      });
+    });
+    await clickNext();
     expect(
       screen.getByRole("heading", { name: "Try on a style" }),
     ).toBeInTheDocument();

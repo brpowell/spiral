@@ -21,7 +21,6 @@
   "importChoice": {
     "title": "Add music",
     "description": "Choose a music folder to copy these files into. The originals stay where they are.",
-    "noFolders": "No music folders yet. Add one to copy files into it.",
     "foldersOffline": "Your music folders aren't connected right now. Connect one, or add another.",
     "addFolder": "Add a folder…",
     "destination": "Copy into",

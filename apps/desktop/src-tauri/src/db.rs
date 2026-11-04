@@ -144,6 +144,16 @@ pub fn open(db_path: &Path) -> Result<Connection, rusqlite::Error> {
     Ok(conn)
 }
 
+/// Open the library database as the app's live library: [`open`], then give
+/// it a music folder if it has none (see [`sources::ensure_a_source`]).
+pub fn open_library(db_path: &Path) -> Result<Connection, String> {
+    let conn = open(db_path).map_err(|e| e.to_string())?;
+    if let Some(library_root) = db_path.parent() {
+        sources::ensure_a_source(&conn, library_root)?;
+    }
+    Ok(conn)
+}
+
 fn path_error(message: String) -> rusqlite::Error {
     rusqlite::Error::ToSqlConversionFailure(message.into())
 }
@@ -1952,6 +1962,31 @@ mod tests {
             (track.source_id, track.file_path.as_str()),
             (sub, "/music/sub/a.mp3")
         );
+    }
+
+    #[test]
+    fn opening_a_new_library_gives_it_tracks_once() {
+        let root = std::env::temp_dir().join(format!(
+            "spiral-db-open-library-{}/Spiral Library",
+            std::process::id()
+        ));
+        let db_path = root.join("Library.db");
+        let tracks = crate::settings::media_folder_for_root(&root);
+
+        let conn = open_library(&db_path).unwrap();
+        let listed = sources::list_sources(&conn).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(
+            listed[0].root_path,
+            Some(tracks.to_string_lossy().into_owned())
+        );
+        assert!(listed[0].import_target);
+        drop(conn);
+
+        let conn = open_library(&db_path).unwrap();
+        assert_eq!(sources::list_sources(&conn).unwrap(), listed);
+        drop(conn);
+        let _ = std::fs::remove_dir_all(root.parent().unwrap());
     }
 
     #[test]

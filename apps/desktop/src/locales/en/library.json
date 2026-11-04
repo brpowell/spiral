@@ -390,6 +390,7 @@
       "spiralData": "That folder is the Spiral folder or holds its database, artwork or packs. Pick another folder.",
       "noSource": "There's no music folder to copy files into. Add a folder first.",
       "unavailable": "That music folder isn't available. Connect its drive and try again.",
+      "lastSource": "Spiral needs at least one music folder. Add another before removing this one.",
       "overlap": "That folder overlaps one of your sources. Pick one that doesn't contain, or sit inside, another source."
     }
   }
