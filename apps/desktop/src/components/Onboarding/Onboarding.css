@@ -252,6 +252,12 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
   color: var(--color-text-muted);
 }
 
+/* Wide enough for the countdown, so Back doesn't shift as it ticks down. */
+.onboarding__finish {
+  min-width: 7.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .onboarding__nav {
   display: flex;
   align-items: center;
@@ -373,6 +379,61 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
   font-size: 0.9375rem;
   line-height: 1.5;
   color: var(--color-text-secondary);
+}
+
+/*
+ * A step with a longer message trades controls width for text width. The
+ * tracks and gap still total the standard 964px, so the pair stays centred and
+ * the text column starts where every other step's does.
+ */
+.onboarding__panel--message {
+  grid-template-columns: minmax(240px, 520px) minmax(0, 372px);
+}
+
+/* Support step */
+.onboarding-support__message {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.onboarding-support__text {
+  margin: 0;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.onboarding-support {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.onboarding-support .btn {
+  padding-block: 0.8rem;
+  font-size: 1rem;
+  gap: 0.6rem;
+}
+
+/* The standard primary button, in Buy Me a Coffee yellow. */
+.onboarding-support .onboarding-support__coffee,
+.onboarding-support .onboarding-support__coffee:hover:not(:disabled) {
+  background-color: #ffdd00;
+  border-color: color-mix(in srgb, #ffdd00 70%, black);
+  color: #0d0c22;
+  font-weight: 600;
+}
+
+.onboarding-support .onboarding-support__coffee:hover:not(:disabled) {
+  filter: brightness(1.04);
+}
+
+.onboarding-support .btn > img {
+  height: 1.15em;
+  width: auto;
+  flex-shrink: 0;
 }
 
 @keyframes onboarding-panel-in {

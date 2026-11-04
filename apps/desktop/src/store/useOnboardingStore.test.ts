@@ -111,17 +111,23 @@ describe("useOnboardingStore", () => {
   it("adds the folders step only for existing music", async () => {
     const store = await freshStore();
     const { onboardingSteps } = await import("./useOnboardingStore");
-    expect(onboardingSteps("new")).toEqual(["library", "style", "privacy"]);
+    expect(onboardingSteps("new")).toEqual([
+      "library",
+      "style",
+      "privacy",
+      "support",
+    ]);
     expect(onboardingSteps("existing")).toEqual([
       "library",
       "folders",
       "style",
       "privacy",
+      "support",
     ]);
 
     store.getState().setMusicChoice("existing");
-    for (let i = 0; i < 5; i++) store.getState().next();
-    expect(store.getState().step).toBe(3);
+    for (let i = 0; i < 6; i++) store.getState().next();
+    expect(store.getState().step).toBe(4);
   });
 
   it("forgets the answer and added folders when started again", async () => {

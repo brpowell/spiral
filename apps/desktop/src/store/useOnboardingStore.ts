@@ -11,15 +11,16 @@ import { useSourcesStore } from "./useSourcesStore";
 /** How the user answered "Where does your music live?" on the first step. */
 export type MusicChoice = "new" | "existing";
 
-export type OnboardingStepId = "library" | "folders" | "style" | "privacy";
+export type OnboardingStepId =
+  "library" | "folders" | "style" | "privacy" | "support";
 
 /** The welcome steps in order; picking folders only appears for existing music. */
 export function onboardingSteps(
   choice: MusicChoice | null,
 ): readonly OnboardingStepId[] {
   return choice === "existing"
-    ? ["library", "folders", "style", "privacy"]
-    : ["library", "style", "privacy"];
+    ? ["library", "folders", "style", "privacy", "support"]
+    : ["library", "style", "privacy", "support"];
 }
 
 interface OnboardingState {
