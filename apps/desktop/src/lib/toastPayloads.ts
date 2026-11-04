@@ -3,6 +3,7 @@ import { isMissingFileErrorDetail } from "./missingFileTrack";
 import { lyricsAmbiguousSettleOptions } from "./lyricsFetchToastSettle";
 import { describeSourceError } from "./sourceAccess";
 import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
+import type { ReconcileSummary } from "../types/source";
 import type {
   BackgroundTaskAction,
   BackgroundTaskSettleAsOptions,
@@ -113,6 +114,39 @@ export function organizeFailedPayload(
     {
       label: t("toasts:organize.failedFallback", { name }),
       detail: describeSourceError(err),
+    },
+    options?.dismissMs,
+  );
+}
+
+// —— Music folders ——
+
+/** What a rescan found, listing only what changed. */
+export function sourceScanPayload(
+  name: string,
+  summary: Pick<
+    ReconcileSummary,
+    "added" | "updated" | "moved" | "missing" | "restored" | "failed"
+  >,
+  options?: { dismissMs?: number | null },
+): ToastPayload {
+  const { added, updated, moved, missing, restored, failed } = summary;
+  const changes = [
+    added > 0 && t("toasts:sourceScan.added", { count: added }),
+    updated > 0 && t("toasts:sourceScan.updated", { count: updated }),
+    moved > 0 && t("toasts:sourceScan.moved", { count: moved }),
+    missing > 0 && t("toasts:sourceScan.missing", { count: missing }),
+    restored > 0 && t("toasts:sourceScan.restored", { count: restored }),
+    failed > 0 && t("toasts:sourceScan.failed", { count: failed }),
+  ].filter(Boolean);
+  return withOptionalDismiss(
+    {
+      label: t("toasts:sourceScan.done", { name }),
+      detail:
+        changes.length > 0
+          ? changes.join(", ")
+          : t("toasts:sourceScan.noChanges"),
+      status: failed > 0 ? "warning" : "success",
     },
     options?.dismissMs,
   );

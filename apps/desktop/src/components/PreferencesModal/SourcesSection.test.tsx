@@ -247,19 +247,29 @@ describe("SourcesSection", () => {
   });
 
   it("rescans from the menu", async () => {
+    const original = useBackgroundTasksStore.getState().showToast;
+    const showToast = vi.fn();
+    useBackgroundTasksStore.setState({ showToast });
     tauri.rescanSource.mockResolvedValue({
       added: 1,
       updated: 0,
       moved: 2,
       missing: 0,
       restored: 0,
+      failed: 0,
     });
     await renderSection();
     chooseFromMenu("Music", /Rescan/);
     await waitFor(() => expect(tauri.rescanSource).toHaveBeenCalledWith(3));
-    expect(
-      await screen.findByText(/Scan finished: 1 added, 0 updated, 2 moved/),
-    ).toBeTruthy();
+    await waitFor(() =>
+      expect(showToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          label: "“Music” scanned",
+          detail: "1 added, 2 moved",
+        }),
+      ),
+    );
+    useBackgroundTasksStore.setState({ showToast: original });
   });
 
   it("has no writable switch or read-only badge", async () => {

@@ -133,6 +133,16 @@
     "failed": "{{count}} failed",
     "failedFallback": "Couldn't organize “{{name}}”"
   },
+  "sourceScan": {
+    "done": "“{{name}}” scanned",
+    "noChanges": "No changes",
+    "added": "{{count}} added",
+    "updated": "{{count}} updated",
+    "moved": "{{count}} moved",
+    "missing": "{{count}} missing",
+    "restored": "{{count}} found again",
+    "failed": "{{count}} failed"
+  },
   "convert": {
     "running_one": "Converting track…",
     "running_other": "Converting tracks…",
