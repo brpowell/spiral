@@ -1,4 +1,8 @@
-import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import type {
+  ComponentPropsWithRef,
+  ComponentPropsWithoutRef,
+  ReactNode,
+} from "react";
 import "./ChoiceOption.css";
 
 export type ChoiceListProps = ComponentPropsWithoutRef<"ul">;
@@ -14,7 +18,7 @@ export function ChoiceList({ className, children, ...props }: ChoiceListProps) {
 }
 
 export type ChoiceOptionProps = Omit<
-  ComponentPropsWithoutRef<"button">,
+  ComponentPropsWithRef<"button">,
   "children" | "type"
 > & {
   title: ReactNode;

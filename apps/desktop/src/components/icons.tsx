@@ -457,6 +457,48 @@ export function IconExport(props: IconProps) {
   );
 }
 
+export function IconFolderCog(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <circle cx="18" cy="18" r="3" />
+      <path d="M10.3 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v3.3" />
+      <path d="m21.7 19.4-.9-.3" />
+      <path d="m15.2 16.9-.9-.3" />
+      <path d="m16.6 21.7.3-.9" />
+      <path d="m19.1 15.2.3-.9" />
+      <path d="m19.6 21.7-.4-1" />
+      <path d="m16.8 15.3-.4-1" />
+      <path d="m14.3 19.6 1-.4" />
+      <path d="m20.7 16.8 1-.4" />
+    </svg>
+  );
+}
+
+export function IconFolderPen(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M2 11.5V5a2 2 0 0 1 2-2h3.9c.7 0 1.3.3 1.7.9l.8 1.2c.4.6 1 .9 1.7.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-9.5" />
+      <path d="M11.378 13.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" />
+    </svg>
+  );
+}
+
 export function IconOpenFolder(props: IconProps) {
   return (
     <svg

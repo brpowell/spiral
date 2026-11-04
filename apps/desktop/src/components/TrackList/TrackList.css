@@ -501,6 +501,16 @@
   color: var(--color-accent);
 }
 
+.track-list__row--missing .track-item-title,
+.track-list__row--missing .track-list__cell--secondary,
+.track-list__row--missing .track-list__cell--duration {
+  opacity: 0.5;
+}
+
+.track-list__missing-file-host {
+  display: inline-flex;
+}
+
 .track-list__missing-file {
   width: var(--track-row-indicator-width);
   height: var(--track-row-indicator-width);

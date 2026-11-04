@@ -44,6 +44,13 @@ export interface Track {
   artistMbids?: string[];
   /** Album-artist credit MBIDs, same order as `albumArtist` names. */
   albumArtistMbids?: string[];
+  /**
+   * Library source the file belongs to (managed tracks folder, a watched
+   * folder, or external). Absent on tracks still being imported.
+   */
+  sourceId?: number;
+  /** When the library found the file missing on disk; null while present. */
+  missingSince?: string | null;
 }
 
 /** Copy MusicBrainz ID fields, treating missing values as empty. */

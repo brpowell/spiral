@@ -1,14 +1,7 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import {
-  formatOrganizeRelativePath,
-  GENERIC_ORGANIZE_PATH_SAMPLE,
-  isDefaultOrganizePathFormat,
-  trackToOrganizePathSample,
-  type OrganizePathSample,
-} from "../../lib/organizePathFormat";
 import {
   DEFAULT_CD_IMPORT_PROFILE_ID,
   ENCODING_PROFILE_SELECT_OPTIONS,
@@ -31,6 +24,7 @@ import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
 import { usePlaybackSettingsStore } from "../../store/usePlaybackSettingsStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { usePlaylistStore } from "../../store/usePlaylistStore";
+import { useSourcesStore } from "../../store/useSourcesStore";
 import { useUpdaterStore } from "../../store/useUpdaterStore";
 import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
 import {
@@ -39,7 +33,6 @@ import {
 } from "../../types/playbackSettings";
 import type {
   CdMetadataFetchMode,
-  ImportMode,
   LibraryDestinationInfo,
   LibraryRelocateMode,
   LibrarySettingsPatch,
@@ -83,6 +76,7 @@ import {
   IconReset,
 } from "../icons";
 import { LibraryRelocateDialog } from "./LibraryRelocateDialog";
+import { SourcesSection } from "./SourcesSection";
 import {
   PREFERENCES_SECTIONS,
   type PreferencesSectionId,
@@ -138,7 +132,6 @@ export function PreferencesModal() {
   const { t } = useTranslation(["preferences", "common"]);
 
   const titleId = useId();
-  const importModeLabelId = useId();
   const cdMetadataFetchModeLabelId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const clearHistoryTriggerRef = useRef<HTMLButtonElement>(null);
@@ -146,10 +139,6 @@ export function PreferencesModal() {
   const [activeSection, setActiveSection] =
     useState<PreferencesSectionId>("library");
   const [libraryRoot, setLibraryRoot] = useState("");
-  const [organizePathFormat, setOrganizePathFormat] = useState("");
-  const [previewSample, setPreviewSample] = useState<OrganizePathSample>(
-    GENERIC_ORGANIZE_PATH_SAMPLE,
-  );
   const anyTagWriteWarningDismissed = useTagWriteConfirmStore((state) =>
     Object.values(state.dismissed).some(Boolean),
   );
@@ -209,7 +198,6 @@ export function PreferencesModal() {
     const focus = consumePreferencesFocusSection();
     setActiveSection(focus ?? "library");
     setLibraryRoot(current.libraryRoot);
-    setOrganizePathFormat(current.organizePathFormat);
     setError(null);
     setRelocateInfo(null);
     setRelocateBusy(false);
@@ -218,16 +206,6 @@ export function PreferencesModal() {
     setClearHistoryOpen(false);
     closeClearRangeMenu();
     setDefaultPublisherIdLoaded(false);
-    const tracks = usePlayerStore.getState().library;
-    if (tracks.length > 0) {
-      setPreviewSample(
-        trackToOrganizePathSample(
-          tracks[Math.floor(Math.random() * tracks.length)]!,
-        ),
-      );
-    } else {
-      setPreviewSample(GENERIC_ORGANIZE_PATH_SAMPLE);
-    }
   }, [open, closeClearRangeMenu, consumePreferencesFocusSection]);
 
   useEffect(() => {
@@ -252,18 +230,7 @@ export function PreferencesModal() {
     };
   }, [open, activeSection, defaultPublisherIdLoaded]);
 
-  const organizePreviewPath = useMemo(() => {
-    if (!settings) return null;
-    return formatOrganizeRelativePath(organizePathFormat, previewSample);
-  }, [settings, organizePathFormat, previewSample]);
-
   if (!settings) return null;
-
-  const IMPORT_MODE_OPTIONS: { value: ImportMode; label: string }[] = [
-    { value: "copy", label: t("preferences:library.importCopy") },
-    { value: "reference", label: t("preferences:library.importReference") },
-    { value: "ask", label: t("preferences:library.importAsk") },
-  ];
 
   const CD_METADATA_FETCH_MODE_OPTIONS: {
     value: CdMetadataFetchMode;
@@ -296,6 +263,7 @@ export function PreferencesModal() {
     await usePlayerStore.getState().loadLibrary();
     await usePlaylistStore.getState().loadPlaylists();
     await useArtistImageStore.getState().loadArtistImages();
+    await useSourcesStore.getState().loadSources();
   };
 
   const beginLibraryRootChange = async (value: string = libraryRoot) => {
@@ -355,21 +323,9 @@ export function PreferencesModal() {
     }
   };
 
-  const commitOrganizePathFormat = (value: string = organizePathFormat) => {
-    if (value === settings.organizePathFormat) return;
-    patchSettings({ organizePathFormat: value });
-  };
-
   const flushTextFields = () => {
     const current = useLibrarySettingsStore.getState().settings;
     if (!current) return;
-    if (
-      organizePathFormat !== current.organizePathFormat &&
-      !relocateInfo &&
-      !relocateBusy
-    ) {
-      patchSettings({ organizePathFormat });
-    }
     // Discard unconfirmed library-root edits when closing preferences.
     if (libraryRoot.trim() !== current.libraryRoot && !relocateInfo) {
       setLibraryRoot(current.libraryRoot);
@@ -511,6 +467,12 @@ export function PreferencesModal() {
           <div className="preferences__content">
             {activeSection === "library" && (
               <div className="preferences__panel">
+                {/* The folders Spiral plays from come first: they're what the
+                    library is. The Spiral folder itself is rarely changed. */}
+                <SourcesSection />
+
+                <Separator />
+
                 <FormField
                   label={t("preferences:library.location")}
                   description={t("preferences:library.locationDescription")}
@@ -547,89 +509,6 @@ export function PreferencesModal() {
                       {t("common:reset")}
                     </Button>
                   </div>
-                </FormField>
-
-                <Separator />
-
-                <Checkbox
-                  alignStart
-                  className="preferences__checkbox"
-                  checked={settings.autoOrganize}
-                  onChange={(e) =>
-                    patchSettings({ autoOrganize: e.target.checked })
-                  }
-                >
-                  {t("preferences:library.autoOrganize")}
-                </Checkbox>
-
-                <div className="preferences__organize-path">
-                  <FormField
-                    label={t("preferences:library.pathFormat")}
-                    description={
-                      organizePreviewPath != null ? (
-                        <span aria-live="polite">
-                          <code>{organizePreviewPath}</code>
-                        </span>
-                      ) : undefined
-                    }
-                  >
-                    <div className="preferences__path-row">
-                      <TextInput
-                        value={organizePathFormat}
-                        disabled={!settings.autoOrganize}
-                        onChange={(e) => setOrganizePathFormat(e.target.value)}
-                        onBlur={() => commitOrganizePathFormat()}
-                        spellCheck={false}
-                      />
-                      <Button
-                        size="sm"
-                        disabled={
-                          !settings.autoOrganize ||
-                          isDefaultOrganizePathFormat(organizePathFormat)
-                        }
-                        onClick={() => {
-                          const next = settings.defaultOrganizePathFormat;
-                          setOrganizePathFormat(next);
-                          commitOrganizePathFormat(next);
-                        }}
-                      >
-                        <IconReset />
-                        {t("common:reset")}
-                      </Button>
-                    </div>
-                  </FormField>
-                  <p className="preferences__hint">
-                    <span className="preferences__hint-label">
-                      {t("preferences:library.placeholders")}
-                    </span>{" "}
-                    <code>{"{albumArtist}"}</code>, <code>{"{artist}"}</code>,{" "}
-                    <code>{"{album}"}</code>, <code>{"{title}"}</code>,{" "}
-                    <code>{"{trackNumber:02}"}</code>,{" "}
-                    <code>{"{discNumber:02}"}</code>, <code>{"{year}"}</code>,{" "}
-                    <code>{"{genre}"}</code>, <code>{"{ext}"}</code>
-                  </p>
-                </div>
-
-                <Separator />
-
-                <FormField
-                  label={t("preferences:library.importMode")}
-                  labelId={importModeLabelId}
-                >
-                  <RadioGroup
-                    name="importMode"
-                    value={settings.importMode}
-                    onChange={(importMode) => patchSettings({ importMode })}
-                    variant="button"
-                    orientation="horizontal"
-                    aria-labelledby={importModeLabelId}
-                  >
-                    {IMPORT_MODE_OPTIONS.map((opt) => (
-                      <RadioGroupItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </RadioGroupItem>
-                    ))}
-                  </RadioGroup>
                 </FormField>
               </div>
             )}

@@ -5,6 +5,7 @@ import {
 } from "./pendingImportTrack";
 import { yieldForInteraction } from "./scheduling";
 import { t } from "./i18n";
+import { describeSourceError } from "./sourceAccess";
 import {
   findLibraryDuplicate,
   findTrackAtSourcePath,
@@ -50,7 +51,8 @@ export interface ParsedImportEntry {
 
 export interface CommitImportOptions {
   onProgress?: (current: number, total: number) => void;
-  mode: "copy" | "reference";
+  /** Copies go into this source; the import source when unset. */
+  destinationSourceId?: number | null;
   /** Pre-resolved duplicate actions keyed by pending import id. */
   duplicateActions?: ReadonlyMap<number, ImportDedupeResolution>;
   onTrackActivated?: (pendingId: number, track: Track) => void;
@@ -392,7 +394,6 @@ export async function commitImportEntries(
           const updated = await replaceTrackFromImport({
             trackId: existing.id,
             sourcePath,
-            mode: options.mode,
             track,
           });
           options.onTrackReplaced?.(pendingId, updated);
@@ -407,7 +408,10 @@ export async function commitImportEntries(
         }
       }
 
-      const finalPath = await prepareImportFile(sourcePath, options.mode);
+      const finalPath = await prepareImportFile(
+        sourcePath,
+        options.destinationSourceId,
+      );
       const saved = await saveTrack({ ...metadata, filePath: finalPath });
       options.onTrackActivated?.(pendingId, saved);
       result.imported += 1;
@@ -417,8 +421,7 @@ export async function commitImportEntries(
         throw err;
       }
       result.failed += 1;
-      const message = err instanceof Error ? err.message : String(err);
-      result.errors.push(`${sourcePath}: ${message}`);
+      result.errors.push(`${sourcePath}: ${describeSourceError(err)}`);
       options.onTrackFailed?.(pendingId);
       console.error(`Failed to import ${sourcePath}:`, err);
     }

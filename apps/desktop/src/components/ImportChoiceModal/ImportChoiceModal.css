@@ -1,0 +1,22 @@
+/* The picker takes the row; adding a folder sits beside it. */
+.import-choice-modal__destination {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.import-choice-modal__destination > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.import-choice-modal__destination > .btn {
+  flex-shrink: 0;
+  height: var(--control-height);
+}
+
+.import-choice-modal__error {
+  margin: 0.5rem 0.25rem 0;
+  font-size: 0.85rem;
+  color: var(--color-danger);
+}

@@ -1,5 +1,3 @@
-export type ImportMode = "ask" | "copy" | "reference";
-
 export type CdMetadataFetchMode = "ask" | "always" | "never";
 
 export type LibraryRelocateMode = "move" | "switch" | "fresh" | "freshImport";
@@ -17,11 +15,11 @@ export interface LibrarySettings {
   mediaFolder: string;
   artworkFolder: string;
   databasePath: string;
-  autoOrganize: boolean;
-  /** Full relative path under the tracks folder. Use `/` between folders. */
-  organizePathFormat: string;
+  /**
+   * Spiral's organize path, relative to a source's folder, for sources
+   * without their own. Users can't change it; they override it per source.
+   */
   defaultOrganizePathFormat: string;
-  importMode: ImportMode;
   cdMetadataFetchMode: CdMetadataFetchMode;
   cdImportProfileId: string;
   defaultLibraryRoot: string;
@@ -36,9 +34,6 @@ export interface LibrarySettings {
 
 export interface LibrarySettingsPatch {
   libraryRoot?: string;
-  autoOrganize?: boolean;
-  organizePathFormat?: string;
-  importMode?: ImportMode;
   cdMetadataFetchMode?: CdMetadataFetchMode;
   cdImportProfileId?: string;
   listeningHistoryEnabled?: boolean;

@@ -1,12 +1,41 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useOnboardingStore } from "../../store/useOnboardingStore";
+import { useSourcesStore } from "../../store/useSourcesStore";
+import type { Source } from "../../types/source";
 import {
   Onboarding,
   ONBOARDING_FADE_MS,
   ONBOARDING_HOLD_MS,
   ONBOARDING_START_DELAY_MS,
 } from "./Onboarding";
+
+const tauri = vi.hoisted(() => ({
+  createManagedSource: vi.fn(),
+  removeSource: vi.fn(),
+  listSources: vi.fn(),
+  getSourceStatuses: vi.fn(),
+  pickMusicFolder: vi.fn(),
+  addSource: vi.fn(),
+}));
+vi.mock("../../lib/tauri", () => tauri);
+
+const tracks = {
+  id: 1,
+  name: "Tracks",
+  rootPath: "/Music/Spiral/Tracks",
+  autoOrganize: true,
+  pathFormat: null,
+  importTarget: true,
+  createdAt: "2026-01-01T00:00:00Z",
+};
+
+/** Next on the first step applies the answer, which is async. */
+async function clickNext() {
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  });
+}
 
 describe("Onboarding", () => {
   let complete: (() => void) | undefined;
@@ -36,7 +65,19 @@ describe("Onboarding", () => {
         },
       },
     };
-    useOnboardingStore.setState({ open: true, step: 0 });
+    useOnboardingStore.setState({
+      open: true,
+      step: 0,
+      musicChoice: null,
+      addedSourceIds: [],
+      placeholderSourceId: null,
+    });
+    useSourcesStore.setState({ sources: [], sourcesById: new Map() });
+    vi.clearAllMocks();
+    tauri.listSources.mockResolvedValue([]);
+    tauri.getSourceStatuses.mockResolvedValue([]);
+    tauri.createManagedSource.mockResolvedValue(tracks);
+    tauri.removeSource.mockResolvedValue(0);
   });
 
   afterEach(() => {
@@ -67,24 +108,31 @@ describe("Onboarding", () => {
 
     expect(overlay.className).toContain("onboarding--docked");
     expect(
-      screen.getByRole("heading", { name: "Where should your library live?" }),
+      screen.getByRole("heading", {
+        name: "How do you want your music organized?",
+      }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Skip welcome" }),
+      screen.getByText("You can always change this later."),
     ).toBeInTheDocument();
+    // Next waits for an answer to the first question.
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
     // First step has nowhere to go back to.
     expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
   });
 
-  it("steps forward and back through the welcome screens", () => {
+  it("steps through a new collection without a folders step", async () => {
     render(<Onboarding />);
     playThroughReveal();
 
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("radio", { name: /^Use the default/ }));
+    await clickNext();
+    // Spiral manages a Tracks folder for a new collection.
+    expect(tauri.createManagedSource).toHaveBeenCalledTimes(1);
     expect(
       screen.getByRole("heading", { name: "Try on a style" }),
     ).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 3")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(
@@ -95,6 +143,60 @@ describe("Onboarding", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(
       screen.getByRole("heading", { name: "Try on a style" }),
+    ).toBeInTheDocument();
+  });
+
+  it("adds a folders step for music that's already organized", async () => {
+    render(<Onboarding />);
+    playThroughReveal();
+
+    fireEvent.click(
+      screen.getByRole("radio", {
+        name: /^I'll pick the folder\(s\)/,
+      }),
+    );
+    await clickNext();
+    // Only the folders the user picks are shown: no Tracks is made.
+    expect(tauri.createManagedSource).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("heading", { name: "Add music sources" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 4")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Add folder" }),
+    ).toBeInTheDocument();
+    // It needs a folder before it moves on.
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+
+    const music = { ...tracks, id: 3, rootPath: "/Music" } as Source;
+    act(() => {
+      useSourcesStore.setState({
+        sources: [music],
+        sourcesById: new Map([[3, music]]),
+      });
+    });
+    await clickNext();
+    expect(
+      screen.getByRole("heading", { name: "Try on a style" }),
+    ).toBeInTheDocument();
+  });
+
+  it("stays on the first step and says why when Tracks can't be made", async () => {
+    tauri.createManagedSource.mockRejectedValue(
+      "source_overlap: /Music/Spiral/Tracks overlaps /Music",
+    );
+    render(<Onboarding />);
+    playThroughReveal();
+
+    fireEvent.click(screen.getByRole("radio", { name: /^Use the default/ }));
+    await clickNext();
+    expect(screen.getByRole("alert").textContent).toMatch(
+      /overlaps one of your sources/,
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: "How do you want your music organized?",
+      }),
     ).toBeInTheDocument();
   });
 
@@ -117,15 +219,11 @@ describe("Onboarding", () => {
     expect(destroy).toHaveBeenCalled();
   });
 
-  it("skips straight out from any step", () => {
+  it("has no way out but finishing the steps", () => {
     render(<Onboarding />);
     playThroughReveal();
 
-    fireEvent.click(screen.getByRole("button", { name: "Skip welcome" }));
-    act(() => {
-      vi.advanceTimersByTime(ONBOARDING_FADE_MS);
-    });
-    expect(useOnboardingStore.getState().open).toBe(false);
+    expect(screen.queryByRole("button", { name: /skip/i })).toBeNull();
   });
 
   it("mounts paused with sound on, then plays after the start delay", () => {

@@ -203,21 +203,16 @@ export function startLibraryImport(paths: string[]): void {
           return;
         }
 
-        const settingsStore = useLibrarySettingsStore.getState();
-        if (!settingsStore.settings) {
-          await settingsStore.loadSettings();
-        }
-        let importMode: "copy" | "reference";
+        let destinationSourceId: number | null = null;
         try {
-          importMode = await settingsStore.resolveImportMode();
+          const choice = await useLibrarySettingsStore
+            .getState()
+            .resolveImportDestination();
+          destinationSourceId = choice.sourceId ?? null;
         } catch {
           ctx.setDetail(t("toasts:import.cancelled"));
           logImportCancelled();
           return;
-        }
-
-        if (zipExtractDirs.length > 0 && importMode === "reference") {
-          importMode = "copy";
         }
 
         await waitForPaint();
@@ -265,7 +260,7 @@ export function startLibraryImport(paths: string[]): void {
 
         try {
           result = await commitImportEntries(entries, {
-            mode: importMode,
+            destinationSourceId,
             onProgress: (current, total) => ctx.setProgress(current, total),
             isCancelRequested: () => ctx.isCancelRequested(),
             onTrackActivated: (pendingId, track) => {
@@ -312,7 +307,7 @@ export function startLibraryImport(paths: string[]): void {
           domain: ACTIVITY_LOG_DOMAINS.library,
           message: "Library import completed",
           details: {
-            importMode,
+            ...(destinationSourceId != null ? { destinationSourceId } : {}),
             imported: result.imported,
             replaced: result.replaced,
             skipped: result.skipped,

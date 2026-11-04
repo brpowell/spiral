@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import type { LibraryRelocateMode } from "../../types/library";
@@ -88,7 +95,8 @@ export function LibraryRelocateDialog({
     <Modal
       open={open}
       onClose={handleClose}
-      size="sm"
+      // Three long button labels need more than "sm" leaves the footer.
+      size="xl"
       panelClassName="alert-confirmation"
       panelRef={dialogRef}
       labelledBy={titleId}

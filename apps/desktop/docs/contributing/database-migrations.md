@@ -47,7 +47,7 @@ If the seed does not fit the schema, generation fails with the SQL error. Adjust
 ## What the tests guard
 
 - `upgraded_legacy_database_matches_fresh_schema` builds an old-shaped database, upgrades it, and compares columns, types, nullability and keys against a fresh database.
-- `every_fixture_upgrades_to_the_fresh_schema_without_data_loss` upgrades every fixture and checks the schema matches a fresh database, `integrity_check` and `foreign_key_check` pass, and no table changed row count. A migration that intentionally changes counts must adjust that assertion.
+- `every_fixture_upgrades_to_the_fresh_schema_without_data_loss` upgrades every fixture and checks the schema matches a fresh database, `integrity_check` and `foreign_key_check` pass, and no table changed row count beyond what v3 does on purpose (it adds the `Tracks` source and drops referenced tracks with their rows; see `after_v3`). A migration that intentionally changes counts must adjust that assertion.
 - `fixture_exists_for_every_older_schema_version` fails, with the command to run, when a migration is added without a fixture for the version before it.
 
 ## For agents

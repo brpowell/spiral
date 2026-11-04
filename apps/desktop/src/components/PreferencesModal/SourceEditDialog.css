@@ -1,0 +1,163 @@
+/* Generous space between groups, tight within them, so each reads as one. */
+.source-edit__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+  /* Keeps the last group off the footer's buttons. */
+  padding-bottom: 0.75rem;
+}
+
+.source-edit__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.source-edit__label {
+  font-size: 0.82rem;
+  font-weight: var(--weight-medium);
+}
+
+/* Label over path, spaced like any field's; Change location in a column of
+   its own, centred on both. The path wraps in its column, never under the
+   button. No box: a box would read as an editable field like the path
+   format below. */
+.source-edit__location {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 0.75rem;
+  row-gap: 0.4rem;
+  align-items: center;
+}
+
+.source-edit__location > .source-edit__label {
+  grid-row: 1;
+}
+
+.source-edit__location > .source-edit__path {
+  grid-row: 2;
+}
+
+/* The whole path, wrapped: the dialog has room, and the card already ellipsizes. */
+.source-edit__path {
+  min-width: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.source-edit__location > .btn {
+  grid-column: 2;
+  grid-row: 1 / 3;
+}
+
+/* Organizing, with its path format as a sub-setting underneath. */
+.source-edit__organize {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.source-edit__option {
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+/* Lined up with the option's text, past the checkbox: part of it, not a
+   section of its own. */
+.source-edit__format {
+  padding-left: calc(1.0625rem + 0.6rem);
+}
+
+.source-edit__format .source-edit__label {
+  color: var(--color-text-secondary);
+}
+
+/* Off with organizing: dimmed and out of reach (inert), its value kept. */
+.source-edit__format[data-off] {
+  opacity: 0.45;
+}
+
+.source-edit__option > .checkbox__input {
+  flex-shrink: 0;
+  margin-top: 0.2rem;
+}
+
+.source-edit__hint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+/* The column's gap spaces the fields; drop Field's own top margin. */
+.source-edit__fields > .field {
+  margin: 0;
+}
+
+/* Wider than the lg preset, so a typical format and its preview fit on a line. */
+/* Positioned so the discard prompt can cover it. */
+.modal-panel.source-edit {
+  position: relative;
+  width: min(600px, 100%);
+  max-height: calc(100vh - 3rem);
+}
+
+/* Monospace reads larger than the text around it, so scale it down to match.
+   Same colour as the "e.g." before it. */
+.source-edit__preview {
+  font-size: 0.88em;
+  overflow-wrap: anywhere;
+}
+
+.source-edit__tokens {
+  margin-top: 0.35rem;
+}
+
+/* Part of the field, not a second label: the hint's size and muted colour,
+   with medium weight so the tokens are still found. */
+.source-edit__tokens > .disclosure__trigger {
+  font-size: 0.82rem;
+  font-weight: var(--weight-medium);
+}
+
+.source-edit__token-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+}
+
+/* Each row's button and description sit in the grid's two columns. */
+.source-edit__token-list > li {
+  display: contents;
+}
+
+.source-edit__token {
+  justify-self: start;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.source-edit__token:hover:not(:disabled) {
+  background: var(--color-interactive-hover);
+}
+
+.source-edit__token:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.source-edit__token-description {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}

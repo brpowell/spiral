@@ -3,6 +3,7 @@ import { logActivity } from "./activityLog";
 import { formatFailureDetail } from "./formatFailureDetail";
 import { getEncodingProfile } from "./encodingProfiles";
 import { t } from "./i18n";
+import { describeSourceError } from "./sourceAccess";
 import {
   discoverTrackFileMissing,
   isTrackMissingFile,
@@ -190,7 +191,7 @@ export function startConvertTracks(options: {
           converted += 1;
         } catch (err) {
           failed += 1;
-          const message = err instanceof Error ? err.message : String(err);
+          const message = describeSourceError(err);
           const title =
             librarySnapshot.find((track) => track.id === trackId)?.title ??
             `Track ${trackId}`;

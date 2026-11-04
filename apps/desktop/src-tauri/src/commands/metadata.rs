@@ -15,6 +15,7 @@ use crate::models::TrackInput;
 use crate::models::{Track, TrackMetadataUpdate};
 use crate::path_scope;
 use crate::settings;
+use crate::sources;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -459,6 +460,46 @@ pub async fn clear_metadata_cache(app: AppHandle) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
+/// How a track's source organizes its files: the source root and the
+/// effective path format. `None` when the source isn't organized (always for
+/// Other) or its folder isn't known.
+fn organize_for_track(
+    conn: &rusqlite::Connection,
+    track: &Track,
+) -> Result<Option<(PathBuf, String)>, String> {
+    let Some(format) =
+        sources::organize_settings(conn, track.source_id).map_err(|e| e.to_string())?
+    else {
+        return Ok(None);
+    };
+    let roots = sources::SourceRoots::load(conn).map_err(|e| e.to_string())?;
+    Ok(roots
+        .root(track.source_id)
+        .map(|root| (root.to_path_buf(), format)))
+}
+
+/// Write tags to a track's file and, when its source is organized (`organize`
+/// holds the source root and format), move it into the organized layout.
+/// Returns the new path when it moved.
+fn write_track_file(
+    path: &Path,
+    metadata: &TrackMetadataUpdate,
+    organize: Option<(&Path, &str)>,
+    move_lyrics_sidecar: bool,
+) -> Result<Option<PathBuf>, String> {
+    metadata_writer::write_track_metadata(path, metadata).map_err(|e| e.to_message())?;
+    let Some((root, format)) = organize else {
+        return Ok(None);
+    };
+    library_organize::relocate_track_after_metadata(
+        &root.to_string_lossy(),
+        format,
+        path,
+        metadata,
+        move_lyrics_sidecar,
+    )
+}
+
 #[tauri::command]
 pub fn write_track_metadata(
     app: AppHandle,
@@ -467,42 +508,44 @@ pub fn write_track_metadata(
     file_path: String,
     mut metadata: TrackMetadataUpdate,
 ) -> Result<Track, String> {
-    let path = Path::new(&file_path);
     let library = settings::resolved_library_settings(&app);
     let library_root = PathBuf::from(&library.library_root);
 
-    let existing = {
+    let (existing, organize) = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
-        db::get_track_by_id(&conn, track_id)
+        let existing = db::get_track_by_id(&conn, track_id)
             .map_err(|e| e.to_string())?
-            .ok_or_else(|| format!("Track {track_id} not found"))?
+            .ok_or_else(|| format!("Track {track_id} not found"))?;
+        let organize = organize_for_track(&conn, &existing)?;
+        (existing, organize)
     };
-
-    metadata_writer::write_track_metadata(path, &metadata).map_err(|e| e.to_message())?;
+    // The stored path decides which file is written, not the caller's copy.
+    let _ = file_path;
+    let file_path = existing.file_path.clone();
+    let path = Path::new(&file_path);
 
     let mut final_path = file_path.clone();
 
-    if library.auto_organize {
-        if let Some(new_path) = library_organize::relocate_track_after_metadata(
-            &library.media_folder,
-            &library.organize_path_format,
-            path,
-            &metadata,
-            library.lyrics_sidecar_sync_enabled,
+    if let Some(new_path) = write_track_file(
+        path,
+        &metadata,
+        organize
+            .as_ref()
+            .map(|(root, format)| (root.as_path(), format.as_str())),
+        library.lyrics_sidecar_sync_enabled,
+    )? {
+        final_path = new_path.to_string_lossy().into_owned();
+        let app_data = app_data_dir(&app)?;
+        if let Some(new_art) = library_organize::migrate_art_cache(
+            &app_data,
+            &file_path,
+            &final_path,
+            metadata
+                .art_path
+                .as_deref()
+                .or(existing.art_path.as_deref()),
         )? {
-            final_path = new_path.to_string_lossy().into_owned();
-            let app_data = app_data_dir(&app)?;
-            if let Some(new_art) = library_organize::migrate_art_cache(
-                &app_data,
-                &file_path,
-                &final_path,
-                metadata
-                    .art_path
-                    .as_deref()
-                    .or(existing.art_path.as_deref()),
-            )? {
-                metadata.art_path = Some(new_art);
-            }
+            metadata.art_path = Some(new_art);
         }
     }
 
@@ -592,22 +635,11 @@ pub fn write_track_metadata(
         }
 
         if metadata.lyrics_changed {
-            if let Some(lyrics) = metadata.lyrics.as_ref().filter(|lyrics| {
-                lyrics.format == crate::models::LyricsFormat::Instrumental
-                    || !lyrics.plain_text.trim().is_empty()
-            }) {
-                let record =
-                    lyrics_normalize::track_lyrics_input_to_record(lyrics.clone(), track_id);
-                db::upsert_track_lyrics(&conn, &record).map_err(|e| {
-                    eprintln!("upsert_track_lyrics error: {e}");
+            lyrics_normalize::save_track_lyrics(&conn, track_id, metadata.lyrics.as_ref())
+                .map_err(|e| {
+                    eprintln!("save_track_lyrics error: {e}");
                     e.to_string()
                 })?;
-            } else {
-                db::delete_track_lyrics(&conn, track_id).map_err(|e| {
-                    eprintln!("delete_track_lyrics error: {e}");
-                    e.to_string()
-                })?;
-            }
         }
 
         let mut track = db::get_track_by_id(&conn, track_id)
@@ -665,4 +697,84 @@ pub async fn ensure_art_row_thumb(
 
 fn app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     app.path().app_data_dir().map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::source_test_support::*;
+    use crate::test_fixtures::ogg;
+
+    const FORMAT: &str = "{artist}/{album}/{title}.{ext}";
+
+    fn edit() -> TrackMetadataUpdate {
+        TrackMetadataUpdate {
+            title: "New Title".into(),
+            artist: Some("New Artist".into()),
+            album: Some("New Album".into()),
+            ..Default::default()
+        }
+    }
+
+    fn title_on_disk(path: &Path) -> Option<String> {
+        metadata_reader::read_basic_tags(path).title
+    }
+
+    fn track(conn: &rusqlite::Connection, id: i64) -> Track {
+        db::get_track_by_id(conn, id).unwrap().unwrap()
+    }
+
+    #[test]
+    fn organized_edit_writes_tags_and_moves_within_the_source() {
+        let tmp = TempDir::new("edit-organized");
+        let root = tmp.dir("Collection");
+        let file = ogg::copy_minimal(&root, "a.ogg");
+        let moved = write_track_file(&file, &edit(), Some((&root, FORMAT)), false)
+            .unwrap()
+            .expect("organized file moves");
+        assert!(!file.exists());
+        assert_eq!(moved, root.join("New Artist/New Album/New Title.ogg"));
+        assert_eq!(title_on_disk(&moved).as_deref(), Some("New Title"));
+    }
+
+    #[test]
+    fn unorganized_edit_writes_tags_without_moving() {
+        let tmp = TempDir::new("edit-unorganized");
+        let file = ogg::copy_minimal(&tmp.0, "a.ogg");
+        assert_eq!(write_track_file(&file, &edit(), None, false).unwrap(), None);
+        assert_eq!(title_on_disk(&file).as_deref(), Some("New Title"));
+    }
+
+    #[test]
+    fn the_tracks_own_source_decides_how_it_is_organized() {
+        let tmp = TempDir::new("edit-source-settings");
+        let conn = conn();
+        let t = source_tracks(
+            &conn,
+            Path::new("/managed/m.ogg"),
+            &tmp.0.join("Collection/u.ogg"),
+        );
+        let user = track(&conn, t.user);
+        let user_root = tmp.0.join("Collection");
+
+        // New user sources aren't organized.
+        assert_eq!(organize_for_track(&conn, &user).unwrap(), None);
+
+        // Organized without its own format: Spiral's built-in one.
+        sources::set_source_organize(&conn, user.source_id, true).unwrap();
+        assert_eq!(
+            organize_for_track(&conn, &user).unwrap(),
+            Some((
+                user_root.clone(),
+                crate::library_organize::DEFAULT_ORGANIZE_PATH_FORMAT.to_string()
+            ))
+        );
+        sources::set_source_path_format(&conn, user.source_id, Some("{title}.{ext}".into()))
+            .unwrap();
+        // Its own format wins.
+        assert_eq!(
+            organize_for_track(&conn, &user).unwrap(),
+            Some((user_root, "{title}.{ext}".to_string()))
+        );
+    }
 }

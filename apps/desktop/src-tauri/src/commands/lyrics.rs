@@ -1,4 +1,4 @@
-use crate::commands::library::DbState;
+use crate::commands::library::{project_lyrics_to_file, track_for_ui, DbState};
 use crate::db;
 use crate::lyrics_fetch;
 use crate::lyrics_normalize;
@@ -6,6 +6,8 @@ use crate::models::{
     LyricsFetchCachePeek, LyricsFetchOutcome, LyricsFormat, LyricsSource, Track, TrackLyricsInput,
     TrackLyricsRecord,
 };
+use crate::settings;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, State};
 
 #[tauri::command]
@@ -38,6 +40,47 @@ pub fn mark_track_instrumental(state: State<'_, DbState>, track_id: i64) -> Resu
     db::get_track_by_id(&conn, track_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Track {track_id} not found after marking instrumental"))
+}
+
+/// Save lyrics fetched for a track, in the library and in the file's tags
+/// and sidecar.
+#[tauri::command]
+pub fn save_track_lyrics(
+    app: AppHandle,
+    state: State<'_, DbState>,
+    track_id: i64,
+    lyrics: Option<TrackLyricsInput>,
+) -> Result<Track, String> {
+    save_lyrics(
+        &state,
+        track_id,
+        lyrics.as_ref(),
+        settings::lyrics_sidecar_sync_enabled(&app),
+    )?;
+    let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    track_for_ui(&conn, &library_root, track_id)
+}
+
+fn save_lyrics(
+    state: &DbState,
+    track_id: i64,
+    lyrics: Option<&TrackLyricsInput>,
+    sidecar_enabled: bool,
+) -> Result<(), String> {
+    let file_path = {
+        let conn = state.0.lock().map_err(|e| e.to_string())?;
+        db::get_track_by_id(&conn, track_id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("Track {track_id} not found"))?
+            .file_path
+    };
+    project_lyrics_to_file(Path::new(&file_path), lyrics, sidecar_enabled)?;
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    lyrics_normalize::save_track_lyrics(&conn, track_id, lyrics).map_err(|e| {
+        eprintln!("save_track_lyrics error: {e}");
+        e.to_string()
+    })
 }
 
 #[tauri::command]
@@ -92,4 +135,51 @@ pub async fn peek_lyrics_fetch_cache(
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lyrics_sidecar::sidecar_path_for;
+    use crate::models::LyricsLine;
+    use crate::source_test_support::*;
+    use crate::test_fixtures::ogg;
+    use std::sync::Mutex;
+
+    fn synced() -> TrackLyricsInput {
+        TrackLyricsInput {
+            format: LyricsFormat::LineSynced,
+            source: Some(LyricsSource::Lrclib),
+            lines: vec![LyricsLine {
+                text: "Fetched line".into(),
+                start_ms: Some(1_000),
+                end_ms: None,
+                words: None,
+            }],
+            plain_text: "Fetched line".into(),
+        }
+    }
+
+    #[test]
+    fn fetched_lyrics_reach_every_sources_files() {
+        let tmp = TempDir::new("lyrics");
+        let files: Vec<_> = ["m", "u"]
+            .iter()
+            .map(|name| ogg::copy_minimal(&tmp.dir(name), &format!("{name}.ogg")))
+            .collect();
+        let conn = conn();
+        let t = source_tracks(&conn, &files[0], &files[1]);
+        let state = DbState(Mutex::new(conn));
+        let lyrics = synced();
+
+        for (id, file) in [(t.managed, &files[0]), (t.user, &files[1])] {
+            let before = std::fs::read(file).unwrap();
+            save_lyrics(&state, id, Some(&lyrics), true).unwrap();
+
+            let stored = db::get_track_lyrics(&state.0.lock().unwrap(), id).unwrap();
+            assert_eq!(stored.unwrap().plain_text, "Fetched line");
+            assert_ne!(std::fs::read(file).unwrap(), before, "{}", file.display());
+            assert!(sidecar_path_for(file).is_file());
+        }
+    }
 }

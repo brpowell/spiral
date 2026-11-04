@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentType,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
   adoptOnboardingSplash,
@@ -6,12 +12,16 @@ import {
   onboardingOverlayTop,
 } from "../../lib/onboardingSplash";
 import {
-  ONBOARDING_STEP_COUNT,
+  onboardingSteps,
   useOnboardingStore,
+  type OnboardingStepId,
 } from "../../store/useOnboardingStore";
+import { describeSourceError } from "../../lib/sourceAccess";
+import { useSourcesStore } from "../../store/useSourcesStore";
 import { Button } from "../common/Button/Button";
 import { FadingScroller } from "./FadingScroller";
 import { TransportPreview } from "./TransportPreview";
+import { FoldersStep } from "./steps/FoldersStep";
 import { LibraryStep } from "./steps/LibraryStep";
 import { PrivacyStep } from "./steps/PrivacyStep";
 import { StyleStep } from "./steps/StyleStep";
@@ -29,12 +39,26 @@ export const ONBOARDING_DOCK_MS = 800;
 /** Matches the `.onboarding` opacity transition. */
 export const ONBOARDING_FADE_MS = 600;
 
-/** `split`: text left, controls right. `centered`: one stacked, centred column (small settings). */
-const STEPS = [
-  { id: "library", Content: LibraryStep, layout: "centered" },
-  { id: "style", Content: StyleStep, layout: "split" },
-  { id: "privacy", Content: PrivacyStep, layout: "split" },
-] as const;
+/**
+ * `split`: text left, controls right, on the same fixed grid for every such
+ * step. `centered`: one stacked, centred column, with the description as a
+ * note under the controls (read after the choices, it answers "what if I'm
+ * not sure?").
+ */
+const STEPS: Record<
+  OnboardingStepId,
+  { Content: ComponentType; layout: "split" | "centered" }
+> = {
+  library: { Content: LibraryStep, layout: "centered" },
+  folders: { Content: FoldersStep, layout: "split" },
+  style: { Content: StyleStep, layout: "split" },
+  privacy: { Content: PrivacyStep, layout: "split" },
+};
+
+const LAYOUT_CLASSES = {
+  split: "onboarding__panel--split",
+  centered: "onboarding__panel--centered",
+} as const;
 
 /**
  * First-run overlay over the library: plays the Spiral logo reveal once, docks
@@ -53,6 +77,16 @@ function OnboardingOverlay() {
   const step = useOnboardingStore((s) => s.step);
   const next = useOnboardingStore((s) => s.next);
   const back = useOnboardingStore((s) => s.back);
+  const musicChoice = useOnboardingStore((s) => s.musicChoice);
+  const applyMusicChoice = useOnboardingStore((s) => s.applyMusicChoice);
+  const settleFolders = useOnboardingStore((s) => s.settleFolders);
+  // The folders step needs a folder of the user's own before it moves on.
+  const placeholderSourceId = useOnboardingStore((s) => s.placeholderSourceId);
+  const hasOwnFolder = useSourcesStore((s) =>
+    s.sources.some((source) => source.id !== placeholderSourceId),
+  );
+  const [advancing, setAdvancing] = useState(false);
+  const [stepError, setStepError] = useState<string | null>(null);
   const logoRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<SpiralMotionController | null>(null);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -140,8 +174,32 @@ function OnboardingOverlay() {
     return () => clearTimeout(timer);
   }, [leaving, finish]);
 
-  const isLast = step === ONBOARDING_STEP_COUNT - 1;
-  const { id, Content, layout } = STEPS[step];
+  const stepIds = onboardingSteps(musicChoice);
+  const isLast = step === stepIds.length - 1;
+  const id = stepIds[step];
+  const { Content, layout } = STEPS[id];
+  const description = (
+    <p className="onboarding__description">
+      {t(`onboarding.${id}.description`)}
+    </p>
+  );
+  const goNext = async () => {
+    if (advancing) return;
+    if (id === "library" || id === "folders") {
+      setAdvancing(true);
+      setStepError(null);
+      try {
+        await (id === "library" ? applyMusicChoice() : settleFolders());
+      } catch (err) {
+        setStepError(describeSourceError(err));
+        return;
+      } finally {
+        setAdvancing(false);
+      }
+    }
+    setNavigated(true);
+    next();
+  };
 
   return (
     <div
@@ -160,33 +218,32 @@ function OnboardingOverlay() {
       <div className="onboarding__logo" ref={logoRef} />
       {docked ? (
         <>
-          <div className="onboarding__skip">
-            <Button variant="ghost" onClick={() => setLeaving(true)}>
-              {t("onboarding.skip")}
-            </Button>
-          </div>
           <div
-            className={`onboarding__panel onboarding__panel--${layout}${navigated ? "" : " onboarding__panel--first"}`}
+            className={`onboarding__panel ${LAYOUT_CLASSES[layout]}${navigated ? "" : " onboarding__panel--first"}`}
             key={id}
           >
             <div className="onboarding__intro">
               <h1 className="onboarding__title">
                 {t(`onboarding.${id}.title`)}
               </h1>
-              <p className="onboarding__description">
-                {t(`onboarding.${id}.description`)}
-              </p>
+              {layout === "centered" ? null : description}
               {id === "style" ? <TransportPreview /> : null}
             </div>
             <FadingScroller className="onboarding__content">
               <Content />
             </FadingScroller>
+            {layout === "centered" ? description : null}
+            {stepError && (id === "library" || id === "folders") ? (
+              <p className="onboarding__error" role="alert">
+                {stepError}
+              </p>
+            ) : null}
           </div>
           <footer className="onboarding__footer">
             <span className="onboarding__progress">
               {t("onboarding.progress", {
                 current: step + 1,
-                total: ONBOARDING_STEP_COUNT,
+                total: stepIds.length,
               })}
             </span>
             <div className="onboarding__nav">
@@ -203,14 +260,14 @@ function OnboardingOverlay() {
               ) : null}
               <Button
                 variant="primary"
-                onClick={
-                  isLast
-                    ? () => setLeaving(true)
-                    : () => {
-                        setNavigated(true);
-                        next();
-                      }
+                // The first step needs an answer, and the folders step a
+                // folder, before either can move on.
+                disabled={
+                  (id === "library" && musicChoice == null) ||
+                  (id === "folders" && !hasOwnFolder)
                 }
+                isLoading={advancing}
+                onClick={isLast ? () => setLeaving(true) : () => void goNext()}
               >
                 {isLast ? t("onboarding.finish") : t("onboarding.next")}
               </Button>

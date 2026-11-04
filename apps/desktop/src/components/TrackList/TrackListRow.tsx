@@ -1,8 +1,19 @@
-import { Fragment, memo, useCallback, useRef, type CSSProperties, type ReactNode } from "react";
+import {
+  Fragment,
+  memo,
+  useCallback,
+  useRef,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { DEFAULT_ARTIST_JOIN_DELIMITER } from "../../lib/artistNames";
 import { formatTrackLyricsColumnLabel } from "../../lib/lyrics";
 import { formatDateAdded, formatTime } from "../../lib/format";
-import { formatBitrate, formatCodec, formatSampleRate } from "../../lib/formatAudio";
+import {
+  formatBitrate,
+  formatCodec,
+  formatSampleRate,
+} from "../../lib/formatAudio";
 import {
   artistLinksForTrack,
   hasNavigableAlbum,
@@ -12,7 +23,12 @@ import {
   isTrackImporting,
   isTrackInteractive,
 } from "../../lib/pendingImportTrack";
-import { isTrackMissingFile } from "../../lib/missingFileTrack";
+import {
+  isTrackMissingFile,
+  missingFileLabel,
+} from "../../lib/missingFileTrack";
+import { sourceDisplayName } from "../../lib/sourceAccess";
+import { useSourcesStore } from "../../store/useSourcesStore";
 import { IconCheck, IconGrip, IconMissingFile } from "../icons";
 import { ImportIndicator } from "../ImportIndicator/ImportIndicator";
 import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
@@ -23,7 +39,10 @@ import { CdTrackRowMenu } from "../CdTrackRowMenu/CdTrackRowMenu";
 import type { TrackListColumnDef, TrackListColumnId } from "./types";
 import type { Track } from "../../types/track";
 import type { CanonicalRating } from "../../lib/trackRating";
-import type { CellControlColumn, CellControlLocation } from "./trackListRowCellNav";
+import type {
+  CellControlColumn,
+  CellControlLocation,
+} from "./trackListRowCellNav";
 import { handleTrackListRowCellKeyDown } from "./trackListRowCellNav";
 
 function formatTrackNumber(track: Track): string {
@@ -76,6 +95,14 @@ function cellValue(track: Track, columnId: TrackListColumnId): ReactNode {
   }
 }
 
+/** The track's source name; subscribes itself so rows stay memoized. */
+function TrackSourceCell({ sourceId }: { sourceId: number | undefined }) {
+  const source = useSourcesStore((s) =>
+    sourceId == null ? undefined : s.sourcesById.get(sourceId),
+  );
+  return <>{source ? sourceDisplayName(source) : "—"}</>;
+}
+
 interface TrackListCellLinkProps {
   label: string;
   ariaLabel: string;
@@ -115,7 +142,10 @@ interface TrackListArtistCellProps {
   onOpenArtist: (artistKey: string) => void;
 }
 
-function TrackListArtistCell({ links, onOpenArtist }: TrackListArtistCellProps) {
+function TrackListArtistCell({
+  links,
+  onOpenArtist,
+}: TrackListArtistCellProps) {
   if (links.length === 0) return <>—</>;
 
   let linkableIndex = 0;
@@ -290,6 +320,7 @@ function TrackListRowComponent({
         checkMode && isChecked && "track-list__row--checked",
         isNowPlaying && "track-list__row--playing",
         (isImporting || isCdImporting) && "track-list__row--importing",
+        isMissingFile && "track-list__row--missing",
         checkMode && "track-list__row--check-mode",
       ]
         .filter(Boolean)
@@ -327,9 +358,7 @@ function TrackListRowComponent({
                   data-track-list-cell-column="check"
                   data-track-list-cell-sub-index={0}
                   checked={isChecked}
-                  onChange={(e) =>
-                    onToggleChecked?.(track, e.target.checked)
-                  }
+                  onChange={(e) => onToggleChecked?.(track, e.target.checked)}
                   aria-label={`Select ${track.title}`}
                 />
               </label>
@@ -381,10 +410,15 @@ function TrackListRowComponent({
                 ) : isActivelyPlaying ? (
                   <PlayingIndicator active inline />
                 ) : isMissingFile ? (
-                  <IconMissingFile
-                    className="track-list__missing-file"
-                    aria-label="File missing"
-                  />
+                  <span
+                    className="track-list__missing-file-host"
+                    title={missingFileLabel(track)}
+                  >
+                    <IconMissingFile
+                      className="track-list__missing-file"
+                      aria-label={missingFileLabel(track)}
+                    />
+                  </span>
                 ) : (
                   indexDisplay(track, displayIndex, indexColumn)
                 )}
@@ -411,7 +445,7 @@ function TrackListRowComponent({
           col.align === "right" && "track-list__cell--right",
           col.id === "duration" && "track-list__cell--duration",
           (col.id === "sampleRate" || col.id === "bitrate") &&
-          "track-list__cell--duration",
+            "track-list__cell--duration",
         ]
           .filter(Boolean)
           .join(" ");
@@ -420,10 +454,7 @@ function TrackListRowComponent({
           const links = artistLinksForTrack(track, linkableArtistKeys);
           return (
             <span key={col.id} className={cellClassName}>
-              <TrackListArtistCell
-                links={links}
-                onOpenArtist={onOpenArtist}
-              />
+              <TrackListArtistCell links={links} onOpenArtist={onOpenArtist} />
             </span>
           );
         }
@@ -456,6 +487,14 @@ function TrackListRowComponent({
                 cellColumn="rating"
                 onChange={(rating) => onRatingChange(track.id, rating)}
               />
+            </span>
+          );
+        }
+
+        if (col.id === "source") {
+          return (
+            <span key={col.id} className={cellClassName}>
+              <TrackSourceCell sourceId={track.sourceId} />
             </span>
           );
         }

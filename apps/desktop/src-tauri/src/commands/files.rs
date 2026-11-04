@@ -7,7 +7,7 @@ use std::path::Path;
 use std::time::UNIX_EPOCH;
 use tauri::{AppHandle, Manager};
 
-/// In scope, or a library track's file (tracks imported by reference live anywhere).
+/// In scope, or a library track's file.
 fn is_known_path(app: &AppHandle, path: &str) -> bool {
     if path_scope::is_allowed(app, Path::new(path)) {
         return true;

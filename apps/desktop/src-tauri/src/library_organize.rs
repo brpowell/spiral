@@ -4,7 +4,8 @@ use crate::models::TrackMetadataUpdate;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub const DEFAULT_TRACK_FILENAME_FORMAT: &str = "{trackNumber:02} - {title}";
+/// The path format a source without its own is organized with. Spiral
+/// defines it; users override it per source.
 pub const DEFAULT_ORGANIZE_PATH_FORMAT: &str =
     "{albumArtist}/{album}/{trackNumber:02} - {title}.{ext}";
 
@@ -106,7 +107,7 @@ fn finalize_path_segment(segment: &str) -> String {
 fn ensure_stays_under_media_folder(dest: &Path, media_folder: &Path) -> Result<(), String> {
     if !dest.starts_with(media_folder) {
         return Err(format!(
-            "Organized path must stay inside the tracks folder: {}",
+            "Organized path must stay inside its music folder: {}",
             dest.display()
         ));
     }
@@ -138,10 +139,6 @@ impl<'a> From<&'a TrackMetadataUpdate> for OrganizeMetadata<'a> {
             genre: m.genre.as_deref(),
         }
     }
-}
-
-pub fn default_track_filename_format() -> String {
-    DEFAULT_TRACK_FILENAME_FORMAT.to_string()
 }
 
 /// Expand `{placeholders}` in `template`. When `ext` is set, `{ext}` resolves to the file extension.
@@ -286,7 +283,15 @@ pub fn build_organized_path(
 /// When `allow_existing` is set (track replace), that path may be overwritten
 /// instead of uniquified.
 pub fn unique_path(dest: PathBuf, allow_existing: Option<&Path>) -> PathBuf {
-    if !dest.exists() || allow_existing.is_some_and(|p| same_path(&dest, p)) {
+    unique_path_by(dest, |candidate| {
+        !candidate.exists() || allow_existing.is_some_and(|p| same_path(candidate, p))
+    })
+}
+
+/// [`unique_path`] with the caller deciding which paths are free, e.g. a
+/// planner that also has to avoid targets it has already handed out.
+pub fn unique_path_by(dest: PathBuf, mut is_free: impl FnMut(&Path) -> bool) -> PathBuf {
+    if is_free(&dest) {
         return dest;
     }
 
@@ -305,7 +310,7 @@ pub fn unique_path(dest: PathBuf, allow_existing: Option<&Path>) -> PathBuf {
     let mut n = 2;
     loop {
         let candidate = parent.join(format!("{stem} ({n}){ext}"));
-        if !candidate.exists() || allow_existing.is_some_and(|p| same_path(&candidate, p)) {
+        if is_free(&candidate) {
             return candidate;
         }
         n += 1;
@@ -359,7 +364,9 @@ pub fn move_track_file(
 
 /// Remove empty directories from `start` up to (but not including) `stop_at`.
 pub fn prune_empty_dirs(start: &Path, stop_at: &Path) {
-    let start_buf = start.to_path_buf();
+    // Compare like with like: both resolved when they can be (e.g. `/var` and
+    // `/private/var` on macOS).
+    let start_buf = start.canonicalize().unwrap_or_else(|_| start.to_path_buf());
     let Ok(stop) = stop_at.canonicalize() else {
         prune_empty_dirs_inner(start_buf, stop_at.to_path_buf());
         return;
@@ -486,6 +493,17 @@ pub fn relocate_track_after_metadata(
 mod tests {
     use super::*;
     use std::io::Write;
+
+    #[test]
+    fn organized_path_outside_its_folder_is_refused() {
+        let folder = Path::new("/Music/Collection");
+        assert!(ensure_stays_under_media_folder(&folder.join("A/b.mp3"), folder).is_ok());
+        let err = ensure_stays_under_media_folder(Path::new("/Music/b.mp3"), folder).unwrap_err();
+        assert_eq!(
+            err,
+            "Organized path must stay inside its music folder: /Music/b.mp3"
+        );
+    }
 
     #[test]
     fn build_organized_path_supports_custom_layout() {

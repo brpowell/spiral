@@ -1,17 +1,18 @@
 import { create } from "zustand";
 import { afterUiTransition } from "../lib/scheduling";
 import {
+  getImportSource,
   getLibrarySettings,
   saveLibrarySettings as persistLibrarySettings,
 } from "../lib/tauri";
-import type {
-  ImportMode,
-  LibrarySettings,
-  LibrarySettingsPatch,
-} from "../types/library";
+import type { LibrarySettings, LibrarySettingsPatch } from "../types/library";
 import type { PreferencesSectionId } from "../components/PreferencesModal/preferencesSections";
 
-type ImportChoice = "copy" | "reference";
+/** Which source an import copies into. */
+export interface ImportChoice {
+  /** Copies go here; unset means the import source. */
+  sourceId?: number;
+}
 
 interface ImportPromptRequest {
   resolve: (choice: ImportChoice) => void;
@@ -29,10 +30,17 @@ interface LibrarySettingsState {
   setPreferencesOpen: (open: boolean) => void;
   openPreferences: (section?: PreferencesSectionId) => void;
   consumePreferencesFocusSection: () => PreferencesSectionId | null;
-  saveLibrarySettings: (patch: LibrarySettingsPatch) => Promise<LibrarySettings>;
+  saveLibrarySettings: (
+    patch: LibrarySettingsPatch,
+  ) => Promise<LibrarySettings>;
   applyLibrarySettings: (settings: LibrarySettings) => void;
-  resolveImportMode: () => Promise<ImportChoice>;
-  confirmImportChoice: (choice: ImportChoice, remember: boolean) => Promise<void>;
+  /**
+   * Where an import copies to: the import source when it can take the copy
+   * now, else the folder the user picks in the import prompt.
+   */
+  resolveImportDestination: () => Promise<ImportChoice>;
+  /** Answer the import prompt with the folder to copy into. */
+  confirmImportChoice: (sourceId: number) => Promise<void>;
   cancelImportChoice: () => void;
 }
 
@@ -88,29 +96,22 @@ export const useLibrarySettingsStore = create<LibrarySettingsState>(
       }
     },
 
-    resolveImportMode: async () => {
-      const settings = get().settings ?? (await get().loadSettings());
-      if (settings.importMode === "copy") return "copy";
-      if (settings.importMode === "reference") return "reference";
-
+    resolveImportDestination: async () => {
+      if ((await getImportSource().catch(() => null))?.copyAvailable) {
+        return {};
+      }
       return new Promise<ImportChoice>((resolve, reject) => {
         set({ importPrompt: { resolve, reject } });
       });
     },
 
-    confirmImportChoice: async (choice, remember) => {
+    confirmImportChoice: async (sourceId) => {
       const prompt = get().importPrompt;
       if (!prompt) return;
 
       set({ importPrompt: null });
-
-      if (remember) {
-        const importMode: ImportMode = choice === "copy" ? "copy" : "reference";
-        void get().saveLibrarySettings({ importMode });
-      }
-
       await afterUiTransition();
-      prompt.resolve(choice);
+      prompt.resolve({ sourceId });
     },
 
     cancelImportChoice: () => {

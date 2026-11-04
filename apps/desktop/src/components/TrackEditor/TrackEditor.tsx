@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { describeSourceError } from "../../lib/sourceAccess";
 import { useTranslation } from "react-i18next";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
@@ -973,8 +974,7 @@ export function TrackEditor() {
         updateTrackInLibrary(updated);
         closeTrackEditor();
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        setSaveError(message);
+        setSaveError(describeSourceError(err));
       } finally {
         finish();
       }
@@ -1039,11 +1039,10 @@ export function TrackEditor() {
           }
           updated.push(saved);
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
           if (isMissingFileError(err)) {
             noteMissing(track);
           } else {
-            errors.push(`${track.title}: ${message}`);
+            errors.push(`${track.title}: ${describeSourceError(err)}`);
           }
         }
       }
@@ -1199,49 +1198,55 @@ export function TrackEditor() {
                       value="details"
                       className="track-editor__tab-panel"
                     >
-                      <TrackEditorDetailsTab
-                        form={form}
-                        tracks={tracks}
-                        isBulk={isBulk}
-                        onFieldChange={setField}
-                        onRatingChange={setRating}
-                        artistSuggestions={artistSuggestions}
-                        genreSuggestions={genreSuggestions}
-                        albumSuggestions={albumSuggestions}
-                      />
+                      <fieldset className="track-editor__fieldset">
+                        <TrackEditorDetailsTab
+                          form={form}
+                          tracks={tracks}
+                          isBulk={isBulk}
+                          onFieldChange={setField}
+                          onRatingChange={setRating}
+                          artistSuggestions={artistSuggestions}
+                          genreSuggestions={genreSuggestions}
+                          albumSuggestions={albumSuggestions}
+                        />
+                      </fieldset>
                     </TabPanel>
 
                     <TabPanel value="art" className="track-editor__tab-panel">
-                      <AlbumEditorArtTab
-                        previewSrc={previewSrc}
-                        artDragOver={artDragOver}
-                        fetchingArt={fetchingArt || preparingEdit}
-                        onArtDragOver={setArtDragOver}
-                        onArtDrop={(e) => void handleArtDrop(e)}
-                        onChangeArt={() => void handleChangeArt()}
-                        onFetchArt={() => void handleFetchArt()}
-                        onEditArt={() => void handleEditArt()}
-                      />
+                      <fieldset className="track-editor__fieldset">
+                        <AlbumEditorArtTab
+                          previewSrc={previewSrc}
+                          artDragOver={artDragOver}
+                          fetchingArt={fetchingArt || preparingEdit}
+                          onArtDragOver={setArtDragOver}
+                          onArtDrop={(e) => void handleArtDrop(e)}
+                          onChangeArt={() => void handleChangeArt()}
+                          onFetchArt={() => void handleFetchArt()}
+                          onEditArt={() => void handleEditArt()}
+                        />
+                      </fieldset>
                     </TabPanel>
 
                     <TabPanel
                       value="lyrics"
                       className="track-editor__tab-panel track-editor__tab-panel--lyrics"
                     >
-                      <TrackEditorLyricsTab
-                        value={form.lyrics}
-                        syncedLines={form.lyricsSyncedLines}
-                        instrumental={form.lyricsInstrumental}
-                        bulk={isBulk}
-                        instrumentalMixed={isLyricsInstrumentalMixed(tracks)}
-                        fetchingLyrics={
-                          !isBulk && (lyricsFetchPending || committingLyrics)
-                        }
-                        fetchFeedback={isBulk ? null : lyricsFetchFeedback}
-                        onFetchLyrics={() => void handleFetchLyrics()}
-                        onInstrumentalChange={setLyricsInstrumental}
-                        onChange={setLyrics}
-                      />
+                      <fieldset className="track-editor__fieldset">
+                        <TrackEditorLyricsTab
+                          value={form.lyrics}
+                          syncedLines={form.lyricsSyncedLines}
+                          instrumental={form.lyricsInstrumental}
+                          bulk={isBulk}
+                          instrumentalMixed={isLyricsInstrumentalMixed(tracks)}
+                          fetchingLyrics={
+                            !isBulk && (lyricsFetchPending || committingLyrics)
+                          }
+                          fetchFeedback={isBulk ? null : lyricsFetchFeedback}
+                          onFetchLyrics={() => void handleFetchLyrics()}
+                          onInstrumentalChange={setLyricsInstrumental}
+                          onChange={setLyrics}
+                        />
+                      </fieldset>
                     </TabPanel>
 
                     <TabPanel

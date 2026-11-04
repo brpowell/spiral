@@ -2,14 +2,20 @@ import {
   getTrackListPreferences as fetchTrackListPreferences,
   saveTrackListPreferences as persistTrackListPreferences,
 } from "../../lib/tauri";
-import type { TrackListColumnDef, TrackListColumnId, TrackListPresetId } from "./types";
+import type {
+  TrackListColumnDef,
+  TrackListColumnId,
+  TrackListPresetId,
+} from "./types";
 import { defaultHiddenColumns, TRACK_LIST_PRESETS } from "./types";
 
 const LEGACY_STORAGE_KEY = "spiral-track-list-preferences";
 
 export interface TrackListPreferences {
   columnWidths: Partial<Record<TrackListColumnId, number>>;
-  hiddenColumnsByPreset: Partial<Record<TrackListPresetId, TrackListColumnId[]>>;
+  hiddenColumnsByPreset: Partial<
+    Record<TrackListPresetId, TrackListColumnId[]>
+  >;
   columnOrderByPreset: Partial<Record<TrackListPresetId, TrackListColumnId[]>>;
 }
 
@@ -115,7 +121,9 @@ function normalizePreferences(
       if (!Array.isArray(ids)) continue;
       const preset = presetKey as TrackListPresetId;
       if (!(preset in TRACK_LIST_PRESETS)) continue;
-      const validIds = new Set(TRACK_LIST_PRESETS[preset].columns.map((c) => c.id));
+      const validIds = new Set(
+        TRACK_LIST_PRESETS[preset].columns.map((c) => c.id),
+      );
       const filtered = ids.filter(
         (id): id is TrackListColumnId =>
           VALID_COLUMN_IDS.has(id as TrackListColumnId) && validIds.has(id),
@@ -196,7 +204,9 @@ function readLegacyLocalStorage(): TrackListPreferences | null {
   try {
     const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return null;
-    return normalizePreferences(JSON.parse(raw) as Partial<TrackListPreferences>);
+    return normalizePreferences(
+      JSON.parse(raw) as Partial<TrackListPreferences>,
+    );
   } catch {
     return null;
   }
@@ -224,7 +234,7 @@ export function loadTrackListPreferences(): Promise<TrackListPreferences> {
   loadPromise = (async () => {
     try {
       const fromDisk = normalizePreferences(
-        await fetchTrackListPreferences() as Partial<TrackListPreferences>,
+        (await fetchTrackListPreferences()) as Partial<TrackListPreferences>,
       );
       const hasDiskData =
         Object.keys(fromDisk.columnWidths).length > 0 ||
@@ -304,6 +314,7 @@ const LIBRARY_HIDEABLE_COLUMNS: TrackListColumnId[] = [
   "sampleRate",
   "bitrate",
   "lyrics",
+  "source",
 ];
 
 const ALBUM_HIDEABLE_COLUMNS: TrackListColumnId[] =

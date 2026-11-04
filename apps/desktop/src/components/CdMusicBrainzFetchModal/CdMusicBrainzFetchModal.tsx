@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useCdStore } from "../../store/useCdStore";
+import { useOnboardingStore } from "../../store/useOnboardingStore";
 import { Button } from "../common/Button/Button";
 import { Checkbox } from "../common/Checkbox/Checkbox";
 import {
@@ -14,6 +15,7 @@ import {
 } from "../common/Modal/Modal";
 export function CdMusicBrainzFetchModal() {
   const promptDriveId = useCdStore((s) => s.metadataFetchPromptDriveId);
+  const onboardingOpen = useOnboardingStore((s) => s.open);
   const confirmMetadataFetch = useCdStore((s) => s.confirmMetadataFetch);
   const cancelMetadataFetch = useCdStore((s) => s.cancelMetadataFetch);
 
@@ -21,7 +23,8 @@ export function CdMusicBrainzFetchModal() {
   const panelRef = useRef<HTMLDivElement>(null);
   const [remember, setRemember] = useState(false);
 
-  const open = promptDriveId != null;
+  // A disc found during onboarding keeps its place in the queue until it ends.
+  const open = promptDriveId != null && !onboardingOpen;
   useFocusTrap(panelRef, open);
 
   const handleConfirm = () => {
@@ -48,7 +51,8 @@ export function CdMusicBrainzFetchModal() {
         <ModalHeaderMain>
           <ModalTitle id={titleId}>Fetch CD metadata</ModalTitle>
           <ModalDescription>
-            Would you like to look up additional album and track information from MusicBrainz?
+            Would you like to look up additional album and track information
+            from MusicBrainz?
           </ModalDescription>
         </ModalHeaderMain>
       </ModalHeader>

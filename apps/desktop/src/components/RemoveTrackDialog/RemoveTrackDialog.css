@@ -20,3 +20,10 @@
 .remove-track-dialog__track span {
   color: var(--color-text-secondary);
 }
+
+.remove-track-dialog__note {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}

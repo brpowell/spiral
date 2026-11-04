@@ -27,6 +27,7 @@ describe("columnIdsForPreset", () => {
       "sampleRate",
       "bitrate",
       "lyrics",
+      "source",
       "duration",
     ]);
   });
@@ -61,7 +62,10 @@ describe("columnIdsForPreset", () => {
         playlist: ["artist", "genre"],
       },
     };
-    expect(hiddenColumnIdsForPreset("library", prefs)).toEqual(["album", "year"]);
+    expect(hiddenColumnIdsForPreset("library", prefs)).toEqual([
+      "album",
+      "year",
+    ]);
     expect(hiddenColumnIdsForPreset("playlist", prefs)).toEqual([
       "artist",
       "genre",
@@ -104,6 +108,7 @@ describe("columnIdsForPreset", () => {
       "sampleRate",
       "bitrate",
       "lyrics",
+      "source",
     ]);
   });
 });
