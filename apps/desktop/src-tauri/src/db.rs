@@ -135,7 +135,7 @@ pub fn open(db_path: &Path) -> Result<Connection, rusqlite::Error> {
     conn.execute_batch("PRAGMA foreign_keys = ON;")?;
     let file_path = (db_path.as_os_str() != ":memory:").then_some(db_path);
     // The database sits in the Spiral folder, which locates the roots of
-    // sources inside it. Record it before migrating: migration 5 needs it.
+    // sources inside it. Record it before migrating: migration 3 needs it.
     let library_root = file_path.and_then(Path::parent);
     if let Some(library_root) = library_root {
         sources::attach_spiral_folder(&conn, library_root)?;
@@ -1171,7 +1171,7 @@ mod tests {
     use crate::sources::LibraryRoots;
 
     /// The source [`test_conn`] adds, rooted at `/music`.
-    const MUSIC_SOURCE_ID: i64 = 3;
+    const MUSIC_SOURCE_ID: i64 = 1;
 
     fn test_conn() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
