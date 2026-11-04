@@ -1,4 +1,5 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -176,6 +177,17 @@ describe("SourcesSection", () => {
       expect(within(item("Music")).getByText("Offline")).toBeTruthy(),
     );
     expect(within(item("Tracks")).queryByText("Offline")).toBeNull();
+  });
+
+  it("puts Default right after the track count", async () => {
+    await renderSection();
+    act(() =>
+      usePlayerStore.setState({
+        library: [track(1, 1), track(9, 1, "2026-01-01T00:00:00Z")],
+      }),
+    );
+    const meta = await within(item("Tracks")).findByText(/^2 tracks/);
+    expect(meta.textContent).toBe("2 tracks·Default·1 missing");
   });
 
   it("won't remove the only folder, and says why", async () => {

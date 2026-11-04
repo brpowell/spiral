@@ -61,7 +61,7 @@ export function SourceCard({
   // The path is what identifies a folder; the name only labels its menu.
   const name = sourceDisplayName(source);
 
-  /** Counts, then the folder's status (default, offline) inline after them. */
+  /** Track count, then default, missing and offline inline after it. */
   const renderMeta = () => {
     if (rescanning) {
       return (
@@ -73,13 +73,6 @@ export function SourceCard({
     const parts: ReactNode[] = [
       t("preferences:sources.trackCount", { count: count.total }),
     ];
-    if (count.missing > 0) {
-      parts.push(
-        <span className="sources-section__missing">
-          {t("preferences:sources.missingCount", { count: count.missing })}
-        </span>,
-      );
-    }
     if (source.importTarget) {
       parts.push(
         <span
@@ -88,6 +81,13 @@ export function SourceCard({
         >
           <IconCheck aria-hidden />
           {t("preferences:sources.defaultBadge")}
+        </span>,
+      );
+    }
+    if (count.missing > 0) {
+      parts.push(
+        <span className="sources-section__missing">
+          {t("preferences:sources.missingCount", { count: count.missing })}
         </span>,
       );
     }
