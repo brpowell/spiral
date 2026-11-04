@@ -229,7 +229,9 @@ pub async fn relocate_source(
     Ok(source)
 }
 
-/// Turn organizing on or off for a source. Existing files don't move here.
+/// Turn organizing on or off for a source, refused with
+/// [`sources::SOURCE_UNAVAILABLE`] when turning it on for a folder that's
+/// offline. Existing files don't move here.
 #[tauri::command]
 pub fn set_source_organize(
     state: State<DbState>,
@@ -237,7 +239,7 @@ pub fn set_source_organize(
     auto_organize: bool,
 ) -> Result<Source, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    sources::set_source_organize(&conn, source_id, auto_organize)
+    sources::change_source_organize(&conn, source_id, auto_organize)
 }
 
 /// Set a source's own path format; `None` inherits the global one.

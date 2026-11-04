@@ -81,6 +81,15 @@ export function playbackFileMissingPayload(
   );
 }
 
+/** Several tracks skipped in a row; shares the single track's toast slot. */
+export function playbackFilesMissingPayload(count: number): ToastPayload {
+  return {
+    key: "playback-file-missing",
+    label: t("toasts:playback.filesMissing", { count }),
+    detail: t("toasts:playback.filesMissingDetail"),
+  };
+}
+
 /** Library playback unexpected failure (§6 + §4.3 generic). */
 export function libraryPlaybackFailedPayload(options?: {
   dismissMs?: number | null;

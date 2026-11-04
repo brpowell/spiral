@@ -14,7 +14,11 @@ import type {
 } from "../types/source";
 import { logActivity } from "./activityLog";
 import { t } from "./i18n";
-import { countTracksBySource, sourceDisplayName } from "./sourceAccess";
+import {
+  countTracksBySource,
+  describeSourceError,
+  sourceDisplayName,
+} from "./sourceAccess";
 import {
   applyOrganizeSource,
   FILE_PLAN_PROGRESS_EVENT,
@@ -237,5 +241,5 @@ export function organizeInBackground(
 }
 
 function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+  return describeSourceError(err);
 }

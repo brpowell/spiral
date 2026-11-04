@@ -115,6 +115,7 @@ export function SourcesSection() {
           t("preferences:sources.scanSummary", {
             added: summary.added,
             updated: summary.updated,
+            moved: summary.moved,
             missing: summary.missing,
             restored: summary.restored,
           }),

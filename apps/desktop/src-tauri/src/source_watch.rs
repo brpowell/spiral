@@ -264,9 +264,10 @@ impl Registry {
 
     fn status(&self, source_id: i64) -> WatchStatus {
         match self.watches.get(&source_id) {
-            Some(Watch {
-                watcher: Some(_), ..
-            }) => WatchStatus::Watching,
+            // The worker only checks a quiet root every `RETRY`, so look now.
+            Some(watch) if watch.watcher.is_some() && watch.root.root.is_dir() => {
+                WatchStatus::Watching
+            }
             Some(_) => WatchStatus::Unreachable,
             None => WatchStatus::NotWatching,
         }
@@ -768,6 +769,11 @@ mod tests {
         assert_eq!(registry.status(4), WatchStatus::Unreachable);
         assert_eq!(registry.status(5), WatchStatus::NotWatching);
 
+        // Gone before the worker noticed, so it still has a watcher.
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(registry.status(3), WatchStatus::Unreachable);
+
+        std::fs::create_dir_all(&dir).unwrap();
         if let Some(watch) = registry.watches.get_mut(&3) {
             lost(watch, 3);
         }

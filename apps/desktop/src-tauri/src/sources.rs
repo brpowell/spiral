@@ -643,6 +643,19 @@ pub fn set_source_organize(
     )
 }
 
+/// The user's organize switch. Turning it on is refused while the folder
+/// isn't reachable: organizing moves files, and none could move.
+pub fn change_source_organize(
+    conn: &Connection,
+    id: i64,
+    auto_organize: bool,
+) -> Result<Source, String> {
+    if auto_organize {
+        reachable_root(conn, id)?;
+    }
+    set_source_organize(conn, id, auto_organize)
+}
+
 /// Set a source's own path format, or `None` (or blank) to inherit the global one.
 pub fn set_source_path_format(
     conn: &Connection,
@@ -749,10 +762,9 @@ pub struct WriteTarget {
     pub path_format: Option<String>,
 }
 
-/// Where a new file for `source_id` goes. Fails with [`SOURCE_UNAVAILABLE`]
-/// when the folder isn't reachable, so nothing is written to (or created on)
-/// a drive that isn't there.
-pub fn write_target(conn: &Connection, source_id: i64) -> Result<WriteTarget, String> {
+/// The source's folder, failing with [`SOURCE_UNAVAILABLE`] when it isn't
+/// reachable.
+fn reachable_root(conn: &Connection, source_id: i64) -> Result<PathBuf, String> {
     let roots = SourceRoots::load(conn).map_err(|e| e.to_string())?;
     let root = roots
         .root(source_id)
@@ -764,6 +776,14 @@ pub fn write_target(conn: &Connection, source_id: i64) -> Result<WriteTarget, St
             root.display()
         ));
     }
+    Ok(root)
+}
+
+/// Where a new file for `source_id` goes. Fails with [`SOURCE_UNAVAILABLE`]
+/// when the folder isn't reachable, so nothing is written to (or created on)
+/// a drive that isn't there.
+pub fn write_target(conn: &Connection, source_id: i64) -> Result<WriteTarget, String> {
+    let root = reachable_root(conn, source_id)?;
     let path_format = organize_settings(conn, source_id).map_err(|e| e.to_string())?;
     Ok(WriteTarget {
         source_id,
@@ -1421,6 +1441,33 @@ mod tests {
         assert!(!is_outside_source_walk(&music.join("a.mp3"), &music, &lr));
         assert!(!is_outside_source_walk(&in_tracks, &tracks, &lr));
         assert!(!is_outside_source_walk(&tracks, &tracks, &lr));
+    }
+
+    #[test]
+    fn organizing_cant_be_turned_on_while_the_folder_is_offline() {
+        let tmp = TempDir::new("organize-offline");
+        let (conn, roots) = library(&tmp);
+        let rock = add(&conn, &roots, &tmp.dir("Rock")).unwrap();
+        std::fs::remove_dir(tmp.0.join("Rock")).unwrap();
+
+        let err = change_source_organize(&conn, rock.id, true).unwrap_err();
+        assert!(err.starts_with(SOURCE_UNAVAILABLE), "{err}");
+        assert!(!get_source_or_err(&conn, rock.id).unwrap().auto_organize);
+
+        // Turning it off never needs the folder.
+        set_source_organize(&conn, rock.id, true).unwrap();
+        assert!(
+            !change_source_organize(&conn, rock.id, false)
+                .unwrap()
+                .auto_organize
+        );
+
+        std::fs::create_dir(tmp.0.join("Rock")).unwrap();
+        assert!(
+            change_source_organize(&conn, rock.id, true)
+                .unwrap()
+                .auto_organize
+        );
     }
 
     #[test]
