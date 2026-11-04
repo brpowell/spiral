@@ -1,8 +1,3 @@
----
-name: toast-conventions
-description: Spiral's toast conventions for operation results — peer-counter titles, color, subtitle/button rules, Activity Log links, and Toast Lab registration. Use when adding, changing, or reviewing any toast (success, failure, partial, progress→settle) in the desktop app, e.g. queue, conversion, import, lyrics fetch, or pack install/download.
----
-
 # Toast Conventions
 
 Rules for toasts that report the result of an operation (single-item or bulk). Applies to queue, conversion, import, lyrics fetch, pack install/download, and any future success/failure/other outcome toast. Keep new toast types consistent with this — do not invent per-feature formatting.

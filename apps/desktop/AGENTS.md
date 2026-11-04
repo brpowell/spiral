@@ -39,11 +39,11 @@ If a second skin would need the same `if`, the condition was never a skin check:
 
 ## Toasts
 
-Any toast that reports an operation's result follows the conventions in [`.claude/skills/toast-conventions/SKILL.md`](.claude/skills/toast-conventions/SKILL.md): peer-counter titles, color from `failed` counts only, button/subtitle rules, Activity Log links, and registering every production toast in Toast Lab. Read it before adding or changing a toast.
+Any toast that reports an operation's result follows the conventions in [docs/contributing/toast-conventions.md](docs/contributing/toast-conventions.md): peer-counter titles, color from `failed` counts only, button/subtitle rules, Activity Log links, and registering every production toast in Toast Lab. Read it before adding or changing a toast.
 
 ## Rust: platform- and test-only symbols
 
-Gate symbols used only on one OS or in tests with a matching `#[cfg(...)]` on the `pub use` / `pub fn` / module instead of `#[allow(dead_code)]` or `#[allow(unused_imports)]`. Details and examples: [`.claude/rules/rust-platform-cfg.md`](.claude/rules/rust-platform-cfg.md).
+Gate symbols used only on one OS or in tests with a matching `#[cfg(...)]` on the `pub use` / `pub fn` / module instead of `#[allow(dead_code)]` or `#[allow(unused_imports)]`. Details and examples: [docs/contributing/rust-platform-cfg.md](docs/contributing/rust-platform-cfg.md).
 
 ## Verifying UI changes
 
