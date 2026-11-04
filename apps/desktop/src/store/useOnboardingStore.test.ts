@@ -4,18 +4,13 @@ import type { Source } from "../types/source";
 const tauri = vi.hoisted(() => ({
   createManagedSource: vi.fn(),
   removeSource: vi.fn(),
+  getLibrary: vi.fn(),
   listSources: vi.fn(),
   getSourceStatuses: vi.fn(),
 }));
 vi.mock("../lib/tauri", () => tauri);
 const organize = vi.hoisted(() => ({ organizeInBackground: vi.fn() }));
 vi.mock("../lib/organizeSource", () => organize);
-const player = vi.hoisted(() => ({
-  library: [] as { sourceId?: number; missingSince?: string | null }[],
-}));
-vi.mock("./usePlayerStore", () => ({
-  usePlayerStore: { getState: () => player },
-}));
 vi.mock("./useLibrarySettingsStore", () => ({
   useLibrarySettingsStore: {
     getState: () => ({ settings: { mediaFolder: "/Music/Spiral/Tracks" } }),
@@ -153,6 +148,7 @@ describe("useOnboardingStore", () => {
       tauri.getSourceStatuses.mockResolvedValue([]);
       tauri.createManagedSource.mockResolvedValue(tracks);
       tauri.removeSource.mockResolvedValue(0);
+      tauri.getLibrary.mockResolvedValue([]);
     });
 
     it("has Spiral manage the Tracks folder for a new collection", async () => {
@@ -176,12 +172,36 @@ describe("useOnboardingStore", () => {
 
     it("keeps a Tracks folder that holds tracks", async () => {
       tauri.listSources.mockResolvedValue([tracks]);
-      player.library = [{ sourceId: 1, missingSince: null }];
+      tauri.getLibrary.mockResolvedValue([{ sourceId: 1 }]);
       const store = await freshStore();
       store.getState().setMusicChoice("existing");
       await store.getState().applyMusicChoice();
       expect(store.getState().placeholderSourceId).toBeNull();
-      player.library = [];
+    });
+
+    it("keeps Tracks when its track count can't be known", async () => {
+      tauri.listSources.mockResolvedValue([tracks]);
+      tauri.getLibrary.mockRejectedValue(new Error("no database"));
+      const store = await freshStore();
+      store.getState().setMusicChoice("existing");
+      await store.getState().applyMusicChoice();
+      expect(store.getState().placeholderSourceId).toBeNull();
+    });
+
+    it("keeps a placeholder that has gained tracks by the time it would go", async () => {
+      tauri.listSources.mockResolvedValue([tracks]);
+      const store = await freshStore();
+      store.getState().setMusicChoice("existing");
+      await store.getState().applyMusicChoice();
+      expect(store.getState().placeholderSourceId).toBe(1);
+
+      tauri.listSources.mockResolvedValue([tracks, music]);
+      const { useSourcesStore } = await import("./useSourcesStore");
+      await useSourcesStore.getState().loadSources();
+      tauri.getLibrary.mockResolvedValue([{ sourceId: 1 }]);
+      await store.getState().settleFolders();
+      expect(tauri.removeSource).not.toHaveBeenCalled();
+      expect(store.getState().placeholderSourceId).toBeNull();
     });
 
     it("keeps Tracks when it isn't the only folder", async () => {

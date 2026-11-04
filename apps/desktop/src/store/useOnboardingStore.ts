@@ -4,10 +4,8 @@ import {
   markOnboardingCompleted,
 } from "../lib/onboardingPreferences";
 import { organizeInBackground } from "../lib/organizeSource";
-import { countTracksBySource } from "../lib/sourceAccess";
-import { createManagedSource, removeSource } from "../lib/tauri";
+import { createManagedSource, getLibrary, removeSource } from "../lib/tauri";
 import { useLibrarySettingsStore } from "./useLibrarySettingsStore";
-import { usePlayerStore } from "./usePlayerStore";
 import { useSourcesStore } from "./useSourcesStore";
 
 /** How the user answered "Where does your music live?" on the first step. */
@@ -88,7 +86,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
       set({ placeholderSourceId: null });
     } else if (musicChoice === "existing") {
       await sources.loadSources();
-      set({ placeholderSourceId: findPlaceholderSource() });
+      set({ placeholderSourceId: await findPlaceholderSource() });
     }
   },
   settleFolders: async () => {
@@ -98,6 +96,11 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
       .getState()
       .sources.filter((source) => source.id !== placeholder);
     if (others.length === 0) return;
+    // A scan may have found music in it since it was set aside.
+    if (!(await hasNoTracks(placeholder))) {
+      set({ placeholderSourceId: null });
+      return;
+    }
     // Removing the default makes the lowest-id reachable folder the default:
     // the first one the user added.
     await removeSource(placeholder);
@@ -132,12 +135,26 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
  * The library's only source, when it's the managed `Tracks` with no tracks:
  * the folder a new library starts with, not one the user chose.
  */
-function findPlaceholderSource(): number | null {
+async function findPlaceholderSource(): Promise<number | null> {
   const sources = useSourcesStore.getState().sources;
   const tracksFolder = useLibrarySettingsStore.getState().settings?.mediaFolder;
   if (sources.length !== 1 || tracksFolder == null) return null;
   const [only] = sources;
   if (only.rootPath !== tracksFolder) return null;
-  const counts = countTracksBySource(usePlayerStore.getState().library);
-  return (counts.get(only.id)?.total ?? 0) === 0 ? only.id : null;
+  return (await hasNoTracks(only.id)) ? only.id : null;
+}
+
+/**
+ * Whether a source has no tracks, asked of the backend: the player store's
+ * library is empty until it loads. Unknown counts as having tracks, because
+ * removing a source removes its tracks' rows.
+ */
+async function hasNoTracks(sourceId: number): Promise<boolean> {
+  try {
+    const tracks = await getLibrary();
+    return !tracks.some((track) => track.sourceId === sourceId);
+  } catch (err) {
+    console.error("getLibrary failed:", err);
+    return false;
+  }
 }

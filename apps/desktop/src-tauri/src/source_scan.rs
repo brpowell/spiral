@@ -764,8 +764,9 @@ mod tests {
         assert_eq!(fx.tracks(id).len(), 2, "rows are never deleted");
         assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 0));
 
-        // Rewritten, so it is read again as well as restored.
-        fx.wav("Collection/Sub/a.wav");
+        // Back with different content, so it is read again as well as restored.
+        // (An identical rewrite can match the stored size and mtime: no change.)
+        fs::copy(wav::tagged_fixture_path(), &a).unwrap();
         assert_eq!(fx.reconcile(id), summary(id, 0, 1, 0, 1));
         let track = db::get_track_by_id(&lock(&fx.db), a_id).unwrap().unwrap();
         assert_eq!(track.missing_since, None);
@@ -884,8 +885,8 @@ mod tests {
         let all = reconcile_all(&fx.db, &fx.ctx);
         assert_eq!(all, vec![summary(tracks, 0, 0, 1, 0)]);
 
-        // Written again, so it is read again as well as restored.
-        fx.wav("Music/Spiral Library/Tracks/a.wav");
+        // Back with different content, so it is read again as well as restored.
+        fs::copy(wav::tagged_fixture_path(), &managed).unwrap();
         assert_eq!(fx.reconcile(tracks), summary(tracks, 0, 1, 0, 1));
 
         // A watcher batch inside the tracks folder is reconciled; hidden
