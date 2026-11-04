@@ -3,8 +3,8 @@
     "title_one": "Remove from library?",
     "title_other": "Remove {{count}} tracks from library?",
     "removeFromLibrary": "Remove from library",
-    "deleteFiles_one": "Remove and delete file",
-    "deleteFiles_other": "Remove and delete files"
+    "deleteFiles_one": "Remove and send to trash",
+    "deleteFiles_other": "Remove and send to trash"
   },
   "convert": {
     "title_one": "Convert track",
@@ -19,11 +19,14 @@
     "confirmReplace": "Convert & Replace"
   },
   "importChoice": {
-    "title": "Add to library",
-    "description": "Do you want to copy these files into your Spiral tracks folder, or keep them at their current location?",
-    "dontAskAgain": "Don't ask again",
-    "keepLocation": "Keep original location",
-    "copyToLibrary": "Copy to library"
+    "title": "Default music folder disconnected",
+    "descriptionChoose": "Reconnect the folder, or choose a new source to copy to.",
+    "descriptionAdd": "Reconnect the folder, or add a new source to copy to.",
+    "addFolder": "Add a folder…",
+    "adding": "Adding…",
+    "destination": "Copy into",
+    "destinationOffline": "{{name}} (offline)",
+    "copy": "Copy"
   },
   "importDedupe": {
     "title": "Duplicate track during import",

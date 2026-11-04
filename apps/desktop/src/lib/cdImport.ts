@@ -269,7 +269,6 @@ export function startCdImport(options: {
               ]);
 
             const trackResult = await commitImportEntries([entry], {
-              mode: "copy",
               duplicateActions: duplicateResolutions.duplicateActions,
               onTrackActivated: (activatedId, track) => {
                 importedTracks.push(track);

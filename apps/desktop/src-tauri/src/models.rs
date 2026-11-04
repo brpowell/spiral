@@ -36,6 +36,11 @@ pub struct Track {
     pub artist_mbids: Vec<String>,
     #[serde(default)]
     pub album_artist_mbids: Vec<String>,
+    /// Library source the file belongs to (see `sources`).
+    pub source_id: i64,
+    /// When the file was found missing on disk; `None` while it is present.
+    #[serde(default)]
+    pub missing_since: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

@@ -202,3 +202,22 @@ describe("nextSort", () => {
     });
   });
 });
+
+describe("compareTracks source", () => {
+  it("puts folders in the order added", () => {
+    const tracks = [
+      track({ id: 1, sourceId: 2 }),
+      track({ id: 2, sourceId: 4 }),
+      track({ id: 3, sourceId: 1 }),
+      track({ id: 4, sourceId: 3 }),
+    ];
+    const asc = [...tracks].sort((a, b) =>
+      compareTracks(a, b, "source", "asc"),
+    );
+    expect(asc.map((t) => t.sourceId)).toEqual([1, 2, 3, 4]);
+    const desc = [...tracks].sort((a, b) =>
+      compareTracks(a, b, "source", "desc"),
+    );
+    expect(desc.map((t) => t.sourceId)).toEqual([4, 3, 2, 1]);
+  });
+});

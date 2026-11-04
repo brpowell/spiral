@@ -1,9 +1,20 @@
 import type { Track } from "../types/track";
 import { fileExists } from "./artPath";
+import { formatDateAdded } from "./format";
 import { t } from "./i18n";
 
+/** Missing when the library marked it so on a scan, or playback couldn't find it. */
 export function isTrackMissingFile(track: Track): boolean {
-  return track.missingFile === true;
+  return track.missingFile === true || track.missingSince != null;
+}
+
+/** Tooltip for a missing track: since when, when a scan recorded it. */
+export function missingFileLabel(track: Pick<Track, "missingSince">): string {
+  return track.missingSince
+    ? t("library:sources.missingSince", {
+        date: formatDateAdded(track.missingSince),
+      })
+    : t("library:sources.missingNow");
 }
 
 export function isMissingFileError(err: unknown): boolean {
@@ -51,7 +62,10 @@ export function withTrackMissingFile(track: Track, missing: boolean): Track {
   return rest;
 }
 
-/** Keep client-only missing-file flags when the library is reloaded from disk. */
+/**
+ * Keep client-only missing-file flags when the library is reloaded from disk,
+ * unless a scan has since found the file again.
+ */
 export function mergeLibraryClientState(
   previous: Track[],
   loaded: Track[],
@@ -59,7 +73,12 @@ export function mergeLibraryClientState(
   const priorById = new Map(previous.map((track) => [track.id, track]));
   return loaded.map((track) => {
     const prior = priorById.get(track.id);
-    if (prior?.missingFile && prior.filePath === track.filePath) {
+    const restoredByScan = prior?.missingSince != null && !track.missingSince;
+    if (
+      prior?.missingFile &&
+      prior.filePath === track.filePath &&
+      !restoredByScan
+    ) {
       return { ...track, missingFile: true };
     }
     return track;

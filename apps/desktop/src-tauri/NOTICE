@@ -5,7 +5,7 @@ each distinct license text once, with the packages that use it and their
 copyright notices. The same information is shown in the app under
 About Spiral -> Licenses.
 
-Generated: 2026-10-23T00:51:02.626Z
+Generated: 2026-11-02T21:42:42.085Z
 
 Source code
 -----------
@@ -219,7 +219,7 @@ whatwg-url@5.0.0 — MIT
 zustand@5.0.13 — MIT
 zwitch@2.0.4 — MIT
 
-=== Cargo (664) ===
+=== Cargo (668) ===
 
 adler2@2.0.1 — 0BSD OR MIT OR Apache-2.0
 ahash@0.8.12 — MIT OR Apache-2.0
@@ -710,6 +710,8 @@ time-macros@0.2.32 — MIT OR Apache-2.0
 tiny_http@0.12.0 — MIT OR Apache-2.0
 tiny-keccak@2.0.2 — CC0-1.0
 tinystr@0.8.4 — Unicode-3.0
+tinyvec@1.12.0 — Zlib OR Apache-2.0 OR MIT
+tinyvec_macros@0.1.1 — MIT OR Apache-2.0 OR Zlib
 tokio@1.53.1 — MIT
 tokio-native-tls@0.3.1 — MIT
 tokio-rustls@0.26.4 — MIT OR Apache-2.0
@@ -732,6 +734,7 @@ tower-service@0.3.3 — MIT
 tracing@0.1.44 — MIT
 tracing-attributes@0.1.31 — MIT
 tracing-core@0.1.36 — MIT
+trash@5.2.9 — MIT
 try-lock@0.2.5 — MIT
 typed-path@0.12.4 — MIT OR Apache-2.0
 typeid@1.0.3 — MIT OR Apache-2.0
@@ -743,6 +746,7 @@ unic-common@0.9.0 — MIT/Apache-2.0
 unic-ucd-ident@0.9.0 — MIT/Apache-2.0
 unic-ucd-version@0.9.0 — MIT/Apache-2.0
 unicode-ident@1.0.24 — (MIT OR Apache-2.0) AND Unicode-3.0
+unicode-normalization@0.1.25 — MIT OR Apache-2.0
 unicode-segmentation@1.13.3 — MIT OR Apache-2.0
 untrusted@0.9.0 — ISC
 url@2.5.8 — MIT OR Apache-2.0
@@ -890,7 +894,7 @@ License texts
 -------------
 
 ==============================================================================
-MIT License — used by 775 packages
+MIT License — used by 779 packages
 ==============================================================================
 
 adler2@2.0.1 (cargo)
@@ -1781,6 +1785,10 @@ time-macros@0.2.32 (cargo)
     Copyright (c) Jacob Pratt et al.
 tiny_http@0.12.0 (cargo)
     Copyright (c) 2014-2019 The tiny-http contributors
+tinyvec@1.12.0 (cargo)
+    Authors (from package metadata): Lokathor
+tinyvec_macros@0.1.1 (cargo)
+    Copyright (c) 2020 Soveu
 tokio@1.53.1 (cargo)
     Copyright (c) Tokio Contributors
 tokio-native-tls@0.3.1 (cargo)
@@ -1825,6 +1833,8 @@ tracing-attributes@0.1.31 (cargo)
     Copyright (c) 2019 Tokio Contributors
 tracing-core@0.1.36 (cargo)
     Copyright (c) 2019 Tokio Contributors
+trash@5.2.9 (cargo)
+    Copyright 2019 Artúr Barnabás Kovács
 try-lock@0.2.5 (cargo)
     Copyright (c) 2018-2023 Sean McArthur
     Copyright (c) 2016 Alex Crichton
@@ -1848,6 +1858,8 @@ unic-ucd-version@0.9.0 (cargo)
     Authors (from package metadata): The UNIC Project Developers
 unicode-ident@1.0.24 (cargo)
     Authors (from package metadata): David Tolnay
+unicode-normalization@0.1.25 (cargo)
+    Copyright (c) 2015 The Rust Project Developers
 unicode-segmentation@1.13.3 (cargo)
     Copyright (c) 2015 The Rust Project Developers
 url@2.5.8 (cargo)
@@ -2506,7 +2518,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
-Apache License 2.0 — used by 397 packages
+Apache License 2.0 — used by 400 packages
 ==============================================================================
 
 adler2@2.0.1 (cargo)
@@ -3122,6 +3134,11 @@ time-macros@0.2.32 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 tiny_http@0.12.0 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
+tinyvec@1.12.0 (cargo)
+    (c) You must retain, in the Source form of any Derivative Works
+tinyvec_macros@0.1.1 (cargo)
+    (c) You must retain, in the Source form of any Derivative Works
+    Copyright 2020 Tomasz "Soveu" Marx
 tokio-rustls@0.26.4 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2017 quininer kel
@@ -3155,6 +3172,8 @@ typenum@1.20.1 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2014 Paho Lurie-Gregg
 unicode-ident@1.0.24 (cargo)
+    (c) You must retain, in the Source form of any Derivative Works
+unicode-normalization@0.1.25 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 unicode-segmentation@1.13.3 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
@@ -4124,6 +4143,51 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 
 ==============================================================================
+zlib License — used by 11 packages
+==============================================================================
+
+bytemuck@1.25.2 (cargo)
+    Copyright (c) 2019 Daniel "Lokathor" Gee.
+foldhash@0.2.0 (cargo)
+    Copyright (c) 2024 Orson Peters
+miniz_oxide@0.8.9 (cargo)
+    Copyright 2013-2014 RAD Game Tools and Valve Software
+    Copyright 2010-2014 Rich Geldreich and Tenacious Software LLC
+    Copyright (c) 2020 Frommi
+    Copyright (c) 2017-2024 oyvindln
+miniz_oxide@0.9.1 (cargo)
+    Copyright 2013-2014 RAD Game Tools and Valve Software
+    Copyright 2010-2014 Rich Geldreich and Tenacious Software LLC
+    Copyright (c) 2020 Frommi
+    Copyright (c) 2017-2024 oyvindln
+raw-window-handle@0.6.2 (cargo)
+    Copyright (c) 2020 Osspial
+tinyvec@1.12.0 (cargo)
+    Copyright (c) 2019 Daniel "Lokathor" Gee.
+tinyvec_macros@0.1.1 (cargo)
+    (C) 2020 Tomasz "Soveu" Marx
+xkeysym@0.2.1 (cargo)
+    Copyright (c) 2022-2023 John Nunley
+zlib-rs@0.6.7 (cargo)
+    (C) 2024 Trifecta Tech Foundation
+zune-core@0.5.3 (cargo)
+    (C) zune-image developers
+zune-jpeg@0.5.15 (cargo)
+    (C) zune-image developers
+
+------------------------------------------------------------------------------
+
+This software is provided 'as-is', without any express or implied warranty. In no event will the authors be held liable for any damages arising from the use of this software.
+
+Permission is granted to anyone to use this software for any purpose, including commercial applications, and to alter it and redistribute it freely, subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+
+2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
+
+3. This notice may not be removed or altered from any source distribution.
+
+==============================================================================
 ISC License — used by 10 packages
 ==============================================================================
 
@@ -4200,47 +4264,6 @@ Redistribution and use in source and binary forms, with or without modification,
 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-==============================================================================
-zlib License — used by 9 packages
-==============================================================================
-
-bytemuck@1.25.2 (cargo)
-    Copyright (c) 2019 Daniel "Lokathor" Gee.
-foldhash@0.2.0 (cargo)
-    Copyright (c) 2024 Orson Peters
-miniz_oxide@0.8.9 (cargo)
-    Copyright 2013-2014 RAD Game Tools and Valve Software
-    Copyright 2010-2014 Rich Geldreich and Tenacious Software LLC
-    Copyright (c) 2020 Frommi
-    Copyright (c) 2017-2024 oyvindln
-miniz_oxide@0.9.1 (cargo)
-    Copyright 2013-2014 RAD Game Tools and Valve Software
-    Copyright 2010-2014 Rich Geldreich and Tenacious Software LLC
-    Copyright (c) 2020 Frommi
-    Copyright (c) 2017-2024 oyvindln
-raw-window-handle@0.6.2 (cargo)
-    Copyright (c) 2020 Osspial
-xkeysym@0.2.1 (cargo)
-    Copyright (c) 2022-2023 John Nunley
-zlib-rs@0.6.7 (cargo)
-    (C) 2024 Trifecta Tech Foundation
-zune-core@0.5.3 (cargo)
-    (C) zune-image developers
-zune-jpeg@0.5.15 (cargo)
-    (C) zune-image developers
-
-------------------------------------------------------------------------------
-
-This software is provided 'as-is', without any express or implied warranty. In no event will the authors be held liable for any damages arising from the use of this software.
-
-Permission is granted to anyone to use this software for any purpose, including commercial applications, and to alter it and redistribute it freely, subject to the following restrictions:
-
-1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
-
-2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
-
-3. This notice may not be removed or altered from any source distribution.
 
 ==============================================================================
 The Unlicense — used by 7 packages

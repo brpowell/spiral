@@ -28,12 +28,15 @@ export function ContextMenuItem({
   onClick,
   className,
   disabled,
+  title,
 }: {
   icon?: ReactNode;
   label: string;
   onClick: () => void;
   className?: string;
   disabled?: boolean;
+  /** A tooltip, e.g. why the item is disabled. */
+  title?: string;
 }) {
   return (
     <button
@@ -41,6 +44,7 @@ export function ContextMenuItem({
       role="menuitem"
       className={className}
       disabled={disabled}
+      title={title}
       onClick={onClick}
     >
       {icon != null ? (

@@ -5,6 +5,7 @@ import {
   musicBrainzHitTitle,
 } from "../../lib/musicBrainzEntityDisplay";
 import { useCdStore } from "../../store/useCdStore";
+import { useOnboardingStore } from "../../store/useOnboardingStore";
 import { Badge } from "../common/Badge/Badge";
 import { ChoiceList } from "../common/ChoiceOption/ChoiceOption";
 import {
@@ -27,12 +28,13 @@ export function CdMetadataPicker() {
   const metadataByDriveId = useCdStore((s) => s.metadataByDriveId);
   const selectDiscMetadata = useCdStore((s) => s.selectDiscMetadata);
   const dismissDiscMetadataPick = useCdStore((s) => s.dismissDiscMetadataPick);
+  const onboardingOpen = useOnboardingStore((s) => s.open);
 
   const driveId = metadataPickDriveId;
   const candidates =
     driveId != null ? (metadataCandidatesByDriveId[driveId] ?? []) : [];
   const current = driveId != null ? metadataByDriveId[driveId] : undefined;
-  const open = driveId != null && candidates.length > 1;
+  const open = driveId != null && candidates.length > 1 && !onboardingOpen;
   const hasCurrentRelease = current != null;
 
   const handleClose = () => {

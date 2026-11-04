@@ -386,7 +386,7 @@ describe("commitImportEntries", () => {
           pendingId: 10,
         },
       ],
-      { mode: "copy" },
+      {},
     );
 
     expect(result.skipped).toBe(1);
@@ -403,13 +403,13 @@ describe("commitImportEntries", () => {
 
     const result = await commitImportEntries(
       [{ sourcePath: "/incoming/song.mp3", metadata, pendingId: 1 }],
-      { mode: "copy" },
+      {},
     );
 
     expect(result.imported).toBe(1);
     expect(prepareImportFile).toHaveBeenCalledWith(
       "/incoming/song.mp3",
-      "copy",
+      undefined,
     );
     expect(saveTrack).toHaveBeenCalledWith({
       ...metadata,
@@ -444,7 +444,7 @@ describe("commitImportEntries", () => {
         { sourcePath: "/a.mp3", metadata: withSidecar, pendingId: 1 },
         { sourcePath: "/b.mp3", metadata: without, pendingId: 2 },
       ],
-      { mode: "copy" },
+      {},
     );
 
     expect(result.imported).toBe(2);
@@ -464,7 +464,6 @@ describe("commitImportEntries", () => {
     const result = await commitImportEntries(
       [{ sourcePath: "/incoming/airbag.flac", metadata, pendingId: 10 }],
       {
-        mode: "copy",
         duplicateActions: new Map([
           [10, { action: "replace", replaceLyrics: false }],
         ]),
@@ -476,7 +475,6 @@ describe("commitImportEntries", () => {
     expect(replaceTrackFromImport).toHaveBeenCalledWith({
       trackId: 1,
       sourcePath: "/incoming/airbag.flac",
-      mode: "copy",
       track: { ...metadata, lyrics: null },
     });
   });
@@ -492,7 +490,6 @@ describe("commitImportEntries", () => {
     const result = await commitImportEntries(
       [{ sourcePath: "/incoming/airbag.flac", metadata, pendingId: 10 }],
       {
-        mode: "copy",
         duplicateActions: new Map([
           [10, { action: "replace", replaceLyrics: true }],
         ]),
@@ -504,7 +501,6 @@ describe("commitImportEntries", () => {
     expect(replaceTrackFromImport).toHaveBeenCalledWith({
       trackId: 1,
       sourcePath: "/incoming/airbag.flac",
-      mode: "copy",
       track: metadata,
     });
   });

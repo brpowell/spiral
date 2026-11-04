@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { describeSourceError } from "../../lib/sourceAccess";
 import { useTranslation } from "react-i18next";
 import { ImageCropModal } from "../common/ImageCropModal/ImageCropModal";
 import type { ImageCrop } from "../../lib/imageCrop";
@@ -538,8 +539,7 @@ export function AlbumEditor() {
           );
           updated.push(saved);
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          errors.push(`${track.title}: ${message}`);
+          errors.push(`${track.title}: ${describeSourceError(err)}`);
         }
       }
 

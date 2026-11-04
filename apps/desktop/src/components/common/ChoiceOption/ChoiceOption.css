@@ -26,13 +26,18 @@
     border-color 120ms ease;
 }
 
-.choice-option:hover {
+.choice-option:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
   background: color-mix(
     in srgb,
     var(--color-accent) 8%,
     var(--color-surface-raised, var(--color-surface))
   );
+}
+
+.choice-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .choice-option--selected {

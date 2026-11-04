@@ -29,8 +29,7 @@ export const GENERIC_ORGANIZE_PATH_SAMPLE: OrganizePathSample = {
 };
 
 export function trackToOrganizePathSample(track: Track): OrganizePathSample {
-  const extension =
-    track.filePath.split(".").pop()?.toLowerCase() ?? "mp3";
+  const extension = track.filePath.split(".").pop()?.toLowerCase() ?? "mp3";
   return {
     title: track.title,
     artist: track.artist,
@@ -82,7 +81,7 @@ export function sanitizeFilename(name: string): string {
   let out = "";
   for (const ch of name) {
     if (ch < " " || ch === "\u007f") continue;
-    if ("/\\:<>\"|?*".includes(ch)) continue;
+    if ('/\\:<>"|?*'.includes(ch)) continue;
     out += ch;
   }
   const trimmed = out.split(/\s+/).filter(Boolean).join(" ");
@@ -94,7 +93,9 @@ function sanitizeExtension(ext: string): string {
   return filtered || "mp3";
 }
 
-function parsePlaceholder(rest: string): [key: string, pad: number | null, end: number] | null {
+function parsePlaceholder(
+  rest: string,
+): [key: string, pad: number | null, end: number] | null {
   const close = rest.indexOf("}");
   if (close === -1) return null;
   const inner = rest.slice(1, close);
@@ -106,7 +107,10 @@ function parsePlaceholder(rest: string): [key: string, pad: number | null, end: 
   return [key, pad, close + 1];
 }
 
-function formatOptionalNumber(value: number | null, pad: number | null): string {
+function formatOptionalNumber(
+  value: number | null,
+  pad: number | null,
+): string {
   if (value == null) return "";
   if (pad != null && pad > 0) {
     return String(value).padStart(pad, "0");
@@ -178,10 +182,7 @@ function finalizePathSegment(segment: string): string {
   return cleaned;
 }
 
-function expandTemplate(
-  template: string,
-  sample: OrganizePathSample,
-): string {
+function expandTemplate(template: string, sample: OrganizePathSample): string {
   let out = "";
   let i = 0;
   while (i < template.length) {
@@ -212,8 +213,4 @@ export function formatOrganizeRelativePath(
     .map(finalizePathSegment)
     .filter(Boolean)
     .join("/");
-}
-
-export function isDefaultOrganizePathFormat(format: string): boolean {
-  return format.trim() === DEFAULT_ORGANIZE_PATH_FORMAT;
 }

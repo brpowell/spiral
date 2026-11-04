@@ -1,5 +1,5 @@
 .whats-new-modal {
-  width: min(900px, 100%);
+  width: min(840px, 100%);
   height: min(85vh, 640px);
   max-height: min(85vh, 640px);
 }

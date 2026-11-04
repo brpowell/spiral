@@ -3,6 +3,14 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import type { ItemSummary, ItemType } from "../types/item";
 import type { SoundPackSummary } from "../types/soundPack";
 import type {
+  FilePlanApplySummary,
+  FilePlanSummary,
+  ImportTarget,
+  ReconcileSummary,
+  Source,
+  SourceStatus,
+} from "../types/source";
+import type {
   ItemCatalogQuery,
   ItemDownloadProgress,
   ItemUpdateCheck,
@@ -50,6 +58,7 @@ import type {
   LyricsFormat,
   LyricsSearchCandidate,
   TrackLyrics,
+  TrackLyricsInput,
 } from "../types/lyrics";
 import { normalizeTrackLyrics, normalizeTrackLyricsInput } from "./lyrics";
 import type { ListenEventPayload } from "../types/listenEvent";
@@ -146,6 +155,13 @@ function normalizeTrack(raw: Record<string, unknown>): Track {
       stringArray(raw.albumArtistMbids) ??
       stringArray(raw.album_artist_mbids) ??
       [],
+    sourceId:
+      (raw.sourceId as number | undefined) ??
+      (raw.source_id as number | undefined),
+    missingSince:
+      (raw.missingSince as string | null | undefined) ??
+      (raw.missing_since as string | null | undefined) ??
+      null,
   };
 }
 
@@ -283,6 +299,21 @@ export async function markTrackInstrumental(trackId: number): Promise<Track> {
   return normalizeTrack(raw);
 }
 
+/**
+ * Save fetched lyrics in the library. The file's tags and sidecar are updated
+ * only when the track's source is writable.
+ */
+export async function saveTrackLyrics(
+  trackId: number,
+  lyrics: TrackLyricsInput | null,
+): Promise<Track> {
+  const raw = await invoke<Record<string, unknown>>("save_track_lyrics", {
+    trackId,
+    lyrics,
+  });
+  return normalizeTrack(raw);
+}
+
 export async function fetchLyricsLrclib(
   params: {
     artist: string;
@@ -360,7 +391,6 @@ export async function saveTrack(track: TrackInput): Promise<Track> {
 export async function replaceTrackFromImport(options: {
   trackId: number;
   sourcePath: string;
-  mode: "copy" | "reference";
   track: TrackInput;
 }): Promise<Track> {
   const row = await invoke<Record<string, unknown>>(
@@ -368,7 +398,6 @@ export async function replaceTrackFromImport(options: {
     {
       trackId: options.trackId,
       sourcePath: options.sourcePath,
-      mode: options.mode,
       track: options.track,
     },
   );
@@ -402,11 +431,18 @@ export async function getConvertProfileOptions(
   });
 }
 
+/**
+ * What became of a removed track's file. Only `trashed` means it left its
+ * folder; the `kept*` outcomes mean deleting it was refused.
+ */
+export type RemovedFile =
+  "notRequested" | "trashed" | "notFound" | "keptMissing" | "keptShared";
+
 export async function removeTrack(
   trackId: number,
   deleteFromDisk: boolean,
-): Promise<void> {
-  return invoke<void>("remove_track", { trackId, deleteFromDisk });
+): Promise<RemovedFile> {
+  return invoke<RemovedFile>("remove_track", { trackId, deleteFromDisk });
 }
 
 export async function getLibrary(): Promise<Track[]> {
@@ -423,6 +459,124 @@ export interface RefreshLibraryMetadataResult {
 
 export async function refreshLibraryMetadataFromFiles(): Promise<RefreshLibraryMetadataResult> {
   return invoke<RefreshLibraryMetadataResult>("refresh_library_metadata");
+}
+
+/**
+ * Emitted by the backend when a source's tracks changed on disk (a scan added,
+ * updated or marked tracks missing) or a source was added, moved or removed.
+ */
+export const LIBRARY_TRACKS_CHANGED_EVENT = "library://tracks-changed";
+
+export async function listSources(): Promise<Source[]> {
+  return invoke<Source[]>("list_sources");
+}
+
+/** Add a folder the user picked as a source; it is scanned in the background. */
+export async function addSource(
+  rootPath: string,
+  name?: string,
+): Promise<Source> {
+  return invoke<Source>("add_source", { rootPath, name: name ?? null });
+}
+
+/** Remove a source. Its tracks leave the library; its files stay. Returns tracks removed. */
+export async function removeSource(sourceId: number): Promise<number> {
+  return invoke<number>("remove_source", { sourceId });
+}
+
+export async function rescanSource(
+  sourceId: number,
+): Promise<ReconcileSummary> {
+  return invoke<ReconcileSummary>("rescan_source", { sourceId });
+}
+
+/** Point a source at the folder its files moved to, then rescan it. */
+export async function relocateSource(
+  sourceId: number,
+  newRootPath: string,
+): Promise<Source> {
+  return invoke<Source>("relocate_source", { sourceId, newRootPath });
+}
+
+/** Turn organizing on or off for a source. Existing files don't move here. */
+export async function setSourceOrganize(
+  sourceId: number,
+  autoOrganize: boolean,
+): Promise<Source> {
+  return invoke<Source>("set_source_organize", { sourceId, autoOrganize });
+}
+
+/** Set a source's own path format; null inherits the global one. */
+export async function setSourcePathFormat(
+  sourceId: number,
+  pathFormat: string | null,
+): Promise<Source> {
+  return invoke<Source>("set_source_path_format", { sourceId, pathFormat });
+}
+
+/** Emitted while a file plan moves files; the payload is a `FilePlanProgress`. */
+export const FILE_PLAN_PROGRESS_EVENT = "library://file-plan-progress";
+
+/**
+ * What organizing a source would do: counts, a sample of moves and the
+ * conflicts. Moves nothing. `pathFormat` previews a format other than the
+ * source's own.
+ */
+export async function previewOrganizeSource(
+  sourceId: number,
+  pathFormat?: string | null,
+): Promise<FilePlanSummary> {
+  return invoke<FilePlanSummary>("preview_organize_source", {
+    sourceId,
+    pathFormat: pathFormat ?? null,
+  });
+}
+
+/**
+ * Move a source's files to where its path format puts them, then turn
+ * organizing on (with `pathFormat` as its format, when given).
+ */
+export async function applyOrganizeSource(
+  sourceId: number,
+  pathFormat?: string | null,
+): Promise<FilePlanApplySummary> {
+  return invoke<FilePlanApplySummary>("apply_organize_source", {
+    sourceId,
+    pathFormat: pathFormat ?? null,
+  });
+}
+
+/** Choose the source new imports are copied into. */
+export async function setImportSource(sourceId: number): Promise<Source> {
+  return invoke<Source>("set_import_source", { sourceId });
+}
+
+/** The source new imports are copied into, if any, and whether copying is possible now. */
+export async function getImportSource(): Promise<ImportTarget> {
+  return invoke<ImportTarget>("get_import_source");
+}
+
+/**
+ * Let Spiral manage the user's music: create `Tracks` in the Spiral folder,
+ * add it as an organized source and make it the import target if none is
+ * set. Returns the existing source when it is already one.
+ */
+export async function createManagedSource(): Promise<Source> {
+  return invoke<Source>("create_managed_source");
+}
+
+/** Watch status of each watched folder, for the offline badge. */
+export async function getSourceStatuses(): Promise<SourceStatus[]> {
+  return invoke<SourceStatus[]>("get_source_statuses");
+}
+
+/**
+ * Native folder picker for a music folder to watch; `null` when cancelled.
+ * The picked folder is added to the path scope, as `add_source` needs.
+ */
+export async function pickMusicFolder(): Promise<string | null> {
+  const picked = await invoke<string[]>("pick_folder");
+  return picked[0] ?? null;
 }
 
 function normalizePlaylistImageMode(
@@ -1378,11 +1532,18 @@ export async function saveLibrarySettings(
   return invoke<LibrarySettings>("save_library_settings", { library: patch });
 }
 
+/**
+ * Copy a file into a source (`sourceId`, else the import source). A file
+ * already in a source folder stays where it is. Returns the path to save.
+ */
 export async function prepareImportFile(
   sourcePath: string,
-  mode: "copy" | "reference",
+  sourceId?: number | null,
 ): Promise<string> {
-  return invoke<string>("prepare_import_file", { sourcePath, mode });
+  return invoke<string>("prepare_import_file", {
+    sourcePath,
+    sourceId: sourceId ?? null,
+  });
 }
 
 /** `startDir` is where the picker opens (nearest existing folder if it is missing). */

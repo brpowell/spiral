@@ -1,5 +1,5 @@
 .onboarding {
-  /* Top edge of the header row: the docked logo and Skip welcome. */
+  /* Top edge of the docked logo. */
   --onboarding-header-top: 30px;
   position: fixed;
   inset: 0;
@@ -76,24 +76,16 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
   width: 120px;
 }
 
-.onboarding__skip {
-  position: absolute;
-  /* Same box as the docked lockup (120px wide, 2.13:1), so it centres on it. */
-  top: var(--onboarding-header-top);
-  right: 56px;
-  display: flex;
-  align-items: center;
-  height: calc(120px / 2.13);
-  /* The panel fills the overlay and comes later in the DOM; stay above it. */
-  z-index: 1;
-}
-
 .onboarding__panel {
   position: absolute;
   inset: 0;
   display: grid;
-  /* Both columns hug their content and the pair is centred in the window. */
-  grid-template-columns: minmax(240px, 380px) minmax(0, max-content);
+  /*
+   * Fixed tracks, the same on every two-column step, so the title always
+   * lands in the same place. The controls column fits the Style step's three
+   * swatches across (3 × 160px + 2 × 16px gaps).
+   */
+  grid-template-columns: minmax(240px, 380px) minmax(0, 512px);
   justify-content: center;
   column-gap: 72px;
   align-content: start;
@@ -120,9 +112,9 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
   min-height: 0;
   overflow-y: auto;
   /* Room inside the scroller so hover lift, focus rings and shadows aren't
-     clipped; the margins cancel it so the column still lines up. */
+     clipped; the margins cancel it so the controls fill their column exactly. */
   padding: 8px 12px 24px 8px;
-  margin: -2px 0 0 -8px;
+  margin: -2px -12px 0 -8px;
 }
 
 /* Fade the scroller at an edge only while there's more to scroll to there. */
@@ -168,21 +160,50 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
 }
 
 .onboarding__panel--centered {
-  grid-template-columns: minmax(0, 560px);
-  justify-content: center;
-  /* Anchored from the top, a bit below true centre (optical centre). */
-  align-content: start;
-  padding-top: max(168px, 28vh);
-  row-gap: 32px;
+  grid-template-columns: minmax(0, 480px);
+  /*
+   * Optical centre: the stack sits a little above true centre, where the eye
+   * expects the middle to be. The flexible rows above and below split the
+   * spare height 1:2; they shrink to nothing (and the panel scrolls) when the
+   * window is too short, so nothing is clipped.
+   */
+  grid-template-rows: minmax(0, 1fr) repeat(3, auto) minmax(0, 2fr);
+  align-content: stretch;
+  /*
+   * Clears the docked logo; the deeper bottom lifts the stack off true centre,
+   * easing back to just clearing the footer on short windows.
+   */
+  padding-block: 104px clamp(104px, 20vh, 160px);
+  row-gap: 24px;
   text-align: center;
 }
 
-.onboarding__panel--centered .onboarding__content {
-  align-items: center;
+/* Title, choices, then the note, between the two flexible rows. */
+.onboarding__panel--centered > :nth-child(1) {
+  grid-row: 2;
 }
 
-.onboarding__panel--centered .onboarding-path {
-  width: 100%;
+.onboarding__panel--centered > :nth-child(2) {
+  grid-row: 3;
+}
+
+.onboarding__panel--centered > :nth-child(3) {
+  grid-row: 4;
+}
+
+/* An error applying the answer: under the note, in the space below. */
+.onboarding__panel--centered > :nth-child(4) {
+  grid-row: 5;
+  align-self: start;
+}
+
+.onboarding__panel--centered .onboarding__title {
+  margin: 0;
+}
+
+/* The note under the choices: quieter than a subtitle. */
+.onboarding__panel--centered > .onboarding__description {
+  font-size: 0.9375rem;
 }
 
 .onboarding__title {
@@ -237,57 +258,26 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
   gap: 8px;
 }
 
-/* Library step */
-.onboarding-path {
+/* Library step: the choice cards fill the column. */
+.onboarding-cards {
+  width: 100%;
+}
+
+/* Folders step */
+.onboarding-folders {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 16px;
   width: 100%;
-  max-width: 560px;
-  padding: 20px 24px;
-  text-align: left;
-  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
 }
 
-.onboarding-path__icon {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+.onboarding-folders__list {
+  width: 100%;
 }
 
-/* Reads as one real path, left to right; only the library folder itself is emphasised. */
-.onboarding-path__text {
-  display: flex;
-  align-items: baseline;
-  min-width: 0;
-  font-size: 1.25rem;
-  line-height: 1.3;
-}
-
-.onboarding-path__parent {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--color-text-secondary);
-}
-
-.onboarding-path__name {
-  flex: none;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+.onboarding-folders__add {
+  gap: 8px;
 }
 
 /* Style step: live transport preview under the intro text */

@@ -1,0 +1,139 @@
+/* Under the Music folders label: the cards, Add folder, then Other. */
+.sources-section__content {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+}
+
+.sources-section__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sources-section__item {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  background: var(--color-surface-raised, var(--color-surface));
+}
+
+.sources-section__icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  color: var(--color-text-secondary);
+}
+
+.sources-section__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.sources-section__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sources-section__name {
+  font-weight: var(--weight-medium);
+}
+
+/* Inline status after the counts, e.g. "494 tracks · ✓ Default". */
+.sources-section__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.sources-section__status svg {
+  width: 1.15em;
+  height: 1.15em;
+  flex-shrink: 0;
+}
+
+/* Green whatever the theme's accent is: the success colour. */
+.sources-section__default svg {
+  color: var(--color-alert-success);
+}
+
+.sources-section__offline {
+  color: var(--color-danger, #e55);
+}
+
+/* The path is the card's headline now that the name row is gone. */
+.sources-section__path {
+  font-size: 0.78rem;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+/* Counts and status, spaced apart with a faint dot between. */
+.sources-section__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 0.55rem;
+}
+
+.sources-section__sep {
+  color: var(--color-text-muted, var(--color-text-secondary));
+  opacity: 0.6;
+}
+
+.sources-section__meta,
+.sources-section__description {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.sources-section__missing {
+  color: var(--color-danger, #e55);
+}
+
+/* Sits at the top right of the card; the card's padding is enough room. */
+.sources-section__menu {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin: -0.3rem -0.4rem 0 0;
+}
+
+/* The folder being removed, atop the Remove prompt: same card as the list. */
+.sources-section__remove-folder {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  background: var(--color-surface-raised, var(--color-surface));
+}
+
+.sources-section__remove-folder svg {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  color: var(--color-text-secondary);
+}
+
+.sources-section__remove-folder code {
+  min-width: 0;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}

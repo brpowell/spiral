@@ -22,6 +22,7 @@ mod db_migrations;
 mod diagnostics_export;
 mod disc_metadata_cache;
 mod encoding_profiles;
+mod file_plan;
 mod file_playback;
 mod file_scan;
 mod fs_move;
@@ -65,9 +66,15 @@ mod skin_click_through;
 pub mod skin_convert;
 mod skin_drag;
 mod skin_preferences;
+mod source_scan;
+#[cfg(test)]
+mod source_test_support;
+mod source_watch;
+mod sources;
 pub mod tag_inspector;
 #[cfg(test)]
 mod test_fixtures;
+mod track_identity;
 mod track_list_prefs;
 mod transcoder;
 mod viz_worker_csp;
@@ -152,9 +159,10 @@ pub fn run() {
 
             let db_path = library_paths::ensure_library_for_app(app.handle())
                 .expect("failed to init library");
-            let conn = db::open(&db_path).expect("failed to open database");
+            let conn = db::open_library(&db_path).expect("failed to open database");
             app.manage(DbState(Mutex::new(conn)));
             app.manage(RatingSync::new());
+            commands::organize::init(app.handle());
 
             #[cfg(desktop)]
             if let Err(err) = media_shortcuts::register(app.handle()) {
@@ -224,8 +232,22 @@ pub fn run() {
             commands::library::clear_listen_history,
             commands::library::set_track_rating,
             commands::library::remove_track,
+            commands::sources::list_sources,
+            commands::sources::add_source,
+            commands::sources::remove_source,
+            commands::sources::rescan_source,
+            commands::sources::relocate_source,
+            commands::sources::set_source_organize,
+            commands::sources::set_source_path_format,
+            commands::sources::set_import_source,
+            commands::organize::preview_organize_source,
+            commands::organize::apply_organize_source,
+            commands::sources::get_import_source,
+            commands::sources::create_managed_source,
+            commands::sources::get_source_statuses,
             commands::lyrics::get_track_lyrics,
             commands::lyrics::mark_track_instrumental,
+            commands::lyrics::save_track_lyrics,
             commands::lyrics::fetch_lyrics_lrclib,
             commands::lyrics::cancel_lyrics_fetch,
             commands::lyrics::clear_lyrics_fetch_cancel,

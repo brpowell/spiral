@@ -1,6 +1,7 @@
 import { useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { canDeleteFromDisk } from "../../lib/sourceAccess";
 import type { Track } from "../../types/track";
 import { Button } from "../common/Button/Button";
 import {
@@ -48,6 +49,9 @@ export function RemoveTrackDialog({
 
   const count = tracks.length;
   const heading = t("removeTracks.title", { count });
+  // Missing tracks' files are only ever removed from the library, never
+  // deleted.
+  const deletable = tracks.filter(canDeleteFromDisk).length;
 
   return (
     <Modal
@@ -81,9 +85,11 @@ export function RemoveTrackDialog({
         <Button variant="secondary" onClick={() => void handleRemove(false)}>
           {t("removeTracks.removeFromLibrary")}
         </Button>
-        <Button variant="danger" onClick={() => void handleRemove(true)}>
-          {t("removeTracks.deleteFiles", { count })}
-        </Button>
+        {deletable === 0 ? null : (
+          <Button variant="danger" onClick={() => void handleRemove(true)}>
+            {t("removeTracks.deleteFiles", { count: deletable })}
+          </Button>
+        )}
       </ModalFooter>
     </Modal>
   );

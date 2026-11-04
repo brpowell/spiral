@@ -75,6 +75,22 @@ describe("confirmAndApplyTrackRatings", () => {
     expect(setTrackRating).not.toHaveBeenCalled();
   });
 
+  it("writes and counts Other's loose files like any other", async () => {
+    const loose = (id: number, rating: number) =>
+      ({ id, rating, sourceId: 2 }) as Track;
+    const pending = confirmAndApplyTrackRatings(
+      [track(1, 0), loose(2, 0), loose(3, 0)],
+      128,
+      update,
+    );
+    expect(useTagWriteConfirmStore.getState().prompt).toMatchObject({
+      fileCount: 3,
+    });
+    await useTagWriteConfirmStore.getState().answerPrompt(true, false);
+    await pending;
+    expect(setTrackRating).toHaveBeenCalledTimes(3);
+  });
+
   it("uses the native dialog for skins", async () => {
     confirmTagWriteNative.mockResolvedValue(true);
     await confirmAndApplyTrackRatings([track(1, 0)], 128, update, {

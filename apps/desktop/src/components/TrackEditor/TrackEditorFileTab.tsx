@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useFileSize } from "../../hooks/useFileSize";
 import { useFileExists } from "../../hooks/useFileExists";
+import { useShortenHomePath } from "../../lib/homePath";
 import {
   revealInFileManagerLabel,
   revealTrackInFileManager,
@@ -27,6 +28,7 @@ export function TrackEditorFileTab({
   updateTrackInLibrary,
 }: TrackEditorFileTabProps) {
   const { t } = useTranslation(["library", "common"]);
+  const displayPath = useShortenHomePath();
   const fileSizeBytes = useFileSize(track.filePath);
   const fileExistsOnDisk = useFileExists(track.filePath);
   const isMissingFile = isTrackMissingFile(track) || fileExistsOnDisk === false;
@@ -69,7 +71,8 @@ export function TrackEditorFileTab({
               .filter(Boolean)
               .join(" ")}
             readOnly
-            value={track.filePath}
+            value={displayPath(track.filePath)}
+            title={track.filePath}
             rows={1}
             spellCheck={false}
             aria-label={t("library:editor.filePathAria")}

@@ -63,9 +63,10 @@ import { fileExists } from "../lib/artPath";
 import {
   mergeLibraryClientState,
   isMissingFileError,
+  isTrackMissingFile,
   withTrackMissingFile,
 } from "../lib/missingFileTrack";
-import { showPlaybackFileMissingToast } from "../lib/playbackToast";
+import { showMissingTrackSkippedToast } from "../lib/playbackToast";
 import {
   errorMessageFromUnknown,
   reportCdPlaybackFailure,
@@ -349,19 +350,29 @@ function tryScheduleCrossfade(
   if (!state.currentPlayable) return;
 
   const order = getPlaybackOrder(get);
+  // This runs on every position tick, so what it passes over is only told
+  // once the handoff happens.
+  const skippedIds: number[] = [];
   const nextId = getNextSkippingKnownUnplayable(
     order,
     state.currentTrackId,
     state.repeatMode,
     state.library,
     getAutoplayNextId,
+    (skippedId) => skippedIds.push(skippedId),
   );
   if (nextId === null) return;
 
   const nextPlayable = playableRefFromTrackListId(nextId, state.cdDriveId);
   if (!nextPlayable) return;
 
-  const ctx = buildCrossfadeScheduleContext(get, set, nextPlayable, nextId);
+  const ctx = buildCrossfadeScheduleContext(
+    get,
+    set,
+    nextPlayable,
+    nextId,
+    skippedIds,
+  );
   if (!ctx) return;
 
   const settings = usePlaybackSettingsStore.getState();
@@ -380,6 +391,7 @@ function buildCrossfadeScheduleContext(
   ) => void,
   nextPlayable: PlayableRef,
   nextTrackId: number,
+  skippedIds: readonly number[] = [],
 ): Parameters<typeof audio.startCrossfadeNow>[0] | null {
   const settings = usePlaybackSettingsStore.getState();
   const state = get();
@@ -414,6 +426,7 @@ function buildCrossfadeScheduleContext(
     positionSeconds: audio.getPositionSeconds(),
     onActiveTrackChange: ({ incomingPlayable, incomingTrackListId }) => {
       applyActiveTrackHandoff(set, get, incomingPlayable, incomingTrackListId);
+      for (const id of skippedIds) notifySkippedMissing(get, id);
     },
   };
 }
@@ -535,8 +548,7 @@ function startPositionPoll(
 }
 
 interface PlaybackAdvanceOptions {
-  /** When true, skip missing tracks and continue through the set list. */
-  advanceOnMissing?: boolean;
+  /** How to step through the set list past missing tracks. */
   getNextId?: PlaybackNextIdFn;
 }
 
@@ -572,6 +584,7 @@ function setLibraryTrackMissingFile(
   }));
 }
 
+/** Flag a track missing and tell the user it was skipped. */
 function handlePlaybackFileMissing(
   set: (
     partial:
@@ -579,27 +592,17 @@ function handlePlaybackFileMissing(
   ) => void,
   get: () => PlayerState,
   trackId: number,
-  options?: { toast?: boolean },
 ): void {
   setLibraryTrackMissingFile(set, trackId, true);
-  if (options?.toast === false) return;
-  const track = get().library.find((item) => item.id === trackId);
-  if (track) {
-    showPlaybackFileMissingToast(track);
-  }
+  notifySkippedMissing(get, trackId);
 }
 
-function shouldPreserveCurrentPlayback(
-  get: () => PlayerState,
-  targetTrackListId: number,
-): boolean {
-  const state = get();
-  return (
-    state.playbackState === "playing" &&
-    state.currentTrackId !== null &&
-    state.currentTrackId !== targetTrackListId &&
-    audio.isPlaying()
-  );
+/** Skipping passes over importing tracks too, which aren't worth a mention. */
+function notifySkippedMissing(get: () => PlayerState, trackId: number): void {
+  const track = get().library.find((item) => item.id === trackId);
+  if (track && isTrackMissingFile(track)) {
+    showMissingTrackSkippedToast(track);
+  }
 }
 
 async function advanceToPlayableInOrder(
@@ -620,8 +623,9 @@ async function advanceToPlayableInOrder(
     state.library,
     getNextId,
     {
+      onSkippedMissing: (trackId) => notifySkippedMissing(get, trackId),
       onDiscoveredMissing: (trackId) => {
-        handlePlaybackFileMissing(set, get, trackId, { toast: false });
+        handlePlaybackFileMissing(set, get, trackId);
       },
     },
   );
@@ -639,7 +643,6 @@ async function advanceToPlayableInOrder(
   }
 
   await playResolvedPlayable({ type: "library", trackId: nextId }, set, get, {
-    advanceOnMissing: true,
     getNextId,
   });
 }
@@ -651,21 +654,16 @@ async function handleMissingLibraryPlayback(
   ) => void,
   get: () => PlayerState,
   trackId: number,
-  trackListId: number,
   generation: number,
   options?: PlayResolvedPlayableOptions,
 ): Promise<void> {
   handlePlaybackFileMissing(set, get, trackId);
-  if (!options?.advanceOnMissing) {
-    if (shouldPreserveCurrentPlayback(get, trackListId)) return;
-    return;
-  }
   if (generation !== playResolvedGeneration) return;
   await advanceToPlayableInOrder(
     set,
     get,
     trackId,
-    options.getNextId ?? getAutoplayNextId,
+    options?.getNextId ?? getManualNextId,
   );
 }
 
@@ -708,7 +706,6 @@ async function playResolvedPlayable(
         set,
         get,
         playable.trackId,
-        trackListId,
         generation,
         options,
       );
@@ -788,7 +785,6 @@ async function playResolvedPlayable(
         set,
         get,
         playable.trackId,
-        trackListId,
         generation,
         options,
       );
@@ -1147,12 +1143,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       repeatMode,
       get().library,
       getAutoplayNextId,
+      (skippedId) => notifySkippedMissing(get, skippedId),
     );
     if (nextId !== null) {
-      void get().playTrack(nextId, {
-        advanceOnMissing: true,
-        getNextId: getAutoplayNextId,
-      });
+      void get().playTrack(nextId, { getNextId: getAutoplayNextId });
       return;
     }
 
@@ -1427,21 +1421,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const track = get().library.find((t) => t.id === id);
       if (!track || isTrackImporting(track)) return;
 
-      if (isTrackKnownUnplayable(track)) {
-        handlePlaybackFileMissing(set, get, id);
-        if (!options?.advanceOnMissing) {
-          if (shouldPreserveCurrentPlayback(get, id)) return;
-          return;
-        }
-        await advanceToPlayableInOrder(
-          set,
-          get,
-          id,
-          options.getNextId ?? getAutoplayNextId,
-        );
-        return;
-      }
-
       const hadContext = get().playContextIds.length > 0;
       if (!hadContext && get().library.length > 0) {
         set({ playContextIds: interactiveLibraryIds(get().library) });
@@ -1450,8 +1429,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         set({ playContextIds: shuffleTrackList(get().playContextIds, id) });
       }
 
+      if (isTrackKnownUnplayable(track)) {
+        handlePlaybackFileMissing(set, get, id);
+        await advanceToPlayableInOrder(
+          set,
+          get,
+          id,
+          options?.getNextId ?? getManualNextId,
+        );
+        return;
+      }
+
       await playResolvedPlayable({ type: "library", trackId: id }, set, get, {
-        advanceOnMissing: options?.advanceOnMissing,
         getNextId: options?.getNextId,
       });
     },
@@ -1577,6 +1566,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
           repeatMode,
           get().library,
           getManualPreviousId,
+          (skippedId) => notifySkippedMissing(get, skippedId),
         );
         if (prevId !== null) {
           const prevPlayable: PlayableRef = {
@@ -1586,10 +1576,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
           if (tryStartManualCrossfade(set, get, prevPlayable, prevId)) {
             return;
           }
-          void get().playTrack(prevId, {
-            advanceOnMissing: true,
-            getNextId: getManualPreviousId,
-          });
+          void get().playTrack(prevId, { getNextId: getManualPreviousId });
         }
         return;
       }
@@ -1608,16 +1595,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         repeatMode,
         get().library,
         getManualNextId,
+        (skippedId) => notifySkippedMissing(get, skippedId),
       );
       if (nextId !== null) {
         const nextPlayable: PlayableRef = { type: "library", trackId: nextId };
         if (tryStartManualCrossfade(set, get, nextPlayable, nextId)) {
           return;
         }
-        void get().playTrack(nextId, {
-          advanceOnMissing: true,
-          getNextId: getManualNextId,
-        });
+        void get().playTrack(nextId, { getNextId: getManualNextId });
       }
     },
 

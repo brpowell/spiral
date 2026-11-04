@@ -39,6 +39,7 @@ export function getNextSkippingKnownUnplayable(
   repeatMode: RepeatMode,
   library: Track[],
   getNextId: PlaybackNextIdFn,
+  onSkipped?: (trackId: number) => void,
 ): number | null {
   let candidate = getNextId(order, currentId, repeatMode);
   const visited = new Set<number>();
@@ -51,6 +52,7 @@ export function getNextSkippingKnownUnplayable(
       return candidate;
     }
 
+    onSkipped?.(candidate);
     candidate = getNextId(order, candidate, repeatMode);
   }
 
@@ -58,6 +60,8 @@ export function getNextSkippingKnownUnplayable(
 }
 
 export interface FindNextPlayableOptions {
+  /** A track already flagged missing was passed over. */
+  onSkippedMissing?: (trackId: number) => void;
   onDiscoveredMissing?: (trackId: number) => void;
 }
 
@@ -88,6 +92,7 @@ export async function findNextPlayableInOrder(
     }
 
     if (isTrackMissingFile(track)) {
+      options.onSkippedMissing?.(candidate);
       candidate = getNextId(order, candidate, repeatMode);
       continue;
     }

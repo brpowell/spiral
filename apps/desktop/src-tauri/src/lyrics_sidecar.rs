@@ -56,15 +56,6 @@ pub fn sync_sidecar(audio_path: &Path, lyrics: Option<&TrackLyricsInput>) -> Res
     Ok(())
 }
 
-/// Remove sibling `.lrc` file when present.
-pub fn remove_sidecar(audio_path: &Path) -> Result<(), String> {
-    let path = sidecar_path_for(audio_path);
-    if path.is_file() {
-        fs::remove_file(&path).map_err(|e| format!("failed to remove lyrics sidecar: {e}"))?;
-    }
-    Ok(())
-}
-
 /// Move `{stem}.lrc` alongside an audio file when relocating tracks.
 pub fn move_sidecar(from: &Path, dest: &Path) {
     let sidecar_from = sidecar_path_for(from);
@@ -195,24 +186,6 @@ mod tests {
             plain_text: "Plain only".to_string(),
         };
         sync_sidecar(&audio, Some(&plain)).expect("remove plain sidecar");
-        assert!(!sidecar.exists());
-
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn remove_sidecar_deletes_sibling_lrc() {
-        let dir =
-            std::env::temp_dir().join(format!("spiral-sidecar-delete-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-
-        let audio = dir.join("track.flac");
-        fs::File::create(&audio).unwrap();
-        let sidecar = dir.join("track.lrc");
-        fs::write(&sidecar, "[00:01.00] Gone").unwrap();
-
-        remove_sidecar(&audio).expect("remove sidecar");
         assert!(!sidecar.exists());
 
         let _ = fs::remove_dir_all(&dir);

@@ -337,7 +337,8 @@
     "codec": "Codec",
     "sampleRate": "Sample rate",
     "bitrate": "Bitrate",
-    "lyrics": "Lyrics"
+    "lyrics": "Lyrics",
+    "source": "Source"
   },
   "artistBrowse": {
     "discography": {
@@ -379,6 +380,18 @@
       "yourTrack": "Your track",
       "results": "Results",
       "skip": "Skip for now"
+    }
+  },
+  "sources": {
+    "missingSince": "File missing since {{date}}",
+    "missingNow": "File missing",
+    "errors": {
+      "notFolder": "That folder doesn't exist or isn't a folder.",
+      "spiralData": "That folder is the Spiral folder or holds its database, artwork or packs. Pick another folder.",
+      "noSource": "There's no music folder to copy files into. Add a folder first.",
+      "unavailable": "That music folder isn't available. Connect its drive and try again.",
+      "lastSource": "Spiral needs at least one music folder. Add another before removing this one.",
+      "overlap": "That folder overlaps one of your sources. Pick one that doesn't contain, or sit inside, another source."
     }
   }
 }

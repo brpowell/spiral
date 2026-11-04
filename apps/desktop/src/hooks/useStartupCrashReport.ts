@@ -4,10 +4,12 @@ import {
   listUnacknowledgedStartupRustCrashReports,
   readCrashReport,
 } from "../lib/crashReport";
+import { useOnboardingStore } from "../store/useOnboardingStore";
 import type { CrashReport } from "../types/crashReport";
 
 export function useStartupCrashReport() {
   const [open, setOpen] = useState(false);
+  const onboardingOpen = useOnboardingStore((s) => s.open);
   const [report, setReport] = useState<CrashReport | null>(null);
   const [crashReportId, setCrashReportId] = useState<string | null>(null);
 
@@ -46,7 +48,8 @@ export function useStartupCrashReport() {
   }, [crashReportId]);
 
   return {
-    open,
+    // Held back until onboarding ends, so it doesn't land on the welcome steps.
+    open: open && !onboardingOpen,
     report,
     crashReportId,
     dismiss,

@@ -43,6 +43,7 @@ const RELOAD_LINKED_PACKS_ID = "reload-linked-packs";
 
 let reloadLinkedPacksItem: MenuItem | null = null;
 let linkedPacksListenerBound = false;
+let onboardingLocked = false;
 
 async function hasLinkedPacks(): Promise<boolean> {
   try {
@@ -63,7 +64,9 @@ export async function linkedPacksAvailable(): Promise<boolean> {
 async function syncReloadLinkedPacksMenuEnabled(): Promise<void> {
   if (!reloadLinkedPacksItem) return;
   try {
-    await reloadLinkedPacksItem.setEnabled(await hasLinkedPacks());
+    await reloadLinkedPacksItem.setEnabled(
+      !onboardingLocked && (await hasLinkedPacks()),
+    );
   } catch (err) {
     console.error("Failed to sync Reload Linked Packs menu state:", err);
   }
@@ -71,9 +74,15 @@ async function syncReloadLinkedPacksMenuEnabled(): Promise<void> {
 
 /**
  * Installs the native macOS app menu. Windows/Linux skip this and use
- * {@link WindowTitleBar} instead.
+ * {@link WindowTitleBar} instead. While `onboarding` is true, anything that
+ * changes the library or opens over the welcome steps is disabled.
  */
-export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
+export async function setupAppMenu(
+  handlers: AppMenuHandlers,
+  onboarding: boolean,
+): Promise<void> {
+  onboardingLocked = onboarding;
+  const enabled = !onboarding;
   const about = await MenuItem.new({
     id: "about",
     text: t("menus:app.about"),
@@ -83,6 +92,7 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
     id: "preferences",
     text: t("menus:app.preferences"),
     accelerator: "CmdOrCtrl+,",
+    enabled,
     action: handlers.openPreferences,
   });
   const checkForUpdates = await MenuItem.new({
@@ -109,12 +119,14 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
   const addToLibrary = await MenuItem.new({
     id: "add-to-library",
     text: t("menus:file.addToLibrary"),
+    enabled,
     action: handlers.addToLibrary,
   });
 
   const newPlaylist = await MenuItem.new({
     id: "new-playlist",
     text: t("menus:file.newPlaylist"),
+    enabled,
     action: handlers.newPlaylist,
   });
 
@@ -123,12 +135,14 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
   const refreshLibraryMetadata = await MenuItem.new({
     id: "refresh-library-metadata",
     text: t("menus:file.refreshLibraryMetadata"),
+    enabled,
     action: handlers.refreshLibraryMetadata,
   });
 
   const fetchMissingLyrics = await MenuItem.new({
     id: "fetch-missing-lyrics",
     text: t("menus:file.fetchMissingLyrics"),
+    enabled,
     action: handlers.fetchMissingLyrics,
   });
 
@@ -159,12 +173,14 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
   const skinMode = await MenuItem.new({
     id: "skin-mode",
     text: t("menus:view.skinMode"),
+    enabled,
     action: handlers.openSkinMode,
   });
 
   const appearance = await MenuItem.new({
     id: "appearance",
     text: t("menus:view.studio"),
+    enabled,
     action: handlers.openAppearance,
   });
 
@@ -173,7 +189,7 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
     id: RELOAD_LINKED_PACKS_ID,
     text: t("menus:view.reloadLinkedPacks"),
     accelerator: "CmdOrCtrl+Alt+R",
-    enabled: linked,
+    enabled: enabled && linked,
     action: handlers.reloadLinkedPacks,
   });
   reloadLinkedPacksItem = reloadLinkedPacks;
@@ -183,6 +199,7 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
   const equalizer = await MenuItem.new({
     id: "equalizer",
     text: t("menus:view.equalizer"),
+    enabled,
     action: handlers.openEqualizer,
   });
 

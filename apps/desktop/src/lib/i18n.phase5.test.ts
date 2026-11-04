@@ -72,7 +72,6 @@ describe("i18n Phase 5 catalogs", () => {
 
   it("resolves preferences body and relocate plurals", () => {
     expect(t("preferences:title")).toBe("Preferences");
-    expect(t("preferences:library.importCopy")).toBe("Copy into library");
     expect(t("preferences:listening.record")).toBe("Record listening history");
     expect(t("preferences:relocate.importFound", { count: 1 })).toBe(
       "Import 1 found file",

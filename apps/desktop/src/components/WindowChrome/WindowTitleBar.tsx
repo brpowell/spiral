@@ -27,6 +27,7 @@ import { LINKED_PACKS_CHANGED_EVENT } from "../../lib/appearanceWindow";
 import { stubLocaleMenuLabel } from "../../lib/appLocale";
 import { t } from "../../lib/i18n";
 import { useContextMenu } from "../../hooks/useContextMenu";
+import { useOnboardingStore } from "../../store/useOnboardingStore";
 import "./WindowTitleBar.css";
 
 const MENU_ITEMS: { id: AppMenuBarId; label: string }[] = [
@@ -138,6 +139,9 @@ export function WindowTitleBar({
     void getCurrentWindow().toggleMaximize();
   };
 
+  // Mirrors the native menu: see `setupAppMenu`.
+  const onboarding = useOnboardingStore((s) => s.open);
+
   const run = (action: () => void) => () => {
     closeMenu();
     setActiveMenu(null);
@@ -159,6 +163,7 @@ export function WindowTitleBar({
         <ContextMenuSeparator />
         <ContextMenuItem
           label={t("menus:app.preferences")}
+          disabled={onboarding}
           onClick={run(handlers.openPreferences)}
         />
         <ContextMenuSeparator />
@@ -173,19 +178,23 @@ export function WindowTitleBar({
       <>
         <ContextMenuItem
           label={t("menus:file.addToLibrary")}
+          disabled={onboarding}
           onClick={run(handlers.addToLibrary)}
         />
         <ContextMenuItem
           label={t("menus:file.newPlaylist")}
+          disabled={onboarding}
           onClick={run(handlers.newPlaylist)}
         />
         <ContextMenuSeparator />
         <ContextMenuItem
           label={t("menus:file.refreshLibraryMetadata")}
+          disabled={onboarding}
           onClick={run(handlers.refreshLibraryMetadata)}
         />
         <ContextMenuItem
           label={t("menus:file.fetchMissingLyrics")}
+          disabled={onboarding}
           onClick={run(handlers.fetchMissingLyrics)}
         />
       </>
@@ -225,20 +234,23 @@ export function WindowTitleBar({
       <>
         <ContextMenuItem
           label={t("menus:view.skinMode")}
+          disabled={onboarding}
           onClick={run(handlers.openSkinMode)}
         />
         <ContextMenuItem
           label={t("menus:view.studio")}
+          disabled={onboarding}
           onClick={run(handlers.openAppearance)}
         />
         <ContextMenuItem
           label={t("menus:view.reloadLinkedPacks")}
-          disabled={!reloadLinkedEnabled}
+          disabled={onboarding || !reloadLinkedEnabled}
           onClick={run(handlers.reloadLinkedPacks)}
         />
         <ContextMenuSeparator />
         <ContextMenuItem
           label={t("menus:view.equalizer")}
+          disabled={onboarding}
           onClick={run(handlers.openEqualizer)}
         />
         <ContextMenuItem

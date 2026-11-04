@@ -18,6 +18,9 @@
   },
   "playback": {
     "fileMissing": "File not found",
+    "filesMissing_one": "{{count}} track skipped",
+    "filesMissing_other": "{{count}} tracks skipped",
+    "filesMissingDetail": "Their files weren't found",
     "failed": "Playback failed",
     "failedDetail": "Something went wrong. Try again, or check the logs for details."
   },
@@ -121,6 +124,24 @@
     "missing": "{{count}} missing",
     "failed": "{{count}} failed",
     "finished": "Refresh finished"
+  },
+  "organize": {
+    "running": "Organizing “{{name}}”…",
+    "operation": "Organize",
+    "moved_one": "{{count}} file organized",
+    "moved_other": "{{count}} files organized",
+    "failed": "{{count}} failed",
+    "failedFallback": "Couldn't organize “{{name}}”"
+  },
+  "sourceScan": {
+    "done": "“{{name}}” scanned",
+    "noChanges": "No changes",
+    "added": "{{count}} added",
+    "updated": "{{count}} updated",
+    "moved": "{{count}} moved",
+    "missing": "{{count}} missing",
+    "restored": "{{count}} found again",
+    "failed": "{{count}} failed"
   },
   "convert": {
     "running_one": "Converting track…",
