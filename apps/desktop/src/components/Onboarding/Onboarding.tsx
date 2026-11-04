@@ -218,11 +218,6 @@ function OnboardingOverlay() {
       <div className="onboarding__logo" ref={logoRef} />
       {docked ? (
         <>
-          <div className="onboarding__skip">
-            <Button variant="ghost" onClick={() => setLeaving(true)}>
-              {t("onboarding.skip")}
-            </Button>
-          </div>
           <div
             className={`onboarding__panel ${LAYOUT_CLASSES[layout]}${navigated ? "" : " onboarding__panel--first"}`}
             key={id}

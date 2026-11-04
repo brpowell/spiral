@@ -117,9 +117,6 @@ describe("Onboarding", () => {
     ).toBeInTheDocument();
     // Next waits for an answer to the first question.
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: "Skip welcome" }),
-    ).toBeInTheDocument();
     // First step has nowhere to go back to.
     expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
   });
@@ -222,15 +219,11 @@ describe("Onboarding", () => {
     expect(destroy).toHaveBeenCalled();
   });
 
-  it("skips straight out from any step", () => {
+  it("has no way out but finishing the steps", () => {
     render(<Onboarding />);
     playThroughReveal();
 
-    fireEvent.click(screen.getByRole("button", { name: "Skip welcome" }));
-    act(() => {
-      vi.advanceTimersByTime(ONBOARDING_FADE_MS);
-    });
-    expect(useOnboardingStore.getState().open).toBe(false);
+    expect(screen.queryByRole("button", { name: /skip/i })).toBeNull();
   });
 
   it("mounts paused with sound on, then plays after the start delay", () => {

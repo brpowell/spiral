@@ -13,7 +13,6 @@
     "ariaLabel": "Welcome to Spiral",
     "next": "Next",
     "back": "Back",
-    "skip": "Skip welcome",
     "finish": "Finish",
     "progress": "Step {{current}} of {{total}}",
     "library": {
@@ -24,7 +23,7 @@
         "existing": "I'll pick the folder(s)"
       },
       "newMessage": "Auto-organize your files under <code>{{path}}</code>",
-      "existingDetail": "If you want more control, or already have your files collected. Optionally use auto-organize."
+      "existingDetail": "If you want more control, or already have your files collected. Optionally, use auto-organize."
     },
     "folders": {
       "title": "Add music sources",
