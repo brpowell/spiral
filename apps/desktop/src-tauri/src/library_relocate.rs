@@ -161,7 +161,7 @@ fn reopen_db(state: &DbState, path: &Path) -> Result<(), String> {
         .0
         .lock()
         .map_err(|e| format!("database lock poisoned: {e}"))?;
-    *guard = db::open(path).map_err(|e| format!("failed to open library database: {e}"))?;
+    *guard = db::open_library(path).map_err(|e| format!("failed to open library database: {e}"))?;
     Ok(())
 }
 

@@ -426,6 +426,8 @@ pub const NO_SOURCE: &str = "no_source";
 /// The source's folder isn't reachable (an unplugged drive), so nothing is
 /// written to it.
 pub const SOURCE_UNAVAILABLE: &str = "source_unavailable";
+/// A library always keeps at least one source, so its last can't be removed.
+pub const LAST_SOURCE: &str = "last_source";
 
 /// Check a folder can become a source: an absolute, existing folder that
 /// neither equals, contains nor sits inside another source's root. It may sit
@@ -538,13 +540,36 @@ pub fn create_managed_source(conn: &Connection, roots: &LibraryRoots) -> Result<
     Ok(source)
 }
 
+/// Give a library with no sources the managed `Tracks` folder, as its import
+/// target, so it always has at least one. Runs after migrations each time
+/// the library opens; a library that has sources is left as it is. Returns
+/// the source it created, if any.
+pub fn ensure_a_source(conn: &Connection, library_root: &Path) -> Result<Option<Source>, String> {
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM sources", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    if count > 0 {
+        return Ok(None);
+    }
+    let roots = LibraryRoots::for_library_root(library_root);
+    create_managed_source(conn, &roots).map(Some)
+}
+
 /// Remove a source and its tracks' rows (with their play history, playlist
 /// entries and lyrics). The files stay where they are. If it was the import
 /// target, the source with the lowest id
 /// whose folder is reachable becomes the target, or none does. Returns how
-/// many track rows were removed.
+/// many track rows were removed. The last source can't be removed.
 pub fn remove_source(conn: &Connection, id: i64) -> Result<usize, String> {
     let source = get_source_or_err(conn, id)?;
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM sources", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    if count <= 1 {
+        return Err(format!(
+            "{LAST_SOURCE}: a library needs at least one music folder"
+        ));
+    }
     let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
     let removed = tx
         .execute("DELETE FROM tracks WHERE source_id = ?1", params![id])
@@ -1159,8 +1184,7 @@ mod tests {
         assert!(create_managed_source(&conn, &roots)
             .unwrap_err()
             .starts_with(SOURCE_OVERLAP));
-        remove_source(&conn, music.id).unwrap();
-        add(&conn, &roots, &tmp.0).unwrap();
+        set_source_root(&conn, &roots, music.id, &s(&tmp.0)).unwrap();
     }
 
     #[test]
@@ -1294,10 +1318,11 @@ mod tests {
 
         assert!(remove_source(&conn, 999).is_err());
 
-        // Down to no sources at all.
-        remove_source(&conn, jazz.id).unwrap();
-        assert!(list_sources(&conn).unwrap().is_empty());
-        assert!(remaining().is_empty());
+        // The last source stays.
+        assert!(remove_source(&conn, jazz.id)
+            .unwrap_err()
+            .starts_with(LAST_SOURCE));
+        assert_eq!(remaining(), vec![jazz_track]);
     }
 
     #[test]
@@ -1470,6 +1495,50 @@ mod tests {
     }
 
     #[test]
+    fn the_last_source_cannot_be_removed() {
+        let tmp = TempDir::new("last");
+        let (conn, roots) = library(&tmp);
+        let rock = add(&conn, &roots, &tmp.dir("Rock")).unwrap();
+        let jazz = add(&conn, &roots, &tmp.dir("Jazz")).unwrap();
+        remove_source(&conn, rock.id).unwrap();
+        let err = remove_source(&conn, jazz.id).unwrap_err();
+        assert!(err.starts_with(LAST_SOURCE), "{err}");
+        assert_eq!(list_sources(&conn).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_library_without_sources_gets_tracks_once() {
+        let tmp = TempDir::new("ensure");
+        let (conn, roots) = library(&tmp);
+        let media = tracks_folder(&roots);
+        std::fs::remove_dir(&media).unwrap();
+
+        let tracks = ensure_a_source(&conn, &roots.library_root)
+            .unwrap()
+            .expect("Tracks is created");
+        assert!(media.is_dir());
+        assert_eq!(tracks.root_path, Some(s(&media)));
+        assert!(tracks.auto_organize && tracks.import_target);
+
+        assert_eq!(ensure_a_source(&conn, &roots.library_root).unwrap(), None);
+        assert_eq!(list_sources(&conn).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_library_with_sources_is_left_as_it_is() {
+        let tmp = TempDir::new("ensure-kept");
+        let (conn, roots) = library(&tmp);
+        // Like a real library with two folders and no `Tracks`.
+        add(&conn, &roots, &tmp.dir("Rock")).unwrap();
+        add(&conn, &roots, &tmp.dir("Jazz")).unwrap();
+        let before = list_sources(&conn).unwrap();
+
+        assert_eq!(ensure_a_source(&conn, &roots.library_root).unwrap(), None);
+        assert_eq!(list_sources(&conn).unwrap(), before);
+        assert_eq!(managed_source_id(&conn, &roots).unwrap(), None);
+    }
+
+    #[test]
     fn creating_the_managed_source_is_idempotent() {
         let tmp = TempDir::new("managed");
         let (conn, roots) = library(&tmp);
@@ -1495,9 +1564,9 @@ mod tests {
         assert_eq!(list_sources(&conn).unwrap().len(), 1);
 
         // Removed and created again, it doesn't take over another import target.
-        remove_source(&conn, tracks.id).unwrap();
         let rock = add(&conn, &roots, &tmp.dir("Rock")).unwrap();
         set_import_source(&conn, rock.id).unwrap();
+        remove_source(&conn, tracks.id).unwrap();
         let recreated = create_managed_source(&conn, &roots).unwrap();
         assert_ne!(recreated.id, tracks.id);
         assert!(recreated.auto_organize && !recreated.import_target);

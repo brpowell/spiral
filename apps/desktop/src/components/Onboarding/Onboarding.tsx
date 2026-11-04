@@ -17,6 +17,7 @@ import {
   type OnboardingStepId,
 } from "../../store/useOnboardingStore";
 import { describeSourceError } from "../../lib/sourceAccess";
+import { useSourcesStore } from "../../store/useSourcesStore";
 import { Button } from "../common/Button/Button";
 import { FadingScroller } from "./FadingScroller";
 import { TransportPreview } from "./TransportPreview";
@@ -78,6 +79,12 @@ function OnboardingOverlay() {
   const back = useOnboardingStore((s) => s.back);
   const musicChoice = useOnboardingStore((s) => s.musicChoice);
   const applyMusicChoice = useOnboardingStore((s) => s.applyMusicChoice);
+  const settleFolders = useOnboardingStore((s) => s.settleFolders);
+  // The folders step needs a folder of the user's own before it moves on.
+  const placeholderSourceId = useOnboardingStore((s) => s.placeholderSourceId);
+  const hasOwnFolder = useSourcesStore((s) =>
+    s.sources.some((source) => source.id !== placeholderSourceId),
+  );
   const [advancing, setAdvancing] = useState(false);
   const [stepError, setStepError] = useState<string | null>(null);
   const logoRef = useRef<HTMLDivElement>(null);
@@ -178,11 +185,11 @@ function OnboardingOverlay() {
   );
   const goNext = async () => {
     if (advancing) return;
-    if (id === "library") {
+    if (id === "library" || id === "folders") {
       setAdvancing(true);
       setStepError(null);
       try {
-        await applyMusicChoice();
+        await (id === "library" ? applyMusicChoice() : settleFolders());
       } catch (err) {
         setStepError(describeSourceError(err));
         return;
@@ -231,7 +238,7 @@ function OnboardingOverlay() {
               <Content />
             </FadingScroller>
             {layout === "centered" ? description : null}
-            {stepError && id === "library" ? (
+            {stepError && (id === "library" || id === "folders") ? (
               <p className="onboarding__error" role="alert">
                 {stepError}
               </p>
@@ -258,8 +265,12 @@ function OnboardingOverlay() {
               ) : null}
               <Button
                 variant="primary"
-                // The first step needs an answer before it can move on.
-                disabled={id === "library" && musicChoice == null}
+                // The first step needs an answer, and the folders step a
+                // folder, before either can move on.
+                disabled={
+                  (id === "library" && musicChoice == null) ||
+                  (id === "folders" && !hasOwnFolder)
+                }
                 isLoading={advancing}
                 onClick={isLast ? () => setLeaving(true) : () => void goNext()}
               >

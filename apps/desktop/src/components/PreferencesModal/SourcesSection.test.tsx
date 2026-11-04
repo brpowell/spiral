@@ -20,7 +20,6 @@ const tauri = vi.hoisted(() => ({
   listSources: vi.fn(),
   getSourceStatuses: vi.fn(),
   addSource: vi.fn(),
-  createManagedSource: vi.fn(),
   pickMusicFolder: vi.fn(),
   relocateSource: vi.fn(),
   removeSource: vi.fn(),
@@ -179,19 +178,19 @@ describe("SourcesSection", () => {
     expect(within(item("Tracks")).queryByText("Offline")).toBeNull();
   });
 
-  it("shows an empty state with ways to add a folder when there are none", async () => {
-    tauri.listSources.mockResolvedValue([]);
+  it("won't remove the only folder, and says why", async () => {
+    tauri.listSources.mockResolvedValue([sources[0]]);
     render(<SourcesSection />);
-    expect(await screen.findByText("No music folders yet")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Add folder/ })).toBeTruthy();
-    expect(screen.queryByRole("checkbox")).toBeNull();
-
-    tauri.createManagedSource.mockResolvedValue(sources[0]);
-    fireEvent.click(
-      screen.getByRole("button", { name: "Let Spiral manage a Tracks folder" }),
+    const trigger = await screen.findByRole("button", {
+      name: "Actions for Tracks",
+    });
+    fireEvent.click(trigger);
+    const remove = screen.getByRole("menuitem", { name: /Remove/ });
+    expect(remove).toBeDisabled();
+    expect(remove).toHaveAttribute(
+      "title",
+      "Spiral needs at least one music folder.",
     );
-    await waitFor(() => expect(tauri.createManagedSource).toHaveBeenCalled());
-    await waitFor(() => expect(tauri.listSources).toHaveBeenCalledTimes(2));
   });
 
   it("keeps a folder card to its path and counts", async () => {

@@ -35,6 +35,8 @@ interface SourceCardProps {
   /** Show the folder in Finder (or the platform's file manager). */
   onReveal?: () => void;
   onRemove?: () => void;
+  /** Why Remove is disabled (the library's only folder); unset when it isn't. */
+  removeDisabledReason?: string;
 }
 
 /**
@@ -52,6 +54,7 @@ export function SourceCard({
   onRescan,
   onReveal,
   onRemove,
+  removeDisabledReason,
 }: SourceCardProps) {
   const { t } = useTranslation(["preferences", "common"]);
   const displayPath = useShortenHomePath();
@@ -192,6 +195,8 @@ export function SourceCard({
                   icon={<IconDelete />}
                   label={t("preferences:sources.remove")}
                   className="context-menu__danger"
+                  disabled={removeDisabledReason != null}
+                  title={removeDisabledReason}
                   onClick={() => {
                     close();
                     onRemove();

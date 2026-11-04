@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   useLibrarySettingsStore,
@@ -125,6 +125,30 @@ describe("ImportChoiceModal", () => {
       expect(screen.queryByLabelText("Copy into")).toBeNull();
       expect(screen.getByRole("button", { name: "Copy" })).toBeDisabled();
     });
+
+    it("with every folder offline, copies into a folder added there", async () => {
+      const added = source({ id: 5, name: "Rips" });
+      tauri.pickMusicFolder.mockResolvedValue("/Music/Rips");
+      tauri.addSource.mockResolvedValue(added);
+      tauri.listSources.mockResolvedValue([music, added]);
+      tauri.getSourceStatuses.mockResolvedValue([
+        { sourceId: 3, status: "unreachable" },
+      ]);
+      setSources([music], { 3: "unreachable" });
+      render(<ImportChoiceModal />);
+      const choice = destination();
+
+      fireEvent.click(
+        await screen.findByRole("button", { name: /Add a folder/ }),
+      );
+      const picker = await screen.findByLabelText("Copy into");
+      expect(tauri.addSource).toHaveBeenCalledWith("/Music/Rips");
+      // The import target stays where it is; it's only offline.
+      expect(tauri.setImportSource).not.toHaveBeenCalled();
+      expect(picker).toHaveValue("5");
+      fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+      await expect(choice).resolves.toEqual({ sourceId: 5 });
+    });
   });
 
   describe("with no import target", () => {
@@ -149,30 +173,6 @@ describe("ImportChoiceModal", () => {
       fireEvent.click(screen.getByRole("button", { name: "Copy" }));
       await expect(choice).resolves.toEqual({ sourceId: 4 });
       expect(tauri.setImportSource).toHaveBeenCalledWith(4);
-    });
-
-    it("with no folders, adds one and copies into it", async () => {
-      const added = source({ id: 5, name: "Rips" });
-      const target = { ...added, importTarget: true };
-      tauri.pickMusicFolder.mockResolvedValue("/Music/Rips");
-      tauri.addSource.mockResolvedValue(added);
-      tauri.setImportSource.mockResolvedValue(target);
-      tauri.listSources.mockResolvedValue([target]);
-      setSources([]);
-      render(<ImportChoiceModal />);
-      const choice = destination();
-
-      expect(await screen.findByText(/No music folders yet/)).toBeTruthy();
-      const copy = screen.getByRole("button", { name: "Copy" });
-      expect(copy).toBeDisabled();
-      fireEvent.click(screen.getByRole("button", { name: /Add a folder/ }));
-      await waitFor(() => expect(copy).not.toBeDisabled());
-      expect(tauri.addSource).toHaveBeenCalledWith("/Music/Rips");
-      expect(tauri.setImportSource).toHaveBeenCalledWith(5);
-      expect(screen.getByLabelText("Copy into")).toHaveValue("5");
-
-      fireEvent.click(copy);
-      await expect(choice).resolves.toEqual({ sourceId: 5 });
     });
   });
 });

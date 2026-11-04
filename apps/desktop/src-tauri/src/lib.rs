@@ -159,7 +159,7 @@ pub fn run() {
 
             let db_path = library_paths::ensure_library_for_app(app.handle())
                 .expect("failed to init library");
-            let conn = db::open(&db_path).expect("failed to open database");
+            let conn = db::open_library(&db_path).expect("failed to open database");
             app.manage(DbState(Mutex::new(conn)));
             app.manage(RatingSync::new());
             commands::organize::init(app.handle());

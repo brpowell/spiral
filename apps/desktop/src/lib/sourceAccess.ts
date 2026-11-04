@@ -19,6 +19,7 @@ const SOURCE_ERROR_KEYS = {
   source_overlap: "library:sources.errors.overlap",
   no_source: "library:sources.errors.noSource",
   source_unavailable: "library:sources.errors.unavailable",
+  last_source: "library:sources.errors.lastSource",
 } as const;
 
 export type SourceErrorCode = keyof typeof SOURCE_ERROR_KEYS;

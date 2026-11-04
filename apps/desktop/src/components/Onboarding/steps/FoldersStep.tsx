@@ -31,10 +31,18 @@ import { SourceEditFlow } from "../../PreferencesModal/SourceEditFlow";
  * Folders added here can be removed again. One that was already a source
  * (onboarding replayed) may carry playlists and history, so removing it is
  * left to Preferences, which confirms first.
+ *
+ * A new library's empty `Tracks` isn't listed: it only holds the place until
+ * a folder is added here (see `settleFolders`).
  */
 export function FoldersStep() {
   const { t } = useTranslation("common");
-  const sources = useSourcesStore((s) => s.sources);
+  const allSources = useSourcesStore((s) => s.sources);
+  const placeholderSourceId = useOnboardingStore((s) => s.placeholderSourceId);
+  const sources = useMemo(
+    () => allSources.filter((source) => source.id !== placeholderSourceId),
+    [allSources, placeholderSourceId],
+  );
   const library = usePlayerStore((s) => s.library);
   const counts = useMemo(() => countTracksBySource(library), [library]);
   const addedSourceIds = useOnboardingStore((s) => s.addedSourceIds);
