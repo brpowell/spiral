@@ -94,26 +94,26 @@ fn validate_destination(
     watched: &[PathBuf],
 ) -> Result<(), String> {
     if dest.as_os_str().is_empty() {
-        return Err("Library folder path is empty".into());
+        return Err("Choose a location for the Spiral folder".into());
     }
     if paths_equal(current_root, dest) {
-        return Err("That folder is already your library location".into());
+        return Err("That's already where your Spiral folder is".into());
     }
     if is_nested(dest, current_root) {
         return Err(
-            "Choose a folder outside your current library — nested locations aren't supported"
+            "Choose a folder outside your current Spiral folder — nested locations aren't supported"
                 .into(),
         );
     }
     if is_nested(current_root, dest) {
-        return Err("Choose a folder that isn't an ancestor of your current library".into());
+        return Err("Choose a folder that doesn't contain your current Spiral folder".into());
     }
     if let Some(root) = watched
         .iter()
         .find(|w| paths_equal(dest, w) || is_nested(w, dest))
     {
         return Err(format!(
-            "Choose a folder that isn't the watched folder {} and doesn't contain it",
+            "Choose a folder that isn't the music folder {} and doesn't contain it",
             root.display()
         ));
     }
@@ -421,7 +421,7 @@ pub fn relocate_library(
 
             let move_result = (|| -> Result<(), String> {
                 fs::create_dir_all(&dest)
-                    .map_err(|e| format!("failed to create library folder: {e}"))?;
+                    .map_err(|e| format!("Couldn't create the Spiral folder: {e}"))?;
                 if old_db.is_file() {
                     relocate_entry(&old_db, &dest_db)?;
                 }
@@ -575,6 +575,28 @@ mod tests {
         assert!(validate_destination(&root, &nested, &[]).is_err());
         assert!(validate_destination(&nested, &root, &[]).is_err());
         assert!(validate_destination(&root, Path::new("/tmp/other-lib"), &[]).is_ok());
+    }
+
+    #[test]
+    fn validate_errors_speak_of_the_spiral_folder() {
+        // Not under /tmp, which canonicalizes to /private/tmp on macOS.
+        let root = PathBuf::from("/spiral-test/lib");
+        let watched = [PathBuf::from("/Volumes/Big/Music")];
+        let error = |dest: &Path| validate_destination(&root, dest, &watched).unwrap_err();
+        assert_eq!(
+            error(Path::new("")),
+            "Choose a location for the Spiral folder"
+        );
+        assert_eq!(error(&root), "That's already where your Spiral folder is");
+        assert!(error(&root.join("Tracks")).contains("outside your current Spiral folder"));
+        assert_eq!(
+            error(Path::new("/spiral-test")),
+            "Choose a folder that doesn't contain your current Spiral folder"
+        );
+        assert_eq!(
+            error(Path::new("/Volumes/Big")),
+            "Choose a folder that isn't the music folder /Volumes/Big/Music and doesn't contain it"
+        );
     }
 
     #[test]

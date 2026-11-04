@@ -105,7 +105,7 @@ fn nearest_existing_dir(start: &str) -> Option<std::path::PathBuf> {
 
 #[tauri::command]
 pub fn pick_library_folder(start_dir: Option<String>) -> Result<Option<String>, String> {
-    let mut dialog = rfd::FileDialog::new().set_title("Choose Spiral library folder");
+    let mut dialog = rfd::FileDialog::new().set_title("Choose Spiral folder");
     if let Some(dir) = start_dir.as_deref().and_then(nearest_existing_dir) {
         dialog = dialog.set_directory(dir);
     }

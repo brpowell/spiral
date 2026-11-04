@@ -5,7 +5,7 @@ use tauri::AppHandle;
 
 pub fn ensure_spiral_library(resolved: &LibrarySettingsResponse) -> Result<(), String> {
     let root = Path::new(&resolved.library_root);
-    fs::create_dir_all(root).map_err(|e| format!("failed to create library folder: {e}"))?;
+    fs::create_dir_all(root).map_err(|e| format!("Couldn't create the Spiral folder: {e}"))?;
 
     // `Tracks` is created only when it becomes a source
     // (`sources::create_managed_source`); the user may have none.

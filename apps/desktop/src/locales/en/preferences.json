@@ -27,7 +27,7 @@
     "hasDatabase": "A Spiral folder already exists here. Your current one will stay where it is.",
     "foundFiles_one": "Found {{count}} audio file at <code>{{path}}</code>. Move your current Spiral folder here, or start a new one and import those files in place.",
     "foundFiles_other": "Found {{count}} audio files at <code>{{path}}</code>. Move your current Spiral folder here, or start a new one and import those files in place.",
-    "empty": "Or start a new, empty Spiral folder here."
+    "empty": "Or start a new one here?"
   },
   "sources": {
     "title": "Music folders",
@@ -76,7 +76,6 @@
     "removeBody_other": "Its {{count}} tracks leave your library, along with their playlist entries and listening history. The files on disk stay untouched.",
     "removeDefault": "It's your default folder, so music you add will be copied into another folder, or kept where it is if there isn't one.",
     "removeConfirm": "Remove",
-    "removing": "Removing…",
     "scanSummary": "Scan finished: {{added}} added, {{updated}} updated, {{missing}} missing, {{restored}} found again."
   },
   "cd": {

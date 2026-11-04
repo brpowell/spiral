@@ -13,6 +13,7 @@ import { useSourcesStore } from "../../store/useSourcesStore";
 import type { LibrarySettings } from "../../types/library";
 import type { FilePlanSummary, Source } from "../../types/source";
 import type { Track } from "../../types/track";
+import { revealInFileManagerLabel } from "../../lib/fileManager";
 import { SourcesSection } from "./SourcesSection";
 
 const tauri = vi.hoisted(() => ({
@@ -23,6 +24,7 @@ const tauri = vi.hoisted(() => ({
   relocateSource: vi.fn(),
   removeSource: vi.fn(),
   rescanSource: vi.fn(),
+  revealPathInFileManager: vi.fn(),
   setImportSource: vi.fn(),
   setSourceOrganize: vi.fn(),
   setSourcePathFormat: vi.fn(),
@@ -205,16 +207,43 @@ describe("SourcesSection", () => {
     expect(within(item("Music")).queryByText("Default")).toBeNull();
   });
 
-  it("offers Edit, Rescan and Remove for every folder, and Make default for the rest", async () => {
+  it("offers Edit, Rescan, Show in Finder and Remove for every folder, and Make default for the rest", async () => {
     await renderSection();
+    const reveal = revealInFileManagerLabel();
     // Make default only for folders that aren't it already.
-    expect(await menuItems("Tracks")).toEqual(["Edit…", "Rescan", "Remove…"]);
+    expect(await menuItems("Tracks")).toEqual([
+      "Edit…",
+      "Rescan",
+      reveal,
+      "Remove…",
+    ]);
     expect(await menuItems("Music")).toEqual([
       "Edit…",
       "Make default",
       "Rescan",
+      reveal,
       "Remove…",
     ]);
+  });
+
+  it("shows a folder in the file manager", async () => {
+    tauri.revealPathInFileManager.mockResolvedValue(undefined);
+    await renderSection();
+    chooseFromMenu("Tracks", new RegExp(revealInFileManagerLabel()));
+    expect(tauri.revealPathInFileManager).toHaveBeenCalledWith(
+      "/Users/me/Music/Spiral Library/Tracks",
+    );
+  });
+
+  it("can't show an offline folder in the file manager", async () => {
+    await renderSection();
+    await waitFor(() =>
+      expect(within(item("Music")).getByText("Offline")).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Music" }));
+    expect(
+      screen.getByRole("menuitem", { name: revealInFileManagerLabel() }),
+    ).toBeDisabled();
   });
 
   it("rescans from the menu", async () => {
