@@ -27,7 +27,7 @@
     "hasDatabase": "A Spiral folder already exists here. Your current one will stay where it is.",
     "foundFiles_one": "Found {{count}} audio file at <code>{{path}}</code>. Move your current Spiral folder here, or start a new one and import those files in place.",
     "foundFiles_other": "Found {{count}} audio files at <code>{{path}}</code>. Move your current Spiral folder here, or start a new one and import those files in place.",
-    "empty": "Or start a new, empty Spiral folder here."
+    "empty": "Or start a new one here?"
   },
   "sources": {
     "title": "Music folders",
