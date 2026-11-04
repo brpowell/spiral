@@ -4,6 +4,7 @@ import { useShortenHomePath } from "../../lib/homePath";
 import {
   countTracksBySource,
   describeSourceError,
+  sourceDisplayName,
 } from "../../lib/sourceAccess";
 import {
   addSource,
@@ -13,9 +14,11 @@ import {
   revealPathInFileManager,
   setImportSource,
 } from "../../lib/tauri";
+import { sourceScanPayload } from "../../lib/toastPayloads";
+import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { useSourcesStore } from "../../store/useSourcesStore";
-import type { ReconcileSummary, Source } from "../../types/source";
+import type { Source } from "../../types/source";
 import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
 import { Button } from "../common/Button/Button";
 import { FormField } from "../common/Field/Field";
@@ -46,7 +49,6 @@ export function SourcesSection() {
   const [busyId, setBusyId] = useState<number | "add" | "managed" | null>(null);
   const [rescanningId, setRescanningId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [editing, setEditing] = useState<Source | null>(null);
   // The folder just added, whose dialog finishes adding it (Cancel undoes).
   const [addingId, setAddingId] = useState<number | null>(null);
@@ -77,7 +79,6 @@ export function SourcesSection() {
     if (busyId != null) return;
     setBusyId(id);
     setError(null);
-    setNotice(null);
     try {
       await action();
     } catch (err) {
@@ -110,16 +111,10 @@ export function SourcesSection() {
     run(source.id, async () => {
       setRescanningId(source.id);
       try {
-        const summary: ReconcileSummary = await rescanSource(source.id);
-        setNotice(
-          t("preferences:sources.scanSummary", {
-            added: summary.added,
-            updated: summary.updated,
-            moved: summary.moved,
-            missing: summary.missing,
-            restored: summary.restored,
-          }),
-        );
+        const summary = await rescanSource(source.id);
+        useBackgroundTasksStore
+          .getState()
+          .showToast(sourceScanPayload(sourceDisplayName(source), summary));
         await loadStatuses();
       } finally {
         setRescanningId(null);
@@ -203,17 +198,13 @@ export function SourcesSection() {
           className="preferences__action-btn"
           disabled={busyId != null}
           isLoading={busyId === "add"}
+          loadingLabel={t("preferences:sources.adding")}
           onClick={() => void addFolder()}
         >
           <IconPlus aria-hidden />
           {t("preferences:sources.addFolder")}
         </Button>
 
-        {notice ? (
-          <p className="preferences__hint" role="status">
-            {notice}
-          </p>
-        ) : null}
         {error ? (
           <p className="preferences__error" role="alert">
             {error}
@@ -223,10 +214,7 @@ export function SourcesSection() {
         <SourceEditFlow
           source={editing}
           onClose={() => setEditing(null)}
-          onSaving={() => {
-            setError(null);
-            setNotice(null);
-          }}
+          onSaving={() => setError(null)}
           onSaved={loadStatuses}
           onCancelAdd={
             addingId != null ? (source) => void cancelAdd(source) : undefined

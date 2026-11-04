@@ -19,13 +19,12 @@
     "confirmReplace": "Convert & Replace"
   },
   "importChoice": {
-    "title": "Add music",
-    "description": "Choose a music folder to copy these files into. The originals stay where they are.",
-    "foldersOffline": "Your music folders aren't connected right now. Connect one, or add another.",
+    "title": "Default music folder disconnected",
+    "descriptionChoose": "Reconnect the folder, or choose a new source to copy to.",
+    "descriptionAdd": "Reconnect the folder, or add a new source to copy to.",
     "addFolder": "Add a folder…",
+    "adding": "Adding…",
     "destination": "Copy into",
-    "destinationNewDefault": "It also becomes your default folder for new music.",
-    "destinationDefaultOffline": "Your default folder isn't connected, so these files go here instead.",
     "destinationOffline": "{{name}} (offline)",
     "copy": "Copy"
   },

@@ -53,6 +53,7 @@ import { usePlaybackSessionPersistence } from "./hooks/usePlaybackSessionPersist
 import { useMediaSessionSync } from "./hooks/useMediaSessionSync";
 import { useVisualizerDataProvider } from "./hooks/useVisualizerDataProvider";
 import { useLibrarySettingsStore } from "./store/useLibrarySettingsStore";
+import { useOnboardingStore } from "./store/useOnboardingStore";
 import { usePlayerStore } from "./store/usePlayerStore";
 import { useUpdaterStore } from "./store/useUpdaterStore";
 import { useItemUpdatesStore } from "./store/useItemUpdatesStore";
@@ -89,6 +90,8 @@ function App() {
     crashReportId,
     dismiss: dismissCrashReport,
   } = useStartupCrashReport();
+
+  const onboardingOpen = useOnboardingStore((s) => s.open);
 
   useMediaHotkeys();
   useCdMonitor();
@@ -225,11 +228,11 @@ function App() {
 
   useEffect(() => {
     if (showCustomWindowChrome) return;
-    void setupAppMenu(menuHandlers);
+    void setupAppMenu(menuHandlers, onboardingOpen);
     // menuHandlers is a fresh object each render; store actions in the dep list
     // are stable and cover the callbacks that actually change.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- avoid rebinding the native menu every render
-  }, [addToLibrary, openPlaylistEditor, setPreferencesOpen]);
+  }, [addToLibrary, openPlaylistEditor, setPreferencesOpen, onboardingOpen]);
 
   // Native setAsAppMenu accelerators don't apply under custom chrome.
   useEffect(() => {
@@ -238,10 +241,11 @@ function App() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return;
       const key = e.key.toLowerCase();
+      const onboarding = useOnboardingStore.getState().open;
 
       if (key === "," && !e.altKey && !e.shiftKey) {
         e.preventDefault();
-        setPreferencesOpen(true);
+        if (!onboarding) setPreferencesOpen(true);
         return;
       }
       if (key === "l" && e.shiftKey && !e.altKey) {
@@ -263,7 +267,7 @@ function App() {
       }
       if (key === "r" && e.altKey && !e.shiftKey) {
         e.preventDefault();
-        void reloadLinkedItemsWithRefresh();
+        if (!onboarding) void reloadLinkedItemsWithRefresh();
       }
     };
 

@@ -1,4 +1,5 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -178,6 +179,17 @@ describe("SourcesSection", () => {
     expect(within(item("Tracks")).queryByText("Offline")).toBeNull();
   });
 
+  it("puts Default right after the track count", async () => {
+    await renderSection();
+    act(() =>
+      usePlayerStore.setState({
+        library: [track(1, 1), track(9, 1, "2026-01-01T00:00:00Z")],
+      }),
+    );
+    const meta = await within(item("Tracks")).findByText(/^2 tracks/);
+    expect(meta.textContent).toBe("2 tracks·Default·1 missing");
+  });
+
   it("won't remove the only folder, and says why", async () => {
     tauri.listSources.mockResolvedValue([sources[0]]);
     render(<SourcesSection />);
@@ -247,19 +259,29 @@ describe("SourcesSection", () => {
   });
 
   it("rescans from the menu", async () => {
+    const original = useBackgroundTasksStore.getState().showToast;
+    const showToast = vi.fn();
+    useBackgroundTasksStore.setState({ showToast });
     tauri.rescanSource.mockResolvedValue({
       added: 1,
       updated: 0,
       moved: 2,
       missing: 0,
       restored: 0,
+      failed: 0,
     });
     await renderSection();
     chooseFromMenu("Music", /Rescan/);
     await waitFor(() => expect(tauri.rescanSource).toHaveBeenCalledWith(3));
-    expect(
-      await screen.findByText(/Scan finished: 1 added, 0 updated, 2 moved/),
-    ).toBeTruthy();
+    await waitFor(() =>
+      expect(showToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          label: "“Music” scanned",
+          detail: "1 added, 2 moved",
+        }),
+      ),
+    );
+    useBackgroundTasksStore.setState({ showToast: original });
   });
 
   it("has no writable switch or read-only badge", async () => {

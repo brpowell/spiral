@@ -32,6 +32,7 @@
   "sources": {
     "title": "Music folders",
     "addFolder": "Add folder…",
+    "adding": "Adding…",
     "trackCount_one": "{{count}} track",
     "trackCount_other": "{{count}} tracks",
     "missingCount_one": "{{count}} missing",
@@ -61,6 +62,7 @@
     "rescan": "Rescan",
     "rescanning": "Scanning…",
     "changeLocation": "Change location…",
+    "changing": "Changing…",
     "remove": "Remove…",
     "removeLast": "Spiral needs at least one music folder.",
     "actionsAria": "Actions for {{name}}",
@@ -75,8 +77,7 @@
     "removeBody_one": "Its {{count}} track leaves your library, along with its playlist entries and listening history. The file on disk stays untouched.",
     "removeBody_other": "Its {{count}} tracks leave your library, along with their playlist entries and listening history. The files on disk stay untouched.",
     "removeDefault": "It's your default folder, so music you add will be copied into another of your folders instead.",
-    "removeConfirm": "Remove",
-    "scanSummary": "Scan finished: {{added}} added, {{updated}} updated, {{moved}} moved, {{missing}} missing, {{restored}} found again."
+    "removeConfirm": "Remove"
   },
   "cd": {
     "encodeTo": "Encode CD audio to…",

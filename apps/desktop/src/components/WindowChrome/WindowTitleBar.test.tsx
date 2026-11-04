@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AppMenuHandlers } from "../../lib/appMenu";
+import { useOnboardingStore } from "../../store/useOnboardingStore";
 import { WindowTitleBar } from "./WindowTitleBar";
 
 vi.mock("@tauri-apps/api/window", () => ({
@@ -42,6 +43,21 @@ const handlers: AppMenuHandlers = {
 };
 
 describe("WindowTitleBar", () => {
+  afterEach(() => {
+    useOnboardingStore.setState({ open: false });
+  });
+
+  it("disables what onboarding blocks, and keeps the rest", () => {
+    useOnboardingStore.setState({ open: true });
+    render(<WindowTitleBar title="Spiral" handlers={handlers} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "View" }));
+    expect(screen.getByRole("menuitem", { name: "Equalizer" })).toBeDisabled();
+    expect(
+      screen.getByRole("menuitem", { name: "Activity Logs" }),
+    ).toBeEnabled();
+  });
+
   it("omits logo text when the app menu is present", () => {
     render(<WindowTitleBar title="Spiral" handlers={handlers} />);
 

@@ -1,4 +1,8 @@
-import { forwardRef, type ComponentPropsWithoutRef } from "react";
+import {
+  forwardRef,
+  type ComponentPropsWithoutRef,
+  type ReactNode,
+} from "react";
 import "./Button.css";
 
 export type ButtonVariant =
@@ -9,8 +13,13 @@ export type ButtonProps = ComponentPropsWithoutRef<"button"> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
   iconOnly?: boolean;
-  /** Shows a spinner and disables the button while work is in flight. */
+  /**
+   * Shows a spinner in place of any icon and disables the button while work
+   * is in flight.
+   */
   isLoading?: boolean;
+  /** Replaces the button's content while `isLoading`, e.g. "Adding…". */
+  loadingLabel?: ReactNode;
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -20,6 +29,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       size = "md",
       iconOnly = false,
       isLoading = false,
+      loadingLabel,
       className,
       type = "button",
       disabled,
@@ -49,7 +59,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {isLoading ? <span className="btn__spinner" aria-hidden /> : null}
-        {children}
+        {isLoading && loadingLabel != null ? loadingLabel : children}
       </button>
     );
   },

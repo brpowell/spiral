@@ -30,6 +30,7 @@ import {
   importPickerFailedPayload,
   playlistAddedPayload,
   queueAddedPayload,
+  sourceScanPayload,
   themeActivateFailedPayload,
   themeApplyFailedPayload,
   themeCreateFailedPayload,
@@ -1687,6 +1688,72 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
   },
 
   // —— Organize ——
+  {
+    id: "source-scan-changes",
+    group: "Organize",
+    buttonLabel: "Rescan · changes",
+    source: "SourcesSection.tsx",
+    fire: ({ showToast, dismissMs }) => {
+      showToast(
+        sourceScanPayload(
+          EXAMPLE_FOLDER,
+          {
+            added: 4,
+            updated: 0,
+            moved: 0,
+            missing: 2,
+            restored: 0,
+            failed: 0,
+          },
+          { dismissMs },
+        ),
+      );
+    },
+  },
+  {
+    id: "source-scan-none",
+    group: "Organize",
+    buttonLabel: "Rescan · no changes",
+    source: "SourcesSection.tsx",
+    fire: ({ showToast, dismissMs }) => {
+      showToast(
+        sourceScanPayload(
+          EXAMPLE_FOLDER,
+          {
+            added: 0,
+            updated: 0,
+            moved: 0,
+            missing: 0,
+            restored: 0,
+            failed: 0,
+          },
+          { dismissMs },
+        ),
+      );
+    },
+  },
+  {
+    id: "source-scan-failed",
+    group: "Organize",
+    buttonLabel: "Rescan · 1 failed",
+    source: "SourcesSection.tsx",
+    fire: ({ showToast, dismissMs }) => {
+      showToast(
+        sourceScanPayload(
+          EXAMPLE_FOLDER,
+          {
+            added: 3,
+            updated: 0,
+            moved: 0,
+            missing: 0,
+            restored: 0,
+            failed: 1,
+          },
+          { dismissMs },
+        ),
+      );
+    },
+  },
   {
     id: "organize-running",
     group: "Organize",

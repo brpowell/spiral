@@ -119,9 +119,6 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   finish: () => {
     markOnboardingCompleted();
     set({ open: false });
-    void get()
-      .settleFolders()
-      .catch((err) => console.error("settleFolders failed:", err));
     const added = new Set(get().addedSourceIds);
     const jobs = useSourcesStore
       .getState()
