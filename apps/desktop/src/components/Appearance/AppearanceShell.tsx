@@ -5,6 +5,7 @@ import type { AppearanceSection } from "../../lib/appearanceWindow";
 import { useAppearanceSection } from "../../hooks/useAppearanceSection";
 import { useAppearanceThemeEditor } from "../../hooks/useAppearanceThemeEditor";
 import { viewTransition } from "../../lib/motion";
+import { useVizCardSnapshotPrewarm } from "./vizCardSnapshot";
 import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
 import { useThemeStore } from "../../store/useThemeStore";
 import {
@@ -75,6 +76,7 @@ function AppearanceSectionPanel({
 
 export function AppearanceShell() {
   const { t } = useTranslation("studio");
+  useVizCardSnapshotPrewarm();
   const [section, setSection, eventFocusItemId, clearEventFocusItemId] =
     useAppearanceSection();
   const {
