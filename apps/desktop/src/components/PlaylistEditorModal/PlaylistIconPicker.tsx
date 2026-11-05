@@ -12,6 +12,7 @@ import {
   resolveIconId,
   sortLibraryIconsByTag,
   SpiralIcon,
+  useIconLibraryVersion,
   type SpiralIconDefinition,
 } from "../../lib/iconLibrary";
 import {
@@ -89,7 +90,13 @@ function PlaylistIconPickerPanel({ value, onChange }: PlaylistIconPickerProps) {
   const { close } = usePopover();
   const gridRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
-  const icons = useMemo(() => filterIcons(query), [query]);
+  // Tag edits (Developer → Icon Lab) reorder and refilter the list live.
+  const libraryVersion = useIconLibraryVersion();
+  const icons = useMemo(
+    () => filterIcons(query),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `libraryVersion` marks tag edits
+    [query, libraryVersion],
+  );
   const selectedId = resolveIconId(value);
   const [activeIndex, setActiveIndex] = useState(() => {
     const index = filterIcons("").findIndex((icon) => icon.id === selectedId);
@@ -191,6 +198,7 @@ function PlaylistIconPickerPanel({ value, onChange }: PlaylistIconPickerProps) {
                   role="option"
                   aria-selected={selected}
                   aria-label={label}
+                  title={label}
                   tabIndex={iconIndex === index ? 0 : -1}
                   className="playlist-icon-picker__option"
                   onFocus={() => setActiveIndex(iconIndex)}

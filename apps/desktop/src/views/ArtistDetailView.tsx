@@ -9,7 +9,7 @@ import { ContextMenuItem } from "../components/ContextMenu/ContextMenu";
 import { MenuButton } from "../components/MenuButton/MenuButton";
 import {
   IconAddToQueue,
-  IconArtistPlaceholder,
+  IconArtists,
   IconBack,
   IconPencil,
   IconPlay,
@@ -116,7 +116,7 @@ export function ArtistDetailView({
           artPath={artist.artPath}
           alt={artist.name}
           className="album-art--hero album-art--round artist-detail__art"
-          placeholder={<IconArtistPlaceholder />}
+          placeholder={<IconArtists />}
         />
         <div className="artist-detail__meta">
           <h1 className="artist-detail__title">{artist.name}</h1>

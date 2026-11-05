@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_LIBRARY_ICON_ID,
   getLibraryIcon,
@@ -9,6 +9,10 @@ import {
   searchLibraryIcons,
   iconsWithTag,
   sortLibraryIconsByTag,
+  applyIconTagTable,
+  getIconLibraryVersion,
+  setLibraryIconTags,
+  subscribeIconLibrary,
 } from "./index";
 
 describe("iconLibrary", () => {
@@ -17,6 +21,68 @@ describe("iconLibrary", () => {
     expect(resolveIcon("alwaysOnTop")).toBeDefined();
     expect(resolveIcon("chevronLeft")).toBeDefined();
     expect(resolveIcon("visualizer")).toBe(resolveIcon("audioWaveform"));
+  });
+
+  it("lists the Lucide cover icons first in the picker order", () => {
+    const ids = [
+      "rocket",
+      "trophy",
+      "thumbsUp",
+      "award",
+      "sparkle",
+      "earth",
+      "plane",
+      "compass",
+      "sprout",
+      "swords",
+      "apple",
+      "dumbbell",
+      "clapperboard",
+      "crosshair",
+      "puzzle",
+      "church",
+      "rose",
+      "guitar",
+      "croissant",
+      "cherry",
+      "gamepad",
+      "gamepad2",
+      "pawPrint",
+      "school",
+      "atom",
+      "hamburger",
+      "snowflake",
+      "chefHat",
+      "handHeart",
+      "cat",
+      "ghost",
+      "drama",
+      "paintbrush",
+      "mop",
+      "store",
+      "shoppingBag",
+      "shirt",
+      "cake",
+      "lollipop",
+      "banknote",
+      "car",
+      "microphone",
+    ];
+    const covers = new Set(iconsWithTag("cover").map((icon) => icon.id));
+    for (const id of ids) {
+      expect(resolveIcon(id), id).toBeDefined();
+      expect(covers.has(id), `${id} is tagged cover`).toBe(true);
+    }
+  });
+
+  it("finds the cover icons by everyday words, not just their ids", () => {
+    const find = (q: string) => searchLibraryIcons(q).map((icon) => icon.id);
+    expect(find("birthday")).toContain("cake");
+    expect(find("gym")).toContain("dumbbell");
+    expect(find("halloween")).toContain("ghost");
+    expect(find("clothes")).toContain("shirt");
+    expect(find("movie")).toContain("clapperboard");
+    expect(find("candy")).toContain("lollipop");
   });
 
   it("registers cover / mood extras", () => {
@@ -78,5 +144,46 @@ describe("iconLibrary", () => {
     for (let i = 1; i < list.length; i++) {
       expect(list[i - 1]!.id.localeCompare(list[i]!.id)).toBeLessThanOrEqual(0);
     }
+  });
+
+  describe("live tag edits", () => {
+    const snapshot = Object.fromEntries(
+      listLibraryIcons().map((icon) => [icon.id, [...icon.tags]]),
+    );
+    afterEach(() => {
+      applyIconTagTable(snapshot);
+    });
+
+    it("updates tags, search and the version, and notifies subscribers", () => {
+      const listener = vi.fn();
+      const unsubscribe = subscribeIconLibrary(listener);
+      const before = getIconLibraryVersion();
+
+      expect(setLibraryIconTags("play", ["Zzz Tag"])).toBe(true);
+
+      expect(getLibraryIcon("play")?.tags).toEqual(["zzz-tag"]);
+      expect(searchLibraryIcons("zzz-tag").map((i) => i.id)).toEqual(["play"]);
+      expect(getIconLibraryVersion()).toBe(before + 1);
+      expect(listener).toHaveBeenCalledTimes(1);
+
+      // No change, no notification.
+      setLibraryIconTags("play", ["zzz-tag"]);
+      expect(listener).toHaveBeenCalledTimes(1);
+
+      unsubscribe();
+      setLibraryIconTags("play", ["other"]);
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns false for unknown ids", () => {
+      expect(setLibraryIconTags("nope", ["x"])).toBe(false);
+    });
+
+    it("applies a whole table, untagging ids it omits", () => {
+      applyIconTagTable({ play: ["from-table"] });
+      expect(getLibraryIcon("play")?.tags).toEqual(["from-table"]);
+      expect(getLibraryIcon("pause")?.tags).toEqual([]);
+      expect(getLibraryIcon("pause")).toBeDefined();
+    });
   });
 });

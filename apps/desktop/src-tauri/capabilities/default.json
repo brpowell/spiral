@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for Spiral windows",
-  "windows": ["main", "skin-mode", "skin-aux-*", "appearance", "equalizer", "activity-logs", "about", "toast-lab", "sound-lab"],
+  "windows": ["main", "skin-mode", "skin-aux-*", "appearance", "equalizer", "activity-logs", "about", "toast-lab", "sound-lab", "icon-lab"],
   "permissions": [
     "core:default",
     "core:window:allow-destroy",

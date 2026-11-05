@@ -27,6 +27,7 @@ export interface AppMenuHandlers {
   quit: () => void;
   /** DEV-only: toggle the Toast Lab window. */
   toggleToastLab?: () => void;
+  toggleIconLab?: () => void;
   /** DEV-only: toggle the transport signature Sound Lab. */
   toggleSoundLab?: () => void;
   /** DEV-only: seed a fake pending update for UX testing. */
@@ -228,13 +229,35 @@ export async function setupAppMenu(
     import.meta.env.DEV &&
     (handlers.toggleToastLab ||
       handlers.toggleSoundLab ||
+      handlers.toggleIconLab ||
       handlers.simulateMockUpdate ||
       handlers.resetOnboarding ||
       handlers.toggleStubLocale)
   ) {
     const developerItems = [];
+    const labItems = [];
+    if (handlers.toggleIconLab) {
+      labItems.push(
+        await MenuItem.new({
+          id: "icon-lab",
+          text: "Icon Lab",
+          accelerator: "CmdOrCtrl+Alt+L",
+          action: handlers.toggleIconLab,
+        }),
+      );
+    }
+    if (handlers.toggleSoundLab) {
+      labItems.push(
+        await MenuItem.new({
+          id: "sound-lab",
+          text: "Sound Lab",
+          accelerator: "CmdOrCtrl+Alt+S",
+          action: handlers.toggleSoundLab,
+        }),
+      );
+    }
     if (handlers.toggleToastLab) {
-      developerItems.push(
+      labItems.push(
         await MenuItem.new({
           id: "toast-lab",
           text: "Toast Lab",
@@ -243,14 +266,9 @@ export async function setupAppMenu(
         }),
       );
     }
-    if (handlers.toggleSoundLab) {
+    if (labItems.length > 0) {
       developerItems.push(
-        await MenuItem.new({
-          id: "sound-lab",
-          text: "Sound Lab",
-          accelerator: "CmdOrCtrl+Alt+S",
-          action: handlers.toggleSoundLab,
-        }),
+        await Submenu.new({ id: "labs", text: "Labs", items: labItems }),
       );
     }
     if (handlers.simulateMockUpdate) {
