@@ -257,7 +257,7 @@ export function AppearanceShell() {
       <div className="appearance-shell__content">
         <main className="appearance-shell__main">
           <AppearanceThemeEditorProvider openThemeEditor={openEditor}>
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="popLayout">
               {editing ? (
                 <motion.div
                   key={contentKey}

@@ -1,9 +1,15 @@
-/** Shared fade for in-place view swaps (library routes, appearance panels). */
+/**
+ * Shared motion for in-place view swaps (library routes, appearance panels).
+ * Mirrors the onboarding panels, but as a direct handoff: pair with
+ * `AnimatePresence mode="popLayout"` so the outgoing view fades out while the
+ * incoming one fades in and eases up 12px, both on the same curve and clock.
+ */
+const VIEW_SWAP = { duration: 0.2, ease: [0.22, 1, 0.36, 1] as const };
+
 export const viewTransition = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1 },
-  exit: { opacity: 0 },
-  transition: { duration: 0.08 },
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0, transition: VIEW_SWAP },
+  exit: { opacity: 0, transition: VIEW_SWAP },
 };
 
 /** Shared enter/exit motion for floating panels (modals, toasts, task pills). */
