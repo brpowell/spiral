@@ -1,6 +1,11 @@
 import { useLayoutEffect, type RefObject } from "react";
 import { syncTextareaAutoSize } from "../Textarea/Textarea";
-import { capHeight, anchorOffsetTop, readCssPx } from "./fitModalHeight";
+import {
+  anchorOffsetTop,
+  capHeight,
+  contentBoxHeight,
+  readCssPx,
+} from "./fitModalHeight";
 
 const BURST_LIMIT = 4;
 
@@ -76,26 +81,6 @@ export function flushAutosizeTextareas(root: ParentNode): void {
       rows != null && Number.isFinite(rows) ? rows : undefined,
     );
   }
-}
-
-/** Content height of a tab panel, ignoring space the scrollport adds when stretched. */
-function contentBoxHeight(el: HTMLElement): number {
-  const style = getComputedStyle(el);
-  const gap = Number.parseFloat(style.rowGap) || 0;
-  let height = 0;
-  let count = 0;
-  for (const child of el.children) {
-    if (!(child instanceof HTMLElement)) continue;
-    height += child.offsetHeight;
-    count += 1;
-  }
-  if (count > 1 && gap > 0) height += gap * (count - 1);
-  height +=
-    (Number.parseFloat(style.paddingTop) || 0) +
-    (Number.parseFloat(style.paddingBottom) || 0) +
-    (Number.parseFloat(style.borderTopWidth) || 0) +
-    (Number.parseFloat(style.borderBottomWidth) || 0);
-  return height;
 }
 
 /**
