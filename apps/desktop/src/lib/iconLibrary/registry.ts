@@ -1,5 +1,7 @@
 import * as AppIcons from "../../components/icons";
 import { EXTRA_LIBRARY_ICONS } from "./extraIcons";
+import iconTagsJson from "./iconTags.json";
+import { normalizeIconTags, type IconTagTable } from "./iconTagTable";
 import type { IconComponent, IconTag, SpiralIconDefinition } from "./types";
 import { DEFAULT_LIBRARY_ICON_ID } from "./types";
 
@@ -9,105 +11,11 @@ const ICON_ALIASES: Record<string, string> = {
 };
 
 /**
- * Search / filter keywords per id. Missing ids still register with `[]`.
- * Keep tags lowercase freeform words.
+ * Search / filter keywords per id, from `iconTags.json`. Ids missing from the
+ * file still register with `[]`. Edit it by hand or through Developer → Icon
+ * Lab (which writes the file and hot-applies the change).
  */
-const ICON_TAGS: Record<string, readonly IconTag[]> = {
-  previous: ["playback", "transport"],
-  next: ["playback", "transport"],
-  shuffle: ["playback", "transport", "music", "cover"],
-  setList: ["playback", "playlist", "queue"],
-  columns: ["layout", "ui"],
-  hide: ["ui", "visibility"],
-  repeat: ["playback", "transport", "music"],
-  repeatOne: ["playback", "transport", "music"],
-  play: ["playback", "transport", "music"],
-  pause: ["playback", "transport", "music"],
-  volume: ["playback", "audio"],
-  volumeMute: ["playback", "audio"],
-  back: ["navigation", "ui"],
-  search: ["ui", "find"],
-  tracks: ["library", "music", "cover"],
-  albums: ["library", "music", "cover"],
-  image: ["media", "image", "file"],
-  artists: ["library", "music"],
-  disc: ["music", "cd", "media", "cover"],
-  eject: ["cd", "media"],
-  playlists: ["library", "playlist", "music", "cover"],
-  playlistAdd: ["playlist", "music"],
-  removeFromPlaylist: ["playlist", "music"],
-  pencil: ["edit", "ui"],
-  info: ["ui", "help"],
-  star: ["rating", "favorite", "cover"],
-  replace: ["edit", "ui"],
-  import: ["library", "file"],
-  openFolder: ["file", "folder"],
-  folderLink: ["file", "folder", "link"],
-  unlink: ["link", "ui"],
-  refresh: ["ui", "sync"],
-  package: ["packs", "appearance"],
-  packagePlus: ["packs", "appearance"],
-  visualizer: ["playback", "visualizer", "audio", "cover"],
-  audioWaveform: ["playback", "visualizer", "audio", "cover"],
-  palette: ["appearance", "theme", "cover"],
-  idCard: ["account", "license"],
-  chevronLeft: ["navigation", "ui"],
-  chevronRight: ["navigation", "ui"],
-  chevronDown: ["navigation", "ui"],
-  check: ["ui", "confirm"],
-  copy: ["edit", "ui"],
-  convert: ["audio", "file"],
-  reset: ["ui", "edit"],
-  close: ["ui", "window"],
-  windowMinimize: ["window"],
-  windowMaximize: ["window"],
-  windowRestore: ["window"],
-  more: ["ui", "menu"],
-  help: ["ui", "help"],
-  warning: ["ui", "alert"],
-  missingFile: ["file", "error"],
-  addToQueue: ["queue", "playback", "music"],
-  removeFromQueue: ["queue", "playback", "music"],
-  delete: ["edit", "ui"],
-  grip: ["ui", "drag"],
-  popOut: ["window", "ui"],
-  skinMode: ["appearance", "skin"],
-  maximize: ["window"],
-  minimize: ["window"],
-  alwaysOnTop: ["window"],
-  clock: ["time"],
-  microphone: ["music", "audio", "record", "cover"],
-  cancel: ["ui"],
-  fileMusic: ["music", "file", "cover"],
-  bitrate: ["audio", "file"],
-  hardDrive: ["storage", "file"],
-  calendarPlus: ["time"],
-  glasses: ["ui"],
-  link: ["link", "ui"],
-  externalLink: ["link", "ui"],
-  gpu: ["performance"],
-  download: ["network", "file"],
-  errorAlert: ["ui", "alert", "error"],
-  undoClock: ["time", "ui"],
-  disconnected: ["network", "error"],
-  // Extra (cover / mood) glyphs
-  boombox: ["music", "audio", "cover"],
-  disc2: ["music", "cd", "media", "cover"],
-  cassette: ["music", "audio", "cover"],
-  note: ["music", "cover"],
-  notes: ["music", "cover"],
-  headphones: ["music", "audio", "cover"],
-  heart: ["favorite", "mood", "cover"],
-  bolt: ["mood", "energy", "cover"],
-  flame: ["mood", "energy", "cover"],
-  moon: ["mood", "night", "cover"],
-  sun: ["mood", "day", "cover"],
-  sparkles: ["mood", "cover"],
-  coffee: ["mood", "cover"],
-  car: ["mood", "travel", "cover"],
-  book: ["mood", "cover"],
-  globe: ["mood", "travel", "cover"],
-};
+let iconTags: Readonly<IconTagTable> = iconTagsJson;
 
 function exportNameToId(exportName: string): string | null {
   if (!exportName.startsWith("Icon") || exportName.length <= 4) return null;
@@ -124,7 +32,7 @@ function isIconComponent(value: unknown): value is IconComponent {
 }
 
 function buildRegistry(): {
-  list: readonly SpiralIconDefinition[];
+  list: SpiralIconDefinition[];
   byId: Map<string, SpiralIconDefinition>;
 } {
   const byId = new Map<string, SpiralIconDefinition>();
@@ -134,7 +42,7 @@ function buildRegistry(): {
     byId.set(id, {
       id,
       component,
-      tags: ICON_TAGS[id] ?? [],
+      tags: iconTags[id] ?? [],
     });
   };
 
@@ -155,7 +63,79 @@ function buildRegistry(): {
 
 const { list: SPIRAL_ICON_LIST, byId: SPIRAL_ICON_BY_ID } = buildRegistry();
 
+/**
+ * The catalog, sorted by id. The array and its entries are replaced in place
+ * when tags change (see `setLibraryIconTags`), so reads always see live tags.
+ */
 export const SPIRAL_ICONS: readonly SpiralIconDefinition[] = SPIRAL_ICON_LIST;
+
+let libraryVersion = 0;
+const libraryListeners = new Set<() => void>();
+
+function notifyLibraryChanged() {
+  libraryVersion += 1;
+  for (const listener of [...libraryListeners]) listener();
+}
+
+/** Subscribe to tag changes (for `useSyncExternalStore`). */
+export function subscribeIconLibrary(listener: () => void): () => void {
+  libraryListeners.add(listener);
+  return () => {
+    libraryListeners.delete(listener);
+  };
+}
+
+/** Bumps whenever any icon's tags change. */
+export function getIconLibraryVersion(): number {
+  return libraryVersion;
+}
+
+function replaceTags(index: number, tags: readonly IconTag[]): boolean {
+  const current = SPIRAL_ICON_LIST[index]!;
+  if (
+    current.tags.length === tags.length &&
+    current.tags.every((tag, i) => tag === tags[i])
+  ) {
+    return false;
+  }
+  const next = { ...current, tags };
+  SPIRAL_ICON_LIST[index] = next;
+  SPIRAL_ICON_BY_ID.set(next.id, next);
+  return true;
+}
+
+/** Set one icon's tags in memory. Returns false for unknown ids. */
+export function setLibraryIconTags(
+  id: string,
+  tags: readonly string[],
+): boolean {
+  const index = SPIRAL_ICON_LIST.findIndex((icon) => icon.id === id);
+  if (index < 0) return false;
+  if (replaceTags(index, normalizeIconTags(tags))) {
+    iconTags = { ...iconTags, [id]: normalizeIconTags(tags) };
+    notifyLibraryChanged();
+  }
+  return true;
+}
+
+/** Replace every icon's tags from a table (used when `iconTags.json` reloads). */
+export function applyIconTagTable(table: Readonly<IconTagTable>): void {
+  iconTags = table;
+  let changed = false;
+  SPIRAL_ICON_LIST.forEach((icon, index) => {
+    if (replaceTags(index, normalizeIconTags(table[icon.id] ?? []))) {
+      changed = true;
+    }
+  });
+  if (changed) notifyLibraryChanged();
+}
+
+if (import.meta.hot) {
+  import.meta.hot.accept("./iconTags.json", (mod) => {
+    const table = (mod as { default?: IconTagTable } | undefined)?.default;
+    if (table) applyIconTagTable(table);
+  });
+}
 
 export function listLibraryIcons(): readonly SpiralIconDefinition[] {
   return SPIRAL_ICONS;

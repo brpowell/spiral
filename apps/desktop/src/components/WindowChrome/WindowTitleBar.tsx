@@ -11,6 +11,7 @@ import {
   ContextMenu,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuSubmenu,
 } from "../ContextMenu/ContextMenu";
 import {
   IconClose,
@@ -264,23 +265,36 @@ export function WindowTitleBar({
     activeMenu === "developer" &&
     (handlers.toggleToastLab ||
       handlers.toggleSoundLab ||
+      handlers.toggleIconLab ||
       handlers.simulateMockUpdate ||
       handlers.resetOnboarding ||
       handlers.toggleStubLocale)
   ) {
     menuContent = (
       <>
-        {handlers.toggleToastLab ? (
-          <ContextMenuItem
-            label="Toast Lab"
-            onClick={run(handlers.toggleToastLab)}
-          />
-        ) : null}
-        {handlers.toggleSoundLab ? (
-          <ContextMenuItem
-            label="Sound Lab"
-            onClick={run(handlers.toggleSoundLab)}
-          />
+        {handlers.toggleIconLab ||
+        handlers.toggleSoundLab ||
+        handlers.toggleToastLab ? (
+          <ContextMenuSubmenu label="Labs">
+            {handlers.toggleIconLab ? (
+              <ContextMenuItem
+                label="Icon Lab"
+                onClick={run(handlers.toggleIconLab)}
+              />
+            ) : null}
+            {handlers.toggleSoundLab ? (
+              <ContextMenuItem
+                label="Sound Lab"
+                onClick={run(handlers.toggleSoundLab)}
+              />
+            ) : null}
+            {handlers.toggleToastLab ? (
+              <ContextMenuItem
+                label="Toast Lab"
+                onClick={run(handlers.toggleToastLab)}
+              />
+            ) : null}
+          </ContextMenuSubmenu>
         ) : null}
         {handlers.simulateMockUpdate ? (
           <ContextMenuItem

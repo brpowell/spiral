@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_LIBRARY_ICON_ID,
   getLibraryIcon,
@@ -9,6 +9,10 @@ import {
   searchLibraryIcons,
   iconsWithTag,
   sortLibraryIconsByTag,
+  applyIconTagTable,
+  getIconLibraryVersion,
+  setLibraryIconTags,
+  subscribeIconLibrary,
 } from "./index";
 
 describe("iconLibrary", () => {
@@ -78,5 +82,46 @@ describe("iconLibrary", () => {
     for (let i = 1; i < list.length; i++) {
       expect(list[i - 1]!.id.localeCompare(list[i]!.id)).toBeLessThanOrEqual(0);
     }
+  });
+
+  describe("live tag edits", () => {
+    const snapshot = Object.fromEntries(
+      listLibraryIcons().map((icon) => [icon.id, [...icon.tags]]),
+    );
+    afterEach(() => {
+      applyIconTagTable(snapshot);
+    });
+
+    it("updates tags, search and the version, and notifies subscribers", () => {
+      const listener = vi.fn();
+      const unsubscribe = subscribeIconLibrary(listener);
+      const before = getIconLibraryVersion();
+
+      expect(setLibraryIconTags("play", ["Zzz Tag"])).toBe(true);
+
+      expect(getLibraryIcon("play")?.tags).toEqual(["zzz-tag"]);
+      expect(searchLibraryIcons("zzz-tag").map((i) => i.id)).toEqual(["play"]);
+      expect(getIconLibraryVersion()).toBe(before + 1);
+      expect(listener).toHaveBeenCalledTimes(1);
+
+      // No change, no notification.
+      setLibraryIconTags("play", ["zzz-tag"]);
+      expect(listener).toHaveBeenCalledTimes(1);
+
+      unsubscribe();
+      setLibraryIconTags("play", ["other"]);
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns false for unknown ids", () => {
+      expect(setLibraryIconTags("nope", ["x"])).toBe(false);
+    });
+
+    it("applies a whole table, untagging ids it omits", () => {
+      applyIconTagTable({ play: ["from-table"] });
+      expect(getLibraryIcon("play")?.tags).toEqual(["from-table"]);
+      expect(getLibraryIcon("pause")?.tags).toEqual([]);
+      expect(getLibraryIcon("pause")).toBeDefined();
+    });
   });
 });

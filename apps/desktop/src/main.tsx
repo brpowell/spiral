@@ -44,6 +44,7 @@ import {
   isAnySkinWindow,
   isSkinAuxWindow,
   isSkinModeWindow,
+  isIconLabWindow,
   isToastLabWindow,
   isSoundLabWindow,
 } from "./lib/windowRole";
@@ -117,7 +118,8 @@ async function start() {
     role === "activity-logs" ||
     role === "about" ||
     role === "toast-lab" ||
-    role === "sound-lab"
+    role === "sound-lab" ||
+    role === "icon-lab"
   ) {
     await applyCustomWindowChrome();
   }
@@ -134,6 +136,14 @@ async function start() {
     await initThemeBridge(role);
     const { SoundLabApp } = await import("./SoundLabApp");
     renderRoot(<SoundLabApp />);
+    return;
+  }
+
+  if (import.meta.env.DEV && isIconLabWindow()) {
+    await bootstrapTheme();
+    await initThemeBridge(role);
+    const { IconLabApp } = await import("./IconLabApp");
+    renderRoot(<IconLabApp />);
     return;
   }
 

@@ -74,4 +74,28 @@ describe("WindowTitleBar", () => {
     expect(screen.getByText("Equalizer")).toHaveClass("window-titlebar__title");
     expect(screen.queryByRole("navigation")).toBeNull();
   });
+
+  it("nests the dev labs under Developer → Labs", () => {
+    render(
+      <WindowTitleBar
+        title="Spiral"
+        handlers={{
+          ...handlers,
+          toggleIconLab: vi.fn(),
+          toggleSoundLab: vi.fn(),
+          toggleToastLab: vi.fn(),
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Developer" }));
+    expect(screen.queryByRole("menuitem", { name: "Icon Lab" })).toBeNull();
+
+    fireEvent.keyDown(screen.getByRole("menuitem", { name: "Labs" }), {
+      key: "Enter",
+    });
+    for (const name of ["Icon Lab", "Sound Lab", "Toast Lab"]) {
+      expect(screen.getByRole("menuitem", { name })).toBeInTheDocument();
+    }
+  });
 });

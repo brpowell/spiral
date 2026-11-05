@@ -14,7 +14,8 @@ export type WindowRole =
   | "activity-logs"
   | "about"
   | "toast-lab"
-  | "sound-lab";
+  | "sound-lab"
+  | "icon-lab";
 
 let role: WindowRole = "main";
 let skinAuxContext: SkinAuxContext | null = null;
@@ -42,6 +43,8 @@ export async function bootstrapWindowRole(): Promise<WindowRole> {
       role = "toast-lab";
     } else if (label === "sound-lab") {
       role = "sound-lab";
+    } else if (label === "icon-lab") {
+      role = "icon-lab";
     } else {
       role = "main";
     }
@@ -97,10 +100,15 @@ export function isSoundLabWindow(): boolean {
   return role === "sound-lab";
 }
 
+export function isIconLabWindow(): boolean {
+  return role === "icon-lab";
+}
+
 function roleFromLocationSearch(): WindowRole {
   if (typeof window === "undefined") return "main";
   const params = new URLSearchParams(window.location.search);
   if (params.get("sound-lab") === "1") return "sound-lab";
+  if (params.get("icon-lab") === "1") return "icon-lab";
   if (params.get("toast-lab") === "1") return "toast-lab";
   return "main";
 }

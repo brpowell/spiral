@@ -145,6 +145,11 @@ function App() {
               mod.toggleSoundLabWindow(),
             );
           },
+          toggleIconLab: () => {
+            void import("./lib/iconLabWindow").then((mod) =>
+              mod.toggleIconLabWindow(),
+            );
+          },
           simulateMockUpdate: () => {
             useUpdaterStore.getState().simulateMockUpdate();
           },
@@ -262,6 +267,13 @@ function App() {
         e.preventDefault();
         void import("./lib/soundLabWindow").then((mod) =>
           mod.toggleSoundLabWindow(),
+        );
+        return;
+      }
+      if (import.meta.env.DEV && key === "l" && e.altKey && !e.shiftKey) {
+        e.preventDefault();
+        void import("./lib/iconLabWindow").then((mod) =>
+          mod.toggleIconLabWindow(),
         );
         return;
       }

@@ -11,6 +11,11 @@ export {
   iconsWithTag,
   sortLibraryIconsByTag,
   humanizeIconId,
+  setLibraryIconTags,
+  applyIconTagTable,
+  subscribeIconLibrary,
+  getIconLibraryVersion,
 } from "./registry";
+export { useIconLibraryVersion } from "./useIconLibraryVersion";
 export { SpiralIcon } from "./SpiralIcon";
 export type { SpiralIconProps } from "./SpiralIcon";
