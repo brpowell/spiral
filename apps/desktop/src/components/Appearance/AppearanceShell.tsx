@@ -259,7 +259,10 @@ export function AppearanceShell() {
       <div className="appearance-shell__content">
         <main className="appearance-shell__main">
           <AppearanceThemeEditorProvider openThemeEditor={openEditor}>
-            <AnimatePresence mode="popLayout">
+            {/* initial={false}: Studio is preloaded in a hidden webview, which never
+                runs animation frames, so an enter animation on first mount would
+                leave the content at opacity 0 until the window is shown. */}
+            <AnimatePresence mode="popLayout" initial={false}>
               {editing ? (
                 <motion.div
                   key={contentKey}
