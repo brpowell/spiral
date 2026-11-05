@@ -3,12 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useOnboardingStore } from "../../store/useOnboardingStore";
 import { useSourcesStore } from "../../store/useSourcesStore";
 import type { Source } from "../../types/source";
+import { BUY_ME_A_COFFEE_URL } from "../About/aboutContent";
 import {
   Onboarding,
   ONBOARDING_FADE_MS,
+  ONBOARDING_FINISH_COUNTDOWN_S,
   ONBOARDING_HOLD_MS,
   ONBOARDING_START_DELAY_MS,
 } from "./Onboarding";
+
+const openUrl = vi.hoisted(() => vi.fn());
+vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl }));
 
 const tauri = vi.hoisted(() => ({
   createManagedSource: vi.fn(),
@@ -29,6 +34,15 @@ const tracks = {
   importTarget: true,
   createdAt: "2026-01-01T00:00:00Z",
 };
+
+/** Advance a second at a time, so each countdown tick re-renders and re-arms. */
+function tickSeconds(seconds: number) {
+  for (let i = 0; i < seconds; i++) {
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+  }
+}
 
 /** Next on the first step applies the answer, which is async. */
 async function clickNext() {
@@ -132,14 +146,21 @@ describe("Onboarding", () => {
     expect(
       screen.getByRole("heading", { name: "Try on a style" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Step 2 of 3")).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 4")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(
       screen.getByRole("heading", { name: "You're in control" }),
     ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(
+      screen.getByRole("heading", { name: "Thanks for being here!" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Step 4 of 4")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
 
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(
       screen.getByRole("heading", { name: "Try on a style" }),
@@ -161,7 +182,7 @@ describe("Onboarding", () => {
     expect(
       screen.getByRole("heading", { name: "Add music sources" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Step 2 of 4")).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 5")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Add folder" }),
     ).toBeInTheDocument();
@@ -200,10 +221,53 @@ describe("Onboarding", () => {
     ).toBeInTheDocument();
   });
 
+  it("opens the Buy Me a Coffee link from the support step", () => {
+    render(<Onboarding />);
+    playThroughReveal();
+    act(() => useOnboardingStore.setState({ step: 3 }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Buy me a coffee" }));
+    expect(openUrl).toHaveBeenCalledWith(BUY_ME_A_COFFEE_URL);
+  });
+
+  it("keeps Finish disabled, counting down on the button, for 15 seconds", () => {
+    render(<Onboarding />);
+    playThroughReveal();
+    act(() => useOnboardingStore.setState({ step: 3 }));
+
+    const button = () => screen.getByRole("button", { name: /^Finish/ });
+    expect(button()).toBeDisabled();
+    expect(button()).toHaveTextContent("Finish (15)");
+
+    tickSeconds(5);
+    expect(button()).toHaveTextContent("Finish (10)");
+
+    tickSeconds(10);
+    expect(button()).toBeEnabled();
+    expect(button()).toHaveTextContent(/^Finish$/);
+  });
+
+  it("starts the Finish countdown over when going back", () => {
+    render(<Onboarding />);
+    playThroughReveal();
+    act(() => useOnboardingStore.setState({ step: 3 }));
+    tickSeconds(6);
+    expect(screen.getByRole("button", { name: /^Finish/ })).toHaveTextContent(
+      "Finish (9)",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("button", { name: /^Finish/ })).toHaveTextContent(
+      "Finish (15)",
+    );
+  });
+
   it("finishes after fading out when the last step is completed", () => {
     render(<Onboarding />);
     playThroughReveal();
-    act(() => useOnboardingStore.setState({ step: 2 }));
+    act(() => useOnboardingStore.setState({ step: 3 }));
+    tickSeconds(ONBOARDING_FINISH_COUNTDOWN_S);
 
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
     expect(screen.getByRole("dialog").className).toContain(
