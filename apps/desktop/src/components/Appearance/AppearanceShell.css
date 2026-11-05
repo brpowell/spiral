@@ -43,6 +43,7 @@
 }
 
 .appearance-shell__main {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;

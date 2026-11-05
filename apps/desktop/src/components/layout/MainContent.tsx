@@ -57,7 +57,7 @@ export function MainContent() {
 
   return (
     <main className="main-content">
-      <AnimatePresence mode="wait" initial={false}>
+      <AnimatePresence mode="popLayout" initial={false}>
         {cdDriveId != null ? (
           <motion.div
             key={contentKey}
