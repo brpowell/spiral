@@ -7,7 +7,9 @@
   justify-content: center;
 }
 
-.sidebar-cd-drive-item__eject {
+/* Extra specificity so `.btn:disabled { top: 0 }` can't knock the button
+   out of vertical centering while a disc is ejecting. */
+.sidebar-cd-drive-item .sidebar-cd-drive-item__eject {
   position: absolute;
   right: 0.15rem;
   top: 50%;
