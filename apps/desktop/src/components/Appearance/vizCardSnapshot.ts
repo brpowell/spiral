@@ -36,7 +36,10 @@ type SnapshotResult =
 const cache = new Map<string, string>();
 const inflight = new Map<string, Promise<SnapshotResult>>();
 const waiters: Array<() => void> = [];
-let queueRunning = false;
+let running = 0;
+
+/** Each snapshot spins up a worker per layer, so a few at once is the sweet spot. */
+const MAX_CONCURRENT_SNAPSHOTS = 3;
 
 function layerSandboxEngine(
   kind: VizSceneLayer["kind"],
@@ -213,19 +216,20 @@ async function snapshotFromVisualizer(
 }
 
 function pumpQueue(): void {
-  if (queueRunning) return;
-  const next = waiters.shift();
-  if (!next) return;
-  queueRunning = true;
-  void Promise.resolve()
-    .then(next)
-    .catch(() => {
-      // Rejection is forwarded to the enqueue() caller.
-    })
-    .finally(() => {
-      queueRunning = false;
-      pumpQueue();
-    });
+  while (running < MAX_CONCURRENT_SNAPSHOTS) {
+    const next = waiters.shift();
+    if (!next) return;
+    running++;
+    void Promise.resolve()
+      .then(next)
+      .catch(() => {
+        // Rejection is forwarded to the enqueue() caller.
+      })
+      .finally(() => {
+        running--;
+        pumpQueue();
+      });
+  }
 }
 
 function enqueue<T>(task: () => Promise<T>): Promise<T> {
@@ -314,4 +318,37 @@ export function useVizCardSnapshot(
   }, [visualizerId, cacheKey, getVisualizer, palette]);
 
   return src;
+}
+
+/**
+ * Render every visualizer's card snapshot in the background as soon as the
+ * Studio window has its list, so the Visualizers section opens with its
+ * previews ready instead of popping in one by one. Walks the list one pack at
+ * a time, so a card the user actually opens never waits behind more than one
+ * prewarm task.
+ */
+export function useVizCardSnapshotPrewarm(): void {
+  const visualizers = useVisualizerStore((s) => s.visualizers);
+  const getVisualizer = useVisualizerStore((s) => s.getVisualizer);
+  const palette = useVisualizerPalette();
+  useThemeStore((s) => s.activeThemeId);
+
+  useEffect(() => {
+    let cancelled = false;
+    const pending = visualizers.filter((pack) => !pack.previewPath);
+
+    const next = (): void => {
+      if (cancelled) return;
+      const pack = pending.shift();
+      if (!pack) return;
+      void requestVizCardSnapshot(pack.id, getVisualizer, palette).then(next);
+    };
+
+    // Let the window's first paint and data loads finish first.
+    const idle = window.setTimeout(next, 150);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(idle);
+    };
+  }, [visualizers, getVisualizer, palette]);
 }

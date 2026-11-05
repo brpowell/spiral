@@ -388,7 +388,7 @@ export function RegistryBrowseSection() {
 
   return (
     <div className="registry-browse">
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="popLayout">
         {selectedEntry ? (
           <motion.div
             key={`detail-${selectedKey}`}

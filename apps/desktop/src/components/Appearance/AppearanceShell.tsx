@@ -5,6 +5,7 @@ import type { AppearanceSection } from "../../lib/appearanceWindow";
 import { useAppearanceSection } from "../../hooks/useAppearanceSection";
 import { useAppearanceThemeEditor } from "../../hooks/useAppearanceThemeEditor";
 import { viewTransition } from "../../lib/motion";
+import { useVizCardSnapshotPrewarm } from "./vizCardSnapshot";
 import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
 import { useThemeStore } from "../../store/useThemeStore";
 import {
@@ -75,6 +76,7 @@ function AppearanceSectionPanel({
 
 export function AppearanceShell() {
   const { t } = useTranslation("studio");
+  useVizCardSnapshotPrewarm();
   const [section, setSection, eventFocusItemId, clearEventFocusItemId] =
     useAppearanceSection();
   const {
@@ -257,7 +259,10 @@ export function AppearanceShell() {
       <div className="appearance-shell__content">
         <main className="appearance-shell__main">
           <AppearanceThemeEditorProvider openThemeEditor={openEditor}>
-            <AnimatePresence mode="wait">
+            {/* initial={false}: Studio is preloaded in a hidden webview, which never
+                runs animation frames, so an enter animation on first mount would
+                leave the content at opacity 0 until the window is shown. */}
+            <AnimatePresence mode="popLayout" initial={false}>
               {editing ? (
                 <motion.div
                   key={contentKey}
