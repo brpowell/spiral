@@ -8,7 +8,7 @@ import { Field, FieldLabel } from "../components/common/Field/Field";
 import { Switch } from "../components/common/Switch/Switch";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { SearchField } from "../components/SearchField/SearchField";
-import { IconArtistPlaceholder } from "../components/icons";
+import { IconArtists } from "../components/icons";
 import { albumsForArtist, type ArtistBrowseMode } from "../lib/artists";
 import { createFuzzyMatcher } from "../lib/fuzzySearch";
 import { t } from "../lib/i18n";
@@ -75,7 +75,7 @@ function ArtistCard({
             artPath={artist.artPath}
             alt={artist.name}
             className="album-art--round"
-            placeholder={<IconArtistPlaceholder />}
+            placeholder={<IconArtists />}
             variant="grid"
           />
         </motion.div>

@@ -70,7 +70,6 @@ const ICON_TAGS: Record<string, readonly IconTag[]> = {
   removeFromQueue: ["queue", "playback", "music"],
   delete: ["edit", "ui"],
   grip: ["ui", "drag"],
-  artistPlaceholder: ["library", "artist", "placeholder"],
   popOut: ["window", "ui"],
   skinMode: ["appearance", "skin"],
   maximize: ["window"],
@@ -89,7 +88,6 @@ const ICON_TAGS: Record<string, readonly IconTag[]> = {
   gpu: ["performance"],
   download: ["network", "file"],
   errorAlert: ["ui", "alert", "error"],
-  warningAlert: ["ui", "alert"],
   undoClock: ["time", "ui"],
   disconnected: ["network", "error"],
   // Extra (cover / mood) glyphs

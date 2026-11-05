@@ -8,7 +8,7 @@ import {
   IconClose,
   IconErrorAlert,
   IconRefresh,
-  IconWarningAlert,
+  IconWarning,
 } from "../icons";
 import { LYRICS_FETCH_MISSING_KEY } from "../../lib/fetchMissingLyrics";
 import {
@@ -81,7 +81,7 @@ function TaskStatusIcon({ status }: { status: BackgroundTask["status"] }) {
         className="background-tasks__icon background-tasks__icon--warning"
         aria-hidden
       >
-        <IconWarningAlert />
+        <IconWarning />
       </span>
     );
   }

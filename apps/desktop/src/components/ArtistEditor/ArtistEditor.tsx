@@ -45,7 +45,7 @@ import type { Track } from "../../types/track";
 import { EntityArt } from "../EntityArt/EntityArt";
 import { EditorSaveButton } from "../EditorSaveButton/EditorSaveButton";
 import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
-import { IconArtistPlaceholder } from "../icons";
+import { IconArtists } from "../icons";
 import {
   Modal,
   ModalBody,
@@ -525,7 +525,7 @@ export function ArtistEditor() {
 
   const saveLabel = bulkSaveLabel(saving, saveProgress, t);
   const identityTitle = form?.name.trim() || t("common:untitled");
-  const artistPlaceholder = <IconArtistPlaceholder />;
+  const artistPlaceholder = <IconArtists />;
 
   return (
     <Modal

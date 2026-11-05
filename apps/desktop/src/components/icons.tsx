@@ -19,8 +19,8 @@ import {
   Copy,
   Crop,
   Disc,
-  Disc2,
   Disc3,
+  DiscAlbum,
   Download,
   Eject,
   Ellipsis,
@@ -117,10 +117,10 @@ export const IconBack = ArrowLeft;
 export const IconSearch = Search;
 export const IconTracks = Music;
 export const IconImage = Image;
-export const IconAlbums = Disc2;
+export const IconAlbums = DiscAlbum;
 export const IconArtists = UserRound;
 export const IconDisc = Disc;
-export const IconEject = solid(Eject);
+export const IconEject = Eject;
 export const IconPlaylists = ListMusic;
 export const IconPlaylistAdd = ListPlus;
 export const IconRemoveFromPlaylist = ListX;
@@ -157,7 +157,6 @@ export const IconAddToQueue = ListEnd;
 export const IconRemoveFromQueue = ListIndentDecrease;
 export const IconDelete = Trash2;
 export const IconGrip = GripVertical;
-export const IconArtistPlaceholder = UserRound;
 export const IconPopOut = SquareArrowOutUpRight;
 export const IconBoombox = BoomBox;
 export const IconMaximize = Maximize;
@@ -181,7 +180,6 @@ export const IconArrowUpDown = ArrowUpDown;
 export const IconListFilter = ListFilter;
 export const IconListX = ListX;
 export const IconErrorAlert = OctagonAlert;
-export const IconWarningAlert = TriangleAlert;
 export const IconUndoClock = RotateCcwClock;
 export const IconDisconnected = GlobeX;
 export const IconPlus = Plus;
