@@ -117,8 +117,12 @@ function exportNameToId(exportName: string): string | null {
   return rest[0]!.toLowerCase() + rest.slice(1);
 }
 
+/** Plain function components, plus `forwardRef`/`memo` objects (Lucide icons). */
 function isIconComponent(value: unknown): value is IconComponent {
-  return typeof value === "function";
+  return (
+    typeof value === "function" ||
+    (typeof value === "object" && value !== null && "$$typeof" in value)
+  );
 }
 
 function buildRegistry(): {
