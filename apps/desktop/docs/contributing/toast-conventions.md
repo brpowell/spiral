@@ -1,13 +1,8 @@
----
-description: Peer-counter toast title, color, and action conventions for operation results
-alwaysApply: true
----
-
 # Toast Conventions
 
 Rules for toasts that report the result of an operation (single-item or bulk). Applies to queue, conversion, import, lyrics fetch, pack install/download, and any future success/failure/other outcome toast. Keep new toast types consistent with this — do not invent per-feature formatting.
 
-Canonical helpers: `src/lib/toastPeerOutcomes.ts`, `src/lib/toastPayloads.ts`. Toast Lab scenarios must match these rules (see §9).
+Paths are relative to `apps/desktop`. Canonical helpers: `src/lib/toastPeerOutcomes.ts`, `src/lib/toastPayloads.ts`. Toast Lab scenarios must match these rules (see §9).
 
 ## Peer outcome counters (§1)
 
