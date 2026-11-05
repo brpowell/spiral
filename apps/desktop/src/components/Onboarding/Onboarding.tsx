@@ -25,6 +25,7 @@ import { FoldersStep } from "./steps/FoldersStep";
 import { LibraryStep } from "./steps/LibraryStep";
 import { PrivacyStep } from "./steps/PrivacyStep";
 import { StyleStep } from "./steps/StyleStep";
+import { SupportActions, SupportMessage } from "./steps/SupportStep";
 
 /**
  * How long the glyph sits still before the reveal plays. Lets startup work
@@ -36,6 +37,8 @@ export const ONBOARDING_START_DELAY_MS = 1000;
 export const ONBOARDING_HOLD_MS = 800;
 /** Length of the logo's shrink-and-move into the corner. */
 export const ONBOARDING_DOCK_MS = 800;
+/** How long Finish stays disabled on the closing support step. */
+export const ONBOARDING_FINISH_COUNTDOWN_S = 15;
 /** Matches the `.onboarding` opacity transition. */
 export const ONBOARDING_FADE_MS = 600;
 
@@ -47,12 +50,22 @@ export const ONBOARDING_FADE_MS = 600;
  */
 const STEPS: Record<
   OnboardingStepId,
-  { Content: ComponentType; layout: "split" | "centered" }
+  {
+    Content: ComponentType;
+    layout: "split" | "centered";
+    /** Replaces the one-line description with a longer message. */
+    Message?: ComponentType;
+  }
 > = {
   library: { Content: LibraryStep, layout: "centered" },
   folders: { Content: FoldersStep, layout: "split" },
   style: { Content: StyleStep, layout: "split" },
   privacy: { Content: PrivacyStep, layout: "split" },
+  support: {
+    Content: SupportActions,
+    Message: SupportMessage,
+    layout: "split",
+  },
 };
 
 const LAYOUT_CLASSES = {
@@ -95,6 +108,11 @@ function OnboardingOverlay() {
   const [leaving, setLeaving] = useState(false);
   // The first panel waits for the logo to dock; later steps appear right away.
   const [navigated, setNavigated] = useState(false);
+  // Counts down only while the support step is showing, and starts over
+  // whenever the user goes back from it.
+  const [finishRemaining, setFinishRemaining] = useState(
+    ONBOARDING_FINISH_COUNTDOWN_S,
+  );
 
   // Layout effect: the glyph must be in the DOM in the same commit as the
   // overlay, so the first painted frame already has the brandmark.
@@ -177,8 +195,17 @@ function OnboardingOverlay() {
   const stepIds = onboardingSteps(musicChoice);
   const isLast = step === stepIds.length - 1;
   const id = stepIds[step];
-  const { Content, layout } = STEPS[id];
-  const description = (
+  const countingDown = docked && id === "support" && finishRemaining > 0;
+
+  useEffect(() => {
+    if (!countingDown) return;
+    const timer = setTimeout(() => setFinishRemaining((n) => n - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countingDown, finishRemaining]);
+  const { Content, layout, Message } = STEPS[id];
+  const description = Message ? (
+    <Message />
+  ) : (
     <p className="onboarding__description">
       {t(`onboarding.${id}.description`)}
     </p>
@@ -219,7 +246,7 @@ function OnboardingOverlay() {
       {docked ? (
         <>
           <div
-            className={`onboarding__panel ${LAYOUT_CLASSES[layout]}${navigated ? "" : " onboarding__panel--first"}`}
+            className={`onboarding__panel ${LAYOUT_CLASSES[layout]}${Message ? " onboarding__panel--message" : ""}${navigated ? "" : " onboarding__panel--first"}`}
             key={id}
           >
             <div className="onboarding__intro">
@@ -252,6 +279,7 @@ function OnboardingOverlay() {
                   variant="ghost"
                   onClick={() => {
                     setNavigated(true);
+                    setFinishRemaining(ONBOARDING_FINISH_COUNTDOWN_S);
                     back();
                   }}
                 >
@@ -260,16 +288,22 @@ function OnboardingOverlay() {
               ) : null}
               <Button
                 variant="primary"
+                className={isLast ? "onboarding__finish" : undefined}
                 // The first step needs an answer, and the folders step a
                 // folder, before either can move on.
                 disabled={
                   (id === "library" && musicChoice == null) ||
-                  (id === "folders" && !hasOwnFolder)
+                  (id === "folders" && !hasOwnFolder) ||
+                  (isLast && finishRemaining > 0)
                 }
                 isLoading={advancing}
                 onClick={isLast ? () => setLeaving(true) : () => void goNext()}
               >
-                {isLast ? t("onboarding.finish") : t("onboarding.next")}
+                {isLast
+                  ? finishRemaining > 0
+                    ? t("onboarding.finishIn", { seconds: finishRemaining })
+                    : t("onboarding.finish")
+                  : t("onboarding.next")}
               </Button>
             </div>
           </footer>

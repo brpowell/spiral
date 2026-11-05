@@ -51,3 +51,9 @@ export const CREDIT_ENTRIES: CreditEntry[] = [
 ];
 
 export const SPIRAL_WEBSITE_URL = "https://spiralpowered.com";
+
+/** Where people can chip in toward Spiral's development. */
+export const BUY_ME_A_COFFEE_URL = "https://buymeacoffee.com/brpowell";
+export const SPIRAL_GITHUB_URL = "https://github.com/brpowell/spiral";
+export const SPIRAL_DISCUSSIONS_URL = `${SPIRAL_GITHUB_URL}/discussions`;
+export const SPIRAL_DISCOVERY_URL = `${SPIRAL_WEBSITE_URL}/#ecosystem`;

@@ -146,6 +146,10 @@
   color: var(--color-text-primary);
 }
 
+.about-credits__coffee {
+  margin-top: 0.75rem;
+}
+
 .about-credits__item .text-link {
   font-size: 0.8rem;
   font-weight: var(--weight-regular);

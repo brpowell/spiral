@@ -14,6 +14,7 @@
     "next": "Next",
     "back": "Back",
     "finish": "Finish",
+    "finishIn": "Finish ({{seconds}})",
     "progress": "Step {{current}} of {{total}}",
     "library": {
       "title": "How do you want your music organized?",
@@ -44,8 +45,19 @@
       "description": "We want to be fun & useful, not invasive & annoying.",
       "history": "Track your listening history",
       "historyDescription": "Spiral can record listening history for play counts and personal insights. <strong>Your data is stored locally, and never shared with Spiral.</strong>"
+    },
+    "support": {
+      "title": "Thanks for being here!",
+      "intro": "Spiral is free, open-source, and independently built. If you enjoy it, consider buying me a coffee to help keep it going. Joining the discussion or starring the project on GitHub helps too.",
+      "artists": "Buying merch, records, and tickets from your favorite artists and local shops helps the project spiritually. The discovery tool is a good place to start.",
+      "closing": "No pressure though, I’m just glad you’re here 🤟.",
+      "signature": "— Bryan",
+      "discussion": "Join the discussion",
+      "star": "Star on GitHub",
+      "discovery": "Open the discovery tool"
     }
   },
+  "buyMeACoffee": "Buy me a coffee",
   "unknown": "Unknown",
   "unknownArtist": "Unknown Artist",
   "unknownAlbum": "Unknown Album",
