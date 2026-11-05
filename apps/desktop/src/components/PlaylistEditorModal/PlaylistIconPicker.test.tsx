@@ -73,4 +73,14 @@ describe("PlaylistIconPicker", () => {
     expect(screen.getByText("No matching icons")).toBeInTheDocument();
     expect(screen.queryByRole("option")).not.toBeInTheDocument();
   });
+
+  it("reveals an icon's name on hover", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Icon: Note" }));
+
+    expect(screen.getByRole("option", { name: "Chef Hat" })).toHaveAttribute(
+      "title",
+      "Chef Hat",
+    );
+  });
 });

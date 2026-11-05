@@ -23,6 +23,68 @@ describe("iconLibrary", () => {
     expect(resolveIcon("visualizer")).toBe(resolveIcon("audioWaveform"));
   });
 
+  it("lists the Lucide cover icons first in the picker order", () => {
+    const ids = [
+      "rocket",
+      "trophy",
+      "thumbsUp",
+      "award",
+      "sparkle",
+      "earth",
+      "plane",
+      "compass",
+      "sprout",
+      "swords",
+      "apple",
+      "dumbbell",
+      "clapperboard",
+      "crosshair",
+      "puzzle",
+      "church",
+      "rose",
+      "guitar",
+      "croissant",
+      "cherry",
+      "gamepad",
+      "gamepad2",
+      "pawPrint",
+      "school",
+      "atom",
+      "hamburger",
+      "snowflake",
+      "chefHat",
+      "handHeart",
+      "cat",
+      "ghost",
+      "drama",
+      "paintbrush",
+      "mop",
+      "store",
+      "shoppingBag",
+      "shirt",
+      "cake",
+      "lollipop",
+      "banknote",
+      "car",
+      "microphone",
+    ];
+    const covers = new Set(iconsWithTag("cover").map((icon) => icon.id));
+    for (const id of ids) {
+      expect(resolveIcon(id), id).toBeDefined();
+      expect(covers.has(id), `${id} is tagged cover`).toBe(true);
+    }
+  });
+
+  it("finds the cover icons by everyday words, not just their ids", () => {
+    const find = (q: string) => searchLibraryIcons(q).map((icon) => icon.id);
+    expect(find("birthday")).toContain("cake");
+    expect(find("gym")).toContain("dumbbell");
+    expect(find("halloween")).toContain("ghost");
+    expect(find("clothes")).toContain("shirt");
+    expect(find("movie")).toContain("clapperboard");
+    expect(find("candy")).toContain("lollipop");
+  });
+
   it("registers cover / mood extras", () => {
     expect(resolveIcon("note")).toBeDefined();
     expect(resolveIcon("headphones")).toBeDefined();

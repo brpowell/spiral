@@ -198,6 +198,7 @@ function PlaylistIconPickerPanel({ value, onChange }: PlaylistIconPickerProps) {
                   role="option"
                   aria-selected={selected}
                   aria-label={label}
+                  title={label}
                   tabIndex={iconIndex === index ? 0 : -1}
                   className="playlist-icon-picker__option"
                   onFocus={() => setActiveIndex(iconIndex)}
