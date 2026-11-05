@@ -1,10 +1,6 @@
----
-description: Silence Rust unused warnings for platform- or test-only symbols via cfg
-globs: src-tauri/**/*.rs
-alwaysApply: false
----
-
 # Platform / test-gated Rust symbols
+
+Applies to `src-tauri/**/*.rs`.
 
 Rustc only sees the current target. A symbol used solely under `#[cfg(target_os = "...")]` or in tests looks unused on other builds and triggers `unused_imports` / `dead_code`.
 
