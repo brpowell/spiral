@@ -40,12 +40,9 @@
   margin-top: 1.5rem;
 }
 
+/* Fills spare rail height but never shrinks below its content, so an overflowing rail scrolls. */
 .sidebar__section--grow {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding-bottom: 0.75rem;
+  flex: 1 0 auto;
 }
 
 .sidebar__section-label {

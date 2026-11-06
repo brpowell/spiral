@@ -1,5 +1,26 @@
 /* Library-sidebar-only styles (playlist / device lists). Chrome: SidebarChrome.css */
 
+.sidebar--library {
+  padding: 0;
+  min-height: 0;
+}
+
+/* Everything above the footer scrolls as one, so long playlist lists never squeeze the sections. */
+.sidebar__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  /* macOS overlay scrollbars float over this padding, so it has to clear the thumb. */
+  padding: 1rem 0.75rem;
+}
+
+.sidebar--library .sidebar__footer {
+  flex-shrink: 0;
+  margin: 0 0.75rem 1rem;
+}
+
 .sidebar__device-list {
   list-style: none;
   margin: 0;
@@ -9,17 +30,7 @@
   gap: 0.1rem;
 }
 
-.sidebar__playlist-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
 .sidebar__playlist-list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -41,11 +52,6 @@
 
 .sidebar__playlist-item--dragging .sidebar-item {
   cursor: grabbing;
-}
-
-.sidebar__playlist-create {
-  flex-shrink: 0;
-  margin-top: 0.35rem;
 }
 
 .sidebar__playlists-empty {
