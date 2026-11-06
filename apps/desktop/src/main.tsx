@@ -106,6 +106,8 @@ async function start() {
   if (import.meta.env.DEV) {
     const { installSoundDevConsole } = await import("./lib/soundDevConsole");
     installSoundDevConsole();
+    const { installStage } = await import("./lib/stage");
+    installStage();
   }
 
   const role = await bootstrapWindowRole();

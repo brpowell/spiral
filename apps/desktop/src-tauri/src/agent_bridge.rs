@@ -8,6 +8,11 @@
 //! * `eval {window, body}`          — run an async JS function body in the page
 //!                                    world; the returned value comes back as JSON
 //! * `shot {window}`                — PNG snapshot of the webview (base64)
+//! * `geometry {window}`            — inner size, outer position, scale factor
+//! * `set_geometry {window, width?, height?, x?, y?}`
+//!                                  — resize (inner, logical points) / move
+//! * `capture {window, out}`        — native window capture (frame + shadow, 2x)
+//!                                  written to the absolute path `out`
 //!
 //! Compiled only with `--features agent-bridge` in a debug build on macOS; the
 //! cfg guard lives at every call site so none of this can reach a release.
@@ -128,8 +133,75 @@ fn handle(app: &AppHandle, request: &Value) -> Result<Value, String> {
             let png = base64::engine::general_purpose::STANDARD.encode(png);
             Ok(json!({ "png": png }))
         }
+        "geometry" => geometry(&window),
+        "set_geometry" => set_geometry(&window, request),
+        "capture" => {
+            let out = request["out"].as_str().ok_or("missing `out`")?;
+            capture(&window, PathBuf::from(out), timeout)
+        }
         other => Err(format!("unknown cmd `{other}`")),
     }
+}
+
+fn geometry(window: &WebviewWindow) -> Result<Value, String> {
+    let scale = window.scale_factor().map_err(|e| e.to_string())?;
+    let inner = window.inner_size().map_err(|e| e.to_string())?;
+    let outer = window.outer_size().map_err(|e| e.to_string())?;
+    let position = window.outer_position().map_err(|e| e.to_string())?;
+    Ok(json!({
+        "scale": scale,
+        "inner": [inner.width as f64 / scale, inner.height as f64 / scale],
+        "outer": [outer.width as f64 / scale, outer.height as f64 / scale],
+        "position": [position.x as f64 / scale, position.y as f64 / scale],
+    }))
+}
+
+fn set_geometry(window: &WebviewWindow, request: &Value) -> Result<Value, String> {
+    if let (Some(width), Some(height)) = (request["width"].as_f64(), request["height"].as_f64()) {
+        window
+            .set_size(tauri::LogicalSize::new(width, height))
+            .map_err(|e| e.to_string())?;
+    }
+    if let (Some(x), Some(y)) = (request["x"].as_f64(), request["y"].as_f64()) {
+        window
+            .set_position(tauri::LogicalPosition::new(x, y))
+            .map_err(|e| e.to_string())?;
+    }
+    geometry(window)
+}
+
+/// Native capture of the whole window (traffic lights, rounded corners and the
+/// drop shadow) via `screencapture -l`, the same look as the marketing shots.
+/// Needs the Screen Recording permission for the process that launched the app.
+fn capture(window: &WebviewWindow, out: PathBuf, timeout: Duration) -> Result<Value, String> {
+    let (tx, rx) = mpsc::channel::<Result<isize, String>>();
+    window
+        .with_webview(move |platform| unsafe {
+            let ns_window = &*(platform.ns_window() as *const objc2_app_kit::NSWindow);
+            let _ = tx.send(Ok(ns_window.windowNumber()));
+        })
+        .map_err(|e| e.to_string())?;
+    let number = rx
+        .recv_timeout(timeout)
+        .map_err(|_| "window id timed out")??;
+    if let Some(dir) = out.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    let _ = std::fs::remove_file(&out);
+    let output = std::process::Command::new("/usr/sbin/screencapture")
+        .arg("-x")
+        .arg(format!("-l{number}"))
+        .arg(&out)
+        .output()
+        .map_err(|e| format!("screencapture: {e}"))?;
+    if !output.status.success() || !out.exists() {
+        return Err(format!(
+            "screencapture failed ({}): {}. Grant Screen Recording to the app that launched `npm run dev:agent` (System Settings > Privacy & Security).",
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    Ok(json!({ "path": out }))
 }
 
 /// `callAsyncJavaScript` takes a function body and awaits the returned

@@ -1,0 +1,19 @@
+{
+  "name": "themes",
+  "extends": "theme-base",
+  "notes": "One shot per studio theme, same album, track and position",
+  "matrix": {
+    "app.theme": [
+      "spiral.theme.obsidian",
+      "spiral.theme.noir",
+      "spiral.theme.abyss",
+      "spiral.theme.sprig-dark",
+      "spiral.theme.sprig",
+      "spiral.theme.parchment",
+      "spiral.theme.strawberry"
+    ]
+  },
+  "publish": {
+    "slot": "theme.{theme}"
+  }
+}
