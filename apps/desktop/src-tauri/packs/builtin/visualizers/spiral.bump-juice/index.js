@@ -17,6 +17,8 @@ const IDLE_WAVE_BASE = 0.07;
 const ANALYSER_DB_RANGE = 70;
 /** Bands stop around 14 kHz; above that most masters are empty air. */
 const MUSICAL_BIN_RATIO = 0.62;
+/** Where the outline starts, in bins. Below one so the kick gets its own room. */
+const FIRST_BIN = 0.75;
 /** Classic analyzer treble lift so cymbals can stand next to the kick. */
 const LIFT_DB_PER_OCTAVE = 1.75;
 /**
@@ -30,7 +32,7 @@ const CEILING_RELEASE_PER_SEC = 0.08;
  * A band at the ceiling rests here (0–1). Headroom above it is reserved
  * for the beat, so a hit rises without the outline pinning at full.
  */
-const LEVEL_WEIGHT = 0.65;
+const LEVEL_WEIGHT = 0.8;
 const ONSET_PUNCH = 0.65;
 /** Above this height, extra loudness is compressed so the outline doesn't pin. */
 const LEVEL_KNEE = 0.8;
@@ -125,19 +127,35 @@ function idleWaveValue(time, index, count) {
 }
 
 /**
- * Log-spaced band edges that always advance at least one bin, so the low
- * end doesn't duplicate the same coarse bass bin.
+ * Log-spaced band edges, in fractional bins. There are about as many points
+ * as bins, so whole-bin edges would collapse to a linear scale and hand most
+ * of the width to quiet treble.
  */
 function bandEdges(binCount, columns) {
-  const maxBin = Math.max(columns, Math.ceil((binCount - 1) * MUSICAL_BIN_RATIO));
-  const edges = [0];
-  for (let i = 1; i <= columns; i++) {
-    const ideal = Math.round(Math.pow(maxBin, i / columns));
-    const lo = edges[i - 1] + 1;
-    const hi = maxBin - (columns - i);
-    edges.push(Math.max(lo, Math.min(hi, ideal)));
+  const maxBin = (binCount - 1) * MUSICAL_BIN_RATIO;
+  const edges = [];
+  for (let i = 0; i <= columns; i++) {
+    edges.push(FIRST_BIN * Math.pow(maxBin / FIRST_BIN, i / columns));
   }
   return edges;
+}
+
+/** Interpolates bands narrower than a bin; wider ones take their loudest bin. */
+function sampleBand(data, lo, hi) {
+  const last = data.length - 1;
+  if (hi - lo < 1) {
+    const center = Math.min(last, (lo + hi) / 2);
+    const below = Math.floor(center);
+    const a = data[below] ?? 0;
+    const b = data[Math.min(last, below + 1)] ?? 0;
+    return a + (b - a) * (center - below);
+  }
+  let peak = 0;
+  for (let b = Math.ceil(lo); b <= Math.min(last, Math.floor(hi)); b++) {
+    const value = data[b] ?? 0;
+    if (value > peak) peak = value;
+  }
+  return peak;
 }
 
 function shapeLevel(steady, onset) {
@@ -177,13 +195,7 @@ function createMeter() {
     const bands = new Array(columns);
     let frameMax = 0;
     for (let i = 0; i < columns; i++) {
-      const i0 = Math.min(binCount - 1, edges[i]);
-      const i1 = Math.min(binCount - 1, Math.max(i0, edges[i + 1] - 1));
-      let peak = 0;
-      for (let b = i0; b <= i1; b++) {
-        const value = data[b] ?? 0;
-        if (value > peak) peak = value;
-      }
+      const peak = sampleBand(data, edges[i], edges[i + 1]);
       bands[i] = peak > 0 ? peak + lift[i] : 0;
       if (bands[i] > frameMax) frameMax = bands[i];
     }
