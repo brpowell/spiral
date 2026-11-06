@@ -45,6 +45,7 @@ import {
 } from "../../lib/tauri";
 import { matchRecordingMbid } from "../../lib/musicBrainzReleaseRecordings";
 import type { MusicBrainzEntityLookup } from "../../types/musicbrainz";
+import { collectArtistNameSuggestions } from "../../lib/artistNameSuggestions";
 import { collectGenreSuggestions } from "../../lib/trackFieldSuggestions";
 import { useNavigationStore } from "../../store/useNavigationStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
@@ -100,6 +101,10 @@ export function AlbumEditor() {
 
   const tracks = album?.tracks ?? [];
   const referenceTrack = tracks[0] ?? null;
+  const artistSuggestions = useMemo(
+    () => collectArtistNameSuggestions(library),
+    [library],
+  );
   const genreSuggestions = useMemo(
     () => collectGenreSuggestions(library),
     [library],
@@ -730,6 +735,7 @@ export function AlbumEditor() {
                       <AlbumEditorDetailsTab
                         form={form}
                         tracks={tracks}
+                        artistSuggestions={artistSuggestions}
                         genreSuggestions={genreSuggestions}
                         onFieldChange={setField}
                       />

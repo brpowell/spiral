@@ -18,6 +18,7 @@ import {
 } from "../../lib/pendingImportTrack";
 import { useNavigationStore } from "../../store/useNavigationStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
+import { Checkbox } from "../common/Checkbox/Checkbox";
 import { TrackListColumnMenu } from "./TrackListColumnMenu";
 import { TrackListRow, type TrackListRowProps } from "./TrackListRow";
 import {
@@ -447,9 +448,7 @@ export function TrackList({
           data-track-list-col={col.id}
         >
           <label className="track-list__check-label track-list__check-label--header">
-            <input
-              type="checkbox"
-              className="track-list__checkbox"
+            <Checkbox
               checked={headerCheckState === "all"}
               ref={(el) => {
                 if (el) el.indeterminate = headerCheckState === "some";
