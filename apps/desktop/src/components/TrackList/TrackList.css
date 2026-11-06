@@ -176,7 +176,7 @@
 }
 
 .track-list__cell:has([data-track-list-cell-control]:focus-visible),
-.track-list__cell:has(.track-list__checkbox:focus) {
+.track-list__cell:has(.checkbox__input:focus) {
   position: relative;
   overflow: visible;
   z-index: 3;
@@ -256,8 +256,8 @@
     color-mix(in srgb, var(--color-accent) 45%, transparent);
 }
 
-.track-list__row .track-list__checkbox:focus,
-.track-list__row .track-list__checkbox:focus-visible {
+.track-list__row .checkbox__input:focus,
+.track-list__row .checkbox__input:focus-visible {
   outline: 2px solid var(--focus-ring-color);
   outline-offset: 2px;
 }
@@ -331,7 +331,7 @@
 
 .track-list__row:focus,
 .track-list__row:has([data-track-list-cell-control]:focus-visible),
-.track-list__row:has(.track-list__checkbox:focus) {
+.track-list__row:has(.checkbox__input:focus) {
   outline: none;
   z-index: 2;
 }
@@ -404,7 +404,7 @@
 
 .track-list__body--virtual
   .track-list__item:has([data-track-list-cell-control]:focus-visible),
-.track-list__body--virtual .track-list__item:has(.track-list__checkbox:focus) {
+.track-list__body--virtual .track-list__item:has(.checkbox__input:focus) {
   contain: layout style;
   z-index: 2;
 }
@@ -677,15 +677,6 @@
 .track-list__check-label--header {
   justify-content: center;
   width: 100%;
-}
-
-.track-list__checkbox {
-  width: 0.95rem;
-  height: 0.95rem;
-  margin: 0;
-  flex-shrink: 0;
-  accent-color: var(--color-accent);
-  cursor: pointer;
 }
 
 .track-list__cell--check,

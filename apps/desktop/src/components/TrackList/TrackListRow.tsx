@@ -29,6 +29,7 @@ import {
 } from "../../lib/missingFileTrack";
 import { sourceDisplayName } from "../../lib/sourceAccess";
 import { useSourcesStore } from "../../store/useSourcesStore";
+import { Checkbox } from "../common/Checkbox/Checkbox";
 import { IconCheck, IconGrip, IconMissingFile } from "../icons";
 import { ImportIndicator } from "../ImportIndicator/ImportIndicator";
 import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
@@ -350,9 +351,7 @@ function TrackListRowComponent({
                 className="track-list__check-label"
                 onClick={(e) => e.stopPropagation()}
               >
-                <input
-                  type="checkbox"
-                  className="track-list__checkbox"
+                <Checkbox
                   tabIndex={-1}
                   data-track-list-cell-control
                   data-track-list-cell-column="check"
