@@ -1,31 +1,19 @@
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { openAppearanceWindow } from "../../lib/appearanceWindow";
 import { useContextMenu } from "../../hooks/useContextMenu";
-import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
 import { useUpdaterStore } from "../../store/useUpdaterStore";
 import { useWhatsNewStore } from "../../store/useWhatsNewStore";
-import {
-  ContextMenu,
-  ContextMenuItem,
-  ContextMenuSeparator,
-} from "../ContextMenu/ContextMenu";
+import { ContextMenu, ContextMenuItem } from "../ContextMenu/ContextMenu";
 import {
   StatusIndicator,
   StatusIndicatorAnchor,
 } from "../common/StatusIndicator/StatusIndicator";
-import {
-  IconDownload,
-  IconInfo,
-  IconMore,
-  IconPalette,
-  IconRefresh,
-} from "../icons";
+import { IconDownload, IconInfo, IconMore, IconRefresh } from "../icons";
 import { SidebarItem } from "./SidebarItem/SidebarItem";
 
-/** Library sidebar overflow menu (Studio, updates). */
+/** Library sidebar footer overflow menu (app updates, What's New). */
 export function SidebarMoreMenu() {
-  const { t } = useTranslation(["common", "menus"]);
+  const { t } = useTranslation("common");
   const triggerRef = useRef<HTMLButtonElement>(null);
   const availableUpdate = useUpdaterStore((s) => s.availableUpdate);
   const status = useUpdaterStore((s) => s.status);
@@ -34,14 +22,9 @@ export function SidebarMoreMenu() {
     (s) => s.installAvailableUpdate,
   );
   const openWhatsNew = useWhatsNewStore((s) => s.openWhatsNew);
-  const itemUpdatesPending = useItemUpdatesStore(
-    (s) => s.pendingUpdates.length > 0,
-  );
   const appUpdatePending =
     availableUpdate != null &&
     (status === "available" || status === "downloading" || status === "error");
-  const updatePending = appUpdatePending || itemUpdatesPending;
-  const attentionPending = updatePending;
   const {
     open,
     anchor,
@@ -52,17 +35,8 @@ export function SidebarMoreMenu() {
     closeMenu,
   } = useContextMenu({
     dismissExcludeRefs: [triggerRef],
-    triggerPlacement: "right-start",
+    triggerPlacement: "above-start",
   });
-
-  const moreAria = (() => {
-    if (appUpdatePending && itemUpdatesPending) {
-      return t("common:updates.sidebar.pendingAria");
-    }
-    if (appUpdatePending) return t("common:updates.sidebar.pendingAppAria");
-    if (itemUpdatesPending) return t("common:updates.sidebar.pendingItemsAria");
-    return t("common:updates.sidebar.more");
-  })();
 
   return (
     <>
@@ -71,10 +45,14 @@ export function SidebarMoreMenu() {
         leading={
           <StatusIndicatorAnchor className="sidebar-item__icon">
             <IconMore />
-            {attentionPending && !open ? <StatusIndicator /> : null}
+            {appUpdatePending && !open ? <StatusIndicator /> : null}
           </StatusIndicatorAnchor>
         }
-        aria-label={moreAria}
+        aria-label={
+          appUpdatePending
+            ? t("common:updates.sidebar.pendingAppAria")
+            : t("common:updates.sidebar.more")
+        }
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={(e) =>
@@ -117,20 +95,6 @@ export function SidebarMoreMenu() {
           onClick={() => {
             closeMenu();
             openWhatsNew();
-          }}
-        />
-        <ContextMenuSeparator />
-        <ContextMenuItem
-          icon={
-            <StatusIndicatorAnchor>
-              <IconPalette />
-              {itemUpdatesPending ? <StatusIndicator /> : null}
-            </StatusIndicatorAnchor>
-          }
-          label={t("menus:view.studio")}
-          onClick={() => {
-            closeMenu();
-            void openAppearanceWindow();
           }}
         />
       </ContextMenu>

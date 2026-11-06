@@ -16,10 +16,16 @@ import { useCdStore } from "../../store/useCdStore";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { ContextMenu, ContextMenuItem } from "../ContextMenu/ContextMenu";
 import { IconAlbums, IconArtists, IconTracks, IconPlaylistAdd } from "../icons";
-import { SidebarFrame, SidebarList, SidebarSection } from "./SidebarChrome";
+import {
+  SidebarFooter,
+  SidebarFrame,
+  SidebarList,
+  SidebarSection,
+} from "./SidebarChrome";
 import { SidebarItem } from "./SidebarItem/SidebarItem";
 import { SidebarMoreMenu } from "./SidebarMoreMenu";
 import { SidebarPlaylistItem } from "./SidebarPlaylistItem";
+import { SidebarStudioItem } from "./SidebarStudioItem";
 import { SidebarCdDriveItem } from "./SidebarCdDriveItem";
 import "./Sidebar.css";
 
@@ -81,72 +87,78 @@ export function Sidebar() {
       className="sidebar--library"
       aria-label={t("common:sidebar.navAria")}
     >
-      <SidebarList>
-        {NAV_ITEMS.map((item) => {
-          const isActive =
-            item.view === view && playlistId == null && cdDriveId == null;
-          return (
-            <li key={item.view}>
-              <SidebarItem
-                icon={item.icon}
-                active={isActive}
-                disabled={!item.enabled}
-                onClick={() => item.enabled && setView(item.view)}
-              >
-                {t(item.labelKey, { ns: "library" })}
-              </SidebarItem>
-            </li>
-          );
-        })}
-        <li>
-          <SidebarMoreMenu />
-        </li>
-      </SidebarList>
+      <div className="sidebar__scroll">
+        <SidebarList>
+          {NAV_ITEMS.map((item) => {
+            const isActive =
+              item.view === view && playlistId == null && cdDriveId == null;
+            return (
+              <li key={item.view}>
+                <SidebarItem
+                  icon={item.icon}
+                  active={isActive}
+                  disabled={!item.enabled}
+                  onClick={() => item.enabled && setView(item.view)}
+                >
+                  {t(item.labelKey, { ns: "library" })}
+                </SidebarItem>
+              </li>
+            );
+          })}
+          <li>
+            <SidebarStudioItem />
+          </li>
+        </SidebarList>
 
-      {readyCdDrives.length > 0 ? (
-        <SidebarSection label={t("library:views.devices.title")}>
-          <ul className="sidebar__device-list">
-            {readyCdDrives.map((drive) => (
-              <SidebarCdDriveItem key={drive.id} drive={drive} />
-            ))}
-          </ul>
-        </SidebarSection>
-      ) : null}
-
-      <SidebarSection
-        label={t("library:views.playlists.title")}
-        grow
-        onContextMenu={playlistsMenu.onContextMenu}
-      >
-        {playlists.length === 0 ? (
-          <p className="sidebar__playlists-empty">
-            {t("common:sidebar.playlistsEmpty")}
-          </p>
-        ) : (
-          <DragDropProvider
-            sensors={PLAYLIST_SORT_SENSORS}
-            onDragEnd={(event) => {
-              if (event.canceled) return;
-              const next = move(playlists, event);
-              const unchanged = next.every(
-                (playlist, index) => playlist.id === playlists[index]?.id,
-              );
-              if (unchanged) return;
-              void reorderPlaylists(next.map((playlist) => playlist.id));
-            }}
-          >
-            <ul className="sidebar__playlist-list">
-              {playlists.map((playlist, index) => (
-                <SidebarPlaylistItem
-                  key={playlist.id}
-                  playlist={playlist}
-                  index={index}
-                />
+        {readyCdDrives.length > 0 ? (
+          <SidebarSection label={t("library:views.devices.title")}>
+            <ul className="sidebar__device-list">
+              {readyCdDrives.map((drive) => (
+                <SidebarCdDriveItem key={drive.id} drive={drive} />
               ))}
             </ul>
-          </DragDropProvider>
-        )}
-      </SidebarSection>
+          </SidebarSection>
+        ) : null}
+
+        <SidebarSection
+          label={t("library:views.playlists.title")}
+          grow
+          onContextMenu={playlistsMenu.onContextMenu}
+        >
+          {playlists.length === 0 ? (
+            <p className="sidebar__playlists-empty">
+              {t("common:sidebar.playlistsEmpty")}
+            </p>
+          ) : (
+            <DragDropProvider
+              sensors={PLAYLIST_SORT_SENSORS}
+              onDragEnd={(event) => {
+                if (event.canceled) return;
+                const next = move(playlists, event);
+                const unchanged = next.every(
+                  (playlist, index) => playlist.id === playlists[index]?.id,
+                );
+                if (unchanged) return;
+                void reorderPlaylists(next.map((playlist) => playlist.id));
+              }}
+            >
+              <ul className="sidebar__playlist-list">
+                {playlists.map((playlist, index) => (
+                  <SidebarPlaylistItem
+                    key={playlist.id}
+                    playlist={playlist}
+                    index={index}
+                  />
+                ))}
+              </ul>
+            </DragDropProvider>
+          )}
+        </SidebarSection>
+      </div>
+
+      <SidebarFooter>
+        <SidebarMoreMenu />
+      </SidebarFooter>
 
       <ContextMenu
         open={playlistsMenu.open}

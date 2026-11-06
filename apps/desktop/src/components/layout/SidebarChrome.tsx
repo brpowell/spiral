@@ -92,3 +92,16 @@ export function SidebarSection({
     </section>
   );
 }
+
+type SidebarFooterProps = {
+  children: ReactNode;
+  className?: string;
+};
+
+export function SidebarFooter({ children, className }: SidebarFooterProps) {
+  return (
+    <div className={["sidebar__footer", className].filter(Boolean).join(" ")}>
+      {children}
+    </div>
+  );
+}

@@ -1,10 +1,24 @@
 /* Library-sidebar-only styles (playlist / device lists). Chrome: SidebarChrome.css */
 
-/* The whole rail scrolls on overflow, so long playlist lists never squeeze the sections above. */
 .sidebar--library {
+  padding: 0;
+  min-height: 0;
+}
+
+/* Everything above the footer scrolls as one, so long playlist lists never squeeze the sections. */
+.sidebar__scroll {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   /* macOS overlay scrollbars float over this padding, so it has to clear the thumb. */
-  padding-inline: 0.75rem;
+  padding: 1rem 0.75rem;
+}
+
+.sidebar--library .sidebar__footer {
+  flex-shrink: 0;
+  margin: 0 0.75rem 1rem;
 }
 
 .sidebar__device-list {

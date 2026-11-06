@@ -1,8 +1,15 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
 import { usePlaylistStore } from "../../store/usePlaylistStore";
 import type { Playlist } from "../../types/playlist";
 import { Sidebar } from "./Sidebar";
+
+const { openAppearanceWindow } = vi.hoisted(() => ({
+  openAppearanceWindow: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../../lib/appearanceWindow", () => ({ openAppearanceWindow }));
 
 const openPlaylistEditor = vi.fn();
 
@@ -28,12 +35,34 @@ const playlist: Playlist = {
 describe("Sidebar", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("lists More directly after the library views", () => {
+  it("lists Studio after the library views and pins More below the scroll area", () => {
     setup();
     const labels = within(screen.getByRole("navigation"))
       .getAllByRole("listitem")
       .map((item) => item.textContent);
-    expect(labels).toEqual(["Tracks", "Albums", "Artists", "More"]);
+    expect(labels).toEqual(["Tracks", "Albums", "Artists", "Studio"]);
+    const more = screen.getByRole("button", { name: "More" });
+    expect(more.closest(".sidebar__footer")).toBeTruthy();
+    expect(more.closest(".sidebar__scroll")).toBeNull();
+  });
+
+  it("opens Studio from its sidebar item", () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "Studio" }));
+    expect(openAppearanceWindow).toHaveBeenCalled();
+  });
+
+  it("flags pending item updates on the Studio item, not More", () => {
+    const pendingUpdates = useItemUpdatesStore.getState().pendingUpdates;
+    useItemUpdatesStore.setState({
+      pendingUpdates: [{}] as unknown as typeof pendingUpdates,
+    });
+    setup();
+    expect(
+      screen.getByRole("button", { name: "Studio, item updates available" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "More" })).toBeTruthy();
+    useItemUpdatesStore.setState({ pendingUpdates });
   });
 
   it("has no New Playlist button", () => {

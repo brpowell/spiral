@@ -55,3 +55,9 @@
   /* 75% ink keeps these small caps at 4.5:1 or better on every built-in theme's rail. */
   color: color-mix(in oklch, var(--color-text-primary) 75%, var(--color-bg));
 }
+
+.sidebar__footer {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
