@@ -77,11 +77,3 @@
 .musicbrainz-editor-tab__apply-slot {
   min-height: 0.5rem;
 }
-
-.musicbrainz-editor-tab__confirm-url {
-  margin: 0.5rem 0 0;
-  word-break: break-all;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-}
