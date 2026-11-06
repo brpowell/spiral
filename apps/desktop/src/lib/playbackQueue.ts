@@ -82,3 +82,20 @@ export function shuffleNewTrackList(ids: number[], startId: number): number[] {
   const rest = ids.filter((id) => id !== startId);
   return [startId, ...fisherYates(rest)];
 }
+
+/**
+ * Sequential order to go back to when shuffle is switched off. Only applies
+ * when the remembered order covers exactly the tracks in the current set list;
+ * otherwise (the list was edited or replaced since) returns null and the
+ * caller keeps the current order.
+ */
+export function restoreSequentialOrder(
+  current: number[],
+  sequential: number[] | null,
+): number[] | null {
+  if (!sequential || sequential.length !== current.length) return null;
+  const currentSet = new Set(current);
+  if (currentSet.size !== current.length) return null;
+  if (!sequential.every((id) => currentSet.has(id))) return null;
+  return [...sequential];
+}

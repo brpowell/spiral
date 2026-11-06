@@ -56,6 +56,7 @@ import {
   getManualNextId,
   getManualPreviousId,
   shuffleNewTrackList,
+  restoreSequentialOrder,
   shuffleTrackList,
 } from "../lib/playbackQueue";
 import { isPendingTrackId, isTrackImporting } from "../lib/pendingImportTrack";
@@ -92,6 +93,8 @@ interface PlayerState {
   /** True once the first `loadLibrary` settles, so an empty library can be told apart from one still loading. */
   libraryLoaded: boolean;
   playContextIds: number[];
+  /** Set list order from before shuffle was applied, so turning shuffle off can restore it. */
+  sequentialContextIds: number[] | null;
   manualQueueIds: number[];
   currentTrackId: number | null;
   currentPlayable: PlayableRef | null;
@@ -1171,6 +1174,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     library: [],
     libraryLoaded: false,
     playContextIds: [],
+    sequentialContextIds: null,
     manualQueueIds: [],
     currentTrackId: null,
     currentPlayable: null,
@@ -1331,7 +1335,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const ordered = get().shuffle
         ? shuffleNewTrackList(playableIds, startId)
         : playableIds;
-      set({ playContextIds: ordered, cdDriveId: null, playbackTracks: [] });
+      set({
+        playContextIds: ordered,
+        sequentialContextIds: get().shuffle ? playableIds : null,
+        cdDriveId: null,
+        playbackTracks: [],
+      });
       await get().playTrack(startId);
     },
 
@@ -1349,6 +1358,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const contextIds = get().shuffle
         ? shuffleNewTrackList(orderedIds, startId)
         : orderedIds;
+      set({ sequentialContextIds: get().shuffle ? orderedIds : null });
 
       await playResolvedPlayable(
         { type: "cd", driveId, trackNumber: startTrackNumber },
@@ -1426,7 +1436,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         set({ playContextIds: interactiveLibraryIds(get().library) });
       }
       if (!hadContext && get().shuffle && get().playContextIds.length > 1) {
-        set({ playContextIds: shuffleTrackList(get().playContextIds, id) });
+        set({
+          sequentialContextIds: get().playContextIds,
+          playContextIds: shuffleTrackList(get().playContextIds, id),
+        });
       }
 
       if (isTrackKnownUnplayable(track)) {
@@ -1738,7 +1751,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const state = get();
       const next = !state.shuffle;
       if (!next) {
-        set({ shuffle: false });
+        const restored = restoreSequentialOrder(
+          state.playContextIds,
+          state.sequentialContextIds,
+        );
+        set({
+          shuffle: false,
+          sequentialContextIds: null,
+          ...(restored ? { playContextIds: restored } : {}),
+        });
         return;
       }
       if (state.playContextIds.length === 0) {
@@ -1747,6 +1768,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       }
       set({
         shuffle: true,
+        sequentialContextIds: state.playContextIds,
         playContextIds: shuffleTrackList(
           state.playContextIds,
           state.currentTrackId,
