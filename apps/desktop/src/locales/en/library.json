@@ -163,10 +163,6 @@
       "searchDescription": "{{query}} · {{artist}}",
       "searchNoResults": "No matching results.",
       "searchError": "Couldn't search MusicBrainz. Check your connection and try again.",
-      "openConfirmTitle": "Open MusicBrainz?",
-      "openConfirmBody": "You are about to open this page in your browser:",
-      "openConfirmAction": "Open",
-      "dontShowAgain": "Don't show this again",
       "assignedAria": "Assigned MusicBrainz entity",
       "facts": {
         "country": "Country",

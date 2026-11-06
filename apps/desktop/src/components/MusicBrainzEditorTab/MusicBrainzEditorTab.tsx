@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import {
   useEffect,
-  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -24,15 +23,12 @@ import {
   musicBrainzHitFacts,
   musicBrainzHitTitle,
 } from "../../lib/musicBrainzEntityDisplay";
-import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
 import type {
   MusicBrainzEntityHit,
   MusicBrainzEntityKind,
   MusicBrainzEntityLookup,
 } from "../../types/musicbrainz";
-import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
 import { Button } from "../common/Button/Button";
-import { Checkbox } from "../common/Checkbox/Checkbox";
 import { FormField } from "../common/Field/Field";
 import { TextInput } from "../common/TextInput/TextInput";
 import {
@@ -185,21 +181,12 @@ export function MusicBrainzEditorTab({
 }: MusicBrainzEditorTabProps) {
   const { t } = useTranslation(["library", "common"]);
   const derived = assignment === "derived";
-  const confirmLinks =
-    useLibrarySettingsStore(
-      (s) => s.settings?.confirmMusicBrainzExternalLinks,
-    ) ?? true;
-  const saveLibrarySettings = useLibrarySettingsStore(
-    (s) => s.saveLibrarySettings,
-  );
 
   const [lookup, setLookup] = useState<LookupState>({ status: "idle" });
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchHits, setSearchHits] = useState<MusicBrainzEntityHit[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [dontShowAgain, setDontShowAgain] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(mbid);
   /** Candidate ID while Save & fetch / Fetch is in flight. */
@@ -291,19 +278,7 @@ export function MusicBrainzEditorTab({
 
   const handleOpenClick = () => {
     if (!canOpen) return;
-    if (confirmLinks) {
-      setDontShowAgain(false);
-      setConfirmOpen(true);
-      return;
-    }
     void openEntity();
-  };
-
-  const handleConfirmOpen = async () => {
-    if (dontShowAgain) {
-      await saveLibrarySettings({ confirmMusicBrainzExternalLinks: false });
-    }
-    await openEntity();
   };
 
   useEffect(() => {
@@ -712,9 +687,6 @@ export function MusicBrainzEditorTab({
     );
   }
 
-  const confirmUrl =
-    parsedMbid != null ? musicBrainzEntityUrl(kind, parsedMbid) : "";
-  const checkboxId = useId();
   const displayValue = editing ? draft : (pendingCommit ?? mbid);
   const idLabel = t("library:editor.musicBrainz.idLabel");
 
@@ -830,26 +802,6 @@ export function MusicBrainzEditorTab({
           onClose={closeSearch}
         />
       ) : null}
-
-      <AlertConfirmation
-        open={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        title={t("library:editor.musicBrainz.openConfirmTitle")}
-        confirmLabel={t("library:editor.musicBrainz.openConfirmAction")}
-        confirmVariant="primary"
-        onConfirm={() => void handleConfirmOpen()}
-      >
-        <p>{t("library:editor.musicBrainz.openConfirmBody")}</p>
-        <p className="musicbrainz-editor-tab__confirm-url">{confirmUrl}</p>
-        <Checkbox
-          id={checkboxId}
-          className="alert-confirmation__option"
-          checked={dontShowAgain}
-          onChange={(e) => setDontShowAgain(e.target.checked)}
-        >
-          {t("library:editor.musicBrainz.dontShowAgain")}
-        </Checkbox>
-      </AlertConfirmation>
     </div>
   );
 }
