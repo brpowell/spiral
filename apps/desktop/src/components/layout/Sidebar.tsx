@@ -13,13 +13,10 @@ import {
 } from "../../store/useNavigationStore";
 import { usePlaylistStore } from "../../store/usePlaylistStore";
 import { useCdStore } from "../../store/useCdStore";
+import { useContextMenu } from "../../hooks/useContextMenu";
+import { ContextMenu, ContextMenuItem } from "../ContextMenu/ContextMenu";
 import { IconAlbums, IconArtists, IconTracks, IconPlaylistAdd } from "../icons";
-import {
-  SidebarFooter,
-  SidebarFrame,
-  SidebarList,
-  SidebarSection,
-} from "./SidebarChrome";
+import { SidebarFrame, SidebarList, SidebarSection } from "./SidebarChrome";
 import { SidebarItem } from "./SidebarItem/SidebarItem";
 import { SidebarMoreMenu } from "./SidebarMoreMenu";
 import { SidebarPlaylistItem } from "./SidebarPlaylistItem";
@@ -77,9 +74,13 @@ export function Sidebar() {
     ),
   );
   const openPlaylistEditor = usePlaylistStore((s) => s.openPlaylistEditor);
+  const playlistsMenu = useContextMenu();
 
   return (
-    <SidebarFrame aria-label={t("common:sidebar.navAria")}>
+    <SidebarFrame
+      className="sidebar--library"
+      aria-label={t("common:sidebar.navAria")}
+    >
       <SidebarList>
         {NAV_ITEMS.map((item) => {
           const isActive =
@@ -97,6 +98,9 @@ export function Sidebar() {
             </li>
           );
         })}
+        <li>
+          <SidebarMoreMenu />
+        </li>
       </SidebarList>
 
       {readyCdDrives.length > 0 ? (
@@ -109,49 +113,56 @@ export function Sidebar() {
         </SidebarSection>
       ) : null}
 
-      <SidebarSection label={t("library:views.playlists.title")} grow>
-        <div className="sidebar__playlist-body">
-          {playlists.length === 0 ? (
-            <p className="sidebar__playlists-empty">
-              {t("common:sidebar.playlistsEmpty")}
-            </p>
-          ) : (
-            <DragDropProvider
-              sensors={PLAYLIST_SORT_SENSORS}
-              onDragEnd={(event) => {
-                if (event.canceled) return;
-                const next = move(playlists, event);
-                const unchanged = next.every(
-                  (playlist, index) => playlist.id === playlists[index]?.id,
-                );
-                if (unchanged) return;
-                void reorderPlaylists(next.map((playlist) => playlist.id));
-              }}
-            >
-              <ul className="sidebar__playlist-list">
-                {playlists.map((playlist, index) => (
-                  <SidebarPlaylistItem
-                    key={playlist.id}
-                    playlist={playlist}
-                    index={index}
-                  />
-                ))}
-              </ul>
-            </DragDropProvider>
-          )}
-        </div>
-        <SidebarItem
-          icon={<IconPlaylistAdd />}
-          className="sidebar__playlist-create"
-          onClick={() => openPlaylistEditor("new")}
-        >
-          {t("library:views.playlists.new")}
-        </SidebarItem>
+      <SidebarSection
+        label={t("library:views.playlists.title")}
+        grow
+        onContextMenu={playlistsMenu.onContextMenu}
+      >
+        {playlists.length === 0 ? (
+          <p className="sidebar__playlists-empty">
+            {t("common:sidebar.playlistsEmpty")}
+          </p>
+        ) : (
+          <DragDropProvider
+            sensors={PLAYLIST_SORT_SENSORS}
+            onDragEnd={(event) => {
+              if (event.canceled) return;
+              const next = move(playlists, event);
+              const unchanged = next.every(
+                (playlist, index) => playlist.id === playlists[index]?.id,
+              );
+              if (unchanged) return;
+              void reorderPlaylists(next.map((playlist) => playlist.id));
+            }}
+          >
+            <ul className="sidebar__playlist-list">
+              {playlists.map((playlist, index) => (
+                <SidebarPlaylistItem
+                  key={playlist.id}
+                  playlist={playlist}
+                  index={index}
+                />
+              ))}
+            </ul>
+          </DragDropProvider>
+        )}
       </SidebarSection>
 
-      <SidebarFooter>
-        <SidebarMoreMenu />
-      </SidebarFooter>
+      <ContextMenu
+        open={playlistsMenu.open}
+        anchor={playlistsMenu.anchor}
+        position={playlistsMenu.position}
+        menuRef={playlistsMenu.menuRef}
+      >
+        <ContextMenuItem
+          icon={<IconPlaylistAdd />}
+          label={t("library:actions.newPlaylist")}
+          onClick={() => {
+            playlistsMenu.closeMenu();
+            openPlaylistEditor("new");
+          }}
+        />
+      </ContextMenu>
     </SidebarFrame>
   );
 }

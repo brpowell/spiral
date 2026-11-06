@@ -4,7 +4,12 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
 } from "../components/ContextMenu/ContextMenu";
-import { IconAddToQueue, IconDelete, IconPencil } from "../components/icons";
+import {
+  IconAddToQueue,
+  IconDelete,
+  IconPencil,
+  IconPlaylistAdd,
+} from "../components/icons";
 import { t } from "../lib/i18n";
 import { resolvePlaylistTracks } from "../lib/playlists";
 import { usePlayerStore } from "../store/usePlayerStore";
@@ -60,6 +65,15 @@ export function usePlaylistSidebarMenu(playlist: Playlist) {
           }}
         />
       ) : null}
+      <ContextMenuSeparator />
+      <ContextMenuItem
+        icon={<IconPlaylistAdd />}
+        label={t("library:actions.newPlaylist")}
+        onClick={() => {
+          closeMenu();
+          openPlaylistEditor("new");
+        }}
+      />
       <ContextMenuSeparator />
       <ContextMenuItem
         icon={<IconDelete />}

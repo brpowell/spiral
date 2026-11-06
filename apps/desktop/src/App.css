@@ -25,7 +25,6 @@ textarea,
   height: 100vh;
   background: var(--fill-page);
   min-width: 800px;
-  min-height: 600px;
 }
 
 .custom-window-frame.app > .custom-window-frame__body {

@@ -23,7 +23,7 @@ import {
 } from "../icons";
 import { SidebarItem } from "./SidebarItem/SidebarItem";
 
-/** Library sidebar footer overflow menu (Studio, updates). */
+/** Library sidebar overflow menu (Studio, updates). */
 export function SidebarMoreMenu() {
   const { t } = useTranslation(["common", "menus"]);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -52,7 +52,7 @@ export function SidebarMoreMenu() {
     closeMenu,
   } = useContextMenu({
     dismissExcludeRefs: [triggerRef],
-    triggerPlacement: "above-start",
+    triggerPlacement: "right-start",
   });
 
   const moreAria = (() => {

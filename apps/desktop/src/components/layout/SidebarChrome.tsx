@@ -1,6 +1,7 @@
 import type {
   ComponentPropsWithoutRef,
   ElementType,
+  MouseEventHandler,
   ReactNode,
 } from "react";
 import "./SidebarChrome.css";
@@ -26,11 +27,7 @@ export function SidebarFrame({
   const Comp = (as ?? "nav") as ElementType;
   return (
     <Comp
-      className={[
-        "sidebar",
-        embedded ? "sidebar--embedded" : "",
-        className,
-      ]
+      className={["sidebar", embedded ? "sidebar--embedded" : "", className]
         .filter(Boolean)
         .join(" ")}
       {...rest}
@@ -45,7 +42,11 @@ type SidebarListProps = {
   className?: string;
 } & Omit<ComponentPropsWithoutRef<"ul">, "children" | "className">;
 
-export function SidebarList({ children, className, ...rest }: SidebarListProps) {
+export function SidebarList({
+  children,
+  className,
+  ...rest
+}: SidebarListProps) {
   return (
     <ul
       className={["sidebar__list", className].filter(Boolean).join(" ")}
@@ -63,6 +64,7 @@ type SidebarSectionProps = {
   grow?: boolean;
   className?: string;
   "aria-label"?: string;
+  onContextMenu?: MouseEventHandler<HTMLElement>;
 };
 
 export function SidebarSection({
@@ -71,6 +73,7 @@ export function SidebarSection({
   grow = false,
   className,
   "aria-label": ariaLabel,
+  onContextMenu,
 }: SidebarSectionProps) {
   return (
     <section
@@ -82,24 +85,10 @@ export function SidebarSection({
         .filter(Boolean)
         .join(" ")}
       aria-label={ariaLabel ?? label}
+      onContextMenu={onContextMenu}
     >
       {label ? <h2 className="sidebar__section-label">{label}</h2> : null}
       {children}
     </section>
-  );
-}
-
-type SidebarFooterProps = {
-  children: ReactNode;
-  className?: string;
-};
-
-export function SidebarFooter({ children, className }: SidebarFooterProps) {
-  return (
-    <div
-      className={["sidebar__footer", className].filter(Boolean).join(" ")}
-    >
-      {children}
-    </div>
   );
 }
