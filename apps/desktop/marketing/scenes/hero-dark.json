@@ -1,0 +1,41 @@
+{
+  "name": "hero-dark",
+  "notes": "",
+  "window": {
+    "width": 1282,
+    "height": 864
+  },
+  "app": {
+    "nav": {
+      "view": "library"
+    },
+    "theme": "spiral.theme.sprig-dark",
+    "skin": "spiral.skin.vanilla",
+    "skinView": "standard",
+    "visualizer": "spiral.visualizer.bars",
+    "playback": {
+      "track": {
+        "title": "In Bloom",
+        "artist": "Nirvana",
+        "album": "Nevermind"
+      },
+      "positionSeconds": 71.5,
+      "state": "playing",
+      "muted": false
+    },
+    "scroll": {
+      ".track-list__scroll": 90
+    },
+    "selection": [
+      {
+        "title": "In Bloom",
+        "artist": "Nirvana",
+        "album": "Nevermind"
+      }
+    ],
+    "devices": 1
+  },
+  "publish": {
+    "slot": "hero.dark"
+  }
+}

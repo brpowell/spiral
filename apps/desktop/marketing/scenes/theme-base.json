@@ -1,0 +1,38 @@
+{
+  "name": "theme-base",
+  "notes": "Shared state for every theme shot: Jagged Little Pill, You Oughta Know",
+  "window": {
+    "width": 1040,
+    "height": 679
+  },
+  "app": {
+    "nav": {
+      "view": "library",
+      "albumKey": "Jagged Little Pill\u0000Alanis Morissette"
+    },
+    "theme": "spiral.theme.sprig",
+    "skin": "spiral.skin.vanilla",
+    "skinView": "standard",
+    "visualizer": "spiral.visualizer.band",
+    "playback": {
+      "track": {
+        "title": "You Oughta Know",
+        "artist": "Alanis Morissette",
+        "album": "Jagged Little Pill"
+      },
+      "positionSeconds": 53.4,
+      "state": "playing",
+      "muted": false
+    },
+    "scroll": {},
+    "selection": [
+      {
+        "title": "You Oughta Know",
+        "artist": "Alanis Morissette",
+        "album": "Jagged Little Pill"
+      }
+    ],
+    "devices": 1
+  },
+  "base": true
+}

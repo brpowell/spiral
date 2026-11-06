@@ -17,7 +17,8 @@ node scripts/agent.mjs frames main 10 100   # 10 shots, 100 ms apart
 node scripts/agent.mjs show skin-mode  # secondary windows start hidden
 ```
 
-Run `node scripts/agent.mjs help` for every command.
+Run `node scripts/agent.mjs help` for every command. To record and replay
+staged states for marketing shots, see [marketing-stage.md](marketing-stage.md).
 
 ## How it works
 

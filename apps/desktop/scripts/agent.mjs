@@ -2,12 +2,10 @@
 // Client for the dev-only agent bridge (src-tauri/src/agent_bridge.rs).
 // Start the app with `npm run dev:agent`, then drive it from here. See
 // docs/contributing/agent-automation.md. Zero dependencies; macOS only.
-import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
-
-const SOCKET = path.join(os.tmpdir(), "spiral-agent.sock");
+import { call, evalBody } from "./lib/agentClient.mjs";
 
 const HELP = `usage: node scripts/agent.mjs <command> [window] [args]
 
@@ -27,34 +25,6 @@ const HELP = `usage: node scripts/agent.mjs <command> [window] [args]
 
 <w> is a window label ("main", "skin-mode", ...); it defaults to "main".`;
 
-function call(request) {
-  return new Promise((resolve, reject) => {
-    const socket = net.connect(SOCKET);
-    let buffer = "";
-    socket.on("connect", () => socket.write(JSON.stringify(request) + "\n"));
-    socket.on("data", (chunk) => {
-      buffer += chunk;
-      const end = buffer.indexOf("\n");
-      if (end === -1) return;
-      socket.end();
-      const reply = JSON.parse(buffer.slice(0, end));
-      if (reply.ok) resolve(reply);
-      else reject(new Error(reply.error));
-    });
-    socket.on("error", (err) =>
-      reject(
-        new Error(
-          err.code === "ENOENT" || err.code === "ECONNREFUSED"
-            ? `agent bridge not running (${SOCKET}). Start the app with: npm run dev:agent`
-            : err.message,
-        ),
-      ),
-    );
-  });
-}
-
-const evalBody = async (window, body) =>
-  (await call({ cmd: "eval", window, body })).value;
 const evalExpr = (window, expr) => evalBody(window, `return (${expr});`);
 
 const q = JSON.stringify;

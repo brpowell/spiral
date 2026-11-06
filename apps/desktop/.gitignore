@@ -28,3 +28,6 @@ dist-ssr
 
 # Local overrides (copy from .env.example)
 .env
+
+# Marketing stage output (scenes in marketing/scenes are committed)
+marketing/out/
