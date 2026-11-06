@@ -2,6 +2,8 @@
 
 Rust crate for the Spiral item format: the manifests of the four item types, their validators, and zip-slip-safe `.spk` archive extract and write.
 
+> **Status:** the item format and the Studio tooling built on it are not covered by Spiral 1.0's stability promise. The schemas are expected to stay close to what you see here, but they may still change in minor releases while early feedback comes in. Items that depend on a newer format declare it with `minAppVersion`.
+
 An **item** is one theme, skin, visualizer or sound pack. Its manifest sits at the item root and carries the item's identity and distribution fields, so there is no wrapper manifest:
 
 | Type | Manifest | Schema |
