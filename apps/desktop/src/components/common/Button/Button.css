@@ -198,7 +198,8 @@
   color: var(--color-text-secondary);
 }
 
-.btn--ghost:hover:not(:disabled) {
+.btn--ghost:hover:not(:disabled),
+.btn--ghost[aria-expanded="true"]:not(:disabled) {
   background: var(--color-control);
   color: var(--color-text-primary);
   border-color: transparent;
@@ -227,10 +228,11 @@
   );
 }
 
-.btn--primary:active:not(:disabled),
-.btn--secondary:active:not(:disabled),
-.btn--outline:active:not(:disabled),
-.btn--danger:active:not(:disabled) {
+/* A trigger stays pressed while its menu is open. */
+.btn--primary:is(:active, [aria-expanded="true"]):not(:disabled),
+.btn--secondary:is(:active, [aria-expanded="true"]):not(:disabled),
+.btn--outline:is(:active, [aria-expanded="true"]):not(:disabled),
+.btn--danger:is(:active, [aria-expanded="true"]):not(:disabled) {
   --btn-lip: inset 0 1px 2px rgb(0 0 0 / 0.14);
   top: 1px;
   background-image: none;
