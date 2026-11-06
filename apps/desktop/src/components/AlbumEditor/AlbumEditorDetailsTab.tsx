@@ -11,6 +11,7 @@ import { TextInput } from "../common/TextInput/TextInput";
 export type AlbumEditorDetailsTabProps = {
   form: AlbumEditorForm;
   tracks: Track[];
+  artistSuggestions: string[];
   genreSuggestions: string[];
   onFieldChange: (field: keyof AlbumEditorForm, value: string) => void;
 };
@@ -18,6 +19,7 @@ export type AlbumEditorDetailsTabProps = {
 export function AlbumEditorDetailsTab({
   form,
   tracks,
+  artistSuggestions,
   genreSuggestions,
   onFieldChange,
 }: AlbumEditorDetailsTabProps) {
@@ -32,8 +34,9 @@ export function AlbumEditorDetailsTab({
         />
       </FormField>
       <FormField label={t("editor.fields.albumArtist")}>
-        <TextInput
+        <AutocompleteInput
           value={form.artist}
+          suggestions={artistSuggestions}
           onChange={(e) => onFieldChange("artist", e.target.value)}
         />
       </FormField>
