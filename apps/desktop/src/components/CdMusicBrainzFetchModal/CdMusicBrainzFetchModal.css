@@ -1,0 +1,11 @@
+.cd-musicbrainz-fetch-modal .modal-header {
+  padding-bottom: 0.5rem;
+}
+
+.cd-musicbrainz-fetch-modal__message {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  color: var(--color-text-primary);
+}

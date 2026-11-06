@@ -7,12 +7,12 @@ import { Checkbox } from "../common/Checkbox/Checkbox";
 import {
   Modal,
   ModalBody,
-  ModalDescription,
   ModalFooter,
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
 } from "../common/Modal/Modal";
+import "./CdMusicBrainzFetchModal.css";
 export function CdMusicBrainzFetchModal() {
   const promptDriveId = useCdStore((s) => s.metadataFetchPromptDriveId);
   const onboardingOpen = useOnboardingStore((s) => s.open);
@@ -44,20 +44,21 @@ export function CdMusicBrainzFetchModal() {
       open={open}
       onClose={handleCancel}
       size="xl"
+      panelClassName="cd-musicbrainz-fetch-modal"
       panelRef={panelRef}
       labelledBy={titleId}
     >
       <ModalHeader>
         <ModalHeaderMain>
           <ModalTitle id={titleId}>Fetch CD metadata</ModalTitle>
-          <ModalDescription>
-            Would you like to look up additional album and track information
-            from MusicBrainz?
-          </ModalDescription>
         </ModalHeaderMain>
       </ModalHeader>
 
       <ModalBody>
+        <p className="cd-musicbrainz-fetch-modal__message">
+          Would you like to look up additional album and track information from
+          MusicBrainz?
+        </p>
         <Checkbox
           variant="muted"
           checked={remember}
