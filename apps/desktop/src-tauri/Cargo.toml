@@ -98,6 +98,9 @@ tauri-plugin-global-shortcut = "2"
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.61", features = [
     "Win32_Foundation",
+    # WNDCLASSW / RegisterClassW (CD monitor window) are gated on Gdi. Other
+    # crates used to enable it through feature unification; do not rely on that.
+    "Win32_Graphics_Gdi",
     "Win32_Security",
     "Win32_Storage_FileSystem",
     "Win32_System_IO",

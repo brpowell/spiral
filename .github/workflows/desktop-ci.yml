@@ -88,3 +88,36 @@ jobs:
       - name: Run tests
         working-directory: apps/desktop
         run: npm test
+
+  # The release build is the only other place the Windows target compiles, so
+  # without this a Windows-only break first shows up while cutting a release.
+  windows-check:
+    name: Check (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target
+          shared-key: desktop-ci-windows
+
+      # tauri::generate_context! needs the built frontend (frontendDist).
+      - name: Build frontend
+        working-directory: apps/desktop
+        run: |
+          npm ci
+          npm run build
+
+      - name: Cargo check
+        run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets
