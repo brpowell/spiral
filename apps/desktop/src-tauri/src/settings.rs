@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
-pub const DEFAULT_THEME_ID: &str = "spiral.theme.obsidian";
+pub const DEFAULT_THEME_ID: &str = "spiral.theme.sprig-dark";
 pub const DEFAULT_SKIN_ID: &str = "spiral.skin.vanilla";
 pub const DEFAULT_VISUALIZER_ID: &str = "spiral.visualizer.bars";
 pub const DEFAULT_SOUND_PACK_ID: &str = "spiral.sound.default";

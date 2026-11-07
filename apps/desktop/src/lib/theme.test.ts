@@ -38,6 +38,7 @@ function makeTheme(id: string, name: string): Theme {
 
 const themes: Theme[] = [
   makeTheme("spiral.theme.obsidian", "Obsidian"),
+  makeTheme("spiral.theme.sprig-dark", "Sprig Dark"),
   makeTheme("spiral.theme.parchment", "Parchment"),
   makeTheme("spiral.theme.noir", "Noir"),
   makeTheme("spiral.theme.grove", "Grove"),
@@ -68,8 +69,8 @@ describe("resolveActiveThemeId", () => {
     expect(resolveActiveThemeId(themes, "obsidian")).toBe(DEFAULT_THEME_ID);
   });
 
-  it("defaults to spiral.theme.obsidian", () => {
-    expect(DEFAULT_THEME_ID).toBe("spiral.theme.obsidian");
+  it("defaults to spiral.theme.sprig-dark", () => {
+    expect(DEFAULT_THEME_ID).toBe("spiral.theme.sprig-dark");
   });
 });
 
