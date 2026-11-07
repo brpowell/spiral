@@ -450,9 +450,9 @@ mod tests {
     #[test]
     fn new_theme_clones_resolved_active_theme_when_stored_id_is_stale() {
         let themes = load_builtin_themes_from_disk();
-        let obsidian = find_theme_by_id(&themes, settings::DEFAULT_THEME_ID).unwrap();
+        let default_theme = find_theme_by_id(&themes, settings::DEFAULT_THEME_ID).unwrap();
         let cloned = tokens_cloned_from_active(&themes, "not-a-theme");
-        assert_eq!(cloned, obsidian.tokens);
+        assert_eq!(cloned, default_theme.tokens);
     }
 
     #[test]
