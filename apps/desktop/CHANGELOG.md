@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.0.0](https://github.com/brpowell/spiral/compare/desktop-v0.4.0...desktop-v1.0.0) (2026-11-07)
+
+
+### Features
+
+* **desktop:** add a dev-only marketing stage for capturing app screenshots ([#138](https://github.com/brpowell/spiral/issues/138)) ([0fc8b7c](https://github.com/brpowell/spiral/commit/0fc8b7c2471f83c5e6585a93547ad6b62e36321d))
+* **desktop:** add buy me a coffee links to onboarding and about ([#126](https://github.com/brpowell/spiral/issues/126)) ([908fff3](https://github.com/brpowell/spiral/commit/908fff3e44883c168a0b172ddf36343e5694ce6b))
+* **desktop:** add first-run welcome screens ([#96](https://github.com/brpowell/spiral/issues/96)) ([1b8fc3d](https://github.com/brpowell/spiral/commit/1b8fc3d70c65822ec69d752b4cc21d39db2ff576))
+* **desktop:** add music folders to the library ([#124](https://github.com/brpowell/spiral/issues/124)) ([b882d4f](https://github.com/brpowell/spiral/commit/b882d4f6b8075859067945eb593cea40c23fcb18))
+* **desktop:** common Checkbox in track list, album artist autocomplete, pressed menu states, CD prompt body text ([#134](https://github.com/brpowell/spiral/issues/134)) ([f187ca3](https://github.com/brpowell/spiral/commit/f187ca35b83b283271bf484cc6a21fbcf5d4d4b6))
+* **desktop:** confirm before rating writes tags to files ([#92](https://github.com/brpowell/spiral/issues/92)) ([5e2dbcb](https://github.com/brpowell/spiral/commit/5e2dbcb7ed66f818abac74b56574cb1bbd983a63))
+* **desktop:** confirm before writing tags to files ([#88](https://github.com/brpowell/spiral/issues/88)) ([d02ed26](https://github.com/brpowell/spiral/commit/d02ed26546360c3f4f96af5f5f21c93311d0f8de))
+* **desktop:** crop artist and album images ([#95](https://github.com/brpowell/spiral/issues/95)) ([36c44b7](https://github.com/brpowell/spiral/commit/36c44b70738c24214c1c7d95790b6d141922df8a))
+* **desktop:** crossfade between views with the onboarding curve ([#130](https://github.com/brpowell/spiral/issues/130)) ([2aa1bb6](https://github.com/brpowell/spiral/commit/2aa1bb6b36654db27fdd2c192b1f2eb4ef78e511))
+* **desktop:** llm-drafted release note overviews ([#85](https://github.com/brpowell/spiral/issues/85)) ([a08eff3](https://github.com/brpowell/spiral/commit/a08eff3c58e19c65b7486e653131813d5ad61fca))
+* **desktop:** make Sprig Dark the default theme for new users ([#141](https://github.com/brpowell/spiral/issues/141)) ([27b9faa](https://github.com/brpowell/spiral/commit/27b9faa556241eba09a285312e1969967da1fde6))
+* **desktop:** rework the library sidebar layout and scrolling ([#137](https://github.com/brpowell/spiral/issues/137)) ([beb85bd](https://github.com/brpowell/spiral/commit/beb85bd55d5df468dace67a5904946bd1106b377))
+
+
+### Bug Fixes
+
+* **desktop:** avoid duplicate CD art toast during metadata fetch ([#84](https://github.com/brpowell/spiral/issues/84)) ([f7938dd](https://github.com/brpowell/spiral/commit/f7938dd188ef42e17b877aa8a0c35f181ab1625c))
+* **desktop:** keep eject icon centered while ejecting a disc ([#129](https://github.com/brpowell/spiral/issues/129)) ([bd16e4f](https://github.com/brpowell/spiral/commit/bd16e4f1951571ffb0d7d70025237a84b04e421e))
+* **desktop:** lower output gain and keep the visualizer level ([#93](https://github.com/brpowell/spiral/issues/93)) ([7da9868](https://github.com/brpowell/spiral/commit/7da98687639d9c9151f7d9c11fb922c3c534b7cb))
+* **desktop:** measure tab content through display: contents wrappers ([#128](https://github.com/brpowell/spiral/issues/128)) ([52e8604](https://github.com/brpowell/spiral/commit/52e8604cc441fd28c70a90c6194b8f802d95535d))
+* **desktop:** patch zod and fast-uri advisories ([#78](https://github.com/brpowell/spiral/issues/78)) ([66cf420](https://github.com/brpowell/spiral/commit/66cf420e13a72590ecb0eecefd8d2f01feb9f80e))
+* **desktop:** raise the Bump Juice liquid surface ([#136](https://github.com/brpowell/spiral/issues/136)) ([56084c2](https://github.com/brpowell/spiral/commit/56084c27f2cc20e6155f01d24d807df8396c2b44))
+* **desktop:** restore sequential order when shuffle is turned off ([#140](https://github.com/brpowell/spiral/issues/140)) ([8abca1b](https://github.com/brpowell/spiral/commit/8abca1bce59ccd50b2abf6686fb43c113c4a7dd6))
+* **desktop:** update happy-dom to 21.0.4 for security advisory ([#79](https://github.com/brpowell/spiral/issues/79)) ([553477c](https://github.com/brpowell/spiral/commit/553477cffd39d077d574d82482f22e50f24c6a34))
+* **desktop:** update tauri updater and tokio for security advisories ([#125](https://github.com/brpowell/spiral/issues/125)) ([25f714e](https://github.com/brpowell/spiral/commit/25f714e1278471fe5a7da016747de7c48cfe7929))
+
 ## [0.4.0](https://github.com/brpowell/spiral/compare/desktop-v0.3.0...desktop-v0.4.0) (2026-10-23)
 
 
