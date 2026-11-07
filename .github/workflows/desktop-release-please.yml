@@ -4,6 +4,21 @@ on:
   push:
     branches:
       - main
+  # Escape hatch: re-run only the release-notes steps against an existing tag
+  # (e.g. after fixing this workflow, or when the summary step failed). It never
+  # runs release-please, so it cannot open a release PR or create a release,
+  # and it does not touch the tag that triggers the release build.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to rewrite notes for (e.g. desktop-v1.0.0)"
+        required: true
+        type: string
+      force:
+        description: "Regenerate the summary even if the release already has one"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -25,22 +40,44 @@ jobs:
       # auto-trigger — re-run Release via workflow_dispatch on the tag).
       - uses: googleapis/release-please-action@v4
         id: release
+        if: ${{ github.event_name != 'workflow_dispatch' }}
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+      # The release notes steps below run for a release created by this run, or
+      # for the tag given to a manual run. release-please is configured with the
+      # `apps/desktop` path, so its outputs are prefixed with it: the bare
+      # `release_created` / `tag_name` only exist for a root package and would
+      # always be empty here.
+      - name: Resolve release tag
+        id: tag
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+          CREATED: ${{ steps.release.outputs['apps/desktop--release_created'] }}
+          CREATED_TAG: ${{ steps.release.outputs['apps/desktop--tag_name'] }}
+        run: |
+          if [ -n "$DISPATCH_TAG" ]; then
+            echo "name=$DISPATCH_TAG" >> "$GITHUB_OUTPUT"
+          elif [ "$CREATED" = "true" ]; then
+            echo "name=$CREATED_TAG" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=" >> "$GITHUB_OUTPUT"
+          fi
+
       # Draft body only — CHANGELOG.md stays the raw release-please record.
       - uses: actions/checkout@v4
-        if: ${{ steps.release.outputs.release_created == 'true' }}
+        if: ${{ steps.tag.outputs.name != '' }}
 
       - name: Sanitize draft release notes
-        if: ${{ steps.release.outputs.release_created == 'true' }}
+        if: ${{ steps.tag.outputs.name != '' }}
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.tag.outputs.name }}
         working-directory: apps/desktop
-        run: node scripts/release/sanitize-release-notes.mjs "${{ steps.release.outputs.tag_name }}"
+        run: node scripts/release/sanitize-release-notes.mjs "$RELEASE_TAG"
 
       # Adds a draft user-facing summary above the line items (collapsed in a
       # <details>) for the release manager to review before publishing.
@@ -58,7 +95,7 @@ jobs:
       # To turn summaries off, delete the ANTHROPIC_FEDERATION_RULE_ID variable:
       # this step is skipped and the sanitized notes are published as-is.
       - name: Summarize draft release notes
-        if: ${{ steps.release.outputs.release_created == 'true' && vars.ANTHROPIC_FEDERATION_RULE_ID != '' }}
+        if: ${{ steps.tag.outputs.name != '' && vars.ANTHROPIC_FEDERATION_RULE_ID != '' }}
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
@@ -68,5 +105,12 @@ jobs:
           ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
           ANTHROPIC_WORKSPACE_ID: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
           RELEASE_NOTES_MODEL: ${{ vars.RELEASE_NOTES_MODEL }}
+          RELEASE_TAG: ${{ steps.tag.outputs.name }}
+          FORCE_SUMMARY: ${{ inputs.force }}
         working-directory: apps/desktop
-        run: node scripts/release/summarize-release-notes.mjs "${{ steps.release.outputs.tag_name }}"
+        run: |
+          if [ "$FORCE_SUMMARY" = "true" ]; then
+            node scripts/release/summarize-release-notes.mjs "$RELEASE_TAG" --force
+          else
+            node scripts/release/summarize-release-notes.mjs "$RELEASE_TAG"
+          fi
