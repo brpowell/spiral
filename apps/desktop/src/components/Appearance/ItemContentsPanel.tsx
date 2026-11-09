@@ -5,7 +5,7 @@ import {
   themeTokenView,
   type ManifestJson,
 } from "@/lib/items/manifestView";
-import { resolveSoundPackAssetUrl } from "@/lib/packSounds";
+import { resolveSoundPackAssetUrl } from "@/lib/packs/packSounds";
 import { playOneShot } from "@/lib/sfxPlayer";
 import { readItemManifestJson } from "@/lib/tauri";
 import type { ItemSummary } from "@/types/item";

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useReducedMotion } from "framer-motion";
-import { findPlaybackTrack } from "@/lib/playbackTrack";
+import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
 import { usePlaybackSettingsStore } from "@/store/usePlaybackSettingsStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { useAssetUrl } from "./useAssetUrl";

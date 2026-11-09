@@ -13,8 +13,8 @@ const { mockFetchItem, mockFetchVersion, mockGetAppVersion } = vi.hoisted(
   }),
 );
 
-vi.mock("@/lib/itemRegistry", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/itemRegistry")>()),
+vi.mock("@/lib/items/itemRegistry", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/items/itemRegistry")>()),
   fetchRegistryItemSafe: mockFetchItem,
   fetchRegistryItemVersionSafe: mockFetchVersion,
   peekRegistryItemVersion: () => undefined,

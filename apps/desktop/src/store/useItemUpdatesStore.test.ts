@@ -26,7 +26,7 @@ const {
   mockSettleOptions: vi.fn(() => ({ status: "success", label: "ok" })),
 }));
 
-vi.mock("@/lib/itemRegistry", () => ({
+vi.mock("@/lib/items/itemRegistry", () => ({
   ITEM_UPDATES_BULK_KEY: "item-updates-bulk",
   isDownloadCancelled: (message: string) =>
     /item download cancelled/i.test(message),

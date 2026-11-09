@@ -1,6 +1,6 @@
 import { Channel, convertFileSrc } from "@tauri-apps/api/core";
-import { t } from "./i18n";
-import { BackgroundTaskCancelledError } from "./backgroundTaskCancel";
+import { t } from "@/lib/i18n";
+import { BackgroundTaskCancelledError } from "@/lib/backgroundTaskCancel";
 import {
   cancelItemDownload,
   clearItemDownloadCancel,
@@ -12,7 +12,7 @@ import {
   listItems,
   resolveRegistryItemPreview,
   type InstallItemResult,
-} from "./tauri";
+} from "@/lib/tauri";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import type {
   CatalogItemEntry,
@@ -28,12 +28,12 @@ import { catalogItemName } from "@/types/itemRegistry";
 import {
   logRegistryInstallFailure,
   logRegistryInstallSuccess,
-} from "./packs/packInstallActivity";
-import { refreshPackContributionStores } from "./packs/refreshPackStores";
-import { createRegistryCache } from "./packs/registryCache";
-import { errorMessageFromUnknown } from "./cdPlaybackFailure";
-import { afterUiTransition } from "./scheduling";
-import { packDownloadFailedPayload } from "./toastPayloads";
+} from "@/lib/packs/packInstallActivity";
+import { refreshPackContributionStores } from "@/lib/packs/refreshPackStores";
+import { createRegistryCache } from "@/lib/packs/registryCache";
+import { errorMessageFromUnknown } from "@/lib/cdPlaybackFailure";
+import { afterUiTransition } from "@/lib/scheduling";
+import { packDownloadFailedPayload } from "@/lib/toastPayloads";
 
 /** Background task key for registry item downloads (cancel wiring). */
 export const ITEM_REGISTRY_DOWNLOAD_KEY = "item-registry-download";

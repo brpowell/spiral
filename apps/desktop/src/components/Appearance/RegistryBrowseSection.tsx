@@ -9,7 +9,7 @@ import {
   fetchItemCatalogSafe,
   installCatalogEntry,
   prefetchItemDetail,
-} from "@/lib/itemRegistry";
+} from "@/lib/items/itemRegistry";
 import { useCatalogViewStore } from "@/store/useCatalogViewStore";
 import { useItemsVersionStore } from "@/store/useItemsVersionStore";
 import { ITEM_TYPES, type ItemType } from "@/types/item";

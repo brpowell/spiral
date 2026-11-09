@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toAssetUrl } from "@/lib/assetUrl";
-import { findPlaybackTrack } from "@/lib/playbackTrack";
+import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
 import { extractPaletteFromImageUrl, getDefaultPalette } from "@/lib/palette";
 import { evaluateSkinBind, useSkinBindState } from "@/lib/skin/skinBinds";
 import {

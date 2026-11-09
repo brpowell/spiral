@@ -1,6 +1,6 @@
-import { buildPlaybackOrder } from "@/lib/playbackOrder";
+import { buildPlaybackOrder } from "@/lib/playback/playbackOrder";
 import { compareTracks } from "@/components/TrackList/trackListSort";
-import { findPlaybackTrack } from "@/lib/playbackTrack";
+import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
 import {
   getPlaylistById,
   resolvePlaylistTracks,

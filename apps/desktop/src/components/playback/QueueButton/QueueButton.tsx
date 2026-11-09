@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { buildPlaybackOrder } from "@/lib/playbackOrder";
+import { buildPlaybackOrder } from "@/lib/playback/playbackOrder";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { Button } from "@/components/common/Button/Button";
 import { IconSetList } from "@/components/icons";

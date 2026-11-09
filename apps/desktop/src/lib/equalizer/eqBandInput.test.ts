@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { FLAT_BAND_GAINS } from "./equalizer/types";
+import { FLAT_BAND_GAINS } from "./types";
 import { applyEqBandSliderGain } from "./eqBandInput";
 import { useEqualizerStore } from "@/store/useEqualizerStore";
 import type { LoadedSkinPack, SliderEqNode } from "@/types/skin";
 
-vi.mock("./windowRole", () => ({
+vi.mock("@/lib/windowRole", () => ({
   getWindowRole: vi.fn(() => "main"),
 }));
 
-vi.mock("./playback/nativeEqualizer", () => ({
+vi.mock("@/lib/playback/nativeEqualizer", () => ({
   applyEqualizerState: vi.fn(),
 }));
 
-vi.mock("./tauri", () => ({
+vi.mock("@/lib/tauri", () => ({
   saveEqualizerSettings: vi.fn(() => Promise.resolve()),
   saveEqualizerCustomPreset: vi.fn(() => Promise.resolve()),
   deleteEqualizerCustomPreset: vi.fn(() => Promise.resolve()),

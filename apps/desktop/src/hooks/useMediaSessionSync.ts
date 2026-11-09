@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
 import * as audio from "@/lib/playback";
-import { findPlaybackTrack } from "@/lib/playbackTrack";
+import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { isSkinModeWindow, isTauri } from "@/lib/windowRole";
 

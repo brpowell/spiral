@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { findPlaybackTrack } from "@/lib/playbackTrack";
+import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import {
   NowPlayingMetadata,

@@ -18,8 +18,8 @@ vi.mock("@/lib/playback", async (importOriginal) => {
   };
 });
 
-import { resetPlaybackClock } from "@/lib/playbackClock";
-import { resetPlaybackClockPin } from "@/lib/playbackClockPin";
+import { resetPlaybackClock } from "@/lib/playback/playbackClock";
+import { resetPlaybackClockPin } from "@/lib/playback/playbackClockPin";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { SeekBar } from "./SeekBar";
 

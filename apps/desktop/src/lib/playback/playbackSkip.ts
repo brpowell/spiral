@@ -1,7 +1,7 @@
-import { fileExists } from "./artPath";
-import { isCdTrackListId } from "./cdTracks";
-import { isTrackImporting } from "./pendingImportTrack";
-import { isTrackMissingFile } from "./missingFileTrack";
+import { fileExists } from "@/lib/artPath";
+import { isCdTrackListId } from "@/lib/cdTracks";
+import { isTrackImporting } from "@/lib/pendingImportTrack";
+import { isTrackMissingFile } from "@/lib/missingFileTrack";
 import type { RepeatMode, Track } from "@/types/track";
 
 export type PlaybackNextIdFn = (

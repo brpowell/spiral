@@ -37,7 +37,7 @@ import {
   themeSaveFailedPayload,
   updaterCheckErrorPayload,
 } from "@/lib/toastPayloads";
-import { ITEM_UPDATES_BULK_KEY } from "@/lib/itemRegistry";
+import { ITEM_UPDATES_BULK_KEY } from "@/lib/items/itemRegistry";
 import {
   importCompletionSettleOptions,
   importNoAudioSettleOptions,

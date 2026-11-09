@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import * as audio from "@/lib/playback";
-import { findPlaybackTrack } from "@/lib/playbackTrack";
+import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
 import { skinAssetFileUrl } from "@/lib/skin/skinAssets";
 import {
   digitTimeDisplaySeconds,

@@ -1,4 +1,4 @@
-import { invalidateSoundCueCache } from "@/lib/packSounds";
+import { invalidateSoundCueCache } from "./packSounds";
 import { useItemsVersionStore } from "@/store/useItemsVersionStore";
 import { useSkinStore } from "@/store/useSkinStore";
 import { useSoundPackStore } from "@/store/useSoundPackStore";

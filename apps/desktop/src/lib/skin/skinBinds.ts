@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import * as audio from "@/lib/playback";
-import { subscribePlaybackClock } from "@/lib/playbackClock";
+import { subscribePlaybackClock } from "@/lib/playback/playbackClock";
 import { presetLabel } from "@/lib/equalizer/builtinPresets";
 import { formatTime, formatRemainingTime } from "@/lib/format";
-import { buildPlaybackOrder } from "@/lib/playbackOrder";
-import { findPlaybackTrack } from "@/lib/playbackTrack";
-import { getManualNextId } from "@/lib/playbackQueue";
-import { getNextSkippingKnownUnplayable } from "@/lib/playbackSkip";
+import { buildPlaybackOrder } from "@/lib/playback/playbackOrder";
+import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
+import { getManualNextId } from "@/lib/playback/playbackQueue";
+import { getNextSkippingKnownUnplayable } from "@/lib/playback/playbackSkip";
 import { formatMetadataLine, playbackStatus } from "./skinMetadataLine";
 import { useSkinModeAlwaysOnTop } from "./modeWindow/skinModeAlwaysOnTop";
 import { isAnySkinWindow } from "@/lib/windowRole";

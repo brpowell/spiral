@@ -12,8 +12,8 @@ const { mockFetchCatalog, mockEnrich, mockInstall } = vi.hoisted(() => ({
   mockInstall: vi.fn(),
 }));
 
-vi.mock("@/lib/itemRegistry", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/itemRegistry")>()),
+vi.mock("@/lib/items/itemRegistry", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/items/itemRegistry")>()),
   fetchItemCatalogSafe: mockFetchCatalog,
   enrichItemCatalog: mockEnrich,
   installCatalogEntry: mockInstall,

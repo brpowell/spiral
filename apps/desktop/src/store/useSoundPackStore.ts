@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { broadcastSoundPackChanged } from "@/lib/packSounds";
+import { broadcastSoundPackChanged } from "@/lib/packs/packSounds";
 import {
   getActiveSoundPackId,
   listSoundPacks,

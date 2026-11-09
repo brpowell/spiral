@@ -1,4 +1,4 @@
-import * as audio from "./playback";
+import * as audio from "@/lib/playback";
 import {
   resolvePlaybackDisplaySeconds,
   subscribePlaybackPin,

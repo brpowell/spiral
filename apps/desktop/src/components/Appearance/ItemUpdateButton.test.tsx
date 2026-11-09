@@ -7,8 +7,8 @@ const { mockInstall } = vi.hoisted(() => ({
   mockInstall: vi.fn(async () => null),
 }));
 
-vi.mock("@/lib/itemRegistry", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/itemRegistry")>()),
+vi.mock("@/lib/items/itemRegistry", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/items/itemRegistry")>()),
   installRegistryItem: mockInstall,
 }));
 

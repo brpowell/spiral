@@ -1,7 +1,7 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
-import { resolveSoundCue, resolveSoundPackAsset } from "./tauri";
-import { isTauri } from "./windowRole";
+import { resolveSoundCue, resolveSoundPackAsset } from "@/lib/tauri";
+import { isTauri } from "@/lib/windowRole";
 
 /** Fired after the active sound pack changes so every window drops its resolved cues. */
 export const SOUND_PACK_CHANGED_EVENT = "sound-pack://changed";

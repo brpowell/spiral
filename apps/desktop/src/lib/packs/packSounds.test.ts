@@ -4,11 +4,11 @@ const { mockResolveSoundCue } = vi.hoisted(() => ({
   mockResolveSoundCue: vi.fn(),
 }));
 
-vi.mock("./tauri", () => ({
+vi.mock("@/lib/tauri", () => ({
   resolveSoundCue: mockResolveSoundCue,
   resolveSoundPackAsset: vi.fn(),
 }));
-vi.mock("./windowRole", () => ({ isTauri: () => false }));
+vi.mock("@/lib/windowRole", () => ({ isTauri: () => false }));
 vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: (path: string) => `asset://${path}`,
 }));

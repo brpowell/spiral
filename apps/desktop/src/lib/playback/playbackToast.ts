@@ -1,7 +1,7 @@
 import {
   playbackFileMissingPayload,
   playbackFilesMissingPayload,
-} from "./toastPayloads";
+} from "@/lib/toastPayloads";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import type { Track } from "@/types/track";
 

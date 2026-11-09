@@ -5,7 +5,10 @@ import { ITEM_UPDATES_CHANGED_EVENT } from "@/lib/appearanceWindow";
 import { BackgroundTaskCancelledError } from "@/lib/backgroundTaskCancel";
 import { errorMessageFromUnknown } from "@/lib/cdPlaybackFailure";
 import { t } from "@/lib/i18n";
-import { isDownloadCancelled, ITEM_UPDATES_BULK_KEY } from "@/lib/itemRegistry";
+import {
+  isDownloadCancelled,
+  ITEM_UPDATES_BULK_KEY,
+} from "@/lib/items/itemRegistry";
 import {
   logRegistryInstallFailure,
   logRegistryInstallSuccess,

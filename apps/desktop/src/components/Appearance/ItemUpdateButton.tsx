@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { installRegistryItem } from "@/lib/itemRegistry";
+import { installRegistryItem } from "@/lib/items/itemRegistry";
 import { useItemUpdatesStore } from "@/store/useItemUpdatesStore";
 import type { PackZone } from "@/types/pack";
 import { Button } from "@/components/common/Button/Button";

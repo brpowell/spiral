@@ -14,7 +14,7 @@ const {
   mockResolveRegistryItemPreview: vi.fn(),
 }));
 
-vi.mock("./tauri", () => ({
+vi.mock("@/lib/tauri", () => ({
   fetchItemCatalog: mockFetchItemCatalog,
   fetchRegistryItemVersion: mockFetchRegistryItemVersion,
   listItems: mockListItems,

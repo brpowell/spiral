@@ -6,7 +6,7 @@ import { setLivePositionPublisher } from "./livePosition";
 import {
   seekPositionMatchesRatio,
   seekRatioToPositionSeconds,
-} from "./playbackSeek";
+} from "./playback/playbackSeek";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import {
   pickPlaybackSettingsSnapshot,

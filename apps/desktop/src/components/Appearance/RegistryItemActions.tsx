@@ -5,7 +5,7 @@ import {
   sortVersionsNewestFirst,
   versionCmp,
   versionMeetsMinApp,
-} from "@/lib/itemRegistry";
+} from "@/lib/items/itemRegistry";
 import { getAppVersion } from "@/lib/tauri";
 import {
   catalogItemName,

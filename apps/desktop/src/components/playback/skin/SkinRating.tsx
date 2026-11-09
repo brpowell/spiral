@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { confirmAndApplyTrackRatings } from "@/lib/applyTrackRating";
-import { findPlaybackTrack } from "@/lib/playbackTrack";
+import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
 import { skinDragRegionNoneProps } from "@/lib/skin/skinDragRegion";
 import { useSkinControlEnabled } from "@/lib/skin/skinBinds";
 import {

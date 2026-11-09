@@ -4,7 +4,7 @@ import {
   enrichItemCatalog,
   fetchItemCatalogSafe,
   installCatalogEntry,
-} from "@/lib/itemRegistry";
+} from "@/lib/items/itemRegistry";
 import { useItemsVersionStore } from "@/store/useItemsVersionStore";
 import type { ItemSummary } from "@/types/item";
 import type {

@@ -3,7 +3,7 @@ import { useSkinPreferencesStore } from "@/store/useSkinPreferencesStore";
 import { useSkinStore } from "@/store/useSkinStore";
 import { soundEffectsEnabledFromPreferences } from "@/types/skinPreferences";
 import { evaluateSkinBind, type SkinBindState } from "./skinBinds";
-import { resolveCueUrl } from "@/lib/packSounds";
+import { resolveCueUrl } from "@/lib/packs/packSounds";
 import { playOneShot } from "@/lib/sfxPlayer";
 import type { LoadedSkinPack } from "@/types/skin";
 

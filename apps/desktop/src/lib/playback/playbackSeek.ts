@@ -1,4 +1,4 @@
-import * as audio from "./playback";
+import * as audio from "@/lib/playback";
 import { findPlaybackTrack } from "./playbackTrack";
 import type { Track } from "@/types/track";
 

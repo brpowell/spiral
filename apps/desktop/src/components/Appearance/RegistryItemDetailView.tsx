@@ -4,7 +4,7 @@ import { formatBytes } from "@/lib/formatBytes";
 import {
   fetchRegistryItemVersionSafe,
   peekRegistryItemVersion,
-} from "@/lib/itemRegistry";
+} from "@/lib/items/itemRegistry";
 import {
   catalogItemName,
   type CatalogItemEntry,

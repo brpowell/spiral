@@ -37,7 +37,7 @@ import type {
   DiscTrackOverride,
 } from "@/types/cd";
 import type { TrackMetadataUpdate } from "@/types/metadata";
-import { parseRepeatMode } from "./playbackSession";
+import { parseRepeatMode } from "./playback/playbackSession";
 import type { PlaybackSession } from "@/types/playbackSession";
 import type { Theme } from "@/types/theme";
 import type { LoadedSkinPack, SkinSummary } from "@/types/skin";

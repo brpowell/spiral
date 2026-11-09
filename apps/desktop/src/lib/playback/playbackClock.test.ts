@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const clock = vi.hoisted(() => ({ seconds: 0 }));
 
-vi.mock("./playback", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./playback")>();
+vi.mock("@/lib/playback", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/playback")>();
   return {
     ...actual,
     getPositionSeconds: () => clock.seconds,

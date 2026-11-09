@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { playOrResume } from "./playbackStart";
-import { SKIN_PLAYLIST_SOURCE_UP_NEXT } from "./skin/skinPlaylist";
+import { SKIN_PLAYLIST_SOURCE_UP_NEXT } from "@/lib/skin/skinPlaylist";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";
 import { useSkinStore } from "@/store/useSkinStore";

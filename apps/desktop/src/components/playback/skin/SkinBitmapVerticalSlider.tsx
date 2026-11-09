@@ -5,7 +5,7 @@ import {
   gainDbToRatio,
   ratioToGainDb,
 } from "@/lib/equalizer/types";
-import { applyEqBandSliderGain } from "@/lib/eqBandInput";
+import { applyEqBandSliderGain } from "@/lib/equalizer/eqBandInput";
 import { resolveThumbAssetFile, skinAssetFileUrl } from "@/lib/skin/skinAssets";
 import { skinDragRegionNoneProps } from "@/lib/skin/skinDragRegion";
 import { wmpTiledTrackStyle } from "@/lib/wmpTiledTrack";

@@ -5,9 +5,9 @@ import {
   gainDbToRatio,
   ratioToGainDb,
 } from "@/lib/equalizer/types";
-import { applyEqBandSliderGain } from "@/lib/eqBandInput";
+import { applyEqBandSliderGain } from "@/lib/equalizer/eqBandInput";
 import * as audio from "@/lib/playback";
-import { findPlaybackTrack } from "@/lib/playbackTrack";
+import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
 import { skinAssetFileUrl } from "@/lib/skin/skinAssets";
 import {
   inferStripSliderStripLayout,

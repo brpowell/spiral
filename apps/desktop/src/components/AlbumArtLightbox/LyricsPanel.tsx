@@ -7,8 +7,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { subscribePlaybackClock } from "@/lib/playbackClock";
-import { resolvePlaybackDisplaySeconds } from "@/lib/playbackClockPin";
+import { subscribePlaybackClock } from "@/lib/playback/playbackClock";
+import { resolvePlaybackDisplaySeconds } from "@/lib/playback/playbackClockPin";
 import { createPlayheadGlide, type PlayheadGlide } from "@/lib/playheadGlide";
 import * as audio from "@/lib/playback";
 import { plainTextToLines } from "@/lib/lyrics";

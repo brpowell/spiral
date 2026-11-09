@@ -1,7 +1,7 @@
 import { emit } from "@tauri-apps/api/event";
 import { albumKey as albumKeyFromTrack } from "@/lib/albums";
 import { useNavigationStore } from "@/store/useNavigationStore";
-import { findPlaybackTrack } from "@/lib/playbackTrack";
+import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
 import {
   resolveSkinPlaylistTrackIds,
   shouldReplacePlayContextForSkinPlaylistSource,
@@ -34,7 +34,7 @@ import { getSkinSlideshowStateApi } from "./skinSlideshowContext";
 import { getSkinScrollStripStateApi } from "./skinScrollStripContext";
 import { getSkinViewStateApi } from "./skinViewStateContext";
 import { applyViewStateEvent } from "./skinViewStateEvents";
-import { playOrResume } from "@/lib/playbackStart";
+import { playOrResume } from "@/lib/playback/playbackStart";
 
 export type SkinActionPayload = SkinActionPayloadFields;
 

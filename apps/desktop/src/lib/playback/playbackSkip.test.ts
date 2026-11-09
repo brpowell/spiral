@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("./artPath", () => ({
+vi.mock("@/lib/artPath", () => ({
   fileExists: vi.fn().mockResolvedValue(true),
 }));
 
-import { fileExists } from "./artPath";
-import { cdTrackListId } from "./cdTracks";
+import { fileExists } from "@/lib/artPath";
+import { cdTrackListId } from "@/lib/cdTracks";
 import {
   getNextSkippingKnownUnplayable,
   findNextPlayableInOrder,

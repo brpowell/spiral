@@ -14,7 +14,7 @@ import { LYRICS_FETCH_MISSING_KEY } from "@/lib/fetchMissingLyrics";
 import {
   ITEM_REGISTRY_DOWNLOAD_KEY,
   ITEM_UPDATES_BULK_KEY,
-} from "@/lib/itemRegistry";
+} from "@/lib/items/itemRegistry";
 import { panelMotion } from "@/lib/motion";
 import { cancelItemDownload, cancelLyricsFetch } from "@/lib/tauri";
 import { useCdImportStore } from "@/store/useCdImportStore";

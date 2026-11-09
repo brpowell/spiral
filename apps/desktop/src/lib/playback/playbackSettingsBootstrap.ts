@@ -1,4 +1,4 @@
-import { getPlaybackSettings } from "./tauri";
+import { getPlaybackSettings } from "@/lib/tauri";
 import { usePlaybackSettingsStore } from "@/store/usePlaybackSettingsStore";
 import { defaultPlaybackSettings } from "@/types/playbackSettings";
 
