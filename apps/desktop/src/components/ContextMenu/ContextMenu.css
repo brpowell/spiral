@@ -9,10 +9,25 @@
   width: max-content;
   max-width: calc(100vw - 1rem);
   padding: var(--context-menu-inset);
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
+  /*
+   * Lift the menu off what's behind it. Everything scales with the theme's
+   * lightness: dark themes get a lighter fill and a deep shadow; light
+   * themes keep the raised surface and a much softer shadow.
+   */
+  --context-menu-shadow: oklch(
+    from var(--color-bg) 0 0 0 / calc(0.14 + (1 - l) * 0.36)
+  );
+  background: oklch(
+    from var(--color-surface-raised) calc(l + (1 - l) * 0.05) c h
+  );
+  border: 1px solid oklch(from var(--color-border) calc(l + (1 - l) * 0.1) c h);
   border-radius: var(--radius-sm);
-  box-shadow: 0 8px 24px color-mix(in srgb, #000 20%, transparent);
+  box-shadow:
+    0 1px 2px var(--context-menu-shadow),
+    0 8px 24px var(--context-menu-shadow),
+    0 18px 48px
+      oklch(from var(--context-menu-shadow) l c h / calc(alpha * 0.65)),
+    inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 8%, transparent);
 }
 
 /* Root is focused on pointer-open for arrow-key entry; ring belongs on items only. */
