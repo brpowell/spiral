@@ -1,4 +1,4 @@
-import type { SkinBindState } from "@/lib/skinBinds";
+import type { SkinBindState } from "@/lib/skin/skinBinds";
 import { defaultSkinUserPreferences } from "@/types/skinPreferences";
 
 export function minimalBindState(

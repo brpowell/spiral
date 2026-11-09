@@ -2,8 +2,8 @@ import { useLayoutEffect } from "react";
 import {
   getCachedScopedSkinStylesheet,
   preloadSkinStylesheet,
-} from "@/lib/skinStylesheetCache";
-import { skinStylesheetUrl } from "@/lib/skinStylesheet";
+} from "@/lib/skin/skinStylesheetCache";
+import { skinStylesheetUrl } from "@/lib/skin/skinStylesheet";
 import { useSkinStore } from "@/store/useSkinStore";
 import type { LoadedSkinPack } from "@/types/skin";
 

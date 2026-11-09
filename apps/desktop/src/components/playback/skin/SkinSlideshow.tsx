@@ -1,6 +1,6 @@
-import { skinAssetFileUrl } from "@/lib/skinAssets";
-import { resolveSlideshowAssetForState } from "@/lib/skinSlideshow";
-import { useSkinSlideshowState } from "@/lib/skinSlideshowContext";
+import { skinAssetFileUrl } from "@/lib/skin/skinAssets";
+import { resolveSlideshowAssetForState } from "@/lib/skin/skinSlideshow";
+import { useSkinSlideshowState } from "@/lib/skin/skinSlideshowContext";
 import type { LoadedSkinPack, SlideshowNode } from "@/types/skin";
 import "./SkinSlideshow.css";
 

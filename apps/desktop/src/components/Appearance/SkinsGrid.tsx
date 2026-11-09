@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { skinPreviewUrl } from "@/lib/skinAssets";
+import { skinPreviewUrl } from "@/lib/skin/skinAssets";
 import { useSkinStore } from "@/store/useSkinStore";
 import type { SkinSummary } from "@/types/skin";
 import { ItemActionsMenu } from "./ItemActionsMenu";

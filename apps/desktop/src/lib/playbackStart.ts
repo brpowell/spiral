@@ -1,6 +1,6 @@
 import { isPendingTrackId } from "./pendingImportTrack";
 import { isPlaybackIdKnownUnplayable } from "./playbackSkip";
-import { resolveIdlePlaybackTrackIds } from "./skinPlaylist";
+import { resolveIdlePlaybackTrackIds } from "./skin/skinPlaylist";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";
 import { useSkinStore } from "@/store/useSkinStore";

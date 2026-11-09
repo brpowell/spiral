@@ -11,18 +11,18 @@ import { AppearanceApp } from "./AppearanceApp";
 import { EqualizerApp } from "./EqualizerApp";
 import { SkinModeApp } from "./SkinModeApp";
 import { initPlayerStoreBridge } from "./lib/playerStoreBridge";
-import { initSkinBridge } from "./lib/skinBridge";
+import { initSkinBridge } from "./lib/skin/skinBridge";
 import { initThemeBridge } from "./lib/themeBridge";
 import { initVisualizerBridge } from "./lib/visualizerBridge";
 import { initEqBridge } from "./lib/eqBridge";
-import { bootstrapSkin } from "./lib/skinBootstrap";
-import { bootstrapSkinAux } from "./lib/skinAuxBootstrap";
-import { emitSkinAuxReady } from "./lib/skinAuxEvents";
+import { bootstrapSkin } from "./lib/skin/skinBootstrap";
+import { bootstrapSkinAux } from "./lib/skin/auxWindow/skinAuxBootstrap";
+import { emitSkinAuxReady } from "./lib/skin/auxWindow/skinAuxEvents";
 import {
   preloadSkinSwitchAssets,
   preloadSkinViewAssets,
-} from "./lib/skinViewAssetPreload";
-import { resolveAuxStartupRequirements } from "./lib/skinAuxStartupRequirements";
+} from "./lib/skin/skinViewAssetPreload";
+import { resolveAuxStartupRequirements } from "./lib/skin/auxWindow/skinAuxStartupRequirements";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useSkinStore } from "./store/useSkinStore";
 import { bootstrapTheme } from "./lib/themeBootstrap";

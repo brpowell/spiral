@@ -1,15 +1,8 @@
 /** WMP-style MM:SS digit roles (see classic skin DrawTimeNormalView). */
 export type DigitSlotRole =
-  | "sign"
-  | "minuteTens"
-  | "minuteOnes"
-  | "secondTens"
-  | "secondOnes";
+  "sign" | "minuteTens" | "minuteOnes" | "secondTens" | "secondOnes";
 
-export type DigitSlotFrames = Record<
-  Exclude<DigitSlotRole, "sign">,
-  number
->;
+export type DigitSlotFrames = Record<Exclude<DigitSlotRole, "sign">, number>;
 
 /** Map elapsed seconds to digit indices 0–9 for each MM:SS window. */
 export function mmssDigitFrames(seconds: number): DigitSlotFrames {

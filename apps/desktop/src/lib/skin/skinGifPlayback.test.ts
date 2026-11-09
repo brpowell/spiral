@@ -11,7 +11,7 @@ import {
   encodeGifFixture,
   type GifColor,
   type GifFixtureFrame,
-} from "./testing/gifFixture";
+} from "@/lib/testing/gifFixture";
 
 const PALETTE: GifColor[] = [
   [0, 0, 0],

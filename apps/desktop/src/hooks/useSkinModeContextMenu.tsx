@@ -8,11 +8,11 @@ import {
 import { IconPalette, IconTracks } from "@/components/icons";
 import { openAppearanceWindow } from "@/lib/appearanceWindow";
 import { t } from "@/lib/i18n";
-import { useSkinModeAlwaysOnTop } from "@/lib/skinModeAlwaysOnTop";
+import { useSkinModeAlwaysOnTop } from "@/lib/skin/modeWindow/skinModeAlwaysOnTop";
 import {
   restoreMainWindow,
   setSkinModeAlwaysOnTop,
-} from "@/lib/skinModeWindow";
+} from "@/lib/skin/modeWindow/skinModeWindow";
 import { isSkinModeWindow } from "@/lib/windowRole";
 import { useContextMenu } from "./useContextMenu";
 

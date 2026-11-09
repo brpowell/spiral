@@ -11,7 +11,9 @@ function readOpenMap(): Record<string, string[]> {
     const map: Record<string, string[]> = {};
     for (const [skinId, viewIds] of Object.entries(parsed)) {
       if (Array.isArray(viewIds)) {
-        map[skinId] = viewIds.filter((id): id is string => typeof id === "string");
+        map[skinId] = viewIds.filter(
+          (id): id is string => typeof id === "string",
+        );
       }
     }
     return map;

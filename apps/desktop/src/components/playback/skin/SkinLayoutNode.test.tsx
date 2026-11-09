@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { LoadedSkinPack, PlaylistNode } from "@/types/skin";
 import { SkinLayoutNode } from "./SkinLayoutNode";
 
-vi.mock("@/lib/skinBinds", () => ({
+vi.mock("@/lib/skin/skinBinds", () => ({
   useSkinVisible: () => true,
   useSkinControlEnabled: () => true,
   useSkinBindState: () => ({ viewState: {}, hoveredNodeIds: new Set() }),

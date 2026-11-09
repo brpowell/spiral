@@ -2,8 +2,11 @@ import { NowPlayingArt } from "@/components/playback/NowPlayingArt/NowPlayingArt
 import { SeekBar } from "@/components/playback/SeekBar/SeekBar";
 import { VisualizerSlot } from "@/components/playback/VisualizerSlot/VisualizerSlot";
 import { VolumeControl } from "@/components/playback/VolumeControl/VolumeControl";
-import { useSkinControlEnabled } from "@/lib/skinBinds";
-import { styleFromSkinNode, useResolvedNodeStyle } from "@/lib/skinNodeStyle";
+import { useSkinControlEnabled } from "@/lib/skin/skinBinds";
+import {
+  styleFromSkinNode,
+  useResolvedNodeStyle,
+} from "@/lib/skin/skinNodeStyle";
 import type {
   ArtworkNode,
   SliderSeekNode,

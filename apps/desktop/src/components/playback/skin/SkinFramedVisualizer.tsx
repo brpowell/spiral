@@ -1,6 +1,6 @@
 import { useMemo, type CSSProperties } from "react";
 import { VisualizerSlot } from "@/components/playback/VisualizerSlot/VisualizerSlot";
-import { skinAssetFileUrl } from "@/lib/skinAssets";
+import { skinAssetFileUrl } from "@/lib/skin/skinAssets";
 import type {
   FramedPanelPresentation,
   LoadedSkinPack,

@@ -1,20 +1,23 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { resolveInteractiveAssetUrl, skinAssetFileUrl } from "@/lib/skinAssets";
+import {
+  resolveInteractiveAssetUrl,
+  skinAssetFileUrl,
+} from "@/lib/skin/skinAssets";
 import {
   getSkinBitmapIfReady,
   isSkinBitmapReady,
   loadSkinBitmap,
-} from "@/lib/skinBitmapCache";
-import { preloadInteractiveBitmapAssets } from "@/lib/skinViewAssetPreload";
+} from "@/lib/skin/skinBitmapCache";
+import { preloadInteractiveBitmapAssets } from "@/lib/skin/skinViewAssetPreload";
 import {
   getDecodedSkinGif,
   loadSkinGif,
   playSkinGifOnCanvas,
   type DecodedSkinGif,
-} from "@/lib/skinGifPlayback";
-import { scheduleSkinEffects } from "@/lib/skinEffects";
-import { useSkinBindState } from "@/lib/skinBinds";
-import { skinDragRegionDeepProps } from "@/lib/skinDragRegion";
+} from "@/lib/skin/skinGifPlayback";
+import { scheduleSkinEffects } from "@/lib/skin/skinEffects";
+import { useSkinBindState } from "@/lib/skin/skinBinds";
+import { skinDragRegionDeepProps } from "@/lib/skin/skinDragRegion";
 import type {
   BitmapPresentation,
   DecorationNode,

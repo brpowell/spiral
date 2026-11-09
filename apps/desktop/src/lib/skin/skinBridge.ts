@@ -1,17 +1,17 @@
 import { listen } from "@tauri-apps/api/event";
-import { closeAllSkinAuxWindows } from "./skinAuxWindow";
+import { closeAllSkinAuxWindows } from "./auxWindow/skinAuxWindow";
 import { useSkinStore } from "@/store/useSkinStore";
 import { useSkinPreferencesStore } from "@/store/useSkinPreferencesStore";
 import { useThemeStore } from "@/store/useThemeStore";
 import { useVisualizerStore } from "@/store/useVisualizerStore";
 import type { SkinUserPreferences } from "@/types/skinPreferences";
-import { APPEARANCE_REFRESH_EVENT } from "./appearanceWindow";
-import type { WindowRole } from "./windowRole";
+import { APPEARANCE_REFRESH_EVENT } from "@/lib/appearanceWindow";
+import type { WindowRole } from "@/lib/windowRole";
 import {
   isAppearanceWindow,
   isSkinAuxWindow,
   isSkinModeWindow,
-} from "./windowRole";
+} from "@/lib/windowRole";
 
 export const SKIN_CHANGED_EVENT = "skin://changed";
 export const SKIN_PREFERENCES_CHANGED_EVENT = "skin://preferences-changed";

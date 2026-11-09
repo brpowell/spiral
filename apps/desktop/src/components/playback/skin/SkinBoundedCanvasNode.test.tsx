@@ -6,7 +6,7 @@ import { SkinLayoutContextProvider } from "./SkinLayoutContext";
 
 const evaluateSkinCondition = vi.hoisted(() => vi.fn(() => false));
 
-vi.mock("@/lib/skinBinds", () => ({
+vi.mock("@/lib/skin/skinBinds", () => ({
   useSkinVisible: () => true,
   useSkinBindState: () => ({ viewState: {}, hoveredNodeIds: new Set() }),
   evaluateSkinCondition,

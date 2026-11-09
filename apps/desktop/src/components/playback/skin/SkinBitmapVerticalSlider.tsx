@@ -6,8 +6,8 @@ import {
   ratioToGainDb,
 } from "@/lib/equalizer/types";
 import { applyEqBandSliderGain } from "@/lib/eqBandInput";
-import { resolveThumbAssetFile, skinAssetFileUrl } from "@/lib/skinAssets";
-import { skinDragRegionNoneProps } from "@/lib/skinDragRegion";
+import { resolveThumbAssetFile, skinAssetFileUrl } from "@/lib/skin/skinAssets";
+import { skinDragRegionNoneProps } from "@/lib/skin/skinDragRegion";
 import { wmpTiledTrackStyle } from "@/lib/wmpTiledTrack";
 import {
   pointInThumb,
@@ -16,8 +16,8 @@ import {
   wmpVerticalPointerToRatio,
   wmpVerticalThumbTop,
 } from "@/lib/wmpBitmapSliderThumb";
-import { useSkinBindState, useSkinControlEnabled } from "@/lib/skinBinds";
-import { resolveSkinTooltip } from "@/lib/skinTooltips";
+import { useSkinBindState, useSkinControlEnabled } from "@/lib/skin/skinBinds";
+import { resolveSkinTooltip } from "@/lib/skin/skinTooltips";
 import { useEqualizerStore } from "@/store/useEqualizerStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { LoadedSkinPack, SliderNode } from "@/types/skin";

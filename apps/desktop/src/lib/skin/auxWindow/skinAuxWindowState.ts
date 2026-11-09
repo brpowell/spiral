@@ -1,4 +1,4 @@
-import type { SnapEdge } from "./skinModeWindowState";
+import type { SnapEdge } from "@/lib/skin/modeWindow/skinModeWindowState";
 
 export interface PersistedSkinAuxWindowState {
   skinId: string;

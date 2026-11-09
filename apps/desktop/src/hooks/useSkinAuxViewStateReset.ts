@@ -3,8 +3,8 @@ import { useEffect } from "react";
 import {
   SKIN_AUX_RESET_EVENT,
   type SkinAuxViewEventPayload,
-} from "@/lib/skinAuxEvents";
-import { resetSkinViewRuntimeState } from "@/lib/skinViewRuntimeState";
+} from "@/lib/skin/auxWindow/skinAuxEvents";
+import { resetSkinViewRuntimeState } from "@/lib/skin/skinViewRuntimeState";
 import { getSkinAuxContext, isSkinAuxWindow } from "@/lib/windowRole";
 
 export function useSkinAuxViewStateReset(): void {

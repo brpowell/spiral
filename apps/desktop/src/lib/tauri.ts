@@ -63,7 +63,7 @@ import type {
 import { normalizeTrackLyrics, normalizeTrackLyricsInput } from "./lyrics";
 import type { ListenEventPayload } from "@/types/listenEvent";
 import type { ActivityLogContext } from "@/types/activityLog";
-import { reportSkinLayoutValidation } from "./skinLayoutReport";
+import { reportSkinLayoutValidation } from "./skin/skinLayoutReport";
 
 function normalizeCoverArtCandidate(
   raw: Record<string, unknown>,

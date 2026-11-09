@@ -1,15 +1,15 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { isSkinGifAsset } from "@/lib/skinAssets";
+import { isSkinGifAsset } from "@/lib/skin/skinAssets";
 import {
   getSkinBitmapIfReady,
   isSkinBitmapReady,
   loadSkinBitmap,
-} from "@/lib/skinBitmapCache";
+} from "@/lib/skin/skinBitmapCache";
 import {
   drawSkinGifLastFrame,
   loadSkinGif,
   playSkinGifOnCanvas,
-} from "@/lib/skinGifPlayback";
+} from "@/lib/skin/skinGifPlayback";
 import type { SkinAssetFile } from "@/types/skin";
 import "./SkinInteractiveAssetCanvas.css";
 

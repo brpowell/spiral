@@ -3,8 +3,8 @@ import { useSkinPreferencesStore } from "@/store/useSkinPreferencesStore";
 import { useSkinStore } from "@/store/useSkinStore";
 import { soundEffectsEnabledFromPreferences } from "@/types/skinPreferences";
 import { evaluateSkinBind, type SkinBindState } from "./skinBinds";
-import { resolveCueUrl } from "./packSounds";
-import { playOneShot } from "./sfxPlayer";
+import { resolveCueUrl } from "@/lib/packSounds";
+import { playOneShot } from "@/lib/sfxPlayer";
 import type { LoadedSkinPack } from "@/types/skin";
 
 /** Bind path → soundEffects key when truthy (last match wins). Falls back to `sound`. */

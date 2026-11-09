@@ -1,8 +1,11 @@
 import { useRef } from "react";
-import { scheduleSkinEffects } from "@/lib/skinEffects";
-import { useSkinBindState, useSkinControlEnabled } from "@/lib/skinBinds";
-import { skinDragRegionNoneProps } from "@/lib/skinDragRegion";
-import { styleFromSkinNode, useResolvedNodeStyle } from "@/lib/skinNodeStyle";
+import { scheduleSkinEffects } from "@/lib/skin/skinEffects";
+import { useSkinBindState, useSkinControlEnabled } from "@/lib/skin/skinBinds";
+import { skinDragRegionNoneProps } from "@/lib/skin/skinDragRegion";
+import {
+  styleFromSkinNode,
+  useResolvedNodeStyle,
+} from "@/lib/skin/skinNodeStyle";
 import { useSkinStore } from "@/store/useSkinStore";
 import type { InputNode } from "@/types/skin";
 import "./SkinInput.css";

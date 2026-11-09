@@ -1,5 +1,5 @@
-import { resolveIcon } from "./iconLibrary";
-import type { IconComponent } from "./iconLibrary";
+import { resolveIcon } from "@/lib/iconLibrary";
+import type { IconComponent } from "@/lib/iconLibrary";
 
 /** True when `icon` is a pack-relative raster asset under assets/. */
 export function isSkinAssetIconPath(icon: string): boolean {

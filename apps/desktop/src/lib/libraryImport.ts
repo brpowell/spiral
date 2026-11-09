@@ -21,7 +21,7 @@ import {
 } from "./supportedAudio";
 import { waitForPaint, yieldForInteraction, yieldToMain } from "./scheduling";
 import { t } from "./i18n";
-import { SKIN_AUX_LABEL_PREFIX } from "./skinAuxContext";
+import { SKIN_AUX_LABEL_PREFIX } from "./skin/auxWindow/skinAuxContext";
 import {
   cleanupZipImport,
   pickLibraryPaths,

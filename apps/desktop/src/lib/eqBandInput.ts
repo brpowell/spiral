@@ -1,5 +1,5 @@
 import { spreadLinearBands } from "./equalizer/spread";
-import { walkLayoutTree } from "./skinLayout";
+import { walkLayoutTree } from "./skin/skinLayout";
 import { useEqualizerStore } from "@/store/useEqualizerStore";
 import type { LoadedSkinPack, SliderEqNode } from "@/types/skin";
 

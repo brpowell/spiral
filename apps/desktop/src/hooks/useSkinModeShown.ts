@@ -5,8 +5,8 @@ import {
   SKIN_AUX_RESET_EVENT,
   SKIN_AUX_SHOWN_EVENT,
   type SkinAuxViewEventPayload,
-} from "@/lib/skinAuxEvents";
-import { SKIN_MODE_SHOWN_EVENT } from "@/lib/skinModeWindow";
+} from "@/lib/skin/auxWindow/skinAuxEvents";
+import { SKIN_MODE_SHOWN_EVENT } from "@/lib/skin/modeWindow/skinModeWindow";
 import {
   getSkinAuxContext,
   isSkinAuxWindow,

@@ -3,7 +3,7 @@ import {
   parseSkinAuxContextFromUrl,
   parseSkinAuxWindowLabel,
   type SkinAuxContext,
-} from "./skinAuxContext";
+} from "./skin/auxWindow/skinAuxContext";
 
 export type WindowRole =
   | "main"

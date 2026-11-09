@@ -157,11 +157,5 @@ export async function restoreSkinModeGeometry(
     nextY = work.position.y + work.size.height - physicalHeight;
   }
 
-  return clampToWorkArea(
-    nextX,
-    nextY,
-    physicalWidth,
-    physicalHeight,
-    monitor,
-  );
+  return clampToWorkArea(nextX, nextY, physicalWidth, physicalHeight, monitor);
 }

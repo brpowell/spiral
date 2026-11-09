@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { skinPreviewUrl } from "@/lib/skinAssets";
+import { skinPreviewUrl } from "@/lib/skin/skinAssets";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import { useSoundPackStore } from "@/store/useSoundPackStore";
 import type { SoundPackSummary } from "@/types/soundPack";

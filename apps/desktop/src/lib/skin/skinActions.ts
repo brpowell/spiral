@@ -1,14 +1,14 @@
 import { emit } from "@tauri-apps/api/event";
-import { albumKey as albumKeyFromTrack } from "./albums";
+import { albumKey as albumKeyFromTrack } from "@/lib/albums";
 import { useNavigationStore } from "@/store/useNavigationStore";
-import { findPlaybackTrack } from "./playbackTrack";
+import { findPlaybackTrack } from "@/lib/playbackTrack";
 import {
   resolveSkinPlaylistTrackIds,
   shouldReplacePlayContextForSkinPlaylistSource,
 } from "./skinPlaylist";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";
-import { openAppearanceWindow } from "./appearanceWindow";
+import { openAppearanceWindow } from "@/lib/appearanceWindow";
 import {
   exitSkinMode,
   minimizeSkinMode,
@@ -16,25 +16,25 @@ import {
   readSkinModeAlwaysOnTop,
   restoreMainWindow,
   setSkinModeAlwaysOnTop,
-} from "./skinModeWindow";
+} from "./modeWindow/skinModeWindow";
 import type { SkinActionId, SkinActionPayloadFields } from "@/types/skin";
 import { useSkinStore } from "@/store/useSkinStore";
 import { useSkinPreferencesStore } from "@/store/useSkinPreferencesStore";
 import { useVisualizerStore } from "@/store/useVisualizerStore";
 import { useEqualizerStore } from "@/store/useEqualizerStore";
 import { usePlaybackSettingsStore } from "@/store/usePlaybackSettingsStore";
-import { pickAndImportLibraryPaths } from "./libraryImport";
+import { pickAndImportLibraryPaths } from "@/lib/libraryImport";
 import { confirmAndOpenSkinUrl } from "./skinOpenUrl";
 import {
   SKIN_PREFERENCES_ACTION_EVENT,
   type SkinPreferencesActionPayload,
 } from "./skinBridge";
-import { getSkinAuxContext, getWindowRole } from "./windowRole";
+import { getSkinAuxContext, getWindowRole } from "@/lib/windowRole";
 import { getSkinSlideshowStateApi } from "./skinSlideshowContext";
 import { getSkinScrollStripStateApi } from "./skinScrollStripContext";
 import { getSkinViewStateApi } from "./skinViewStateContext";
 import { applyViewStateEvent } from "./skinViewStateEvents";
-import { playOrResume } from "./playbackStart";
+import { playOrResume } from "@/lib/playbackStart";
 
 export type SkinActionPayload = SkinActionPayloadFields;
 

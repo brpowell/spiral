@@ -3,14 +3,14 @@ import { emit } from "@tauri-apps/api/event";
 import {
   SKIN_PREFERENCES_CHANGED_EVENT,
   type SkinPreferencesChangedPayload,
-} from "@/lib/skinBridge";
+} from "@/lib/skin/skinBridge";
 import { getSkinPreferences, saveSkinPreferences } from "@/lib/tauri";
 import {
   evaluateAuthorSkinPref,
   findSkinSetting,
   setBooleanCustomPref,
   toggledBooleanCustomPref,
-} from "@/lib/skinPrefSettings";
+} from "@/lib/skin/skinPrefSettings";
 import { useSkinStore } from "./useSkinStore";
 import {
   defaultSkinUserPreferences,

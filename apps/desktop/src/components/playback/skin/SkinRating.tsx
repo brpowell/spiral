@@ -1,10 +1,13 @@
 import { useCallback, useMemo } from "react";
 import { confirmAndApplyTrackRatings } from "@/lib/applyTrackRating";
 import { findPlaybackTrack } from "@/lib/playbackTrack";
-import { skinDragRegionNoneProps } from "@/lib/skinDragRegion";
-import { useSkinControlEnabled } from "@/lib/skinBinds";
-import { styleFromSkinNode, useResolvedNodeStyle } from "@/lib/skinNodeStyle";
-import { useSkinTooltip } from "@/lib/skinTooltips";
+import { skinDragRegionNoneProps } from "@/lib/skin/skinDragRegion";
+import { useSkinControlEnabled } from "@/lib/skin/skinBinds";
+import {
+  styleFromSkinNode,
+  useResolvedNodeStyle,
+} from "@/lib/skin/skinNodeStyle";
+import { useSkinTooltip } from "@/lib/skin/skinTooltips";
 import { UNRATED } from "@/lib/trackRating";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { RatingNode } from "@/types/skin";

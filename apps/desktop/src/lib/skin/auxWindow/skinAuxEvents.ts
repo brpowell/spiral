@@ -1,6 +1,6 @@
 import { emit } from "@tauri-apps/api/event";
-import { getSkinAuxContext, isSkinAuxWindow } from "./windowRole";
-import { resetSkinViewRuntimeState } from "./skinViewRuntimeState";
+import { getSkinAuxContext, isSkinAuxWindow } from "@/lib/windowRole";
+import { resetSkinViewRuntimeState } from "@/lib/skin/skinViewRuntimeState";
 
 export const SKIN_AUX_READY_EVENT = "skin-aux://ready";
 

@@ -482,7 +482,7 @@ Root layout is `canvas | row | column`. Canvas views: `{ "type": "canvas", "widt
 
 ### Coordinate spaces and nested groups
 
-Canvas views use an explicit coordinate context. Shared helpers live in `src/lib/skinLayout.ts` (`walkLayoutTree`, `resolveAbsoluteBounds`, `localizeBounds`, `validateLayoutTree`). Runtime pushes a layout context stack via `SkinLayoutContext` when rendering bounded groups.
+Canvas views use an explicit coordinate context. Shared helpers live in `src/lib/skin/skinLayout.ts` (`walkLayoutTree`, `resolveAbsoluteBounds`, `localizeBounds`, `validateLayoutTree`). Runtime pushes a layout context stack via `SkinLayoutContext` when rendering bounded groups.
 
 | Role | Node type | Child `bounds` |
 | --- | --- | --- |

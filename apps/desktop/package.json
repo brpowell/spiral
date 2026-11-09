@@ -18,7 +18,7 @@
     "lint:fix": "eslint . --fix",
     "lint:i18n": "node scripts/check-i18n-keys.mjs",
     "lint:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
-    "lint:skins": "vitest run src/lib/skinLayout.test.ts",
+    "lint:skins": "vitest run src/lib/skin/skinLayout.test.ts",
     "format": "npm run format:prettier && npm run format:rust",
     "format:check": "npm run format:prettier:check",
     "format:prettier": "prettier --write .",

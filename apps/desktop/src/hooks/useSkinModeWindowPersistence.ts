@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { snapSkinModeWindow } from "@/lib/skinModeSnap";
+import { snapSkinModeWindow } from "@/lib/skin/modeWindow/skinModeSnap";
 import {
   ensureSkinModeOnVisibleMonitor,
   persistSkinModeWindowState,
   restoreMainWindow,
-} from "@/lib/skinModeWindow";
-import { isSkinModeSnapSuppressed } from "@/lib/skinModeWindowChrome";
+} from "@/lib/skin/modeWindow/skinModeWindow";
+import { isSkinModeSnapSuppressed } from "@/lib/skin/modeWindow/skinModeWindowChrome";
 import { useSkinStore } from "@/store/useSkinStore";
 
 import { isSkinModeWindow } from "@/lib/windowRole";

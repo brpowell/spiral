@@ -1,11 +1,11 @@
-import { buildPlaybackOrder } from "./playbackOrder";
+import { buildPlaybackOrder } from "@/lib/playbackOrder";
 import { compareTracks } from "@/components/TrackList/trackListSort";
-import { findPlaybackTrack } from "./playbackTrack";
+import { findPlaybackTrack } from "@/lib/playbackTrack";
 import {
   getPlaylistById,
   resolvePlaylistTracks,
   sortedPlaylists,
-} from "./playlists";
+} from "@/lib/playlists";
 import type { Playlist } from "@/types/playlist";
 import type { Track } from "@/types/track";
 

@@ -1,13 +1,13 @@
-import { getActiveSkinId, listSkins, loadSkinPack } from "./tauri";
-import { restoreOpenSkinAuxWindows } from "./skinAuxWindow";
-import { readOpenAuxViewsForSkin } from "./skinAuxViewState";
+import { getActiveSkinId, listSkins, loadSkinPack } from "@/lib/tauri";
+import { restoreOpenSkinAuxWindows } from "./auxWindow/skinAuxWindow";
+import { readOpenAuxViewsForSkin } from "./auxWindow/skinAuxViewState";
 import { resolveViewForPack } from "./skinViewState";
-import { applyPackWindowLayout } from "./skinModeWindowChrome";
+import { applyPackWindowLayout } from "./modeWindow/skinModeWindowChrome";
 import { installSkinDevConsole } from "./skinDevConsole";
-import { isSkinModeVisible } from "./skinModeWindow";
+import { isSkinModeVisible } from "./modeWindow/skinModeWindow";
 import { DEFAULT_SKIN_ID, useSkinStore } from "@/store/useSkinStore";
 import { useSkinPreferencesStore } from "@/store/useSkinPreferencesStore";
-import { isSkinModeWindow } from "./windowRole";
+import { isSkinModeWindow } from "@/lib/windowRole";
 
 export async function bootstrapSkin(): Promise<void> {
   try {

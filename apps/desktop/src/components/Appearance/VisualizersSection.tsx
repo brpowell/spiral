@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { skinPreviewUrl } from "@/lib/skinAssets";
+import { skinPreviewUrl } from "@/lib/skin/skinAssets";
 import { useVisualizerStore } from "@/store/useVisualizerStore";
 import type { VizSummary } from "@/types/visualizer";
 import { usePrefersReducedMotion } from "@/components/visualizer/context";

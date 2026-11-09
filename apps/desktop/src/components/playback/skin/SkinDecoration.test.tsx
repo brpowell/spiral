@@ -5,18 +5,17 @@ import { SkinDecoration } from "./SkinDecoration";
 
 const viewState: Record<string, string> = { shutter: "shut" };
 
-vi.mock("@/lib/skinBinds", async () => {
-  const actual =
-    await vi.importActual<typeof import("../../../lib/skinBinds")>(
-      "@/lib/skinBinds",
-    );
+vi.mock("@/lib/skin/skinBinds", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/skin/skinBinds")>(
+    "@/lib/skin/skinBinds",
+  );
   return { ...actual, useSkinBindState: () => ({ viewState }) };
 });
 
 const loadSkinBitmap = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 const getSkinBitmapIfReady = vi.hoisted(() => vi.fn(() => undefined));
 
-vi.mock("@/lib/skinBitmapCache", () => ({
+vi.mock("@/lib/skin/skinBitmapCache", () => ({
   isSkinBitmapReady: () => true,
   getSkinBitmapIfReady,
   loadSkinBitmap,
@@ -28,7 +27,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 const decoded = new Map<string, object>();
 
-vi.mock("@/lib/skinGifPlayback", () => ({
+vi.mock("@/lib/skin/skinGifPlayback", () => ({
   getDecodedSkinGif: (url: string) => decoded.get(url),
   loadSkinGif: () => new Promise(() => {}),
   // Deliberately never reports onFirstFrameDrawn, so visibility can only come

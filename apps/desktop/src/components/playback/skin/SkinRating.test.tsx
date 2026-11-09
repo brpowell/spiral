@@ -12,13 +12,13 @@ vi.mock("@/lib/applyTrackRating", () => ({
     confirmAndApplyTrackRatings(...args),
 }));
 
-vi.mock("@/lib/skinBinds", () => ({
+vi.mock("@/lib/skin/skinBinds", () => ({
   useSkinControlEnabled: () => true,
   useSkinBindState: () => ({ viewState: {}, hoveredNodeIds: new Set() }),
   evaluateSkinCondition: () => false,
 }));
 
-vi.mock("@/lib/skinTooltips", () => ({
+vi.mock("@/lib/skin/skinTooltips", () => ({
   useSkinTooltip: () => "",
 }));
 

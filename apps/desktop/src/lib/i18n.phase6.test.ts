@@ -3,7 +3,7 @@ import { t } from "./i18n";
 import { convertTracksSettleOptions } from "./convertTracks";
 import { formatImportSummary } from "./import";
 import { formatLyricsFetchPeerTitle } from "./lyricsFetchToastSettle";
-import { resolveSkinTooltip } from "./skinTooltips";
+import { resolveSkinTooltip } from "./skin/skinTooltips";
 import { queueAddedPayload } from "./toastPayloads";
 import { minimalBindState } from "@/test/skinBindFixtures";
 

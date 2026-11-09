@@ -14,8 +14,8 @@ const { mockPlayOneShot, mockResolveCueUrl, mockPreferences } = vi.hoisted(
 vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: (path: string) => `asset://${path}`,
 }));
-vi.mock("./sfxPlayer", () => ({ playOneShot: mockPlayOneShot }));
-vi.mock("./packSounds", () => ({ resolveCueUrl: mockResolveCueUrl }));
+vi.mock("@/lib/sfxPlayer", () => ({ playOneShot: mockPlayOneShot }));
+vi.mock("@/lib/packSounds", () => ({ resolveCueUrl: mockResolveCueUrl }));
 vi.mock("@/store/useSkinPreferencesStore", () => ({
   useSkinPreferencesStore: {
     getState: () => ({ preferences: mockPreferences.current }),

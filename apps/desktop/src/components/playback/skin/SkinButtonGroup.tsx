@@ -6,30 +6,36 @@ import {
   useState,
   type PointerEvent,
 } from "react";
-import { skinAssetFileUrl, resolveInteractiveAssets } from "@/lib/skinAssets";
+import {
+  skinAssetFileUrl,
+  resolveInteractiveAssets,
+} from "@/lib/skin/skinAssets";
 import {
   loadButtonGroupPositionMap,
   parseMappingColor,
   type ButtonGroupPositionMap,
-} from "@/lib/skinButtonGroupMap";
+} from "@/lib/skin/skinButtonGroupMap";
 import {
   primaryClickAction,
   primaryClickViewId,
   scheduleSkinEffects,
-} from "@/lib/skinEffects";
-import { playSkinSound, resolveSkinClickSound } from "@/lib/skinSoundEffects";
+} from "@/lib/skin/skinEffects";
+import {
+  playSkinSound,
+  resolveSkinClickSound,
+} from "@/lib/skin/skinSoundEffects";
 import {
   evaluateSkinCondition,
   isSkinControlEnabled,
   useSkinBindState,
-} from "@/lib/skinBinds";
-import { skinDragRegionNoneProps } from "@/lib/skinDragRegion";
+} from "@/lib/skin/skinBinds";
+import { skinDragRegionNoneProps } from "@/lib/skin/skinDragRegion";
 import {
   suppressSkinButtonHoverUntilPointerMove,
   useSkinButtonHoverSuppressed,
-} from "@/lib/skinButtonHoverSuppression";
+} from "@/lib/skin/skinButtonHoverSuppression";
 import { useSkinDebug } from "@/hooks/useSkinDebug";
-import { resolveSkinTooltip } from "@/lib/skinTooltips";
+import { resolveSkinTooltip } from "@/lib/skin/skinTooltips";
 import { useSkinButtonGroupHitRegistry } from "./SkinButtonGroupHitRegistry";
 import type {
   ButtonGroupElement,

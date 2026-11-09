@@ -1,5 +1,5 @@
 import { Children, useMemo, type CSSProperties, type ReactNode } from "react";
-import { skinAssetFileUrl } from "@/lib/skinAssets";
+import { skinAssetFileUrl } from "@/lib/skin/skinAssets";
 import {
   computeChromeClipPath,
   computeContentRect,
@@ -12,7 +12,7 @@ import {
   TILED_FRAME_CONTENT_Z,
   type FrameRect,
   type TilePaintSlice,
-} from "@/lib/skinTiledFrame";
+} from "@/lib/skin/skinTiledFrame";
 import type { LoadedSkinPack, TiledFrameNode } from "@/types/skin";
 import {
   SkinCanvasStageContext,

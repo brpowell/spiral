@@ -9,14 +9,14 @@ import {
   applyPackWindowLayout,
   applySwitchViewWindowLayout,
   resolveViewWindowChrome,
-} from "./lib/skinModeWindowChrome";
-import { applySkinAuxViewWindowLayout } from "./lib/skinAuxWindow";
-import { startSkinClickThrough } from "./lib/skinClickThrough";
-import { isViewStateMotionActive } from "./lib/skinViewStateEvents";
-import { getSkinViewStateApi } from "./lib/skinViewStateContext";
-import { startSkinDragRegions } from "./lib/skinDragRegion";
-import { preloadSkinViewAssets } from "./lib/skinViewAssetPreload";
-import { listSwitchableViewIds } from "./lib/skinWindowPresentation";
+} from "./lib/skin/modeWindow/skinModeWindowChrome";
+import { applySkinAuxViewWindowLayout } from "./lib/skin/auxWindow/skinAuxWindow";
+import { startSkinClickThrough } from "./lib/skin/skinClickThrough";
+import { isViewStateMotionActive } from "./lib/skin/skinViewStateEvents";
+import { getSkinViewStateApi } from "./lib/skin/skinViewStateContext";
+import { startSkinDragRegions } from "./lib/skin/skinDragRegion";
+import { preloadSkinViewAssets } from "./lib/skin/skinViewAssetPreload";
+import { listSwitchableViewIds } from "./lib/skin/skinWindowPresentation";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useSkinStore } from "./store/useSkinStore";
 import { isSkinAuxWindow } from "./lib/windowRole";

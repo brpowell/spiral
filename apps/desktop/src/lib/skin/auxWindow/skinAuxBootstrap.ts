@@ -1,10 +1,10 @@
-import { loadSkinPack } from "./tauri";
+import { loadSkinPack } from "@/lib/tauri";
 import { applySkinAuxViewWindowLayout } from "./skinAuxWindow";
 import { readOpenAuxViewsForSkin } from "./skinAuxViewState";
-import { installSkinDevConsole } from "./skinDevConsole";
+import { installSkinDevConsole } from "@/lib/skin/skinDevConsole";
 import { DEFAULT_SKIN_ID, useSkinStore } from "@/store/useSkinStore";
 import { useSkinPreferencesStore } from "@/store/useSkinPreferencesStore";
-import { getSkinAuxContext } from "./windowRole";
+import { getSkinAuxContext } from "@/lib/windowRole";
 
 /** Minimal startup for auxiliary skin windows (eq, playlist, etc.). */
 export async function bootstrapSkinAux(): Promise<void> {

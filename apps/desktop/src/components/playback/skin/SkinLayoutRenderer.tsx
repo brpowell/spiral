@@ -2,10 +2,10 @@ import { useMemo } from "react";
 import {
   useSkinViewState,
   viewStateDataAttributes,
-} from "@/lib/skinViewStateContext";
-import { hoverNodeDataAttributes } from "@/lib/skinHover";
-import { useSkinHoveredNodeIds } from "@/lib/skinHoverContext";
-import { primaryViewId } from "@/lib/skinWindowPresentation";
+} from "@/lib/skin/skinViewStateContext";
+import { hoverNodeDataAttributes } from "@/lib/skin/skinHover";
+import { useSkinHoveredNodeIds } from "@/lib/skin/skinHoverContext";
+import { primaryViewId } from "@/lib/skin/skinWindowPresentation";
 import type {
   CanvasNode,
   ColumnNode,

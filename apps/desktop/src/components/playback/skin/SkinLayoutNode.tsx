@@ -1,7 +1,7 @@
 import type { LayoutNode, LoadedSkinPack } from "@/types/skin";
-import { useSkinVisible } from "@/lib/skinBinds";
-import { skinDragRegionDeepProps } from "@/lib/skinDragRegion";
-import { sortChildrenByZIndex } from "@/lib/skinLayout";
+import { useSkinVisible } from "@/lib/skin/skinBinds";
+import { skinDragRegionDeepProps } from "@/lib/skin/skinDragRegion";
+import { sortChildrenByZIndex } from "@/lib/skin/skinLayout";
 import { SkinBoundedCanvasNode } from "./SkinBoundedCanvasNode";
 import { SkinBitmapButton } from "./SkinBitmapButton";
 import { SkinButtonGroup } from "./SkinButtonGroup";
@@ -17,7 +17,10 @@ import { SkinFramedVisualizer } from "./SkinFramedVisualizer";
 import { SkinTiledFrame } from "./SkinTiledFrame";
 import { SkinSlideshow } from "./SkinSlideshow";
 import { SkinScrollStrip } from "./SkinScrollStrip";
-import { styleFromSkinNode, useResolvedNodeStyle } from "@/lib/skinNodeStyle";
+import {
+  styleFromSkinNode,
+  useResolvedNodeStyle,
+} from "@/lib/skin/skinNodeStyle";
 import { SkinRating } from "./SkinRating";
 import { SkinText } from "./SkinText";
 import { SkinInput } from "./SkinInput";

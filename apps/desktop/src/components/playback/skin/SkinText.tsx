@@ -1,6 +1,9 @@
 import { ScrollingText } from "@/components/ScrollingText/ScrollingText";
-import { useSkinBindValue } from "@/lib/skinBinds";
-import { styleFromSkinNode, useResolvedNodeStyle } from "@/lib/skinNodeStyle";
+import { useSkinBindValue } from "@/lib/skin/skinBinds";
+import {
+  styleFromSkinNode,
+  useResolvedNodeStyle,
+} from "@/lib/skin/skinNodeStyle";
 import type { TextNode } from "@/types/skin";
 import "./SkinText.css";
 

@@ -4,9 +4,9 @@ import {
   formatEqBandFrequency,
   formatEqGainDb,
   ratioToGainDb,
-} from "./equalizer/types";
-import { formatRemainingTime, formatTime } from "./format";
-import { t, tUnchecked } from "./i18n";
+} from "@/lib/equalizer/types";
+import { formatRemainingTime, formatTime } from "@/lib/format";
+import { t, tUnchecked } from "@/lib/i18n";
 import {
   evaluateSkinBind,
   type SkinBindState,

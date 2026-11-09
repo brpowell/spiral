@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
 import * as audio from "@/lib/playback";
 import { findPlaybackTrack } from "@/lib/playbackTrack";
-import { skinAssetFileUrl } from "@/lib/skinAssets";
+import { skinAssetFileUrl } from "@/lib/skin/skinAssets";
 import {
   digitTimeDisplaySeconds,
   mmssDigitFrames,
   type DigitSlotRole,
-} from "@/lib/skinDigitTime";
+} from "@/lib/skin/skinDigitTime";
 import { usePlayheadSeconds } from "@/hooks/usePlaybackProgress";
-import { useSkinTooltip } from "@/lib/skinTooltips";
+import { useSkinTooltip } from "@/lib/skin/skinTooltips";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type {
   DigitStripPresentation,

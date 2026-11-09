@@ -4,7 +4,7 @@ import type { InputNode } from "@/types/skin";
 import { useSkinStore } from "@/store/useSkinStore";
 import { SkinInput } from "./SkinInput";
 
-vi.mock("@/lib/skinBinds", () => ({
+vi.mock("@/lib/skin/skinBinds", () => ({
   useSkinBindValue: () => null,
   useSkinBindState: () => ({ viewState: {}, hoveredNodeIds: new Set() }),
   useSkinControlEnabled: () => true,

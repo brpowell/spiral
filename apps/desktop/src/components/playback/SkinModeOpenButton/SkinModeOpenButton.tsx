@@ -1,7 +1,7 @@
 import { Button } from "@/components/common/Button/Button";
 import { IconBoombox } from "@/components/icons";
 import { t } from "@/lib/i18n";
-import { openSkinMode } from "@/lib/skinModeWindow";
+import { openSkinMode } from "@/lib/skin/modeWindow/skinModeWindow";
 import { isTauri } from "@/lib/windowRole";
 
 export function SkinModeOpenButton() {

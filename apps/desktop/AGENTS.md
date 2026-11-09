@@ -23,7 +23,7 @@ Spiral-specific UI goes in `src/components/<FeatureName>/` (e.g. `TrackEditor/`,
 
 ## No per-skin engine hacks
 
-The skin runtime (`src/lib/skin*.ts`, `src/components/playback/skin/`), the WMS importer, and the `spk-format` schemas are a general engine. A bug in one pack is a missing pattern in the engine or missing data on the presentation, not an `if` for that pack.
+The skin runtime (`src/lib/skin/`, `src/components/playback/skin/`), the WMS importer, and the `spk-format` schemas are a general engine. A bug in one pack is a missing pattern in the engine or missing data on the presentation, not an `if` for that pack.
 
 - Don't fingerprint a skin, pack, or view (`id === "lost-planet"`, inset tuples only one pack uses, asset filenames as identity), hardcode radii/z-index/layout only one skin's art needs, or add special-case helpers named after a skin.
 - Do encode the WMS/Spiral pattern (overlay glaze vs corner cap, client-hole clip, stretch tiles) and put skin-specific numbers on the manifest/assets (`contentCornerRadius`, masks, tiles).

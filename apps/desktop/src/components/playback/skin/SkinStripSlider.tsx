@@ -8,7 +8,7 @@ import {
 import { applyEqBandSliderGain } from "@/lib/eqBandInput";
 import * as audio from "@/lib/playback";
 import { findPlaybackTrack } from "@/lib/playbackTrack";
-import { skinAssetFileUrl } from "@/lib/skinAssets";
+import { skinAssetFileUrl } from "@/lib/skin/skinAssets";
 import {
   inferStripSliderStripLayout,
   loadStripSliderPositionMap,
@@ -17,14 +17,14 @@ import {
   type StripSliderOffMapFallback,
   type StripSliderPointerSample,
   type StripSliderPositionMap,
-} from "@/lib/skinStripSliderMap";
+} from "@/lib/skin/skinStripSliderMap";
 import {
   usePlaybackProgress,
   usePlayheadSeconds,
 } from "@/hooks/usePlaybackProgress";
 import { useSkinDebug } from "@/hooks/useSkinDebug";
-import { useSkinBindState, useSkinControlEnabled } from "@/lib/skinBinds";
-import { resolveSkinTooltip } from "@/lib/skinTooltips";
+import { useSkinBindState, useSkinControlEnabled } from "@/lib/skin/skinBinds";
+import { resolveSkinTooltip } from "@/lib/skin/skinTooltips";
 import { useEqualizerStore } from "@/store/useEqualizerStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { LoadedSkinPack, SliderNode } from "@/types/skin";

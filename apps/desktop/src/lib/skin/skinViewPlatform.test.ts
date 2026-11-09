@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parseSkinAuxWindowLabel, skinAuxWindowLabel } from "./skinAuxContext";
+import {
+  parseSkinAuxWindowLabel,
+  skinAuxWindowLabel,
+} from "./auxWindow/skinAuxContext";
 import {
   canSwitchView,
   isAuxiliaryView,
@@ -8,7 +11,7 @@ import {
   primaryViewId,
   resolveViewDragInference,
 } from "./skinWindowPresentation";
-import { resolveViewWindowChrome } from "./skinModeWindowChrome";
+import { resolveViewWindowChrome } from "./modeWindow/skinModeWindowChrome";
 import type { LoadedSkinPack } from "@/types/skin";
 
 function makePack(views: LoadedSkinPack["manifest"]["views"]): LoadedSkinPack {

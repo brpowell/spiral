@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { TextNode } from "@/types/skin";
 import { SkinText } from "./SkinText";
 
-vi.mock("@/lib/skinBinds", () => ({
+vi.mock("@/lib/skin/skinBinds", () => ({
   useSkinBindValue: () => null,
   useSkinBindState: () => ({ viewState: {}, hoveredNodeIds: new Set() }),
   evaluateSkinCondition: () => false,

@@ -33,7 +33,10 @@ import { toggleStubLocaleAndReload } from "./lib/appLocale";
 import { t } from "./lib/i18n";
 import { fetchMissingLyrics } from "./lib/fetchMissingLyrics";
 import { refreshLibraryMetadata } from "./lib/refreshLibraryMetadata";
-import { openSkinMode, quitApplication } from "./lib/skinModeWindow";
+import {
+  openSkinMode,
+  quitApplication,
+} from "./lib/skin/modeWindow/skinModeWindow";
 import { openActivityLogsWindow } from "./lib/activityLogsWindow";
 import {
   openAppearanceWindow,

@@ -1,30 +1,30 @@
 import { emit } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { ensureAppWindow } from "./appWindows";
+import { ensureAppWindow } from "@/lib/appWindows";
 import { availableMonitors, getCurrentWindow } from "@tauri-apps/api/window";
 import {
   closeAllSkinAuxWindows,
   prewarmSkinAuxWindows,
   restoreOpenSkinAuxWindows,
-} from "./skinAuxWindow";
+} from "@/lib/skin/auxWindow/skinAuxWindow";
 import {
   applyPackWindowLayout,
   persistSkinModeStateForSkin,
   resolveViewWindowChrome,
   suppressSkinModeSnap,
 } from "./skinModeWindowChrome";
-import { resolveViewForPack } from "./skinViewState";
+import { resolveViewForPack } from "@/lib/skin/skinViewState";
 import { useSkinStore } from "@/store/useSkinStore";
-import { getActiveSkinId, loadSkinPack, quitApp } from "./tauri";
+import { getActiveSkinId, loadSkinPack, quitApp } from "@/lib/tauri";
 import {
   patchPersistedSkinModeState,
   readPersistedSkinModeState,
   DEFAULT_SKIN_MODE_ALWAYS_ON_TOP,
 } from "./skinModeWindowState";
-import { PLAYER_REQUEST_STATE_EVENT } from "./playerStoreBridge";
+import { PLAYER_REQUEST_STATE_EVENT } from "@/lib/playerStoreBridge";
 import { setSkinModeAlwaysOnTopSnapshot } from "./skinModeAlwaysOnTop";
-import { setSkinModeSessionActive } from "./listenSession";
-import { isTauri } from "./windowRole";
+import { setSkinModeSessionActive } from "@/lib/listenSession";
+import { isTauri } from "@/lib/windowRole";
 
 export { DEFAULT_SKIN_MODE_ALWAYS_ON_TOP } from "./skinModeWindowState";
 

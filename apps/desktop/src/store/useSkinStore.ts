@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { emit } from "@tauri-apps/api/event";
-import { SKIN_CHANGED_EVENT, type SkinChangedPayload } from "@/lib/skinBridge";
+import {
+  SKIN_CHANGED_EVENT,
+  type SkinChangedPayload,
+} from "@/lib/skin/skinBridge";
 import {
   getActiveSkinId,
   listSkins,
@@ -11,29 +14,29 @@ import {
 import {
   applySkinChangeWindowLayout,
   applySwitchViewWindowLayout,
-} from "@/lib/skinModeWindowChrome";
+} from "@/lib/skin/modeWindow/skinModeWindowChrome";
 import {
   closeAllSkinAuxWindows,
   closeSkinAuxWindow,
   isSkinAuxViewOpen,
   openSkinAuxWindow,
   restoreOpenSkinAuxWindows,
-} from "@/lib/skinAuxWindow";
+} from "@/lib/skin/auxWindow/skinAuxWindow";
 import {
   readOpenAuxViewsForSkin,
   removeOpenAuxView,
-} from "@/lib/skinAuxViewState";
-import { isSkinModeVisible } from "@/lib/skinModeWindow";
+} from "@/lib/skin/auxWindow/skinAuxViewState";
+import { isSkinModeVisible } from "@/lib/skin/modeWindow/skinModeWindow";
 import {
   canSwitchView,
   isAuxiliaryView,
   viewWindowGrows,
   viewWindowSizeChanged,
-} from "@/lib/skinWindowPresentation";
-import { resolveViewForPack, writeViewForSkin } from "@/lib/skinViewState";
-import { SKIN_PLAYLIST_SOURCE_ALL } from "@/lib/skinPlaylist";
-import { preloadSkinStylesheet } from "@/lib/skinStylesheetCache";
-import { preloadSkinSwitchAssets } from "@/lib/skinViewAssetPreload";
+} from "@/lib/skin/skinWindowPresentation";
+import { resolveViewForPack, writeViewForSkin } from "@/lib/skin/skinViewState";
+import { SKIN_PLAYLIST_SOURCE_ALL } from "@/lib/skin/skinPlaylist";
+import { preloadSkinStylesheet } from "@/lib/skin/skinStylesheetCache";
+import { preloadSkinSwitchAssets } from "@/lib/skin/skinViewAssetPreload";
 import type { LoadedSkinPack, SkinSummary } from "@/types/skin";
 import { isAppearanceWindow, isSkinModeWindow } from "@/lib/windowRole";
 import { useSkinPreferencesStore } from "./useSkinPreferencesStore";

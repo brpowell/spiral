@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import * as audio from "./playback";
-import { subscribePlaybackClock } from "./playbackClock";
-import { presetLabel } from "./equalizer/builtinPresets";
-import { formatTime, formatRemainingTime } from "./format";
-import { buildPlaybackOrder } from "./playbackOrder";
-import { findPlaybackTrack } from "./playbackTrack";
-import { getManualNextId } from "./playbackQueue";
-import { getNextSkippingKnownUnplayable } from "./playbackSkip";
+import * as audio from "@/lib/playback";
+import { subscribePlaybackClock } from "@/lib/playbackClock";
+import { presetLabel } from "@/lib/equalizer/builtinPresets";
+import { formatTime, formatRemainingTime } from "@/lib/format";
+import { buildPlaybackOrder } from "@/lib/playbackOrder";
+import { findPlaybackTrack } from "@/lib/playbackTrack";
+import { getManualNextId } from "@/lib/playbackQueue";
+import { getNextSkippingKnownUnplayable } from "@/lib/playbackSkip";
 import { formatMetadataLine, playbackStatus } from "./skinMetadataLine";
-import { useSkinModeAlwaysOnTop } from "./skinModeAlwaysOnTop";
-import { isAnySkinWindow } from "./windowRole";
+import { useSkinModeAlwaysOnTop } from "./modeWindow/skinModeAlwaysOnTop";
+import { isAnySkinWindow } from "@/lib/windowRole";
 import { evaluateSlideshowBind } from "./skinSlideshow";
 import { evaluateScrollStripBind } from "./skinScrollStrip";
 import { evaluateStateBind, useSkinViewState } from "./skinViewStateContext";
@@ -20,7 +20,10 @@ import {
   labelForSkinPlaylistSource,
   resolveSkinPlaylistTrackCount,
 } from "./skinPlaylist";
-import { activeVisualizerName, canCycleVisualizers } from "./visualizerCycle";
+import {
+  activeVisualizerName,
+  canCycleVisualizers,
+} from "@/lib/visualizerCycle";
 import { useAssetUrl } from "@/hooks/useAssetUrl";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";
@@ -32,7 +35,10 @@ import { useSkinPreferencesStore } from "@/store/useSkinPreferencesStore";
 import { soundEffectsEnabledFromPreferences } from "@/types/skinPreferences";
 import type { SkinUserPreferences } from "@/types/skinPreferences";
 import { evaluateAuthorSkinPref } from "./skinPrefSettings";
-import type { EqualizerBandGains, EqualizerPreset } from "./equalizer/types";
+import type {
+  EqualizerBandGains,
+  EqualizerPreset,
+} from "@/lib/equalizer/types";
 import type { PlayableRef } from "@/types/playable";
 import type {
   ScrollStripPresentation,

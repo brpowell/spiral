@@ -35,11 +35,11 @@ import {
   sanitizeWindowSize,
   suppressSkinModeSnap,
   windowSizeLimitsFromChrome,
-} from "./skinModeWindowChrome";
-import { restoreSkinModeGeometry } from "./skinModeSnap";
-import { DEFAULT_SKIN_MODE_ALWAYS_ON_TOP } from "./skinModeWindowState";
-import { isTauri } from "./windowRole";
-import { isAuxiliaryView } from "./skinWindowPresentation";
+} from "@/lib/skin/modeWindow/skinModeWindowChrome";
+import { restoreSkinModeGeometry } from "@/lib/skin/modeWindow/skinModeSnap";
+import { DEFAULT_SKIN_MODE_ALWAYS_ON_TOP } from "@/lib/skin/modeWindow/skinModeWindowState";
+import { isTauri } from "@/lib/windowRole";
+import { isAuxiliaryView } from "@/lib/skin/skinWindowPresentation";
 
 const openingAuxWindows = new Map<string, Promise<void>>();
 
