@@ -1,12 +1,12 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import {
   coverArtThumbSrc,
   coverOptionMetaText,
   isCoverArtThumbReady,
-} from "../../lib/coverArtThumbs";
-import type { CoverArtCandidate } from "../../types/coverArt";
+} from "@/lib/art/coverArtThumbs";
+import type { CoverArtCandidate } from "@/types/coverArt";
 import {
   Modal,
   ModalBody,
@@ -15,7 +15,7 @@ import {
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
-} from "../common/Modal/Modal";
+} from "@/components/common/Modal/Modal";
 import "./AlbumArtPicker.css";
 
 export type AlbumArtType = "front" | "portrait";

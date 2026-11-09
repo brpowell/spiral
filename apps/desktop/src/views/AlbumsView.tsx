@@ -1,15 +1,15 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlbumCard } from "../components/AlbumCard/AlbumCard";
-import { BrowseView } from "../components/BrowseView/BrowseView";
-import { BrowseViewHeader } from "../components/BrowseView/BrowseViewHeader";
-import { BrowseGridBody } from "../components/BrowseView/BrowseGridBody";
-import { BrowseVirtualGrid } from "../components/BrowseView/BrowseVirtualGrid";
-import { LibraryEmptyState } from "../components/LibraryEmptyState/LibraryEmptyState";
-import { useDebouncedValue } from "../hooks/useDebouncedValue";
-import { SearchField } from "../components/SearchField/SearchField";
-import { createFuzzyMatcher } from "../lib/fuzzySearch";
-import type { Album } from "../types/album";
+import { AlbumCard } from "@/components/AlbumCard/AlbumCard";
+import { BrowseView } from "@/components/BrowseView/BrowseView";
+import { BrowseViewHeader } from "@/components/BrowseView/BrowseViewHeader";
+import { BrowseGridBody } from "@/components/BrowseView/BrowseGridBody";
+import { BrowseVirtualGrid } from "@/components/BrowseView/BrowseVirtualGrid";
+import { LibraryEmptyState } from "@/components/LibraryEmptyState/LibraryEmptyState";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { SearchField } from "@/components/SearchField/SearchField";
+import { createFuzzyMatcher } from "@/lib/ui/fuzzySearch";
+import type { Album } from "@/types/album";
 
 interface AlbumsViewProps {
   albums: Album[];

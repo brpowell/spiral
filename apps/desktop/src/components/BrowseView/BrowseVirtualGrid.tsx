@@ -18,7 +18,7 @@ import {
   browseGridRowCount,
   browseGridRowHeight,
   parseGridTemplateTracks,
-} from "../../lib/browseGridLayout";
+} from "@/lib/ui/browseGridLayout";
 
 interface BrowseGridMetrics {
   columns: number;

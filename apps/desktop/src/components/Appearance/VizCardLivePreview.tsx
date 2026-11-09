@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { useVisualizerStore } from "../../store/useVisualizerStore";
-import { useThemePalette } from "../visualizer/context";
-import { SceneRenderer } from "../visualizer/scene/SceneRenderer";
-import type { Visualizer } from "../visualizer/types";
+import { useVisualizerStore } from "@/store/useVisualizerStore";
+import { useThemePalette } from "@/components/visualizer/context";
+import { SceneRenderer } from "@/components/visualizer/scene/SceneRenderer";
+import type { Visualizer } from "@/components/visualizer/types";
 import { useVizCardPreviewFrameRef } from "./vizCardPreviewAudio";
 
 export function VizCardLivePreview({

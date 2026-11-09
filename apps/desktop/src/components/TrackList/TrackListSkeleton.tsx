@@ -1,4 +1,4 @@
-import { Skeleton } from "../common/Skeleton/Skeleton";
+import { Skeleton } from "@/components/common/Skeleton/Skeleton";
 import "./TrackListSkeleton.css";
 
 const ROW_COUNT = 24;

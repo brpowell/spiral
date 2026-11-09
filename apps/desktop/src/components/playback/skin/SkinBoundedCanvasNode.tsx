@@ -1,27 +1,23 @@
 import { useMemo } from "react";
-import type {
-  LayoutNode,
-  LoadedSkinPack,
-  SkinCondition,
-} from "../../../types/skin";
+import type { LayoutNode, LoadedSkinPack, SkinCondition } from "@/types/skin";
 import {
   evaluateSkinCondition,
   useSkinBindState,
   useSkinVisible,
-} from "../../../lib/skinBinds";
+} from "@/lib/skin/skinBinds";
 import {
   getNodeBoundsWhen,
   resolveNodeBounds,
-} from "../../../lib/skinBoundsWhen";
+} from "@/lib/skin/skinBoundsWhen";
 import {
   useSkinHoverLeaveEffects,
   useSkinHoverPointerHandlers,
-} from "../../../lib/skinHoverContext";
-import { resolveLocalBounds } from "../../../lib/skinLayout";
-import { resolveNodeStyle } from "../../../lib/skinNodeStyle";
-import { resolveNodeTransition } from "../../../lib/skinTransition";
-import { iterWhenOverlays } from "../../../lib/skinWhenOverlays";
-import { resolveSkinWindowHitKind } from "../../../lib/skinWindowHit";
+} from "@/lib/skin/skinHoverContext";
+import { resolveLocalBounds } from "@/lib/skin/skinLayout";
+import { resolveNodeStyle } from "@/lib/skin/skinNodeStyle";
+import { resolveNodeTransition } from "@/lib/skin/skinTransition";
+import { iterWhenOverlays } from "@/lib/skin/skinWhenOverlays";
+import { resolveSkinWindowHitKind } from "@/lib/skin/skinWindowHit";
 import { SkinBounds } from "./SkinBounds";
 import { useButtonGroupElevationDelta } from "./SkinButtonGroupHitRegistry";
 import {

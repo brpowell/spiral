@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { SearchField } from "../SearchField/SearchField";
+import { SearchField } from "@/components/SearchField/SearchField";
 
 export interface LicensePackage {
   name: string;
@@ -29,7 +29,7 @@ export interface ThirdPartyLicenseData {
  * only loaded when the Licenses tab is opened.
  */
 function loadBundledLicenses(): Promise<ThirdPartyLicenseData> {
-  return import("../../assets/licenses/third-party.json").then(
+  return import("@/assets/licenses/third-party.json").then(
     (module) => module.default as ThirdPartyLicenseData,
   );
 }

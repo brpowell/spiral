@@ -1,25 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import type { AppearanceSection } from "../../lib/appearanceWindow";
-import { useAppearanceSection } from "../../hooks/useAppearanceSection";
-import { useAppearanceThemeEditor } from "../../hooks/useAppearanceThemeEditor";
-import { viewTransition } from "../../lib/motion";
+import type { AppearanceSection } from "@/lib/windows/appearanceWindow";
+import { useAppearanceSection } from "@/hooks/useAppearanceSection";
+import { useAppearanceThemeEditor } from "@/hooks/useAppearanceThemeEditor";
+import { viewTransition } from "@/lib/ui/motion";
 import { useVizCardSnapshotPrewarm } from "./vizCardSnapshot";
-import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
-import { useThemeStore } from "../../store/useThemeStore";
+import { useItemUpdatesStore } from "@/store/useItemUpdatesStore";
+import { useThemeStore } from "@/store/useThemeStore";
 import {
   SidebarFrame,
   SidebarList,
   SidebarSection,
-} from "../layout/SidebarChrome";
-import { SidebarItem } from "../layout/SidebarItem/SidebarItem";
+} from "@/components/layout/SidebarChrome";
+import { SidebarItem } from "@/components/layout/SidebarItem/SidebarItem";
 import {
   StatusIndicator,
   StatusIndicatorAnchor,
-} from "../common/StatusIndicator/StatusIndicator";
-import { IconDownload } from "../icons";
-import { ThemeEditor } from "../ThemeEditor/ThemeEditor";
+} from "@/components/common/StatusIndicator/StatusIndicator";
+import { IconDownload } from "@/components/icons";
+import { ThemeEditor } from "@/components/ThemeEditor/ThemeEditor";
 import {
   APPEARANCE_CATALOG_SECTION,
   APPEARANCE_CONTENT_SECTIONS,

@@ -1,5 +1,5 @@
-import { resolveDrive, type DriveContext } from "../../../lib/presentation/drives";
-import type { TransformDriveKey } from "../../../lib/presentation/types";
+import { resolveDrive, type DriveContext } from "@/lib/presentation/drives";
+import type { TransformDriveKey } from "@/lib/presentation/types";
 import type { VizSceneLayer } from "./types";
 
 export interface ResolvedLayerTransform {

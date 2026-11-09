@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { skinPreviewUrl } from "../../lib/skinAssets";
-import { useSkinStore } from "../../store/useSkinStore";
-import type { SkinSummary } from "../../types/skin";
+import { skinPreviewUrl } from "@/lib/skin/skinAssets";
+import { useSkinStore } from "@/store/useSkinStore";
+import type { SkinSummary } from "@/types/skin";
 import { ItemActionsMenu } from "./ItemActionsMenu";
 import { ItemUpdateButton } from "./ItemUpdateButton";
 import { AppearancePackCard } from "./AppearancePackCard";

@@ -6,7 +6,7 @@ import {
   useState,
   type AnimationEvent,
 } from "react";
-import { usePrefersReducedMotion } from "../context";
+import { usePrefersReducedMotion } from "@/components/visualizer/context";
 
 type VisualizerExpandStage = "mini" | "expanded";
 type VisualizerExpandMotion = "idle" | "recede" | "emerge";

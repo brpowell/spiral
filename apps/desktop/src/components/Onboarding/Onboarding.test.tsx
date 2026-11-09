@@ -1,9 +1,9 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useOnboardingStore } from "../../store/useOnboardingStore";
-import { useSourcesStore } from "../../store/useSourcesStore";
-import type { Source } from "../../types/source";
-import { BUY_ME_A_COFFEE_URL } from "../About/aboutContent";
+import { useOnboardingStore } from "@/store/useOnboardingStore";
+import { useSourcesStore } from "@/store/useSourcesStore";
+import type { Source } from "@/types/source";
+import { BUY_ME_A_COFFEE_URL } from "@/components/About/aboutContent";
 import {
   Onboarding,
   ONBOARDING_FADE_MS,
@@ -23,7 +23,7 @@ const tauri = vi.hoisted(() => ({
   pickMusicFolder: vi.fn(),
   addSource: vi.fn(),
 }));
-vi.mock("../../lib/tauri", () => tauri);
+vi.mock("@/lib/tauri", () => tauri);
 
 const tracks = {
   id: 1,

@@ -1,11 +1,11 @@
 import { useRef, type KeyboardEvent } from "react";
-import { IconClose, IconSearch } from "../icons";
+import { IconClose, IconSearch } from "@/components/icons";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from "../common/InputGroup/InputGroup";
+} from "@/components/common/InputGroup/InputGroup";
 import "./SearchField.css";
 
 export interface SearchFieldProps {
@@ -38,7 +38,9 @@ export function SearchField({
   };
 
   return (
-    <InputGroup className={["search-field", className].filter(Boolean).join(" ")}>
+    <InputGroup
+      className={["search-field", className].filter(Boolean).join(" ")}
+    >
       <InputGroupInput
         ref={inputRef}
         role="searchbox"

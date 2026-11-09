@@ -1,8 +1,11 @@
-import "../vendor/spiral-motion/bundle.js";
-import "../components/Onboarding/Onboarding.css";
-import { useOnboardingStore } from "../store/useOnboardingStore";
-import { t } from "./i18n";
-import { usesCustomWindowChrome, usesMacOverlayChrome } from "./windowChrome";
+import "@/vendor/spiral-motion/bundle.js";
+import "@/components/Onboarding/Onboarding.css";
+import { useOnboardingStore } from "@/store/useOnboardingStore";
+import { t } from "./i18n/i18n";
+import {
+  usesCustomWindowChrome,
+  usesMacOverlayChrome,
+} from "./windows/windowChrome";
 
 /**
  * Where the overlay starts, so it sits below the window's title bar and leaves

@@ -2,7 +2,7 @@ import { Fragment } from "react";
 import {
   ContextMenuHeading,
   ContextMenuOptionItem,
-} from "../../ContextMenu/ContextMenu";
+} from "@/components/ContextMenu/ContextMenu";
 import { SelectShell } from "./SelectShell";
 import type { SelectBaseProps } from "./selectTypes";
 

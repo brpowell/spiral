@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { slugifyId } from "../../../lib/items/itemIds";
-import { TextInput, type TextInputProps } from "../TextInput/TextInput";
+import { slugifyId } from "@/lib/items/itemIds";
+import {
+  TextInput,
+  type TextInputProps,
+} from "@/components/common/TextInput/TextInput";
 
 export type SlugFieldProps = Omit<
   TextInputProps,

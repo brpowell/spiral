@@ -1,16 +1,16 @@
 import { motion } from "framer-motion";
 import { useMemo } from "react";
-import { groupAlbumsForTimeline } from "../../lib/discographyTimeline";
+import { groupAlbumsForTimeline } from "@/lib/artists/discographyTimeline";
 import {
   artistTrackCountOnAlbum,
   type ArtistBrowseMode,
-} from "../../lib/artists";
-import { t } from "../../lib/i18n";
-import { useAlbumEditMenu } from "../../hooks/useAlbumEditMenu";
-import { useNavigationStore } from "../../store/useNavigationStore";
-import { EntityArt } from "../EntityArt/EntityArt";
-import type { Album } from "../../types/album";
-import type { Artist } from "../../types/artist";
+} from "@/lib/artists/artists";
+import { t } from "@/lib/i18n/i18n";
+import { useAlbumEditMenu } from "@/hooks/useAlbumEditMenu";
+import { useNavigationStore } from "@/store/useNavigationStore";
+import { EntityArt } from "@/components/EntityArt/EntityArt";
+import type { Album } from "@/types/album";
+import type { Artist } from "@/types/artist";
 import "./DiscographyTimeline.css";
 
 interface DiscographyTimelineProps {

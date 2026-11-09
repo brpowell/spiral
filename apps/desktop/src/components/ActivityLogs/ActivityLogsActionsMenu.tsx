@@ -1,19 +1,19 @@
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { clearActivityLogsRemote } from "../../lib/activityLogBridge";
-import { formatActivityLogDisplayList } from "../../lib/activityLogLine";
-import { showActivityLogCopiedToast } from "../../lib/activityLogToast";
-import { copyTextToClipboard } from "../../lib/clipboard";
-import { saveDiagnosticsToFile } from "../../lib/diagnosticsExport";
-import { useActivityLogStore } from "../../store/useActivityLogStore";
-import type { ActivityLogEntry } from "../../types/activityLog";
+import { clearActivityLogsRemote } from "@/lib/activity/activityLogBridge";
+import { formatActivityLogDisplayList } from "@/lib/activity/activityLogLine";
+import { showActivityLogCopiedToast } from "@/lib/activity/activityLogToast";
+import { copyTextToClipboard } from "@/lib/ui/clipboard";
+import { saveDiagnosticsToFile } from "@/lib/activity/diagnosticsExport";
+import { useActivityLogStore } from "@/store/useActivityLogStore";
+import type { ActivityLogEntry } from "@/types/activityLog";
 import {
   ContextMenuCheckboxItem,
   ContextMenuItem,
   ContextMenuSeparator,
-} from "../ContextMenu/ContextMenu";
-import { IconCopy, IconOpenFolder, IconReset } from "../icons";
-import { MenuButton } from "../MenuButton/MenuButton";
+} from "@/components/ContextMenu/ContextMenu";
+import { IconCopy, IconOpenFolder, IconReset } from "@/components/icons";
+import { MenuButton } from "@/components/MenuButton/MenuButton";
 
 interface ActivityLogsActionsMenuProps {
   entries: ActivityLogEntry[];

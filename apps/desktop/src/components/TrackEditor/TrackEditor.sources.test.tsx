@@ -8,10 +8,10 @@ vi.mock("@tauri-apps/api/core", () => ({
   Channel: class {},
 }));
 
-import { usePlayerStore } from "../../store/usePlayerStore";
-import { useSourcesStore } from "../../store/useSourcesStore";
-import type { Source } from "../../types/source";
-import type { Track } from "../../types/track";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { useSourcesStore } from "@/store/useSourcesStore";
+import type { Source } from "@/types/source";
+import type { Track } from "@/types/track";
 import { TrackEditor } from "./TrackEditor";
 
 const watched: Source = {

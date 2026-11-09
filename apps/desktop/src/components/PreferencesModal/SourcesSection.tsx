@@ -1,11 +1,11 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useShortenHomePath } from "../../lib/homePath";
+import { useShortenHomePath } from "@/lib/files/homePath";
 import {
   countTracksBySource,
   describeSourceError,
   sourceDisplayName,
-} from "../../lib/sourceAccess";
+} from "@/lib/files/sourceAccess";
 import {
   addSource,
   pickMusicFolder,
@@ -13,16 +13,16 @@ import {
   rescanSource,
   revealPathInFileManager,
   setImportSource,
-} from "../../lib/tauri";
-import { sourceScanPayload } from "../../lib/toastPayloads";
-import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
-import { usePlayerStore } from "../../store/usePlayerStore";
-import { useSourcesStore } from "../../store/useSourcesStore";
-import type { Source } from "../../types/source";
-import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
-import { Button } from "../common/Button/Button";
-import { FormField } from "../common/Field/Field";
-import { IconOpenFolder, IconPlus } from "../icons";
+} from "@/lib/tauri";
+import { sourceScanPayload } from "@/lib/toast/toastPayloads";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { useSourcesStore } from "@/store/useSourcesStore";
+import type { Source } from "@/types/source";
+import { AlertConfirmation } from "@/components/common/AlertConfirmation/AlertConfirmation";
+import { Button } from "@/components/common/Button/Button";
+import { FormField } from "@/components/common/Field/Field";
+import { IconOpenFolder, IconPlus } from "@/components/icons";
 import { SourceCard } from "./SourceCard";
 import { SourceEditFlow } from "./SourceEditFlow";
 import "./SourcesSection.css";

@@ -12,23 +12,23 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuSubmenu,
-} from "../ContextMenu/ContextMenu";
+} from "@/components/ContextMenu/ContextMenu";
 import {
   IconClose,
   IconWindowMaximize,
   IconWindowMinimize,
   IconWindowRestore,
-} from "../icons";
+} from "@/components/icons";
 import {
   linkedPacksAvailable,
   type AppMenuBarId,
   type AppMenuHandlers,
-} from "../../lib/appMenu";
-import { LINKED_PACKS_CHANGED_EVENT } from "../../lib/appearanceWindow";
-import { stubLocaleMenuLabel } from "../../lib/appLocale";
-import { t } from "../../lib/i18n";
-import { useContextMenu } from "../../hooks/useContextMenu";
-import { useOnboardingStore } from "../../store/useOnboardingStore";
+} from "@/lib/windows/appMenu";
+import { LINKED_PACKS_CHANGED_EVENT } from "@/lib/windows/appearanceWindow";
+import { stubLocaleMenuLabel } from "@/lib/i18n/appLocale";
+import { t } from "@/lib/i18n/i18n";
+import { useContextMenu } from "@/hooks/useContextMenu";
+import { useOnboardingStore } from "@/store/useOnboardingStore";
 import "./WindowTitleBar.css";
 
 const MENU_ITEMS: { id: AppMenuBarId; label: string }[] = [

@@ -1,17 +1,17 @@
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Track } from "../../../types/track";
+import type { Track } from "@/types/track";
 
 const env = vi.hoisted(() => ({ skinWindow: false, audioSeconds: 0 }));
 
-vi.mock("../../../lib/windowRole", async (importOriginal) => {
+vi.mock("@/lib/windows/windowRole", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("../../../lib/windowRole")>();
+    await importOriginal<typeof import("@/lib/windows/windowRole")>();
   return { ...actual, isAnySkinWindow: () => env.skinWindow };
 });
 
-vi.mock("../../../lib/playback", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../../lib/playback")>();
+vi.mock("@/lib/playback", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/playback")>();
   return {
     ...actual,
     getPositionSeconds: () => env.audioSeconds,
@@ -19,9 +19,9 @@ vi.mock("../../../lib/playback", async (importOriginal) => {
   };
 });
 
-import { resetPlaybackClock } from "../../../lib/playbackClock";
-import { resetPlaybackClockPin } from "../../../lib/playbackClockPin";
-import { usePlayerStore } from "../../../store/usePlayerStore";
+import { resetPlaybackClock } from "@/lib/playback/playbackClock";
+import { resetPlaybackClockPin } from "@/lib/playback/playbackClockPin";
+import { usePlayerStore } from "@/store/usePlayerStore";
 import { SeekBar } from "./SeekBar";
 
 function track(): Track {

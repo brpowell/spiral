@@ -1,6 +1,6 @@
-import { TrackRating } from "../TrackRating/TrackRating";
-import type { CanonicalRating } from "../../lib/trackRating";
-import { IconStar } from "../icons";
+import { TrackRating } from "@/components/TrackRating/TrackRating";
+import type { CanonicalRating } from "@/lib/tracks/trackRating";
+import { IconStar } from "@/components/icons";
 import "./ContextMenuRatingItem.css";
 
 interface ContextMenuRatingItemProps {

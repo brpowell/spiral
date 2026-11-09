@@ -2,8 +2,14 @@
  * Host ↔ worker message protocol for sandboxed visualizer draw modules.
  */
 
-import type { VizFrame, VizRendererEngine } from "../vizRendererApi";
-import type { VizTrackImagePayload, VizTrackWire } from "../vizTrack";
+import type {
+  VizFrame,
+  VizRendererEngine,
+} from "@/components/visualizer/vizRendererApi";
+import type {
+  VizTrackImagePayload,
+  VizTrackWire,
+} from "@/components/visualizer/vizTrack";
 
 export interface VizTrackMediaMessage {
   art: VizTrackImagePayload | null;

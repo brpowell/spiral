@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useTagWriteConfirmStore } from "../../store/useTagWriteConfirmStore";
-import { IconWarning } from "../icons";
-import { Alert } from "../common/Alert/Alert";
-import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
-import { Checkbox } from "../common/Checkbox/Checkbox";
+import { useTagWriteConfirmStore } from "@/store/useTagWriteConfirmStore";
+import { IconWarning } from "@/components/icons";
+import { Alert } from "@/components/common/Alert/Alert";
+import { AlertConfirmation } from "@/components/common/AlertConfirmation/AlertConfirmation";
+import { Checkbox } from "@/components/common/Checkbox/Checkbox";
 import "./TagWriteConfirmDialog.css";
 
 export function TagWriteConfirmDialog() {

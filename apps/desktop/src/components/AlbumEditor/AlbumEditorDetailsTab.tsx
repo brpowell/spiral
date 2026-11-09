@@ -2,11 +2,11 @@ import { useTranslation } from "react-i18next";
 import {
   albumMixedFieldPlaceholder,
   type AlbumEditorForm,
-} from "../../lib/albumMetadata";
-import type { Track } from "../../types/track";
-import { AutocompleteInput } from "../common/AutocompleteInput/AutocompleteInput";
-import { FormField } from "../common/Field/Field";
-import { TextInput } from "../common/TextInput/TextInput";
+} from "@/lib/albums/albumMetadata";
+import type { Track } from "@/types/track";
+import { AutocompleteInput } from "@/components/common/AutocompleteInput/AutocompleteInput";
+import { FormField } from "@/components/common/Field/Field";
+import { TextInput } from "@/components/common/TextInput/TextInput";
 
 export type AlbumEditorDetailsTabProps = {
   form: AlbumEditorForm;

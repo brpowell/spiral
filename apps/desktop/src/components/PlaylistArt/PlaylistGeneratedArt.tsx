@@ -1,7 +1,7 @@
-import { useAssetUrl } from "../../hooks/useAssetUrl";
-import { uniqueAlbumArtPaths } from "../../lib/playlistArt";
-import type { Track } from "../../types/track";
-import { IconAlbums } from "../icons";
+import { useAssetUrl } from "@/hooks/useAssetUrl";
+import { uniqueAlbumArtPaths } from "@/lib/playlists/playlistArt";
+import type { Track } from "@/types/track";
+import { IconAlbums } from "@/components/icons";
 import "./PlaylistArt.css";
 
 interface PlaylistGeneratedArtProps {

@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import {
   canShowUpdateAction,
   fetchReleaseHistory,
@@ -10,26 +10,26 @@ import {
   pickSelectedVersion,
   resolveWhatsNewRows,
   type ReleaseNotesItem,
-} from "../../lib/releases/history";
-import { getAppVersion } from "../../lib/tauri";
-import { useUpdaterStore } from "../../store/useUpdaterStore";
-import { useWhatsNewStore } from "../../store/useWhatsNewStore";
-import { Alert } from "../common/Alert/Alert";
-import { Badge } from "../common/Badge/Badge";
-import { Button } from "../common/Button/Button";
-import { EmptyState } from "../common/EmptyState/EmptyState";
-import { MarkdownBody } from "../common/MarkdownBody/MarkdownBody";
+} from "@/lib/releases/history";
+import { getAppVersion } from "@/lib/tauri";
+import { useUpdaterStore } from "@/store/useUpdaterStore";
+import { useWhatsNewStore } from "@/store/useWhatsNewStore";
+import { Alert } from "@/components/common/Alert/Alert";
+import { Badge } from "@/components/common/Badge/Badge";
+import { Button } from "@/components/common/Button/Button";
+import { EmptyState } from "@/components/common/EmptyState/EmptyState";
+import { MarkdownBody } from "@/components/common/MarkdownBody/MarkdownBody";
 import {
   Modal,
   ModalBody,
   ModalCloseButton,
   ModalHeader,
   ModalTitle,
-} from "../common/Modal/Modal";
-import { Skeleton } from "../common/Skeleton/Skeleton";
-import { SidebarFrame, SidebarList } from "../layout/SidebarChrome";
-import { SidebarItem } from "../layout/SidebarItem/SidebarItem";
-import { IconCheck, IconErrorAlert } from "../icons";
+} from "@/components/common/Modal/Modal";
+import { Skeleton } from "@/components/common/Skeleton/Skeleton";
+import { SidebarFrame, SidebarList } from "@/components/layout/SidebarChrome";
+import { SidebarItem } from "@/components/layout/SidebarItem/SidebarItem";
+import { IconCheck, IconErrorAlert } from "@/components/icons";
 import "./WhatsNewModal.css";
 
 type LoadState = "loading" | "ready" | "error";

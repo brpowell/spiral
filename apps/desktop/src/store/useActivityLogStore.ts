@@ -3,7 +3,7 @@ import type {
   ActivityLogDomain,
   ActivityLogEntry,
   LogLevel,
-} from "../types/activityLog";
+} from "@/types/activityLog";
 
 const MIN_LEVELS: Record<LogLevel, number> = {
   debug: 0,
@@ -25,11 +25,11 @@ interface ActivityLogState {
   setAutoScroll: (enabled: boolean) => void;
 }
 
-function entryMatchesDomain(entry: ActivityLogEntry, domain: ActivityLogDomain): boolean {
-  return (
-    entry.domain === domain ||
-    entry.domain.startsWith(`${domain}.`)
-  );
+function entryMatchesDomain(
+  entry: ActivityLogEntry,
+  domain: ActivityLogDomain,
+): boolean {
+  return entry.domain === domain || entry.domain.startsWith(`${domain}.`);
 }
 
 export function filterActivityLogEntries(

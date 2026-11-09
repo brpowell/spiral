@@ -1,6 +1,6 @@
 // Old substring vs fuzzy search on synthetic data. Run:
 //   npx esbuild scripts/bench-fuzzy-search.ts --bundle --platform=node --format=esm --outfile=$TMPDIR/bench.mjs && node --expose-gc $TMPDIR/bench.mjs [trackCount]
-import { createFuzzyMatcher } from "../src/lib/fuzzySearch";
+import { createFuzzyMatcher } from "../src/lib/ui/fuzzySearch";
 
 interface T {
   title: string;

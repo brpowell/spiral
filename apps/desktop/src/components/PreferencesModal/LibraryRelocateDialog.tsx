@@ -7,16 +7,16 @@ import {
   type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
-import type { LibraryRelocateMode } from "../../types/library";
-import { Button } from "../common/Button/Button";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import type { LibraryRelocateMode } from "@/types/library";
+import { Button } from "@/components/common/Button/Button";
 import {
   Modal,
   ModalBody,
   ModalFooter,
   ModalHeader,
   ModalTitle,
-} from "../common/Modal/Modal";
+} from "@/components/common/Modal/Modal";
 
 export interface LibraryRelocateAction {
   label: string;

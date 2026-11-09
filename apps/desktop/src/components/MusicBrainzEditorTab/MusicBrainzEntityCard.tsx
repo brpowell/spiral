@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import type { MusicBrainzHitFact } from "../../lib/musicBrainzEntityDisplay";
-import { Skeleton } from "../common/Skeleton/Skeleton";
-import "../common/ChoiceOption/ChoiceOption.css";
+import type { MusicBrainzHitFact } from "@/lib/musicbrainz/musicBrainzEntityDisplay";
+import { Skeleton } from "@/components/common/Skeleton/Skeleton";
+import "@/components/common/ChoiceOption/ChoiceOption.css";
 import "./MusicBrainzEntityCard.css";
 
 const SKELETON_FACT_COUNT = 4;

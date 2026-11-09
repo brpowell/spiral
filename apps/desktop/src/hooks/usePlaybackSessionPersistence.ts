@@ -1,9 +1,9 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useRef } from "react";
-import { collectPlaybackSession } from "../lib/playbackSession";
-import { quitApp, savePlaybackSession } from "../lib/tauri";
-import { isSkinModeWindow } from "../lib/windowRole";
-import { flushOpenListenOnQuit, usePlayerStore } from "../store/usePlayerStore";
+import { collectPlaybackSession } from "@/lib/playback/playbackSession";
+import { quitApp, savePlaybackSession } from "@/lib/tauri";
+import { isSkinModeWindow } from "@/lib/windows/windowRole";
+import { flushOpenListenOnQuit, usePlayerStore } from "@/store/usePlayerStore";
 
 const SAVE_DEBOUNCE_MS = 1_500;
 

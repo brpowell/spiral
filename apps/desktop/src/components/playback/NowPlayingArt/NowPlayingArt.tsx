@@ -7,12 +7,12 @@ import {
 import {
   useNowPlayingDisplay,
   type NowPlayingDisplay,
-} from "../../../hooks/useNowPlayingDisplay";
-import { subscribeCrossfadeVisual } from "../../../lib/crossfadeVisualClock";
-import type { CrossfadeVisualState } from "../../../lib/playback";
-import { styleFromSkinNode } from "../../../lib/skinNodeStyle";
-import type { ArtworkNode, NodeStyle } from "../../../types/skin";
-import { IconDisc2 } from "../../icons";
+} from "@/hooks/useNowPlayingDisplay";
+import { subscribeCrossfadeVisual } from "@/lib/playback/crossfadeVisualClock";
+import type { CrossfadeVisualState } from "@/lib/playback";
+import { styleFromSkinNode } from "@/lib/skin/skinNodeStyle";
+import type { ArtworkNode, NodeStyle } from "@/types/skin";
+import { IconDisc2 } from "@/components/icons";
 import "./NowPlayingArt.css";
 
 function applyCrossfadeOpacity(

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { useCdStore } from "../store/useCdStore";
-import { useNavigationStore } from "../store/useNavigationStore";
+import { useCdStore } from "@/store/useCdStore";
+import { useNavigationStore } from "@/store/useNavigationStore";
 
 /** Subscribe to drive changes and close the CD view if the active disc is ejected. */
 export function useCdMonitor(): void {

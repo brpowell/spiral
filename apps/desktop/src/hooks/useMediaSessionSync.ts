@@ -1,9 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
-import * as audio from "../lib/playback";
-import { findPlaybackTrack } from "../lib/playbackTrack";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { isSkinModeWindow, isTauri } from "../lib/windowRole";
+import * as audio from "@/lib/playback";
+import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { isSkinModeWindow, isTauri } from "@/lib/windows/windowRole";
 
 /** Batch rapid store updates (e.g. track + play state) into one system push. */
 const COALESCE_MS = 80;
@@ -23,11 +23,12 @@ interface MediaSessionUpdate {
 function buildUpdate(
   state: ReturnType<typeof usePlayerStore.getState>,
 ): MediaSessionUpdate | null {
-  const track = findPlaybackTrack({
-    library: state.library,
-    playbackTracks: state.playbackTracks,
-    currentTrackId: state.currentTrackId,
-  }) ?? null;
+  const track =
+    findPlaybackTrack({
+      library: state.library,
+      playbackTracks: state.playbackTracks,
+      currentTrackId: state.currentTrackId,
+    }) ?? null;
 
   if (!track && state.playbackState === "stopped") {
     return {
@@ -91,7 +92,12 @@ export function useMediaSessionSync(): void {
       const libraryChanged = state.library !== prev.library;
       const positionChanged = state.positionSeconds !== prev.positionSeconds;
 
-      if (!trackChanged && !playbackChanged && !libraryChanged && !positionChanged) {
+      if (
+        !trackChanged &&
+        !playbackChanged &&
+        !libraryChanged &&
+        !positionChanged
+      ) {
         return;
       }
 
@@ -105,10 +111,7 @@ export function useMediaSessionSync(): void {
         positionDelta > 1.25;
 
       const delay =
-        trackChanged ||
-        playbackChanged ||
-        libraryChanged ||
-        isUserSeek
+        trackChanged || playbackChanged || libraryChanged || isUserSeek
           ? COALESCE_MS
           : POSITION_DEBOUNCE_MS;
 

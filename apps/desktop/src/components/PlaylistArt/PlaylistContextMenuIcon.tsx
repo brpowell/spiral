@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import type { Playlist } from "../../types/playlist";
-import type { Track } from "../../types/track";
+import type { Playlist } from "@/types/playlist";
+import type { Track } from "@/types/track";
 import { PlaylistArt } from "./PlaylistArt";
 
 interface PlaylistContextMenuIconProps {

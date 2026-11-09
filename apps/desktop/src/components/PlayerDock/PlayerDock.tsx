@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NowPlayingBar } from "../NowPlayingBar/NowPlayingBar";
+import { NowPlayingBar } from "@/components/NowPlayingBar/NowPlayingBar";
 import "./PlayerDock.css";
 
 export function PlayerDock() {

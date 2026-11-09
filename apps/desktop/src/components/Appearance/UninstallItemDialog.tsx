@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { uninstallItemWithRefresh } from "../../lib/items/itemActions";
+import { uninstallItemWithRefresh } from "@/lib/items/itemActions";
 import {
   collectClearableSkinSettings,
   type ClearableSkinSetting,
-} from "../../lib/packs/packSkinSettings";
-import type { ItemType } from "../../types/item";
-import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
-import { Checkbox } from "../common/Checkbox/Checkbox";
+} from "@/lib/packs/packSkinSettings";
+import type { ItemType } from "@/types/item";
+import { AlertConfirmation } from "@/components/common/AlertConfirmation/AlertConfirmation";
+import { Checkbox } from "@/components/common/Checkbox/Checkbox";
 
 /** Confirmation for uninstalling an installed item (skins can also clear their saved settings). */
 export function UninstallItemDialog({

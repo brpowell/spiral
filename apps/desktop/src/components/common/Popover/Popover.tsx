@@ -19,9 +19,9 @@ import { createPortal } from "react-dom";
 import {
   useContextMenu,
   type ContextMenuTriggerPlacement,
-} from "../../../hooks/useContextMenu";
-import { panelMotion } from "../../../lib/motion";
-import { Button, type ButtonProps } from "../Button/Button";
+} from "@/hooks/useContextMenu";
+import { panelMotion } from "@/lib/ui/motion";
+import { Button, type ButtonProps } from "@/components/common/Button/Button";
 import "./Popover.css";
 
 const FOCUSABLE =

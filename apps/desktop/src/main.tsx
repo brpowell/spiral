@@ -3,37 +3,40 @@ import ReactDOM from "react-dom/client";
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { I18nextProvider } from "react-i18next";
-import { WINDOW_READY_EVENT } from "./lib/appWindows";
+import { WINDOW_READY_EVENT } from "./lib/windows/appWindows";
 import App from "./App";
-import { AboutApp } from "./AboutApp";
-import { ActivityLogsApp } from "./ActivityLogsApp";
-import { AppearanceApp } from "./AppearanceApp";
-import { EqualizerApp } from "./EqualizerApp";
-import { SkinModeApp } from "./SkinModeApp";
-import { initPlayerStoreBridge } from "./lib/playerStoreBridge";
-import { initSkinBridge } from "./lib/skinBridge";
-import { initThemeBridge } from "./lib/themeBridge";
-import { initVisualizerBridge } from "./lib/visualizerBridge";
-import { initEqBridge } from "./lib/eqBridge";
-import { bootstrapSkin } from "./lib/skinBootstrap";
-import { bootstrapSkinAux } from "./lib/skinAuxBootstrap";
-import { emitSkinAuxReady } from "./lib/skinAuxEvents";
+import { AboutApp } from "./windows/AboutApp";
+import { ActivityLogsApp } from "./windows/ActivityLogsApp";
+import { AppearanceApp } from "./windows/AppearanceApp";
+import { EqualizerApp } from "./windows/EqualizerApp";
+import { SkinModeApp } from "./windows/SkinModeApp";
+import { initPlayerStoreBridge } from "./lib/playback/playerStoreBridge";
+import { initSkinBridge } from "./lib/skin/skinBridge";
+import { initThemeBridge } from "./lib/theme/themeBridge";
+import { initVisualizerBridge } from "./lib/visualizer/visualizerBridge";
+import { initEqBridge } from "./lib/equalizer/eqBridge";
+import { bootstrapSkin } from "./lib/skin/skinBootstrap";
+import { bootstrapSkinAux } from "./lib/skin/auxWindow/skinAuxBootstrap";
+import { emitSkinAuxReady } from "./lib/skin/auxWindow/skinAuxEvents";
 import {
   preloadSkinSwitchAssets,
   preloadSkinViewAssets,
-} from "./lib/skinViewAssetPreload";
-import { resolveAuxStartupRequirements } from "./lib/skinAuxStartupRequirements";
+} from "./lib/skin/skinViewAssetPreload";
+import { resolveAuxStartupRequirements } from "./lib/skin/auxWindow/skinAuxStartupRequirements";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useSkinStore } from "./store/useSkinStore";
-import { bootstrapTheme } from "./lib/themeBootstrap";
+import { bootstrapTheme } from "./lib/theme/themeBootstrap";
 import { showOnboardingSplash } from "./lib/onboardingSplash";
-import { bootstrapVisualizer } from "./lib/visualizerBootstrap";
-import { bootstrapEqualizer } from "./lib/equalizerBootstrap";
-import { bootstrapPlaybackSettings } from "./lib/playbackSettingsBootstrap";
-import { ToastLabApp } from "./ToastLabApp";
-import { initCrashHandlers, installCrashDevConsole } from "./lib/crashReport";
-import { installToastDevConsole } from "./lib/toastDevConsole";
-import { installDevUserTimingGuard } from "./lib/devUserTimingGuard";
+import { bootstrapVisualizer } from "./lib/visualizer/visualizerBootstrap";
+import { bootstrapEqualizer } from "./lib/equalizer/equalizerBootstrap";
+import { bootstrapPlaybackSettings } from "./lib/playback/playbackSettingsBootstrap";
+import { ToastLabApp } from "./windows/ToastLabApp";
+import {
+  initCrashHandlers,
+  installCrashDevConsole,
+} from "./lib/activity/crashReport";
+import { installToastDevConsole } from "./lib/toast/toastDevConsole";
+import { installDevUserTimingGuard } from "./lib/dev/devUserTimingGuard";
 import {
   bootstrapWindowRole,
   getSkinAuxContext,
@@ -47,9 +50,9 @@ import {
   isIconLabWindow,
   isToastLabWindow,
   isSoundLabWindow,
-} from "./lib/windowRole";
-import { applyCustomWindowChrome } from "./lib/windowChrome";
-import { i18n } from "./lib/i18n";
+} from "./lib/windows/windowRole";
+import { applyCustomWindowChrome } from "./lib/windows/windowChrome";
+import { i18n } from "./lib/i18n/i18n";
 import "./styles/fonts.css";
 import "./styles/theme.css";
 import "./styles/scrollbars.css";
@@ -104,9 +107,10 @@ async function start() {
   installToastDevConsole();
   installDevUserTimingGuard();
   if (import.meta.env.DEV) {
-    const { installSoundDevConsole } = await import("./lib/soundDevConsole");
+    const { installSoundDevConsole } =
+      await import("./lib/dev/soundDevConsole");
     installSoundDevConsole();
-    const { installStage } = await import("./lib/stage");
+    const { installStage } = await import("./lib/dev/stage");
     installStage();
   }
 
@@ -136,7 +140,7 @@ async function start() {
   if (import.meta.env.DEV && isSoundLabWindow()) {
     await bootstrapTheme();
     await initThemeBridge(role);
-    const { SoundLabApp } = await import("./SoundLabApp");
+    const { SoundLabApp } = await import("./windows/SoundLabApp");
     renderRoot(<SoundLabApp />);
     return;
   }
@@ -144,7 +148,7 @@ async function start() {
   if (import.meta.env.DEV && isIconLabWindow()) {
     await bootstrapTheme();
     await initThemeBridge(role);
-    const { IconLabApp } = await import("./IconLabApp");
+    const { IconLabApp } = await import("./windows/IconLabApp");
     renderRoot(<IconLabApp />);
     return;
   }

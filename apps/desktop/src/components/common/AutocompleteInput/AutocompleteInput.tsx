@@ -5,9 +5,9 @@ import {
   type ComponentPropsWithoutRef,
 } from "react";
 import { flushSync } from "react-dom";
-import { useSuggestionAutocomplete } from "../../../hooks/useSuggestionAutocomplete";
-import { SuggestionMenu } from "../SuggestionMenu/SuggestionMenu";
-import { TextInput } from "../TextInput/TextInput";
+import { useSuggestionAutocomplete } from "@/hooks/useSuggestionAutocomplete";
+import { SuggestionMenu } from "@/components/common/SuggestionMenu/SuggestionMenu";
+import { TextInput } from "@/components/common/TextInput/TextInput";
 import "./AutocompleteInput.css";
 
 export type AutocompleteInputProps = Omit<
@@ -90,7 +90,9 @@ export function AutocompleteInput({
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         aria-activedescendant={
-          open && activeIndex >= 0 ? `${optionIdPrefix}-${activeIndex}` : undefined
+          open && activeIndex >= 0
+            ? `${optionIdPrefix}-${activeIndex}`
+            : undefined
         }
         onChange={onChange}
         onFocus={(e) => {

@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 
 const { mockGetLibrary, mockGetPlaybackSession } = vi.hoisted(() => ({
   mockGetLibrary: vi.fn(),
   mockGetPlaybackSession: vi.fn(),
 }));
 
-vi.mock("../lib/tauri", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../lib/tauri")>();
+vi.mock("@/lib/tauri", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/tauri")>();
   return {
     ...actual,
     getLibrary: mockGetLibrary,
@@ -15,7 +15,7 @@ vi.mock("../lib/tauri", async (importOriginal) => {
   };
 });
 
-import * as audio from "../lib/playback";
+import * as audio from "@/lib/playback";
 import { usePlayerStore } from "./usePlayerStore";
 
 function makeTrack(overrides: Partial<Track> = {}): Track {

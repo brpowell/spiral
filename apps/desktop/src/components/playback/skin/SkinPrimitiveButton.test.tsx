@@ -1,32 +1,31 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ButtonNode, LoadedSkinPack } from "../../../types/skin";
+import type { ButtonNode, LoadedSkinPack } from "@/types/skin";
 import { SkinPrimitiveButton } from "./SkinPrimitiveButton";
-import { minimalBindState } from "../../../test/skinBindFixtures";
+import { minimalBindState } from "@/test/skinBindFixtures";
 
 const invokeClick = vi.fn();
 const mockBindState = vi.hoisted(() => ({
   current: {} as ReturnType<
-    typeof import("../../../test/skinBindFixtures").minimalBindState
+    typeof import("@/test/skinBindFixtures").minimalBindState
   >,
 }));
 
-vi.mock("../../../lib/skinEffects", async (importOriginal) => {
+vi.mock("@/lib/skin/skinEffects", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("../../../lib/skinEffects")>();
+    await importOriginal<typeof import("@/lib/skin/skinEffects")>();
   return {
     ...actual,
     scheduleSkinEffects: (...args: unknown[]) => invokeClick(...args),
   };
 });
 
-vi.mock("../../../lib/skinModeAlwaysOnTop", () => ({
+vi.mock("@/lib/skin/modeWindow/skinModeAlwaysOnTop", () => ({
   useSkinModeAlwaysOnTop: () => false,
 }));
 
-vi.mock("../../../lib/skinBinds", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("../../../lib/skinBinds")>();
+vi.mock("@/lib/skin/skinBinds", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/skin/skinBinds")>();
   return {
     ...actual,
     evaluateSkinCondition: () => false,
@@ -35,16 +34,16 @@ vi.mock("../../../lib/skinBinds", async (importOriginal) => {
   };
 });
 
-vi.mock("../../../lib/skinTooltips", () => ({
+vi.mock("@/lib/skin/skinTooltips", () => ({
   useSkinTooltip: () => "Playlist",
 }));
 
-vi.mock("../../../lib/skinSoundEffects", () => ({
+vi.mock("@/lib/skin/skinSoundEffects", () => ({
   playSkinSound: vi.fn(),
   resolveSkinClickSound: () => undefined,
 }));
 
-vi.mock("../../../lib/skinAssets", () => ({
+vi.mock("@/lib/skin/skinAssets", () => ({
   skinAssetFileUrl: (_packDir: string, file: string) => `asset://${file}`,
 }));
 

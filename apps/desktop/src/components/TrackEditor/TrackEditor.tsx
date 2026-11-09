@@ -1,23 +1,23 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { describeSourceError } from "../../lib/sourceAccess";
+import { describeSourceError } from "@/lib/files/sourceAccess";
 import { useTranslation } from "react-i18next";
-import { useArtFileDrop } from "../../hooks/useArtFileDrop";
-import { useAssetUrl } from "../../hooks/useAssetUrl";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { useResetOnOpen } from "../../hooks/useResetOnOpen";
-import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
+import { useArtFileDrop } from "@/hooks/useArtFileDrop";
+import { useAssetUrl } from "@/hooks/useAssetUrl";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useResetOnOpen } from "@/hooks/useResetOnOpen";
+import { useEditorDiscardPrompt } from "@/hooks/useEditorDiscardPrompt";
 import {
   bulkSaveFooterProps,
   bulkSaveLabel,
   useCancellableBulkSave,
-} from "../../hooks/useCancellableBulkSave";
-import { parseArtistField } from "../../lib/artistNames";
-import { collectArtistNameSuggestions } from "../../lib/artistNameSuggestions";
+} from "@/hooks/useCancellableBulkSave";
+import { parseArtistField } from "@/lib/artists/artistNames";
+import { collectArtistNameSuggestions } from "@/lib/artists/artistNameSuggestions";
 import {
   collectGenreSuggestions,
   collectAlbumSuggestions,
-} from "../../lib/trackFieldSuggestions";
-import { parseTrackMetadata } from "../../lib/metadata";
+} from "@/lib/tracks/trackFieldSuggestions";
+import { parseTrackMetadata } from "@/lib/metadata";
 import {
   buildTrackMetadataFromForm,
   isLyricsInstrumentalMixed,
@@ -30,35 +30,35 @@ import {
   tracksToForm,
   type TrackEditorForm,
   type TrackEditorFormField,
-} from "../../lib/trackMetadataForm";
+} from "@/lib/tracks/trackMetadataForm";
 import {
   discoverTrackFileMissing,
   isMissingFileError,
   missingFileErrorDetail,
   withTrackMissingFile,
-} from "../../lib/missingFileTrack";
+} from "@/lib/tracks/missingFileTrack";
 import {
   LYRICS_FETCH_NOT_FOUND,
   createLyricsFetchFeedback,
   lyricsFetchFailureFeedback,
   type LyricsFetchFeedback,
   type LyricsLibraryTrackRef,
-} from "../../lib/lyricsFetch";
+} from "@/lib/lyrics/lyricsFetch";
 import {
   runLyricsFetchInBackground,
   searchLyricsOptionsInBackground,
-} from "../../lib/lyricsFetchToast";
+} from "@/lib/lyrics/lyricsFetchToast";
 import {
   showBulkTrackMetadataSaveToast,
   showTagWriteSavedToast,
-} from "../../lib/trackMetadataToast";
-import { useTagWriteConfirmStore } from "../../store/useTagWriteConfirmStore";
-import { fetchCoverArtCandidates } from "../../lib/albumArtFetch";
-import { refreshArtDisplay } from "../../lib/artDisplayCache";
+} from "@/lib/tracks/trackMetadataToast";
+import { useTagWriteConfirmStore } from "@/store/useTagWriteConfirmStore";
+import { fetchCoverArtCandidates } from "@/lib/albums/albumArtFetch";
+import { refreshArtDisplay } from "@/lib/art/artDisplayCache";
 import {
   preloadCoverArtThumbs,
   previewSrcForFetchedCover,
-} from "../../lib/coverArtThumbs";
+} from "@/lib/art/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
@@ -68,27 +68,24 @@ import {
   setTrackRating,
   warmMusicBrainzEntity,
   writeTrackMetadata,
-} from "../../lib/tauri";
+} from "@/lib/tauri";
 import {
   rematchRecordingFromCachedRelease,
   deriveRecordingFromCachedRelease,
-} from "../../lib/musicBrainzReleaseRecordings";
-import { albumKey } from "../../lib/albums";
-import {
-  usePlayerStore,
-  type TrackEditorTab,
-} from "../../store/usePlayerStore";
-import { useLyricsFetchStore } from "../../store/useLyricsFetchStore";
-import type { CoverArtCandidate } from "../../types/coverArt";
-import type { Track } from "../../types/track";
+} from "@/lib/musicbrainz/musicBrainzReleaseRecordings";
+import { albumKey } from "@/lib/albums/albums";
+import { usePlayerStore, type TrackEditorTab } from "@/store/usePlayerStore";
+import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
+import type { CoverArtCandidate } from "@/types/coverArt";
+import type { Track } from "@/types/track";
 import type {
   LyricsFormat,
   LyricsLine,
   LyricsSearchCandidate,
   LyricsSource,
-} from "../../types/lyrics";
-import { EditorSaveButton } from "../EditorSaveButton/EditorSaveButton";
-import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
+} from "@/types/lyrics";
+import { EditorSaveButton } from "@/components/EditorSaveButton/EditorSaveButton";
+import { EditorDiscardOverlay } from "@/components/EditorDiscardOverlay/EditorDiscardOverlay";
 import {
   Modal,
   ModalBody,
@@ -97,18 +94,18 @@ import {
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
-} from "../common/Modal/Modal";
-import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
-import { EntityArt } from "../EntityArt/EntityArt";
-import { AlbumArtPicker } from "../AlbumEditor/AlbumArtPicker";
-import { AlbumEditorArtTab } from "../AlbumEditor/AlbumEditorArtTab";
-import { ImageCropModal } from "../common/ImageCropModal/ImageCropModal";
-import type { ImageCrop } from "../../lib/imageCrop";
-import { MusicBrainzEditorTab } from "../MusicBrainzEditorTab/MusicBrainzEditorTab";
+} from "@/components/common/Modal/Modal";
+import { Tab, TabList, TabPanel, Tabs } from "@/components/common/Tabs/Tabs";
+import { EntityArt } from "@/components/EntityArt/EntityArt";
+import { AlbumArtPicker } from "@/components/AlbumEditor/AlbumArtPicker";
+import { AlbumEditorArtTab } from "@/components/AlbumEditor/AlbumEditorArtTab";
+import { ImageCropModal } from "@/components/common/ImageCropModal/ImageCropModal";
+import type { ImageCrop } from "@/lib/art/imageCrop";
+import { MusicBrainzEditorTab } from "@/components/MusicBrainzEditorTab/MusicBrainzEditorTab";
 import { TrackEditorDetailsTab } from "./TrackEditorDetailsTab";
 import { TrackEditorFileTab } from "./TrackEditorFileTab";
 import { TrackEditorLyricsTab } from "./TrackEditorLyricsTab";
-import { LyricsCandidatePicker } from "../LyricsCandidatePicker/LyricsCandidatePicker";
+import { LyricsCandidatePicker } from "@/components/LyricsCandidatePicker/LyricsCandidatePicker";
 import "./TrackEditor.css";
 
 type LoadedTrackLyrics = {

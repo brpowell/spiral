@@ -1,10 +1,10 @@
 import { useSortable } from "@dnd-kit/react/sortable";
-import { usePlaylistSidebarMenu } from "../../hooks/usePlaylistSidebarMenu";
-import { resolvePlaylistTracks } from "../../lib/playlists";
-import { useNavigationStore } from "../../store/useNavigationStore";
-import { usePlayerStore } from "../../store/usePlayerStore";
-import type { Playlist } from "../../types/playlist";
-import { PlaylistArt } from "../PlaylistArt/PlaylistArt";
+import { usePlaylistSidebarMenu } from "@/hooks/usePlaylistSidebarMenu";
+import { resolvePlaylistTracks } from "@/lib/playlists/playlists";
+import { useNavigationStore } from "@/store/useNavigationStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { Playlist } from "@/types/playlist";
+import { PlaylistArt } from "@/components/PlaylistArt/PlaylistArt";
 import { SidebarItem } from "./SidebarItem/SidebarItem";
 
 interface SidebarPlaylistItemProps {

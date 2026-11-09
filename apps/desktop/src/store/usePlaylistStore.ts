@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { refreshArtDisplay } from "../lib/artDisplayCache";
+import { refreshArtDisplay } from "@/lib/art/artDisplayCache";
 import {
   addTracksToPlaylist as addTracksToPlaylistApi,
   removeTracksFromPlaylist as removeTracksFromPlaylistApi,
@@ -10,9 +10,9 @@ import {
   getPlaylists,
   touchPlaylist as touchPlaylistApi,
   updatePlaylist as updatePlaylistApi,
-} from "../lib/tauri";
-import type { Playlist } from "../types/playlist";
-import type { PlaylistImageUpdate } from "../lib/tauri";
+} from "@/lib/tauri";
+import type { Playlist } from "@/types/playlist";
+import type { PlaylistImageUpdate } from "@/lib/tauri";
 
 export type PlaylistEditorTarget = number | "new" | null;
 

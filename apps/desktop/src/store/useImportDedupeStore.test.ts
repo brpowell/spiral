@@ -1,15 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../lib/scheduling", () => ({
+vi.mock("@/lib/scheduling", () => ({
   afterUiTransition: vi.fn().mockResolvedValue(undefined),
 }));
 
-import {
-  applyBatchRule,
-  useImportDedupeStore,
-} from "./useImportDedupeStore";
-import type { ImportDuplicateContext } from "../lib/trackDedupe";
-import type { Track, TrackInput } from "../types/track";
+import { applyBatchRule, useImportDedupeStore } from "./useImportDedupeStore";
+import type { ImportDuplicateContext } from "@/lib/tracks/trackDedupe";
+import type { Track, TrackInput } from "@/types/track";
 
 function trackInput(overrides: Partial<TrackInput> = {}): TrackInput {
   return {
@@ -111,10 +108,9 @@ describe("useImportDedupeStore", () => {
       .getState()
       .promptImportDedupe(duplicateContext({ hasLyricsConflict: true }));
 
-    await useImportDedupeStore.getState().resolveImportDedupe(
-      { action: "replace", replaceLyrics: false },
-      true,
-    );
+    await useImportDedupeStore
+      .getState()
+      .resolveImportDedupe({ action: "replace", replaceLyrics: false }, true);
 
     await expect(promptPromise).resolves.toEqual({
       action: "replace",

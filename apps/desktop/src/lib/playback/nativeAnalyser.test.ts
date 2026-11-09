@@ -16,7 +16,9 @@ vi.mock("@tauri-apps/api/core", () => ({
     }
   },
 }));
-vi.mock("../windowRole", () => ({ getWindowRole: () => role.value }));
+vi.mock("@/lib/windows/windowRole", () => ({
+  getWindowRole: () => role.value,
+}));
 
 import {
   ensureNativeAnalyser,

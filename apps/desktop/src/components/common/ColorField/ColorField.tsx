@@ -1,12 +1,12 @@
 import { useId, type ChangeEvent, type ComponentPropsWithoutRef } from "react";
-import { t } from "../../../lib/i18n";
-import { IconReset } from "../../icons";
+import { t } from "@/lib/i18n/i18n";
+import { IconReset } from "@/components/icons";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from "../InputGroup/InputGroup";
+} from "@/components/common/InputGroup/InputGroup";
 import "./ColorField.css";
 
 export type ColorFieldProps = Omit<

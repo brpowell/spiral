@@ -6,11 +6,11 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { resetCatalogView } from "../../store/useCatalogViewStore";
+import { resetCatalogView } from "@/store/useCatalogViewStore";
 import type {
   CatalogItemEntry,
   RegistryItemSummary,
-} from "../../types/itemRegistry";
+} from "@/types/itemRegistry";
 
 const { mockFetchCatalog, mockEnrich, mockInstall, mockPrefetch } = vi.hoisted(
   () => ({
@@ -21,8 +21,8 @@ const { mockFetchCatalog, mockEnrich, mockInstall, mockPrefetch } = vi.hoisted(
   }),
 );
 
-vi.mock("../../lib/itemRegistry", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../lib/itemRegistry")>()),
+vi.mock("@/lib/items/itemRegistry", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/items/itemRegistry")>()),
   fetchItemCatalogSafe: mockFetchCatalog,
   enrichItemCatalog: mockEnrich,
   installCatalogEntry: mockInstall,

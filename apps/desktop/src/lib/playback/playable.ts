@@ -2,9 +2,9 @@ import {
   cdTrackListId,
   cdTrackNumberFromListId,
   isCdTrackListId,
-} from "../cdTracks";
-import type { PlayableRef } from "../../types/playable";
-import type { Track } from "../../types/track";
+} from "@/lib/cd/cdTracks";
+import type { PlayableRef } from "@/types/playable";
+import type { Track } from "@/types/track";
 import type { PlaybackSource } from "./types";
 
 export { isCdTrackListId, cdTrackNumberFromListId };

@@ -1,4 +1,4 @@
-import { getAnalyser } from "../../lib/playback";
+import { getAnalyser } from "@/lib/playback";
 
 function bucketRms(
   bins: readonly number[],

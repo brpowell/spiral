@@ -6,7 +6,7 @@ import {
   useState,
   type RefObject,
 } from "react";
-import type { Track } from "../../types/track";
+import type { Track } from "@/types/track";
 import {
   findMatchingCellControl,
   type CellControlLocation,
@@ -62,7 +62,14 @@ function findFirstVisibleNavigableIndex(
 
     for (const element of bodyEl.querySelectorAll("[data-track-list-index]")) {
       const rect = element.getBoundingClientRect();
-      if (!isRowOverlappingViewport(rect.top, rect.bottom, visibleTop, visibleBottom)) {
+      if (
+        !isRowOverlappingViewport(
+          rect.top,
+          rect.bottom,
+          visibleTop,
+          visibleBottom,
+        )
+      ) {
         continue;
       }
 
@@ -122,7 +129,12 @@ function findEdgeNavigableIndex(
   isRowNavigable: (index: number) => boolean,
 ): number {
   const start = direction === 1 ? 0 : count - 1;
-  return findNextNavigableIndex(start - direction, direction, count, isRowNavigable);
+  return findNextNavigableIndex(
+    start - direction,
+    direction,
+    count,
+    isRowNavigable,
+  );
 }
 
 function isRowVisibleInViewport(
@@ -131,7 +143,12 @@ function isRowVisibleInViewport(
 ): boolean {
   const { visibleTop, visibleBottom } = getVisibleRowBounds(scrollEl);
   const rect = rowElement.getBoundingClientRect();
-  return isRowOverlappingViewport(rect.top, rect.bottom, visibleTop, visibleBottom);
+  return isRowOverlappingViewport(
+    rect.top,
+    rect.bottom,
+    visibleTop,
+    visibleBottom,
+  );
 }
 
 function isRowFullyVisibleInViewport(
@@ -378,7 +395,9 @@ export function useTrackListRowRoving({
         return;
       }
       if (attempt < 6) {
-        requestAnimationFrame(() => focusCellInRow(index, location, attempt + 1));
+        requestAnimationFrame(() =>
+          focusCellInRow(index, location, attempt + 1),
+        );
         return;
       }
       focusRowElement(index);
@@ -431,14 +450,11 @@ export function useTrackListRowRoving({
     return () => scrollEl.removeEventListener("scroll", onScroll);
   }, [focusedIndex, scrollContainerRef]);
 
-  const listTabIndex =
-    tracks.length > 0 && !focusedRowInTabOrder() ? 0 : -1;
+  const listTabIndex = tracks.length > 0 && !focusedRowInTabOrder() ? 0 : -1;
 
   const getRowTabIndex = useCallback(
     (index: number) =>
-      focusedIndex === index &&
-      isRowNavigable(index) &&
-      focusedRowInTabOrder()
+      focusedIndex === index && isRowNavigable(index) && focusedRowInTabOrder()
         ? 0
         : -1,
     [focusedIndex, focusedRowInTabOrder, isRowNavigable],
@@ -460,7 +476,11 @@ export function useTrackListRowRoving({
       const preferred = getPreferredFocusIndex();
       focusRow(preferred, { scroll: false, select: false });
       requestAnimationFrame(() => {
-        if (scrollEl && scrollTopBefore != null && scrollEl.scrollTop !== scrollTopBefore) {
+        if (
+          scrollEl &&
+          scrollTopBefore != null &&
+          scrollEl.scrollTop !== scrollTopBefore
+        ) {
           scrollEl.scrollTop = scrollTopBefore;
         }
       });
@@ -539,36 +559,22 @@ export function useTrackListRowRoving({
         case "ArrowDown":
           e.preventDefault();
           focusRow(
-            findNextNavigableIndex(
-              index,
-              1,
-              tracks.length,
-              isRowNavigable,
-            ),
+            findNextNavigableIndex(index, 1, tracks.length, isRowNavigable),
           );
           break;
         case "ArrowUp":
           e.preventDefault();
           focusRow(
-            findNextNavigableIndex(
-              index,
-              -1,
-              tracks.length,
-              isRowNavigable,
-            ),
+            findNextNavigableIndex(index, -1, tracks.length, isRowNavigable),
           );
           break;
         case "Home":
           e.preventDefault();
-          focusRow(
-            findEdgeNavigableIndex(tracks.length, 1, isRowNavigable),
-          );
+          focusRow(findEdgeNavigableIndex(tracks.length, 1, isRowNavigable));
           break;
         case "End":
           e.preventDefault();
-          focusRow(
-            findEdgeNavigableIndex(tracks.length, -1, isRowNavigable),
-          );
+          focusRow(findEdgeNavigableIndex(tracks.length, -1, isRowNavigable));
           break;
         case "Enter":
           e.preventDefault();

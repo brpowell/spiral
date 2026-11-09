@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getDirectorySize } from "../lib/tauri";
+import { getDirectorySize } from "@/lib/tauri";
 
 /**
  * Pack detail size: probe on-disk directory when local; else catalog uncompressed size.

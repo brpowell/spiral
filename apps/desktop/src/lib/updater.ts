@@ -1,6 +1,6 @@
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { isTauri } from "./windowRole";
+import { isTauri } from "./windows/windowRole";
 
 /** Background check cadence while the app stays open (within the 4–6h plan window). */
 export const AUTOMATIC_UPDATE_INTERVAL_MS = 5 * 60 * 60 * 1000;

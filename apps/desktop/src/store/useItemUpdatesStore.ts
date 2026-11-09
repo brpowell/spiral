@@ -1,31 +1,31 @@
 import { Channel } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { create } from "zustand";
-import { ITEM_UPDATES_CHANGED_EVENT } from "../lib/appearanceWindow";
-import { BackgroundTaskCancelledError } from "../lib/backgroundTaskCancel";
-import { errorMessageFromUnknown } from "../lib/cdPlaybackFailure";
-import { t } from "../lib/i18n";
+import { ITEM_UPDATES_CHANGED_EVENT } from "@/lib/windows/appearanceWindow";
+import { BackgroundTaskCancelledError } from "@/lib/activity/backgroundTaskCancel";
+import { errorMessageFromUnknown } from "@/lib/cd/cdPlaybackFailure";
+import { t } from "@/lib/i18n/i18n";
 import {
   isDownloadCancelled,
   ITEM_UPDATES_BULK_KEY,
-} from "../lib/itemRegistry";
+} from "@/lib/items/itemRegistry";
 import {
   logRegistryInstallFailure,
   logRegistryInstallSuccess,
-} from "../lib/packs/packInstallActivity";
-import { refreshPackContributionStores } from "../lib/packs/refreshPackStores";
-import { afterUiTransition } from "../lib/scheduling";
-import { packUpdatesSettleOptions } from "../lib/toastPayloads";
-import { AUTOMATIC_UPDATE_INTERVAL_MS } from "../lib/updater";
+} from "@/lib/packs/packInstallActivity";
+import { refreshPackContributionStores } from "@/lib/packs/refreshPackStores";
+import { afterUiTransition } from "@/lib/scheduling";
+import { packUpdatesSettleOptions } from "@/lib/toast/toastPayloads";
+import { AUTOMATIC_UPDATE_INTERVAL_MS } from "@/lib/updater";
 import {
   cancelItemDownload,
   checkItemUpdates,
   clearItemDownloadCancel,
   installItemFromRegistry,
   saveLibrarySettings,
-} from "../lib/tauri";
-import { isTauri } from "../lib/windowRole";
-import { catalogItemName, type ItemUpdate } from "../types/itemRegistry";
+} from "@/lib/tauri";
+import { isTauri } from "@/lib/windows/windowRole";
+import { catalogItemName, type ItemUpdate } from "@/types/itemRegistry";
 import { useBackgroundTasksStore } from "./useBackgroundTasksStore";
 
 export type ItemUpdateCheckReason = "automatic" | "manual";

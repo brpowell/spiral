@@ -6,34 +6,40 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { useResetOnOpen } from "../../hooks/useResetOnOpen";
-import { t } from "../../lib/i18n";
-import { cropsEqual, type ImageCrop } from "../../lib/imageCrop";
-import { resolvePlaylistDesignFields } from "../../lib/playlistArt";
+import { useEditorDiscardPrompt } from "@/hooks/useEditorDiscardPrompt";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useResetOnOpen } from "@/hooks/useResetOnOpen";
+import { t } from "@/lib/i18n/i18n";
+import { cropsEqual, type ImageCrop } from "@/lib/art/imageCrop";
+import { resolvePlaylistDesignFields } from "@/lib/playlists/playlistArt";
 import {
   DEFAULT_PLAYLIST_COVER_GRADIENT_END,
   defaultPlaylistDesignCover,
   randomPlaylistCoverColors,
-} from "../../lib/playlistCoverPresets";
-import { getPlaylistById, resolvePlaylistTracks } from "../../lib/playlists";
-import { pickImageFile, storeCroppedPlaylistArt } from "../../lib/tauri";
-import { useNavigationStore } from "../../store/useNavigationStore";
-import { usePlayerStore } from "../../store/usePlayerStore";
-import { usePlaylistStore } from "../../store/usePlaylistStore";
-import type { Playlist, PlaylistImageMode } from "../../types/playlist";
-import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
-import { EditorSaveButton } from "../EditorSaveButton/EditorSaveButton";
-import { PlaylistArt } from "../PlaylistArt/PlaylistArt";
-import { PlaylistDesignedArt } from "../PlaylistArt/PlaylistDesignedArt";
-import { PlaylistGeneratedArt } from "../PlaylistArt/PlaylistGeneratedArt";
-import { Alert } from "../common/Alert/Alert";
-import { Button } from "../common/Button/Button";
-import { cssColorToHex } from "../common/ColorField/ColorField";
-import { FormField } from "../common/Field/Field";
-import { ImageCropModal } from "../common/ImageCropModal/ImageCropModal";
-import { RadioGroup, RadioGroupItem } from "../common/RadioGroup/RadioGroup";
+} from "@/lib/playlists/playlistCoverPresets";
+import {
+  getPlaylistById,
+  resolvePlaylistTracks,
+} from "@/lib/playlists/playlists";
+import { pickImageFile, storeCroppedPlaylistArt } from "@/lib/tauri";
+import { useNavigationStore } from "@/store/useNavigationStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { usePlaylistStore } from "@/store/usePlaylistStore";
+import type { Playlist, PlaylistImageMode } from "@/types/playlist";
+import { EditorDiscardOverlay } from "@/components/EditorDiscardOverlay/EditorDiscardOverlay";
+import { EditorSaveButton } from "@/components/EditorSaveButton/EditorSaveButton";
+import { PlaylistArt } from "@/components/PlaylistArt/PlaylistArt";
+import { PlaylistDesignedArt } from "@/components/PlaylistArt/PlaylistDesignedArt";
+import { PlaylistGeneratedArt } from "@/components/PlaylistArt/PlaylistGeneratedArt";
+import { Alert } from "@/components/common/Alert/Alert";
+import { Button } from "@/components/common/Button/Button";
+import { cssColorToHex } from "@/components/common/ColorField/ColorField";
+import { FormField } from "@/components/common/Field/Field";
+import { ImageCropModal } from "@/components/common/ImageCropModal/ImageCropModal";
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@/components/common/RadioGroup/RadioGroup";
 import {
   Modal,
   ModalBody,
@@ -41,14 +47,14 @@ import {
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
-} from "../common/Modal/Modal";
-import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
-import { TextInput } from "../common/TextInput/TextInput";
-import { Textarea } from "../common/Textarea/Textarea";
-import { IconClose, IconShuffle } from "../icons";
+} from "@/components/common/Modal/Modal";
+import { Tab, TabList, TabPanel, Tabs } from "@/components/common/Tabs/Tabs";
+import { TextInput } from "@/components/common/TextInput/TextInput";
+import { Textarea } from "@/components/common/Textarea/Textarea";
+import { IconClose, IconShuffle } from "@/components/icons";
 import { PlaylistIconPicker } from "./PlaylistIconPicker";
-import "../PlaylistArt/PlaylistArt.css";
-import "../TrackEditor/TrackEditor.css";
+import "@/components/PlaylistArt/PlaylistArt.css";
+import "@/components/TrackEditor/TrackEditor.css";
 import "./PlaylistEditorModal.css";
 
 type PlaylistEditorTab = "details" | "art";

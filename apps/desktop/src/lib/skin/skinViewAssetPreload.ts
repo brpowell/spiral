@@ -1,0 +1,262 @@
+import type {
+  InteractiveAssets,
+  InteractiveAssetsWhen,
+  LayoutNode,
+  LayoutTreeNode,
+  LoadedSkinPack,
+  StripSliderPresentation,
+} from "@/types/skin";
+import { loadStripSliderPositionMap } from "./skinStripSliderMap";
+import { loadSkinGif } from "./skinGifPlayback";
+import { loadSkinBitmap } from "./skinBitmapCache";
+import {
+  collectBitmapAssetFiles,
+  collectThumbAssetFiles,
+  isSkinGifUrl,
+  skinAssetFileUrl,
+} from "./skinAssets";
+import { listSwitchableViewIds } from "./skinWindowPresentation";
+
+function addBitmapAssetUrls(
+  packDir: string,
+  assets: InteractiveAssets,
+  assetsWhen: InteractiveAssetsWhen | undefined,
+  urls: Set<string>,
+): void {
+  for (const file of collectBitmapAssetFiles(assets, assetsWhen)) {
+    urls.add(skinAssetFileUrl(packDir, file));
+  }
+}
+
+function addStripSliderAssets(
+  packDir: string,
+  presentation: StripSliderPresentation,
+  urls: Set<string>,
+): void {
+  urls.add(skinAssetFileUrl(packDir, presentation.strip));
+  if (presentation.positionMap) {
+    urls.add(skinAssetFileUrl(packDir, presentation.positionMap));
+  }
+}
+
+function collectLayoutAssetUrls(
+  node: LayoutTreeNode,
+  packDir: string,
+  urls: Set<string>,
+): void {
+  switch (node.type) {
+    case "canvas":
+    case "subview":
+    case "row":
+    case "column":
+    case "overlay":
+      for (const child of node.children) {
+        collectLayoutAssetUrls(child, packDir, urls);
+      }
+      return;
+    case "decoration":
+      if (node.presentation.kind === "bitmap") {
+        addBitmapAssetUrls(
+          packDir,
+          node.presentation.assets,
+          node.presentation.assetsWhen,
+          urls,
+        );
+      } else if (node.presentation.kind === "gif") {
+        urls.add(skinAssetFileUrl(packDir, node.presentation.asset));
+      }
+      return;
+    case "button":
+      if (node.presentation.kind === "bitmap") {
+        addBitmapAssetUrls(
+          packDir,
+          node.presentation.assets,
+          node.presentation.assetsWhen,
+          urls,
+        );
+      }
+      return;
+    case "buttonGroup":
+      if (node.presentation.kind === "buttonGroup") {
+        addBitmapAssetUrls(
+          packDir,
+          node.presentation.assets,
+          node.presentation.assetsWhen,
+          urls,
+        );
+        urls.add(skinAssetFileUrl(packDir, node.presentation.positionMap));
+      }
+      return;
+    case "slider":
+      if (
+        node.presentation.kind === "bitmapVerticalSlider" ||
+        node.presentation.kind === "bitmapHorizontalSlider"
+      ) {
+        if (node.presentation.track) {
+          urls.add(skinAssetFileUrl(packDir, node.presentation.track));
+        }
+        if (node.presentation.fill) {
+          urls.add(skinAssetFileUrl(packDir, node.presentation.fill));
+        }
+        for (const file of collectThumbAssetFiles(node.presentation.thumb)) {
+          urls.add(skinAssetFileUrl(packDir, file));
+        }
+      } else if (node.presentation.kind === "stripSlider") {
+        addStripSliderAssets(packDir, node.presentation, urls);
+      }
+      return;
+    case "visualizer":
+      if (node.presentation.kind === "framedPanel") {
+        urls.add(skinAssetFileUrl(packDir, node.presentation.mask));
+        if (node.presentation.frame) {
+          urls.add(skinAssetFileUrl(packDir, node.presentation.frame));
+        }
+      }
+      return;
+    case "time":
+      if (node.presentation.kind === "digitStrip") {
+        urls.add(skinAssetFileUrl(packDir, node.presentation.strip));
+      }
+      return;
+    case "scrollStrip":
+      if (node.presentation.kind === "bitmapVertical") {
+        for (const item of node.presentation.items) {
+          urls.add(skinAssetFileUrl(packDir, item.asset));
+        }
+      }
+      return;
+    case "tiledFrame":
+      if ("tiles" in node.presentation) {
+        for (const tile of node.presentation.tiles) {
+          urls.add(skinAssetFileUrl(packDir, tile.asset));
+        }
+      } else {
+        for (const asset of Object.values(node.presentation.assets)) {
+          if (asset) {
+            urls.add(skinAssetFileUrl(packDir, asset));
+          }
+        }
+      }
+      for (const child of node.children) {
+        collectLayoutAssetUrls(child, packDir, urls);
+      }
+      return;
+    default:
+      return;
+  }
+}
+
+function stripSliderDirection(
+  node: Extract<LayoutNode, { type: "slider" }>,
+  presentation: StripSliderPresentation,
+): "horizontal" | "vertical" {
+  if (presentation.direction) return presentation.direction;
+  return node.control === "volume" || node.control === "eq"
+    ? "vertical"
+    : "horizontal";
+}
+
+async function warmLayoutStripSliderMaps(
+  node: LayoutTreeNode,
+  packDir: string,
+): Promise<void> {
+  switch (node.type) {
+    case "canvas":
+    case "subview":
+    case "row":
+    case "column":
+    case "overlay":
+    case "tiledFrame":
+      await Promise.all(
+        node.children.map((child) => warmLayoutStripSliderMaps(child, packDir)),
+      );
+      return;
+    case "slider": {
+      const presentation = node.presentation;
+      if (presentation.kind !== "stripSlider" || !presentation.positionMap) {
+        return;
+      }
+      const mapUrl = skinAssetFileUrl(packDir, presentation.positionMap);
+      const stripUrl = skinAssetFileUrl(packDir, presentation.strip);
+      const direction = stripSliderDirection(node, presentation);
+      const defaultFrameHeight =
+        node.control === "volume" ? 128 : node.control === "eq" ? 116 : 113;
+      try {
+        await loadStripSliderPositionMap(
+          mapUrl,
+          presentation.frameCount,
+          direction,
+          {
+            stripUrl,
+            frameWidth: presentation.frameWidth,
+            frameHeight: presentation.frameHeight ?? defaultFrameHeight,
+            mapFrames: presentation.mapFrames,
+          },
+        );
+      } catch (err) {
+        console.warn("warmLayoutStripSliderMaps:", err);
+      }
+      return;
+    }
+    default:
+      return;
+  }
+}
+
+function decodeAssetUrl(url: string, isGif = false): Promise<void> {
+  if (isGif) {
+    return loadSkinGif(url).then(() => undefined);
+  }
+  return loadSkinBitmap(url).then(() => undefined);
+}
+
+/** Decode every file in an asset set (including `assetsWhen` variants). */
+export function preloadInteractiveBitmapAssets(
+  packDir: string,
+  assets: InteractiveAssets,
+  assetsWhen?: InteractiveAssetsWhen,
+): void {
+  for (const file of collectBitmapAssetFiles(assets, assetsWhen)) {
+    const url = skinAssetFileUrl(packDir, file);
+    void loadSkinBitmap(url).catch((err) => {
+      console.warn("preloadInteractiveBitmapAssets:", err);
+    });
+  }
+}
+
+export async function preloadSkinViewAssets(
+  pack: LoadedSkinPack,
+  viewId: string,
+): Promise<void> {
+  const view = pack.manifest.views[viewId];
+  if (!view) return;
+
+  const urls = new Set<string>();
+  collectLayoutAssetUrls(view.layout, pack.packDir, urls);
+
+  await Promise.all([
+    ...[...urls].map(async (url) => {
+      try {
+        await decodeAssetUrl(url, isSkinGifUrl(url));
+      } catch (err) {
+        console.warn("preloadSkinViewAssets:", err);
+      }
+    }),
+    warmLayoutStripSliderMaps(view.layout, pack.packDir),
+  ]);
+}
+
+/**
+ * Decode the primary view plus any other switchable views that mount as layers
+ * (e.g. T3 main+mini) so a skin switch can paint without progressive pop-in.
+ */
+export async function preloadSkinSwitchAssets(
+  pack: LoadedSkinPack,
+  primaryViewId: string,
+): Promise<void> {
+  const viewIds = new Set(listSwitchableViewIds(pack));
+  viewIds.add(primaryViewId);
+  await Promise.all(
+    [...viewIds].map((viewId) => preloadSkinViewAssets(pack, viewId)),
+  );
+}

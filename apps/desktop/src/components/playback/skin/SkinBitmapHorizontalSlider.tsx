@@ -4,35 +4,32 @@ import {
   formatEqBandFrequency,
   gainDbToRatio,
   ratioToGainDb,
-} from "../../../lib/equalizer/types";
-import { applyEqBandSliderGain } from "../../../lib/eqBandInput";
-import { findPlaybackTrack } from "../../../lib/playbackTrack";
-import {
-  resolveThumbAssetFile,
-  skinAssetFileUrl,
-} from "../../../lib/skinAssets";
-import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
-import { wmpTiledTrackStyle } from "../../../lib/wmpTiledTrack";
+} from "@/lib/equalizer/types";
+import { applyEqBandSliderGain } from "@/lib/equalizer/eqBandInput";
+import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
+import { resolveThumbAssetFile, skinAssetFileUrl } from "@/lib/skin/skinAssets";
+import { skinDragRegionNoneProps } from "@/lib/skin/skinDragRegion";
+import { wmpTiledTrackStyle } from "@/lib/skin/wmpTiledTrack";
 import {
   pointInThumb,
   wmpCrossAxisOffset,
   wmpHorizontalPointerToRatio,
   wmpHorizontalThumbLeft,
   wmpSliderFillSpan,
-} from "../../../lib/wmpBitmapSliderThumb";
+} from "@/lib/skin/wmpBitmapSliderThumb";
 import {
   evaluateSkinBind,
   useSkinBindState,
   useSkinControlEnabled,
-} from "../../../lib/skinBinds";
-import { resolveSkinTooltip } from "../../../lib/skinTooltips";
-import * as audio from "../../../lib/playback";
+} from "@/lib/skin/skinBinds";
+import { resolveSkinTooltip } from "@/lib/skin/skinTooltips";
+import * as audio from "@/lib/playback";
 import {
   usePlaybackProgress,
   usePlayheadSeconds,
-} from "../../../hooks/usePlaybackProgress";
-import { useEqualizerStore } from "../../../store/useEqualizerStore";
-import { usePlayerStore } from "../../../store/usePlayerStore";
+} from "@/hooks/usePlaybackProgress";
+import { useEqualizerStore } from "@/store/useEqualizerStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
 import type {
   LoadedSkinPack,
   SliderBalanceNode,
@@ -40,7 +37,7 @@ import type {
   SliderNode,
   SliderSeekNode,
   SliderVolumeNode,
-} from "../../../types/skin";
+} from "@/types/skin";
 import "./SkinBitmapHorizontalSlider.css";
 
 function balanceToRatio(balance: number): number {

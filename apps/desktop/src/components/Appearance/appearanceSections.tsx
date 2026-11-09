@@ -1,14 +1,14 @@
 import type { ReactNode } from "react";
-import type { AppearanceSection } from "../../lib/appearanceWindow";
-import type { ItemType } from "../../types/item";
-import { t } from "../../lib/i18n";
+import type { AppearanceSection } from "@/lib/windows/appearanceWindow";
+import type { ItemType } from "@/types/item";
+import { t } from "@/lib/i18n/i18n";
 import {
   IconBrandmark,
   IconPalette,
   IconBoombox,
   IconVolume,
   IconVisualizer,
-} from "../icons";
+} from "@/components/icons";
 
 export interface AppearanceSectionConfig {
   id: AppearanceSection;

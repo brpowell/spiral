@@ -2,18 +2,18 @@ import { useCallback, useMemo } from "react";
 import {
   ContextMenu,
   ContextMenuItem,
-} from "../components/ContextMenu/ContextMenu";
+} from "@/components/ContextMenu/ContextMenu";
 import {
   IconAddToQueue,
   IconConvert,
   IconPencil,
   IconRemoveFromQueue,
-} from "../components/icons";
-import { openConvertForTrackIds } from "../lib/convertTracks";
-import { t } from "../lib/i18n";
-import { isTrackConvertible } from "../lib/pendingImportTrack";
-import { usePlayerStore } from "../store/usePlayerStore";
-import type { Album } from "../types/album";
+} from "@/components/icons";
+import { openConvertForTrackIds } from "@/lib/files/convertTracks";
+import { t } from "@/lib/i18n/i18n";
+import { isTrackConvertible } from "@/lib/import/pendingImportTrack";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { Album } from "@/types/album";
 import { useContextMenu } from "./useContextMenu";
 
 export function useAlbumEditMenu(album: Album) {

@@ -1,8 +1,11 @@
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ABOUT_FOCUS_TAB_EVENT, type AboutTabId } from "../../lib/aboutWindow";
-import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
+import {
+  ABOUT_FOCUS_TAB_EVENT,
+  type AboutTabId,
+} from "@/lib/windows/aboutWindow";
+import { Tab, TabList, TabPanel, Tabs } from "@/components/common/Tabs/Tabs";
 import { AboutIdentityPanel } from "./AboutIdentityPanel";
 import { CreditsPanel } from "./CreditsPanel";
 import { LicensesPanel } from "./LicensesPanel";

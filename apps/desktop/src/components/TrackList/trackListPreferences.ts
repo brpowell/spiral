@@ -1,7 +1,7 @@
 import {
   getTrackListPreferences as fetchTrackListPreferences,
   saveTrackListPreferences as persistTrackListPreferences,
-} from "../../lib/tauri";
+} from "@/lib/tauri";
 import type {
   TrackListColumnDef,
   TrackListColumnId,

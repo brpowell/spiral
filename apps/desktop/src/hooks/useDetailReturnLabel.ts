@@ -1,10 +1,10 @@
 import { useRef } from "react";
-import { t } from "../lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import {
   detailReturnLabel,
   type DetailReturnContext,
-} from "../lib/navigationReturn";
-import type { Artist } from "../types/artist";
+} from "@/lib/ui/navigationReturn";
+import type { Artist } from "@/types/artist";
 
 /**
  * Back-button label that stays put when return context is cleared while the

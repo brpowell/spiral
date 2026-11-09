@@ -9,39 +9,39 @@ import {
 import {
   skinAssetFileUrl,
   resolveInteractiveAssets,
-} from "../../../lib/skinAssets";
+} from "@/lib/skin/skinAssets";
 import {
   loadButtonGroupPositionMap,
   parseMappingColor,
   type ButtonGroupPositionMap,
-} from "../../../lib/skinButtonGroupMap";
+} from "@/lib/skin/skinButtonGroupMap";
 import {
   primaryClickAction,
   primaryClickViewId,
   scheduleSkinEffects,
-} from "../../../lib/skinEffects";
+} from "@/lib/skin/skinEffects";
 import {
   playSkinSound,
   resolveSkinClickSound,
-} from "../../../lib/skinSoundEffects";
+} from "@/lib/skin/skinSoundEffects";
 import {
   evaluateSkinCondition,
   isSkinControlEnabled,
   useSkinBindState,
-} from "../../../lib/skinBinds";
-import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
+} from "@/lib/skin/skinBinds";
+import { skinDragRegionNoneProps } from "@/lib/skin/skinDragRegion";
 import {
   suppressSkinButtonHoverUntilPointerMove,
   useSkinButtonHoverSuppressed,
-} from "../../../lib/skinButtonHoverSuppression";
-import { useSkinDebug } from "../../../hooks/useSkinDebug";
-import { resolveSkinTooltip } from "../../../lib/skinTooltips";
+} from "@/lib/skin/skinButtonHoverSuppression";
+import { useSkinDebug } from "@/hooks/useSkinDebug";
+import { resolveSkinTooltip } from "@/lib/skin/skinTooltips";
 import { useSkinButtonGroupHitRegistry } from "./SkinButtonGroupHitRegistry";
 import type {
   ButtonGroupElement,
   ButtonGroupNode,
   LoadedSkinPack,
-} from "../../../types/skin";
+} from "@/types/skin";
 import "./SkinButtonGroup.css";
 
 export function SkinButtonGroup({

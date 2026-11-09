@@ -4,15 +4,15 @@ import {
   enrichItemCatalog,
   fetchItemCatalogSafe,
   installCatalogEntry,
-} from "../../lib/itemRegistry";
-import { useItemsVersionStore } from "../../store/useItemsVersionStore";
-import type { ItemSummary } from "../../types/item";
+} from "@/lib/items/itemRegistry";
+import { useItemsVersionStore } from "@/store/useItemsVersionStore";
+import type { ItemSummary } from "@/types/item";
 import type {
   CatalogItemEntry,
   RegistryVersionSummary,
-} from "../../types/itemRegistry";
-import { Button } from "../common/Button/Button";
-import { IconDelete } from "../icons";
+} from "@/types/itemRegistry";
+import { Button } from "@/components/common/Button/Button";
+import { IconDelete } from "@/components/icons";
 import { ItemActionsMenu } from "./ItemActionsMenu";
 import { RegistryItemActions } from "./RegistryItemActions";
 import { UninstallItemDialog } from "./UninstallItemDialog";

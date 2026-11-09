@@ -1,14 +1,22 @@
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { useContextMenu } from "../../hooks/useContextMenu";
-import { useUpdaterStore } from "../../store/useUpdaterStore";
-import { useWhatsNewStore } from "../../store/useWhatsNewStore";
-import { ContextMenu, ContextMenuItem } from "../ContextMenu/ContextMenu";
+import { useContextMenu } from "@/hooks/useContextMenu";
+import { useUpdaterStore } from "@/store/useUpdaterStore";
+import { useWhatsNewStore } from "@/store/useWhatsNewStore";
+import {
+  ContextMenu,
+  ContextMenuItem,
+} from "@/components/ContextMenu/ContextMenu";
 import {
   StatusIndicator,
   StatusIndicatorAnchor,
-} from "../common/StatusIndicator/StatusIndicator";
-import { IconDownload, IconInfo, IconMore, IconRefresh } from "../icons";
+} from "@/components/common/StatusIndicator/StatusIndicator";
+import {
+  IconDownload,
+  IconInfo,
+  IconMore,
+  IconRefresh,
+} from "@/components/icons";
 import { SidebarItem } from "./SidebarItem/SidebarItem";
 
 /** Library sidebar footer overflow menu (app updates, What's New). */

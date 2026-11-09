@@ -482,7 +482,7 @@ Root layout is `canvas | row | column`. Canvas views: `{ "type": "canvas", "widt
 
 ### Coordinate spaces and nested groups
 
-Canvas views use an explicit coordinate context. Shared helpers live in `src/lib/skinLayout.ts` (`walkLayoutTree`, `resolveAbsoluteBounds`, `localizeBounds`, `validateLayoutTree`). Runtime pushes a layout context stack via `SkinLayoutContext` when rendering bounded groups.
+Canvas views use an explicit coordinate context. Shared helpers live in `src/lib/skin/skinLayout.ts` (`walkLayoutTree`, `resolveAbsoluteBounds`, `localizeBounds`, `validateLayoutTree`). Runtime pushes a layout context stack via `SkinLayoutContext` when rendering bounded groups.
 
 | Role | Node type | Child `bounds` |
 | --- | --- | --- |
@@ -999,7 +999,7 @@ When skin mode runs in a **second Tauri webview**, it must not subscribe to the 
 
 `VisualizerSlot` is the layout integration point — swap the inner renderer per skin without changing transport or seek components.
 
-**V1.5 status:** `VisualizerDataProvider` in `src/lib/visualizerDataBridge.ts` publishes 64-bin frames from the main window; skin mode subscribes via `useVisualizerFrame` and `VisualizerSlot`.
+**V1.5 status:** `VisualizerDataProvider` in `src/lib/visualizer/visualizerDataBridge.ts` publishes 64-bin frames from the main window; skin mode subscribes via `useVisualizerFrame` and `VisualizerSlot`.
 
 ## Shared hooks
 

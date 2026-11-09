@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   CatalogItemEntry,
   RegistryVersionSummary,
-} from "../../types/itemRegistry";
+} from "@/types/itemRegistry";
 
 const { mockFetchItem, mockFetchVersion, mockGetAppVersion } = vi.hoisted(
   () => ({
@@ -13,14 +13,14 @@ const { mockFetchItem, mockFetchVersion, mockGetAppVersion } = vi.hoisted(
   }),
 );
 
-vi.mock("../../lib/itemRegistry", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../lib/itemRegistry")>()),
+vi.mock("@/lib/items/itemRegistry", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/items/itemRegistry")>()),
   fetchRegistryItemSafe: mockFetchItem,
   fetchRegistryItemVersionSafe: mockFetchVersion,
   peekRegistryItemVersion: () => undefined,
 }));
 
-vi.mock("../../lib/tauri", () => ({ getAppVersion: mockGetAppVersion }));
+vi.mock("@/lib/tauri", () => ({ getAppVersion: mockGetAppVersion }));
 
 vi.mock("./ItemActionsMenu", () => ({
   ItemActionsMenu: ({ item }: { item: { effectiveId: string } }) => (

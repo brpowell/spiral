@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { getSourceStatuses, listSources } from "../lib/tauri";
-import type { Source, SourceWatchStatus } from "../types/source";
+import { getSourceStatuses, listSources } from "@/lib/tauri";
+import type { Source, SourceWatchStatus } from "@/types/source";
 
 interface SourcesState {
   sources: Source[];

@@ -4,10 +4,10 @@ import { createPortal } from "react-dom";
 import {
   releasedOutsidePanel,
   shouldDismissModalOnBackdropRelease,
-} from "../../lib/modalBackdropDismiss";
-import { lightboxCompanionMotionProps } from "../../lib/motion";
-import type { LyricsFetchFeedback } from "../../lib/lyricsFetch";
-import type { TrackLyrics } from "../../types/lyrics";
+} from "@/lib/ui/modalBackdropDismiss";
+import { lightboxCompanionMotionProps } from "@/lib/ui/motion";
+import type { LyricsFetchFeedback } from "@/lib/lyrics/lyricsFetch";
+import type { TrackLyrics } from "@/types/lyrics";
 import {
   LyricsEmptyPanel,
   LyricsLoadingPanel,

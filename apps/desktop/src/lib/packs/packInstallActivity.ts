@@ -1,7 +1,7 @@
-import { logActivity } from "../activityLog";
-import { errorMessageFromUnknown } from "../cdPlaybackFailure";
-import type { InstallItemResult } from "../tauri";
-import { ACTIVITY_LOG_DOMAINS } from "../../types/activityLog";
+import { logActivity } from "@/lib/activity/activityLog";
+import { errorMessageFromUnknown } from "@/lib/cd/cdPlaybackFailure";
+import type { InstallItemResult } from "@/lib/tauri";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
 
 /** Activity log for a successful item install from a file. */
 export function logItemInstallSuccess(options: {

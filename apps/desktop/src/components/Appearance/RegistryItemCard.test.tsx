@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { CatalogItemEntry } from "../../types/itemRegistry";
+import type { CatalogItemEntry } from "@/types/itemRegistry";
 import { RegistryItemCard } from "./RegistryItemCard";
 
 function entry(overrides?: Partial<CatalogItemEntry>): CatalogItemEntry {

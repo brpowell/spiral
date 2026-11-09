@@ -1,14 +1,14 @@
-import { logActivity } from "./activityLog";
-import { t } from "./i18n";
+import { logActivity } from "./activity/activityLog";
+import { t } from "./i18n/i18n";
 import {
   refreshLibraryMetadataFromFiles,
   type RefreshLibraryMetadataResult,
 } from "./tauri";
-import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
-import type { BackgroundTaskSettleAsOptions } from "../store/useBackgroundTasksStore";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
+import { formatPeerOutcomeTitle } from "./toast/toastPeerOutcomes";
+import type { BackgroundTaskSettleAsOptions } from "@/store/useBackgroundTasksStore";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
 
 /**
  * Library refresh toast (toast-conventions peer counters).

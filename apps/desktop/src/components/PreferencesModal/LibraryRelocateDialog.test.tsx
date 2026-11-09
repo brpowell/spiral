@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode, Ref } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resetModalStack } from "../../lib/modalStack";
+import { resetModalStack } from "@/lib/ui/modalStack";
 import { LibraryRelocateDialog } from "./LibraryRelocateDialog";
 
 vi.mock("framer-motion", () => ({

@@ -1,13 +1,13 @@
 import { create } from "zustand";
-import { compareLocalized } from "../lib/appLocale";
+import { compareLocalized } from "@/lib/i18n/appLocale";
 import {
   applyTheme,
   DEFAULT_THEME_ID,
   findThemeById,
   resolveActiveThemeId,
   stripDerivedThemeTokens,
-} from "../lib/theme";
-import { emitThemeChanged, getLiveThemePreview } from "../lib/themeBridge";
+} from "@/lib/theme/theme";
+import { emitThemeChanged, getLiveThemePreview } from "@/lib/theme/themeBridge";
 import {
   createThemeItem,
   deleteLinkedItem,
@@ -16,13 +16,13 @@ import {
   loadUserThemes,
   saveActiveThemeId,
   saveThemeItem,
-} from "../lib/tauri";
+} from "@/lib/tauri";
 import {
   formatThemeValidationError,
   validateThemeForApply,
   validateThemeForSave,
-} from "../lib/themeValidation";
-import type { Theme } from "../types/theme";
+} from "@/lib/theme/themeValidation";
+import type { Theme } from "@/types/theme";
 
 interface ThemeState {
   themes: Theme[];

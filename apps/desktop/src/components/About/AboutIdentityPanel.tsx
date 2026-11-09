@@ -1,8 +1,8 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getAppVersion } from "../../lib/tauri";
-import { TextLink } from "../common/TextLink/TextLink";
+import { getAppVersion } from "@/lib/tauri";
+import { TextLink } from "@/components/common/TextLink/TextLink";
 import { SPIRAL_WEBSITE_URL } from "./aboutContent";
 
 export function AboutIdentityPanel() {

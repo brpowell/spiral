@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { RepeatMode } from "../../types/track";
-import { TransportButtons } from "../playback/PlaybackTransport/TransportButtons";
+import type { RepeatMode } from "@/types/track";
+import { TransportButtons } from "@/components/playback/PlaybackTransport/TransportButtons";
 
 const NEXT_REPEAT: Record<RepeatMode, RepeatMode> = {
   off: "all",

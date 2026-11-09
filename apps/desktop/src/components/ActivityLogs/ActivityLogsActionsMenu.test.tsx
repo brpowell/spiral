@@ -1,23 +1,23 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { copyTextToClipboard } from "../../lib/clipboard";
-import { useActivityLogStore } from "../../store/useActivityLogStore";
-import type { ActivityLogEntry } from "../../types/activityLog";
+import { copyTextToClipboard } from "@/lib/ui/clipboard";
+import { useActivityLogStore } from "@/store/useActivityLogStore";
+import type { ActivityLogEntry } from "@/types/activityLog";
 import { ActivityLogsActionsMenu } from "./ActivityLogsActionsMenu";
 
-vi.mock("../../lib/clipboard", () => ({
+vi.mock("@/lib/ui/clipboard", () => ({
   copyTextToClipboard: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock("../../lib/diagnosticsExport", () => ({
+vi.mock("@/lib/activity/diagnosticsExport", () => ({
   saveDiagnosticsToFile: vi.fn().mockResolvedValue("/tmp/logs.json"),
 }));
 
-vi.mock("../../lib/activityLogBridge", () => ({
+vi.mock("@/lib/activity/activityLogBridge", () => ({
   clearActivityLogsRemote: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("../../lib/activityLogToast", () => ({
+vi.mock("@/lib/activity/activityLogToast", () => ({
   showActivityLogCopiedToast: vi.fn(),
 }));
 

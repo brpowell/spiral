@@ -1,9 +1,9 @@
 import { useReducedMotion } from "framer-motion";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { usePlayerStore } from "../../store/usePlayerStore";
-import { Button } from "../common/Button/Button";
-import { EmptyState } from "../common/EmptyState/EmptyState";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { Button } from "@/components/common/Button/Button";
+import { EmptyState } from "@/components/common/EmptyState/EmptyState";
 import { mountNotesField } from "./notesField";
 import "./LibraryEmptyState.css";
 

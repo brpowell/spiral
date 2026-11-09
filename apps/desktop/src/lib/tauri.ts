@@ -1,7 +1,7 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import type { ItemSummary, ItemType } from "../types/item";
-import type { SoundPackSummary } from "../types/soundPack";
+import type { ItemSummary, ItemType } from "@/types/item";
+import type { SoundPackSummary } from "@/types/soundPack";
 import type {
   FilePlanApplySummary,
   FilePlanSummary,
@@ -9,7 +9,7 @@ import type {
   ReconcileSummary,
   Source,
   SourceStatus,
-} from "../types/source";
+} from "@/types/source";
 import type {
   ItemCatalogQuery,
   ItemDownloadProgress,
@@ -18,13 +18,13 @@ import type {
   RegistryItemList,
   RegistrySource,
   RegistryVersionDetail,
-} from "../types/itemRegistry";
+} from "@/types/itemRegistry";
 import type {
   LibraryDestinationInfo,
   LibraryRelocateMode,
   LibrarySettings,
   LibrarySettingsPatch,
-} from "../types/library";
+} from "@/types/library";
 import type {
   CdDisc,
   CdDiscCdText,
@@ -35,35 +35,38 @@ import type {
   DiscMetadataOverride,
   DiscTocTrack,
   DiscTrackOverride,
-} from "../types/cd";
-import type { TrackMetadataUpdate } from "../types/metadata";
-import { parseRepeatMode } from "./playbackSession";
-import type { PlaybackSession } from "../types/playbackSession";
-import type { Theme } from "../types/theme";
-import type { LoadedSkinPack, SkinSummary } from "../types/skin";
-import type { SkinUserPreferences } from "../types/skinPreferences";
-import type { LoadedVisualizer, VizSummary } from "../types/visualizer";
-import type { CoverArtCandidate } from "../types/coverArt";
+} from "@/types/cd";
+import type { TrackMetadataUpdate } from "@/types/metadata";
+import { parseRepeatMode } from "./playback/playbackSession";
+import type { PlaybackSession } from "@/types/playbackSession";
+import type { Theme } from "@/types/theme";
+import type { LoadedSkinPack, SkinSummary } from "@/types/skin";
+import type { SkinUserPreferences } from "@/types/skinPreferences";
+import type { LoadedVisualizer, VizSummary } from "@/types/visualizer";
+import type { CoverArtCandidate } from "@/types/coverArt";
 import type {
   MusicBrainzEntityHit,
   MusicBrainzEntityKind,
   MusicBrainzEntityLookup,
-} from "../types/musicbrainz";
-import type { ImageCrop } from "./imageCrop";
-import type { Playlist } from "../types/playlist";
-import type { PlaybackSettings } from "../types/playbackSettings";
-import type { Track, TrackInput } from "../types/track";
+} from "@/types/musicbrainz";
+import type { ImageCrop } from "./art/imageCrop";
+import type { Playlist } from "@/types/playlist";
+import type { PlaybackSettings } from "@/types/playbackSettings";
+import type { Track, TrackInput } from "@/types/track";
 import type {
   LyricsFetchOutcome,
   LyricsFormat,
   LyricsSearchCandidate,
   TrackLyrics,
   TrackLyricsInput,
-} from "../types/lyrics";
-import { normalizeTrackLyrics, normalizeTrackLyricsInput } from "./lyrics";
-import type { ListenEventPayload } from "../types/listenEvent";
-import type { ActivityLogContext } from "../types/activityLog";
-import { reportSkinLayoutValidation } from "./skinLayoutReport";
+} from "@/types/lyrics";
+import {
+  normalizeTrackLyrics,
+  normalizeTrackLyricsInput,
+} from "./lyrics/lyrics";
+import type { ListenEventPayload } from "@/types/listenEvent";
+import type { ActivityLogContext } from "@/types/activityLog";
+import { reportSkinLayoutValidation } from "./skin/skinLayoutReport";
 
 function normalizeCoverArtCandidate(
   raw: Record<string, unknown>,
@@ -1510,7 +1513,7 @@ export async function deleteEqualizerCustomPreset(id: string): Promise<void> {
   return invoke<void>("delete_equalizer_custom_preset", { id });
 }
 
-export type { PlaybackSettings } from "../types/playbackSettings";
+export type { PlaybackSettings } from "@/types/playbackSettings";
 
 export async function getPlaybackSettings(): Promise<PlaybackSettings> {
   return invoke<PlaybackSettings>("get_playback_settings");
@@ -1838,7 +1841,7 @@ function normalizeOptionalMbid(raw: unknown): string | null {
 
 function normalizeDiscTrackMetadata(
   raw: Record<string, unknown>,
-): import("../types/cd").DiscTrackMetadata {
+): import("@/types/cd").DiscTrackMetadata {
   return {
     number: raw.number as number,
     title: raw.title as string,

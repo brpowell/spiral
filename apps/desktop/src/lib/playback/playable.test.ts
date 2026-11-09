@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { cdTrackListId } from "../cdTracks";
-import { isPendingTrackId } from "../pendingImportTrack";
-import type { Track } from "../../types/track";
+import { cdTrackListId } from "@/lib/cd/cdTracks";
+import { isPendingTrackId } from "@/lib/import/pendingImportTrack";
+import type { Track } from "@/types/track";
 import {
   playableRefFromTrackListId,
   resolvePlaybackSource,

@@ -5,25 +5,25 @@ import {
   sortVersionsNewestFirst,
   versionCmp,
   versionMeetsMinApp,
-} from "../../lib/itemRegistry";
-import { getAppVersion } from "../../lib/tauri";
+} from "@/lib/items/itemRegistry";
+import { getAppVersion } from "@/lib/tauri";
 import {
   catalogItemName,
   type CatalogItemEntry,
   type RegistryVersionSummary,
-} from "../../types/itemRegistry";
-import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
-import { Button } from "../common/Button/Button";
+} from "@/types/itemRegistry";
+import { AlertConfirmation } from "@/components/common/AlertConfirmation/AlertConfirmation";
+import { Button } from "@/components/common/Button/Button";
 import {
   ButtonGroup,
   ButtonGroupSeparator,
-} from "../common/ButtonGroup/ButtonGroup";
+} from "@/components/common/ButtonGroup/ButtonGroup";
 import {
   ContextMenuHeading,
   ContextMenuOptionItem,
-} from "../ContextMenu/ContextMenu";
-import { IconChevronDown, IconDelete } from "../icons";
-import { MenuButton } from "../MenuButton/MenuButton";
+} from "@/components/ContextMenu/ContextMenu";
+import { IconChevronDown, IconDelete } from "@/components/icons";
+import { MenuButton } from "@/components/MenuButton/MenuButton";
 import { ItemActionsMenu } from "./ItemActionsMenu";
 import { UninstallItemDialog } from "./UninstallItemDialog";
 

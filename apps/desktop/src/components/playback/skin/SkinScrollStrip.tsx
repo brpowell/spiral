@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { skinAssetFileUrl } from "../../../lib/skinAssets";
+import { skinAssetFileUrl } from "@/lib/skin/skinAssets";
 import {
   buildScrollStripInitialTops,
   resolveScrollStripItemTop,
   resolveScrollStripSlideLayout,
-} from "../../../lib/skinScrollStrip";
-import { useSkinScrollStripState } from "../../../lib/skinScrollStripContext";
-import type { LoadedSkinPack, ScrollStripNode } from "../../../types/skin";
+} from "@/lib/skin/skinScrollStrip";
+import { useSkinScrollStripState } from "@/lib/skin/skinScrollStripContext";
+import type { LoadedSkinPack, ScrollStripNode } from "@/types/skin";
 import { useSkinLayoutContext } from "./SkinLayoutContext";
 import "./SkinScrollStrip.css";
 

@@ -7,42 +7,42 @@ import {
   type MutableRefObject,
 } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import type { Theme, ThemeTokens } from "../../types/theme";
-import { t as translate } from "../../lib/i18n";
+import type { Theme, ThemeTokens } from "@/types/theme";
+import { t as translate } from "@/lib/i18n/i18n";
 import {
   OBSIDIAN_DEFAULT_TOKENS,
   resolveThemeTokens,
   stripDerivedThemeTokens,
-} from "../../lib/theme";
-import { emitThemePreview } from "../../lib/themeBridge";
+} from "@/lib/theme/theme";
+import { emitThemePreview } from "@/lib/theme/themeBridge";
 import {
   formatThemeValidationError,
   isThemeApplicable,
   validateThemeForApply,
-} from "../../lib/themeValidation";
+} from "@/lib/theme/themeValidation";
 import {
   themeActivateFailedPayload,
   themeSaveFailedPayload,
-} from "../../lib/toastPayloads";
-import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
-import { useThemeStore } from "../../store/useThemeStore";
-import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
-import { Alert } from "../common/Alert/Alert";
-import { Badge } from "../common/Badge/Badge";
-import { Button } from "../common/Button/Button";
-import { Checkbox } from "../common/Checkbox/Checkbox";
-import { Chip } from "../common/Chip/Chip";
-import { ColorField } from "../common/ColorField/ColorField";
-import { FormField } from "../common/Field/Field";
-import { Switch } from "../common/Switch/Switch";
-import { TextInput } from "../common/TextInput/TextInput";
-import { TextLink } from "../common/TextLink/TextLink";
-import { DEFAULT_FONT_ID, findThemeFont, THEME_FONTS } from "../../lib/fonts";
-import { Select } from "../common/Select/Select";
-import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
-import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
-import { BrowseView } from "../BrowseView/BrowseView";
-import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
+} from "@/lib/toast/toastPayloads";
+import { useEditorDiscardPrompt } from "@/hooks/useEditorDiscardPrompt";
+import { useThemeStore } from "@/store/useThemeStore";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { Alert } from "@/components/common/Alert/Alert";
+import { Badge } from "@/components/common/Badge/Badge";
+import { Button } from "@/components/common/Button/Button";
+import { Checkbox } from "@/components/common/Checkbox/Checkbox";
+import { Chip } from "@/components/common/Chip/Chip";
+import { ColorField } from "@/components/common/ColorField/ColorField";
+import { FormField } from "@/components/common/Field/Field";
+import { Switch } from "@/components/common/Switch/Switch";
+import { TextInput } from "@/components/common/TextInput/TextInput";
+import { TextLink } from "@/components/common/TextLink/TextLink";
+import { DEFAULT_FONT_ID, findThemeFont, THEME_FONTS } from "@/lib/ui/fonts";
+import { Select } from "@/components/common/Select/Select";
+import { EditorDiscardOverlay } from "@/components/EditorDiscardOverlay/EditorDiscardOverlay";
+import { BrowseGridBody } from "@/components/BrowseView/BrowseGridBody";
+import { BrowseView } from "@/components/BrowseView/BrowseView";
+import { BrowseViewHeader } from "@/components/BrowseView/BrowseViewHeader";
 import "./ThemeEditor.css";
 
 const COLOR_TOKEN_KEYS = [

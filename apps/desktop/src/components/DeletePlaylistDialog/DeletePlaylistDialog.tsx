@@ -1,6 +1,6 @@
 import { Trans, useTranslation } from "react-i18next";
-import type { Playlist } from "../../types/playlist";
-import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
+import type { Playlist } from "@/types/playlist";
+import { AlertConfirmation } from "@/components/common/AlertConfirmation/AlertConfirmation";
 
 interface DeletePlaylistDialogProps {
   open: boolean;

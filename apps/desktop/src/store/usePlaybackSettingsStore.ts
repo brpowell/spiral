@@ -1,11 +1,11 @@
 import { create } from "zustand";
-import { savePlaybackSettings } from "../lib/tauri";
+import { savePlaybackSettings } from "@/lib/tauri";
 import {
   clampCrossfadeSeconds,
   defaultPlaybackSettings,
   type PlaybackSettings,
-} from "../types/playbackSettings";
-import { getWindowRole } from "../lib/windowRole";
+} from "@/types/playbackSettings";
+import { getWindowRole } from "@/lib/windows/windowRole";
 
 interface PlaybackSettingsStoreState extends PlaybackSettings {
   initializeFromBootstrap: (settings: PlaybackSettings) => void;

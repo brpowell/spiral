@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { findPlaybackTrack } from "../../lib/playbackTrack";
-import { usePlayerStore } from "../../store/usePlayerStore";
+import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
+import { usePlayerStore } from "@/store/usePlayerStore";
 import {
   NowPlayingMetadata,
   PlaybackTransport,
@@ -9,10 +9,10 @@ import {
   SeekBar,
   VisualizerSlot,
   VolumeControl,
-} from "../playback";
-import { SkinModeOpenButton } from "../playback/SkinModeOpenButton/SkinModeOpenButton";
-import { SetListModal } from "../SetListModal/SetListModal";
-import { TrackRowMenu } from "../TrackRowMenu/TrackRowMenu";
+} from "@/components/playback";
+import { SkinModeOpenButton } from "@/components/playback/SkinModeOpenButton/SkinModeOpenButton";
+import { SetListModal } from "@/components/SetListModal/SetListModal";
+import { TrackRowMenu } from "@/components/TrackRowMenu/TrackRowMenu";
 import "./NowPlayingBar.css";
 
 interface NowPlayingBarProps {

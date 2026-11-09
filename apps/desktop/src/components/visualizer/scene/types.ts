@@ -1,4 +1,4 @@
-import type { LayerDriveMap } from "../../../lib/presentation/types";
+import type { LayerDriveMap } from "@/lib/presentation/types";
 
 export type VizSceneLayerKind = "canvas" | "webgl" | "image" | "video";
 

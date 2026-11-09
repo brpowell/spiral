@@ -1,14 +1,14 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
-import type { ItemUpdate } from "../../types/itemRegistry";
+import { useItemUpdatesStore } from "@/store/useItemUpdatesStore";
+import type { ItemUpdate } from "@/types/itemRegistry";
 
 const { mockInstall } = vi.hoisted(() => ({
   mockInstall: vi.fn(async () => null),
 }));
 
-vi.mock("../../lib/itemRegistry", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../lib/itemRegistry")>()),
+vi.mock("@/lib/items/itemRegistry", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/items/itemRegistry")>()),
   installRegistryItem: mockInstall,
 }));
 

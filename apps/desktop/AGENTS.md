@@ -8,6 +8,14 @@ Repo-wide rules, including no AI attribution in commits, are in the root [AGENTS
 
 The `Library.db` schema is versioned: changes are append-only migrations in `src-tauri/src/db_migrations.rs`, and there is no schema script to edit. Never change an existing table definition or an existing migration; add a new migration and run `cargo test --lib db_migrations` (from `src-tauri`). Full process in [docs/contributing/database-migrations.md](docs/contributing/database-migrations.md).
 
+## Imports
+
+Import across folders with the `@/` alias (`@/lib/…`, `@/components/…`), which maps to `src/`. Use `./` only for files in the same folder or below it, and never `../`. Exception: modules that `vite.config.ts` imports (and their dependencies) must stay relative, because Vite loads the config before the alias applies.
+
+## Lib placement
+
+`src/lib/` is grouped by folder: domain folders (`tracks/`, `artists/`, `playback/`, `skin/`, `import/`, …) and infrastructure folders (`windows/`, `activity/`, `i18n/`, `format/`, `ui/`, `dev/`). Put a new module in the folder it belongs to, next to its test. Only app-wide modules (`tauri`, `network`, `scheduling`, `updater`, …) sit directly in `src/lib/`.
+
 ## Component placement
 
 `src/components/common/` holds domain-agnostic design-system primitives only (`Button`, `TextInput`, `Modal`, `Chip`, `ChipInput`, `FormField`). A component belongs there only if its props are generic and it imports no domain `lib/` modules (`artistNames`, `trackMetadataForm`, `albums`, …), Zustand stores, or library/playback navigation.
@@ -17,9 +25,11 @@ Spiral-specific UI goes in `src/components/<FeatureName>/` (e.g. `TrackEditor/`,
 - Heuristic: if removing Spiral's music/library domain would make the component meaningless, it does not belong in `common/`.
 - "Shared between two editors" is not a reason for `common/`; use a sibling feature folder.
 
+Folder casing tells you what a folder is: a PascalCase folder is one component (`TrackEditor/`), and a lowercase folder groups related components (`common/`, `layout/`, `playback/`, `cd/`, `import/`, `labs/`). Put a new component in an existing group when it fits.
+
 ## No per-skin engine hacks
 
-The skin runtime (`src/lib/skin*.ts`, `src/components/playback/skin/`), the WMS importer, and the `spk-format` schemas are a general engine. A bug in one pack is a missing pattern in the engine or missing data on the presentation, not an `if` for that pack.
+The skin runtime (`src/lib/skin/`, `src/components/playback/skin/`), the WMS importer, and the `spk-format` schemas are a general engine. A bug in one pack is a missing pattern in the engine or missing data on the presentation, not an `if` for that pack.
 
 - Don't fingerprint a skin, pack, or view (`id === "lost-planet"`, inset tuples only one pack uses, asset filenames as identity), hardcode radii/z-index/layout only one skin's art needs, or add special-case helpers named after a skin.
 - Do encode the WMS/Spiral pattern (overlay glaze vs corner cap, client-hole clip, stretch tiles) and put skin-specific numbers on the manifest/assets (`contentCornerRadius`, masks, tiles).

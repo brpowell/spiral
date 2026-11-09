@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react";
-import type { SkinLayoutContext as SkinLayoutContextValue } from "../../../lib/skinLayout";
+import type { SkinLayoutContext as SkinLayoutContextValue } from "@/lib/skin/skinLayout";
 
 const defaultValue: SkinLayoutContextValue = {
   origin: { x: 0, y: 0 },
@@ -21,6 +21,8 @@ export function SkinLayoutContextProvider({
   children: ReactNode;
 }) {
   return (
-    <SkinLayoutContext.Provider value={value}>{children}</SkinLayoutContext.Provider>
+    <SkinLayoutContext.Provider value={value}>
+      {children}
+    </SkinLayoutContext.Provider>
   );
 }

@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
-import { resolveThemeTokens } from "../../lib/theme";
-import type { Theme } from "../../types/theme";
+import { resolveThemeTokens } from "@/lib/theme/theme";
+import type { Theme } from "@/types/theme";
 import "./ThemesSection.css";
 
 /** Background / surface / accent bands for a theme's tokens. */

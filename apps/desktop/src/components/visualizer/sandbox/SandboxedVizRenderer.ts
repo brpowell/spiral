@@ -4,13 +4,16 @@
  * ImageBitmaps onto the display canvas.
  */
 
-import { readVizLayerSource } from "../packVizLayerLoader";
-import type { VizFrame, VizRendererEngine } from "../vizRendererApi";
+import { readVizLayerSource } from "@/components/visualizer/packVizLayerLoader";
+import type {
+  VizFrame,
+  VizRendererEngine,
+} from "@/components/visualizer/vizRendererApi";
 import {
   splitVizTrack,
   type VizTrackImagePayload,
   type VizTrackWire,
-} from "../vizTrack";
+} from "@/components/visualizer/vizTrack";
 import {
   FATAL_BUDGET_MS,
   FRAME_BUDGET_MS,

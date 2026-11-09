@@ -4,30 +4,30 @@ import {
   albumTotalDurationSeconds,
   getAlbumByKey,
   groupAlbumTracksByDisc,
-} from "../lib/albums";
-import { confirmAndApplyTrackRatings } from "../lib/applyTrackRating";
-import { formatDurationNatural } from "../lib/format";
-import { linkableArtistKey } from "../lib/trackNavigation";
-import type { CanonicalRating } from "../lib/trackRating";
-import { DetailArtistLink } from "../components/DetailArtistLink/DetailArtistLink";
-import { EntityArt } from "../components/EntityArt/EntityArt";
-import { Button } from "../components/common/Button/Button";
-import { ContextMenuItem } from "../components/ContextMenu/ContextMenu";
-import { MenuButton } from "../components/MenuButton/MenuButton";
-import { TrackList } from "../components/TrackList/TrackList";
+} from "@/lib/albums/albums";
+import { confirmAndApplyTrackRatings } from "@/lib/tracks/applyTrackRating";
+import { formatDurationNatural } from "@/lib/format/format";
+import { linkableArtistKey } from "@/lib/tracks/trackNavigation";
+import type { CanonicalRating } from "@/lib/tracks/trackRating";
+import { DetailArtistLink } from "@/components/DetailArtistLink/DetailArtistLink";
+import { EntityArt } from "@/components/EntityArt/EntityArt";
+import { Button } from "@/components/common/Button/Button";
+import { ContextMenuItem } from "@/components/ContextMenu/ContextMenu";
+import { MenuButton } from "@/components/MenuButton/MenuButton";
+import { TrackList } from "@/components/TrackList/TrackList";
 import {
   IconAddToQueue,
   IconBack,
   IconDisc,
   IconPencil,
   IconPlay,
-} from "../components/icons";
-import { useDetailReturnLabel } from "../hooks/useDetailReturnLabel";
-import { useNavigationStore } from "../store/useNavigationStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import type { Album } from "../types/album";
-import type { Artist } from "../types/artist";
-import type { Track } from "../types/track";
+} from "@/components/icons";
+import { useDetailReturnLabel } from "@/hooks/useDetailReturnLabel";
+import { useNavigationStore } from "@/store/useNavigationStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { Album } from "@/types/album";
+import type { Artist } from "@/types/artist";
+import type { Track } from "@/types/track";
 import "./AlbumDetailView.css";
 import "./DetailViewShared.css";
 

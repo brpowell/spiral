@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
-import { Button } from "../common/Button/Button";
-import { ProgressBar } from "../common/ProgressBar/ProgressBar";
+import { Button } from "@/components/common/Button/Button";
+import { ProgressBar } from "@/components/common/ProgressBar/ProgressBar";
 import {
   IconCancel,
   IconCheck,
@@ -9,21 +9,21 @@ import {
   IconErrorAlert,
   IconRefresh,
   IconWarning,
-} from "../icons";
-import { LYRICS_FETCH_MISSING_KEY } from "../../lib/fetchMissingLyrics";
+} from "@/components/icons";
+import { LYRICS_FETCH_MISSING_KEY } from "@/lib/lyrics/fetchMissingLyrics";
 import {
   ITEM_REGISTRY_DOWNLOAD_KEY,
   ITEM_UPDATES_BULK_KEY,
-} from "../../lib/itemRegistry";
-import { panelMotion } from "../../lib/motion";
-import { cancelItemDownload, cancelLyricsFetch } from "../../lib/tauri";
-import { useCdImportStore } from "../../store/useCdImportStore";
+} from "@/lib/items/itemRegistry";
+import { panelMotion } from "@/lib/ui/motion";
+import { cancelItemDownload, cancelLyricsFetch } from "@/lib/tauri";
+import { useCdImportStore } from "@/store/useCdImportStore";
 import {
   useBackgroundTasksStore,
   type BackgroundTask,
   type BackgroundTaskAction,
   type BackgroundTaskActionsPlacement,
-} from "../../store/useBackgroundTasksStore";
+} from "@/store/useBackgroundTasksStore";
 import "./BackgroundTasksIndicator.css";
 
 function formatProgress(task: BackgroundTask): string | null {

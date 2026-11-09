@@ -1,5 +1,5 @@
-import type { SkinBindPath } from "../../types/skin";
-import type { VisualizerContext } from "../../components/visualizer/types";
+import type { SkinBindPath } from "@/types/skin";
+import type { VisualizerContext } from "@/components/visualizer/types";
 import type { DriveBinding } from "./types";
 
 export interface DriveContext {
@@ -16,10 +16,7 @@ function lerpMap(
   return outMin + t * (outMax - outMin);
 }
 
-function readAudioSource(
-  source: string,
-  audio: DriveContext["audio"],
-): number {
+function readAudioSource(source: string, audio: DriveContext["audio"]): number {
   if (!source.startsWith("audio.")) return 0;
   const key = source.slice("audio.".length);
   switch (key) {
@@ -38,10 +35,7 @@ function readAudioSource(
   }
 }
 
-function readBindSource(
-  source: string,
-  bind: DriveContext["bind"],
-): number {
+function readBindSource(source: string, bind: DriveContext["bind"]): number {
   const value = bind(source as SkinBindPath);
   if (typeof value === "number") return value;
   if (typeof value === "boolean") return value ? 1 : 0;

@@ -5,9 +5,9 @@ import {
   tracksToForm,
   type TrackEditorForm,
   type TrackEditorFormField,
-} from "../lib/trackMetadataForm";
-import type { Track } from "../types/track";
-import type { CanonicalRating } from "../lib/trackRating";
+} from "@/lib/tracks/trackMetadataForm";
+import type { Track } from "@/types/track";
+import type { CanonicalRating } from "@/lib/tracks/trackRating";
 
 /**
  * Details-form state for CdTrackEditor (and reusable if library TrackEditor

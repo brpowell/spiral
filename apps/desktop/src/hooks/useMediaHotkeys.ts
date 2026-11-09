@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { findPlaybackTrack } from "../lib/playbackTrack";
-import { usePlayerStore } from "../store/usePlayerStore";
+import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
+import { usePlayerStore } from "@/store/usePlayerStore";
 
 const HOLD_MS = 400;
 const SCRUB_INTERVAL_MS = 200;
@@ -37,7 +37,8 @@ function createScrubHandler(
   let holdTimer: ReturnType<typeof setTimeout> | null = null;
   let scrubInterval: ReturnType<typeof setInterval> | null = null;
   let isScrubbing = false;
-  const delta = direction === "forward" ? SCRUB_DELTA_SECONDS : -SCRUB_DELTA_SECONDS;
+  const delta =
+    direction === "forward" ? SCRUB_DELTA_SECONDS : -SCRUB_DELTA_SECONDS;
 
   const stopScrubbing = () => {
     if (scrubInterval) {
@@ -66,7 +67,10 @@ function createScrubHandler(
         holdTimer = null;
         isScrubbing = true;
         seekRelative(delta);
-        scrubInterval = setInterval(() => seekRelative(delta), SCRUB_INTERVAL_MS);
+        scrubInterval = setInterval(
+          () => seekRelative(delta),
+          SCRUB_INTERVAL_MS,
+        );
       }, HOLD_MS);
     },
     onRelease: () => {
@@ -104,7 +108,10 @@ export function useMediaHotkeys(): void {
     const scrubForward = createScrubHandler("forward", nextTrack, seekRelative);
     const scrubBack = createScrubHandler("back", previousTrack, seekRelative);
 
-    const scrubHandlers: Record<ScrubDirection, ReturnType<typeof createScrubHandler>> = {
+    const scrubHandlers: Record<
+      ScrubDirection,
+      ReturnType<typeof createScrubHandler>
+    > = {
       forward: scrubForward,
       back: scrubBack,
     };
@@ -163,5 +170,13 @@ export function useMediaHotkeys(): void {
       cleanups.forEach((unlisten) => unlisten());
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [togglePlayPause, pause, resume, seek, nextTrack, previousTrack, seekRelative]);
+  }, [
+    togglePlayPause,
+    pause,
+    resume,
+    seek,
+    nextTrack,
+    previousTrack,
+    seekRelative,
+  ]);
 }

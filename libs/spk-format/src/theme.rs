@@ -37,7 +37,7 @@ pub const REQUIRED_THEME_TOKEN_KEYS: &[&str] = &[
 ];
 
 /// Font ids a theme's `font-ui` token may hold: the bundled fonts, then the
-/// system stacks. Mirrors `THEME_FONTS` in `apps/desktop/src/lib/fonts.ts`; a
+/// system stacks. Mirrors `THEME_FONTS` in `apps/desktop/src/lib/ui/fonts.ts`; a
 /// desktop test keeps the two in step.
 pub const THEME_FONT_IDS: &[&str] = &[
     "inter",

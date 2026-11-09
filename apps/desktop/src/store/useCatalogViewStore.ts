@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { ItemType } from "../types/item";
-import type { CatalogSort } from "../types/itemRegistry";
+import type { ItemType } from "@/types/item";
+import type { CatalogSort } from "@/types/itemRegistry";
 
 interface CatalogViewState {
   /** Selected types; empty means every type. */

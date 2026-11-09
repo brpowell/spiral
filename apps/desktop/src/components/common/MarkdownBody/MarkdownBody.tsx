@@ -2,7 +2,7 @@ import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { TextLink } from "../TextLink/TextLink";
+import { TextLink } from "@/components/common/TextLink/TextLink";
 import "./MarkdownBody.css";
 
 function isExternalHref(href: string | undefined): boolean {

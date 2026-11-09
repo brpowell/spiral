@@ -1,12 +1,15 @@
 import { Trans, useTranslation } from "react-i18next";
-import { shortenHomePath, useHomeDir } from "../../../lib/homePath";
-import { useLibrarySettingsStore } from "../../../store/useLibrarySettingsStore";
+import { shortenHomePath, useHomeDir } from "@/lib/files/homePath";
+import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
 import {
   useOnboardingStore,
   type MusicChoice,
-} from "../../../store/useOnboardingStore";
-import { RadioGroup, RadioGroupItem } from "../../common/RadioGroup/RadioGroup";
-import { IconFolderCog, IconFolderPen } from "../../icons";
+} from "@/store/useOnboardingStore";
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@/components/common/RadioGroup/RadioGroup";
+import { IconFolderCog, IconFolderPen } from "@/components/icons";
 
 const CHOICES: { id: MusicChoice; Icon: typeof IconFolderCog }[] = [
   { id: "new", Icon: IconFolderCog },

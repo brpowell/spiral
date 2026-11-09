@@ -1,9 +1,6 @@
 import { useTranslation } from "react-i18next";
-import {
-  catalogItemName,
-  type CatalogItemEntry,
-} from "../../types/itemRegistry";
-import { Button } from "../common/Button/Button";
+import { catalogItemName, type CatalogItemEntry } from "@/types/itemRegistry";
+import { Button } from "@/components/common/Button/Button";
 import { PackListCard } from "./AppearancePackCard";
 import { itemTypeMeta } from "./itemShared";
 import { RegistryItemPreview } from "./RegistryItemPreview";

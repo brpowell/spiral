@@ -1,18 +1,18 @@
-import { NowPlayingArt } from "../NowPlayingArt/NowPlayingArt";
-import { SeekBar } from "../SeekBar/SeekBar";
-import { VisualizerSlot } from "../VisualizerSlot/VisualizerSlot";
-import { VolumeControl } from "../VolumeControl/VolumeControl";
-import { useSkinControlEnabled } from "../../../lib/skinBinds";
+import { NowPlayingArt } from "@/components/playback/NowPlayingArt/NowPlayingArt";
+import { SeekBar } from "@/components/playback/SeekBar/SeekBar";
+import { VisualizerSlot } from "@/components/playback/VisualizerSlot/VisualizerSlot";
+import { VolumeControl } from "@/components/playback/VolumeControl/VolumeControl";
+import { useSkinControlEnabled } from "@/lib/skin/skinBinds";
 import {
   styleFromSkinNode,
   useResolvedNodeStyle,
-} from "../../../lib/skinNodeStyle";
+} from "@/lib/skin/skinNodeStyle";
 import type {
   ArtworkNode,
   SliderSeekNode,
   SliderVolumeNode,
   VisualizerNode,
-} from "../../../types/skin";
+} from "@/types/skin";
 
 type PrimitiveNode =
   ArtworkNode | VisualizerNode | SliderSeekNode | SliderVolumeNode;

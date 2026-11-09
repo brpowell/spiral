@@ -4,13 +4,13 @@ import {
   soundPackView,
   themeTokenView,
   type ManifestJson,
-} from "../../lib/items/manifestView";
-import { resolveSoundPackAssetUrl } from "../../lib/packSounds";
-import { playOneShot } from "../../lib/sfxPlayer";
-import { readItemManifestJson } from "../../lib/tauri";
-import type { ItemSummary } from "../../types/item";
-import { Button } from "../common/Button/Button";
-import { IconPlay } from "../icons";
+} from "@/lib/items/manifestView";
+import { resolveSoundPackAssetUrl } from "@/lib/packs/packSounds";
+import { playOneShot } from "@/lib/sfxPlayer";
+import { readItemManifestJson } from "@/lib/tauri";
+import type { ItemSummary } from "@/types/item";
+import { Button } from "@/components/common/Button/Button";
+import { IconPlay } from "@/components/icons";
 import "./ItemContentsPanel.css";
 
 type LoadState = "loading" | "ready" | "error";

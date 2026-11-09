@@ -4,8 +4,8 @@ import {
   formatEqGainDb,
   gainDbToRatio,
   snapBandGainNearZero,
-} from "../../lib/equalizer/types";
-import { Slider } from "../common/Slider/Slider";
+} from "@/lib/equalizer/types";
+import { Slider } from "@/components/common/Slider/Slider";
 import "./EqualizerBandSlider.css";
 
 type EqualizerBandSliderProps = {

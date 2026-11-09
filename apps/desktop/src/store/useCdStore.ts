@@ -8,27 +8,27 @@ import {
   type DiscMetadata,
   type DiscMetadataLookup,
   type DiscMetadataOverride,
-} from "../types/cd";
-import type { ActivityLogContext } from "../types/activityLog";
-import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
+} from "@/types/cd";
+import type { ActivityLogContext } from "@/types/activityLog";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
 import {
   discNeedsCdText,
   discTocTracks,
   mergeCdTextIntoDisc,
-} from "../lib/cdTracks";
-import { discFromActivePlayback } from "../lib/cdActivePlaybackDisc";
-import { isCdImportBlockingPlayback } from "../lib/cdImportGuard";
+} from "@/lib/cd/cdTracks";
+import { discFromActivePlayback } from "@/lib/cd/cdActivePlaybackDisc";
+import { isCdImportBlockingPlayback } from "@/lib/cd/cdImportGuard";
 import {
   discMetadataOverrideHasEdits,
   selectedDiscFromLookup,
-} from "../lib/cdMetadata";
+} from "@/lib/cd/cdMetadata";
 import {
   startCdHeroArtFetch,
   startCdMetadataFetch,
-} from "../lib/cdMetadataFetch";
-import { syncCdHeroArtToPlayback } from "../lib/cdPlaybackArt";
-import { logActivity } from "../lib/activityLog";
-import { isNetworkLikelyAvailable } from "../lib/network";
+} from "@/lib/cd/cdMetadataFetch";
+import { syncCdHeroArtToPlayback } from "@/lib/cd/cdPlaybackArt";
+import { logActivity } from "@/lib/activity/activityLog";
+import { isNetworkLikelyAvailable } from "@/lib/network";
 import {
   clearDiscMetadataOverride,
   ejectCdDisc,
@@ -41,7 +41,7 @@ import {
   probeCdDrive,
   saveDiscMetadataOverride,
   saveDiscMetadataPreference,
-} from "../lib/tauri";
+} from "@/lib/tauri";
 import { useLibrarySettingsStore } from "./useLibrarySettingsStore";
 import { useNavigationStore } from "./useNavigationStore";
 import { usePlayerStore } from "./usePlayerStore";

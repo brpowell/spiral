@@ -1,8 +1,8 @@
 import {
   playlistDesignBackgroundStyle,
   defaultPlaylistDesignCover,
-} from "../../lib/playlistCoverPresets";
-import { SpiralIcon } from "../../lib/iconLibrary";
+} from "@/lib/playlists/playlistCoverPresets";
+import { SpiralIcon } from "@/lib/iconLibrary";
 import "./PlaylistArt.css";
 
 interface PlaylistDesignedArtProps {

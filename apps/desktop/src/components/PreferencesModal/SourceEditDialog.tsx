@@ -1,34 +1,34 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { useShortenHomePath } from "../../lib/homePath";
+import { useEditorDiscardPrompt } from "@/hooks/useEditorDiscardPrompt";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useShortenHomePath } from "@/lib/files/homePath";
 import {
   formatOrganizeRelativePath,
   type OrganizePathSample,
-} from "../../lib/organizePathFormat";
-import { describeSourceError, sourceErrorCode } from "../../lib/sourceAccess";
-import { pickMusicFolder } from "../../lib/tauri";
-import type { Source } from "../../types/source";
-import { Button } from "../common/Button/Button";
-import { Checkbox } from "../common/Checkbox/Checkbox";
-import { Disclosure } from "../common/Disclosure/Disclosure";
+} from "@/lib/files/organizePathFormat";
+import { describeSourceError, sourceErrorCode } from "@/lib/files/sourceAccess";
+import { pickMusicFolder } from "@/lib/tauri";
+import type { Source } from "@/types/source";
+import { Button } from "@/components/common/Button/Button";
+import { Checkbox } from "@/components/common/Checkbox/Checkbox";
+import { Disclosure } from "@/components/common/Disclosure/Disclosure";
 import {
   Field,
   FieldContent,
   FieldDescription,
   FieldLabel,
-} from "../common/Field/Field";
+} from "@/components/common/Field/Field";
 import {
   Modal,
   ModalBody,
   ModalFooter,
   ModalHeader,
   ModalTitle,
-} from "../common/Modal/Modal";
-import { TextInput } from "../common/TextInput/TextInput";
-import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
-import { IconOpenFolder } from "../icons";
+} from "@/components/common/Modal/Modal";
+import { TextInput } from "@/components/common/TextInput/TextInput";
+import { EditorDiscardOverlay } from "@/components/EditorDiscardOverlay/EditorDiscardOverlay";
+import { IconOpenFolder } from "@/components/icons";
 import "./SourceEditDialog.css";
 
 /** The placeholders a path format can use, in the order they're listed. */

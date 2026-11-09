@@ -7,7 +7,7 @@ const { mockImport, mockLink, mockReload } = vi.hoisted(() => ({
   mockReload: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("../../lib/items/itemActions", () => ({
+vi.mock("@/lib/items/itemActions", () => ({
   importItemWithRefresh: mockImport,
   linkItemFolderWithRefresh: mockLink,
   reloadLinkedItemsWithRefresh: mockReload,

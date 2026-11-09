@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode } from "react";
-import { IconChevronDown, IconChevronRight } from "../../icons";
+import { IconChevronDown, IconChevronRight } from "@/components/icons";
 import "./Disclosure.css";
 
 export type DisclosureProps = {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../lib/scheduling", () => ({
+vi.mock("@/lib/scheduling", () => ({
   afterUiTransition: () => Promise.resolve(),
 }));
 

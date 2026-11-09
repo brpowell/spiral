@@ -1,11 +1,11 @@
 import { useTranslation } from "react-i18next";
-import { openAppearanceWindow } from "../../lib/appearanceWindow";
-import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
+import { openAppearanceWindow } from "@/lib/windows/appearanceWindow";
+import { useItemUpdatesStore } from "@/store/useItemUpdatesStore";
 import {
   StatusIndicator,
   StatusIndicatorAnchor,
-} from "../common/StatusIndicator/StatusIndicator";
-import { IconPalette } from "../icons";
+} from "@/components/common/StatusIndicator/StatusIndicator";
+import { IconPalette } from "@/components/icons";
 import { SidebarItem } from "./SidebarItem/SidebarItem";
 
 /** Library sidebar row that opens the Studio window. */

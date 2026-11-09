@@ -7,14 +7,14 @@ import {
   useRef,
   useState,
 } from "react";
-import { subscribePlaybackClock } from "../../lib/playbackClock";
-import { resolvePlaybackDisplaySeconds } from "../../lib/playbackClockPin";
+import { subscribePlaybackClock } from "@/lib/playback/playbackClock";
+import { resolvePlaybackDisplaySeconds } from "@/lib/playback/playbackClockPin";
 import {
   createPlayheadGlide,
   type PlayheadGlide,
-} from "../../lib/playheadGlide";
-import * as audio from "../../lib/playback";
-import { plainTextToLines } from "../../lib/lyrics";
+} from "@/lib/playback/playheadGlide";
+import * as audio from "@/lib/playback";
+import { plainTextToLines } from "@/lib/lyrics/lyrics";
 import {
   findScrollLineIndex,
   findSingingLineIndex,
@@ -22,18 +22,18 @@ import {
   hasSyncedTimestamps,
   nextLyricCueMs,
   scrollLineIntoView,
-} from "../../lib/lyricsScroll";
-import { usePlayerStore } from "../../store/usePlayerStore";
-import type { LightboxCompanionMotionProps } from "../../lib/motion";
+} from "@/lib/lyrics/lyricsScroll";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { LightboxCompanionMotionProps } from "@/lib/ui/motion";
 import {
   LYRICS_FETCH_INSTRUMENTAL,
   type LyricsFetchFeedback,
-} from "../../lib/lyricsFetch";
-import type { TrackLyrics } from "../../types/lyrics";
-import { Button } from "../common/Button/Button";
-import { EmptyState } from "../common/EmptyState/EmptyState";
-import { Skeleton } from "../common/Skeleton/Skeleton";
-import { IconMicrophone } from "../icons";
+} from "@/lib/lyrics/lyricsFetch";
+import type { TrackLyrics } from "@/types/lyrics";
+import { Button } from "@/components/common/Button/Button";
+import { EmptyState } from "@/components/common/EmptyState/EmptyState";
+import { Skeleton } from "@/components/common/Skeleton/Skeleton";
+import { IconMicrophone } from "@/components/icons";
 import "./LyricsPanel.css";
 
 interface LyricsPanelProps {

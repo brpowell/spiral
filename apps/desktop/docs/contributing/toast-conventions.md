@@ -2,7 +2,7 @@
 
 Rules for toasts that report the result of an operation (single-item or bulk). Applies to queue, conversion, import, lyrics fetch, pack install/download, and any future success/failure/other outcome toast. Keep new toast types consistent with this — do not invent per-feature formatting.
 
-Paths are relative to `apps/desktop`. Canonical helpers: `src/lib/toastPeerOutcomes.ts`, `src/lib/toastPayloads.ts`. Toast Lab scenarios must match these rules (see §9).
+Paths are relative to `apps/desktop`. Canonical helpers: `src/lib/toast/toastPeerOutcomes.ts`, `src/lib/toast/toastPayloads.ts`. Toast Lab scenarios must match these rules (see §9).
 
 ## Peer outcome counters (§1)
 
@@ -114,7 +114,7 @@ Nothing-to-do cases (e.g. “No tracks missing lyrics”) are plain info toasts 
 
 ## Toast Lab (§9)
 
-Every real production toast scenario must be registered in Toast Lab (`src/components/ToastLab/toastLabScenarios.ts`) for visual auditing.
+Every real production toast scenario must be registered in Toast Lab (`src/components/labs/ToastLab/toastLabScenarios.ts`) for visual auditing.
 
 - Add a scenario when introducing or changing a production toast (success, failure, partial, cancel, progress→settle).
 - Prefer calling the same payload / `settleAs` helpers production uses (`toastPayloads.ts`, settle option builders) — do not hand-roll divergent lab-only copy.

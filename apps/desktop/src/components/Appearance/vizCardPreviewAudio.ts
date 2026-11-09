@@ -2,16 +2,16 @@ import { useEffect, useRef, type RefObject } from "react";
 import {
   ANALYSER_FFT_SIZE,
   ANALYSER_FREQUENCY_BIN_COUNT,
-} from "../../lib/playback";
+} from "@/lib/playback";
 import {
   copyVisualizerFrame,
   startVisualizerFramePull,
   subscribeVisualizerFrames,
   type VisualizerFramePayload,
   type VisualizerRemoteFrame,
-} from "../../lib/visualizerDataBridge";
-import { computeAudioEnergy } from "../visualizer/rendererUtils";
-import { usePlayerStore } from "../../store/usePlayerStore";
+} from "@/lib/visualizer/visualizerDataBridge";
+import { computeAudioEnergy } from "@/components/visualizer/rendererUtils";
+import { usePlayerStore } from "@/store/usePlayerStore";
 
 /** Fixed demo time used for idle card snapshots (~1.2s into a beat). */
 export const VIZ_CARD_DEMO_SNAPSHOT_MS = 1200;

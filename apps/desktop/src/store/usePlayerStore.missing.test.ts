@@ -1,25 +1,25 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 
 const { mockFileExists, playback } = vi.hoisted(() => ({
   mockFileExists: vi.fn(),
   playback: { trackEnded: () => {} },
 }));
 
-vi.mock("../lib/playback", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../lib/playback")>()),
+vi.mock("@/lib/playback", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/playback")>()),
   onEnd: (callback: () => void) => {
     playback.trackEnded = callback;
   },
 }));
 
-vi.mock("../lib/artPath", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../lib/artPath")>()),
+vi.mock("@/lib/art/artPath", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/art/artPath")>()),
   fileExists: mockFileExists,
 }));
 
-import * as audio from "../lib/playback";
+import * as audio from "@/lib/playback";
 import { useBackgroundTasksStore } from "./useBackgroundTasksStore";
 import { usePlayerStore } from "./usePlayerStore";
 

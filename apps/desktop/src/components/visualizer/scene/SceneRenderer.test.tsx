@@ -2,7 +2,7 @@ import { act, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SceneRenderer } from "./SceneRenderer";
 
-vi.mock("../context", () => ({
+vi.mock("@/components/visualizer/context", () => ({
   usePrefersReducedMotion: () => true,
   useVisualizerContextBuilder: () => () => ({
     scene: "default",
@@ -31,7 +31,7 @@ vi.mock("../context", () => ({
   }),
 }));
 
-vi.mock("../sandbox/SandboxedVizRenderer", () => ({
+vi.mock("@/components/visualizer/sandbox/SandboxedVizRenderer", () => ({
   SandboxedVizRenderer: class {
     static create() {
       return new Promise(() => {});

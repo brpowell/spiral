@@ -9,7 +9,7 @@ const { mockDefault, mockPick } = vi.hoisted(() => ({
   mockPick: vi.fn(async (): Promise<string | null> => null),
 }));
 
-vi.mock("../../lib/tauri", () => ({
+vi.mock("@/lib/tauri", () => ({
   defaultNewItemLocation: mockDefault,
   pickNewItemFolder: mockPick,
 }));

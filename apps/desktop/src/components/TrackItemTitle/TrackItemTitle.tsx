@@ -1,6 +1,6 @@
 import { memo } from "react";
-import { EntityArt } from "../EntityArt/EntityArt";
-import type { Track } from "../../types/track";
+import { EntityArt } from "@/components/EntityArt/EntityArt";
+import type { Track } from "@/types/track";
 import "./TrackItemTitle.css";
 
 export interface TrackItemTitleProps {

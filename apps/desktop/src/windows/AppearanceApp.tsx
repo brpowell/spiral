@@ -1,0 +1,106 @@
+import { useCallback, useEffect } from "react";
+import { listen } from "@tauri-apps/api/event";
+import { AppearanceShell } from "@/components/Appearance/AppearanceShell";
+import { BackgroundTasksIndicator } from "@/components/BackgroundTasks/BackgroundTasksIndicator";
+import { CustomWindowFrame } from "@/components/WindowChrome/CustomWindowFrame";
+import { useAppearanceWindowClose } from "@/hooks/useAppearanceWindowClose";
+import {
+  ITEM_UPDATES_CHANGED_EVENT,
+  RELOAD_LINKED_PACKS_EVENT,
+} from "@/lib/windows/appearanceWindow";
+import { t } from "@/lib/i18n/i18n";
+import { refreshPackContributionStores } from "@/lib/packs/refreshPackStores";
+import { useItemUpdatesStore } from "@/store/useItemUpdatesStore";
+import { useSkinStore } from "@/store/useSkinStore";
+import { useSoundPackStore } from "@/store/useSoundPackStore";
+import { useThemeStore } from "@/store/useThemeStore";
+import { useVisualizerStore } from "@/store/useVisualizerStore";
+import type { ItemUpdate } from "@/types/itemRegistry";
+import "./AppearanceApp.css";
+
+export function AppearanceApp() {
+  useAppearanceWindowClose();
+
+  const loadThemes = useThemeStore((s) => s.loadThemes);
+  const loadVisualizers = useVisualizerStore((s) => s.loadVisualizers);
+  const loadSkins = useSkinStore((s) => s.loadSkins);
+  const loadSoundPacks = useSoundPackStore((s) => s.loadSoundPacks);
+  const applyPendingUpdates = useItemUpdatesStore((s) => s.applyPendingUpdates);
+  const checkForItemUpdates = useItemUpdatesStore((s) => s.checkForItemUpdates);
+
+  const refreshAppearanceData = useCallback(async () => {
+    await Promise.all([
+      loadThemes(),
+      loadVisualizers(),
+      loadSkins(),
+      loadSoundPacks(),
+    ]);
+  }, [loadThemes, loadVisualizers, loadSkins, loadSoundPacks]);
+
+  useEffect(() => {
+    void refreshAppearanceData().catch((err: unknown) => {
+      console.error("Failed to load appearance data:", err);
+    });
+  }, [refreshAppearanceData]);
+
+  // Hydrate pending pack updates (main window owns the poller).
+  useEffect(() => {
+    void checkForItemUpdates({ reason: "manual" }).catch((err: unknown) => {
+      console.error("Failed to check pack updates:", err);
+    });
+  }, [checkForItemUpdates]);
+
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listen<ItemUpdate[]>(ITEM_UPDATES_CHANGED_EVENT, (event) => {
+      applyPendingUpdates(event.payload ?? []);
+    }).then((fn) => {
+      if (disposed) {
+        fn();
+        return;
+      }
+      unlisten = fn;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [applyPendingUpdates]);
+
+  // Menu / Cmd+Alt+R runs in the main webview; sync Studio stores without a
+  // second toast (main already shows success/error).
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listen(RELOAD_LINKED_PACKS_EVENT, () => {
+      void refreshPackContributionStores().catch((err: unknown) => {
+        console.error("Failed to refresh packs after linked reload:", err);
+      });
+    }).then((fn) => {
+      if (disposed) {
+        fn();
+        return;
+      }
+      unlisten = fn;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
+
+  // No focus-driven refresh: OS color pickers / dialogs blur+refocus the window
+  // and would thrash the theme editor. Cross-window updates arrive via bridges
+  // (theme://changed, packs://library-changed, skin events, etc.).
+
+  return (
+    <CustomWindowFrame
+      title={t("menus:view.studio")}
+      className="appearance-app"
+    >
+      <AppearanceShell />
+      <BackgroundTasksIndicator />
+    </CustomWindowFrame>
+  );
+}

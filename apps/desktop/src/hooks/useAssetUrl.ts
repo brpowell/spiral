@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useArtDisplayEpoch } from "../lib/artDisplayCache";
-import { getCachedAssetUrl, resolveAssetUrl } from "../lib/assetUrlCache";
+import { useArtDisplayEpoch } from "@/lib/art/artDisplayCache";
+import { getCachedAssetUrl, resolveAssetUrl } from "@/lib/art/assetUrlCache";
 
 /** Resolve a local file path to an asset URL for display in the WebView. */
 export function useAssetUrl(path: string | null | undefined): string | null {

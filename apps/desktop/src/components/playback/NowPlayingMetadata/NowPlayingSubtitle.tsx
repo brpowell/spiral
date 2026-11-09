@@ -1,17 +1,17 @@
 import { Fragment, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { albumKey, groupTracksIntoAlbums } from "../../../lib/albums";
-import { DEFAULT_ARTIST_JOIN_DELIMITER } from "../../../lib/artistNames";
-import { groupTracksIntoArtists } from "../../../lib/artists";
-import { isTrackImporting } from "../../../lib/pendingImportTrack";
+import { albumKey, groupTracksIntoAlbums } from "@/lib/albums/albums";
+import { DEFAULT_ARTIST_JOIN_DELIMITER } from "@/lib/artists/artistNames";
+import { groupTracksIntoArtists } from "@/lib/artists/artists";
+import { isTrackImporting } from "@/lib/import/pendingImportTrack";
 import {
   artistLinksForTrack,
   isAlbumInLibrary,
-} from "../../../lib/trackNavigation";
-import { useNavigationStore } from "../../../store/useNavigationStore";
-import { usePlayerStore } from "../../../store/usePlayerStore";
-import type { Track } from "../../../types/track";
-import { ScrollingText } from "../../ScrollingText/ScrollingText";
+} from "@/lib/tracks/trackNavigation";
+import { useNavigationStore } from "@/store/useNavigationStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { Track } from "@/types/track";
+import { ScrollingText } from "@/components/ScrollingText/ScrollingText";
 
 const SUBTITLE_JOIN = " — ";
 

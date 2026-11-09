@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
-import type { SkinView } from "../types/skin";
-import { useSkinBindState } from "../lib/skinBinds";
-import { scheduleSkinEffects } from "../lib/skinEffects";
+import type { SkinView } from "@/types/skin";
+import { useSkinBindState } from "@/lib/skin/skinBinds";
+import { scheduleSkinEffects } from "@/lib/skin/skinEffects";
 import { useSkinModeShown } from "./useSkinModeShown";
 
 /** Run manifest `view.onActivate` effects when this view's window becomes visible. */

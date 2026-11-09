@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useVisualizerStore } from "../../store/useVisualizerStore";
-import type { VizSummary } from "../../types/visualizer";
+import { useVisualizerStore } from "@/store/useVisualizerStore";
+import type { VizSummary } from "@/types/visualizer";
 import { useVizCardSnapshotPrewarm } from "./vizCardSnapshot";
 
 function pack(id: string, previewPath: string | null = null): VizSummary {

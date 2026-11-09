@@ -3,8 +3,11 @@ import {
   type ComponentPropsWithoutRef,
   type MouseEvent,
 } from "react";
-import { Button, type ButtonProps } from "../Button/Button";
-import { TextInput, type TextInputProps } from "../TextInput/TextInput";
+import { Button, type ButtonProps } from "@/components/common/Button/Button";
+import {
+  TextInput,
+  type TextInputProps,
+} from "@/components/common/TextInput/TextInput";
 import "./InputGroup.css";
 
 export type InputGroupProps = ComponentPropsWithoutRef<"div"> & {

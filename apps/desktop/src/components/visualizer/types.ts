@@ -1,7 +1,7 @@
 import type { RefObject } from "react";
-import type { SkinBindPath } from "../../types/skin";
-import type { VisualizerRemoteFrame } from "../../lib/visualizerDataBridge";
-import type { VisualizerScene } from "../../types/visualizer";
+import type { SkinBindPath } from "@/types/skin";
+import type { VisualizerRemoteFrame } from "@/lib/visualizer/visualizerDataBridge";
+import type { VisualizerScene } from "@/types/visualizer";
 import type { VizScene } from "./scene/types";
 import type { VizFrameTrack } from "./vizTrack";
 
@@ -21,7 +21,7 @@ export interface VizFrameTheme {
   tokens: Record<string, string>;
 }
 
-export type { VisualizerScene } from "../../types/visualizer";
+export type { VisualizerScene } from "@/types/visualizer";
 
 export interface VisualizerContext {
   scene: VisualizerScene;

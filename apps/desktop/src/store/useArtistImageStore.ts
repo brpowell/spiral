@@ -1,10 +1,10 @@
 import { create } from "zustand";
-import { refreshArtDisplay } from "../lib/artDisplayCache";
+import { refreshArtDisplay } from "@/lib/art/artDisplayCache";
 import {
   getArtistImages,
   renameArtistImageKey as renameArtistImageKeyApi,
   saveArtistImage as saveArtistImageApi,
-} from "../lib/tauri";
+} from "@/lib/tauri";
 
 interface ArtistImageState {
   imagesByKey: Record<string, string>;

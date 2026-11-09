@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
-import { useAssetUrl } from "../../hooks/useAssetUrl";
-import { useArtDisplayEpoch } from "../../lib/artDisplayCache";
+import { useAssetUrl } from "@/hooks/useAssetUrl";
+import { useArtDisplayEpoch } from "@/lib/art/artDisplayCache";
 import {
   getCachedRowArtAssetUrl,
   GRID_ART_THUMB_SIZE,
   resolveRowArtThumbPath,
   ROW_ART_THUMB_SIZE,
   rowArtAssetUrl,
-} from "../../lib/rowArtThumb";
+} from "@/lib/art/rowArtThumb";
 
 export type EntityArtVariant = "default" | "row" | "grid";
 

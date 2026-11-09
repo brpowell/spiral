@@ -1,8 +1,8 @@
-import { useVisualizerFrameRef } from "../../../hooks/useVisualizerFrame";
-import { isAnySkinWindow } from "../../../lib/windowRole";
-import { SceneRenderer } from "../../visualizer/scene/SceneRenderer";
-import { useResolvedVisualizer } from "../../visualizer/useResolvedVisualizer";
-import type { VisualizerRendererProps } from "../../visualizer/types";
+import { useVisualizerFrameRef } from "@/hooks/useVisualizerFrame";
+import { isAnySkinWindow } from "@/lib/windows/windowRole";
+import { SceneRenderer } from "@/components/visualizer/scene/SceneRenderer";
+import { useResolvedVisualizer } from "@/components/visualizer/useResolvedVisualizer";
+import type { VisualizerRendererProps } from "@/components/visualizer/types";
 import type { CSSProperties } from "react";
 import "./VisualizerSlot.css";
 

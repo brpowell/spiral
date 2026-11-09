@@ -1,7 +1,7 @@
-import type { LayoutNode, LoadedSkinPack } from "../../../types/skin";
-import { useSkinVisible } from "../../../lib/skinBinds";
-import { skinDragRegionDeepProps } from "../../../lib/skinDragRegion";
-import { sortChildrenByZIndex } from "../../../lib/skinLayout";
+import type { LayoutNode, LoadedSkinPack } from "@/types/skin";
+import { useSkinVisible } from "@/lib/skin/skinBinds";
+import { skinDragRegionDeepProps } from "@/lib/skin/skinDragRegion";
+import { sortChildrenByZIndex } from "@/lib/skin/skinLayout";
 import { SkinBoundedCanvasNode } from "./SkinBoundedCanvasNode";
 import { SkinBitmapButton } from "./SkinBitmapButton";
 import { SkinButtonGroup } from "./SkinButtonGroup";
@@ -9,7 +9,7 @@ import { SkinPrimitiveButton } from "./SkinPrimitiveButton";
 import { SkinDecoration } from "./SkinDecoration";
 import { SkinPrimitiveControl } from "./SkinPrimitiveControl";
 import { SkinDigitTime } from "./SkinDigitTime";
-import { SkinPlaylistView } from "../SkinPlaylistView/SkinPlaylistView";
+import { SkinPlaylistView } from "@/components/playback/SkinPlaylistView/SkinPlaylistView";
 import { SkinStripSlider } from "./SkinStripSlider";
 import { SkinBitmapHorizontalSlider } from "./SkinBitmapHorizontalSlider";
 import { SkinBitmapVerticalSlider } from "./SkinBitmapVerticalSlider";
@@ -20,7 +20,7 @@ import { SkinScrollStrip } from "./SkinScrollStrip";
 import {
   styleFromSkinNode,
   useResolvedNodeStyle,
-} from "../../../lib/skinNodeStyle";
+} from "@/lib/skin/skinNodeStyle";
 import { SkinRating } from "./SkinRating";
 import { SkinText } from "./SkinText";
 import { SkinInput } from "./SkinInput";

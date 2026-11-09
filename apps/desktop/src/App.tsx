@@ -1,23 +1,23 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { BackgroundTasksIndicator } from "./components/BackgroundTasks/BackgroundTasksIndicator";
-import { ImportDropZone } from "./components/ImportDropZone/ImportDropZone";
+import { ImportDropZone } from "./components/import/ImportDropZone/ImportDropZone";
 import { PlayerDock } from "./components/PlayerDock/PlayerDock";
 import { AlbumEditor } from "./components/AlbumEditor/AlbumEditor";
 import { ArtistEditor } from "./components/ArtistEditor/ArtistEditor";
-import { CdAlbumEditor } from "./components/CdAlbumEditor/CdAlbumEditor";
-import { CdTrackEditor } from "./components/CdTrackEditor/CdTrackEditor";
+import { CdAlbumEditor } from "./components/cd/CdAlbumEditor/CdAlbumEditor";
+import { CdTrackEditor } from "./components/cd/CdTrackEditor/CdTrackEditor";
 import { TrackEditor } from "./components/TrackEditor/TrackEditor";
 import { TagWriteConfirmDialog } from "./components/TagWriteConfirmDialog/TagWriteConfirmDialog";
 import { LyricsReviewQueue } from "./components/LyricsReviewQueue/LyricsReviewQueue";
 import { MainContent } from "./components/layout/MainContent";
 import { Sidebar } from "./components/layout/Sidebar";
-import { ImportChoiceModal } from "./components/ImportChoiceModal/ImportChoiceModal";
-import { ImportDedupeModal } from "./components/ImportDedupeModal/ImportDedupeModal";
+import { ImportChoiceModal } from "./components/import/ImportChoiceModal/ImportChoiceModal";
+import { ImportDedupeModal } from "./components/import/ImportDedupeModal/ImportDedupeModal";
 import { ConvertConfirmModal } from "./components/ConvertConfirmModal/ConvertConfirmModal";
-import { CdImportCancelDialog } from "./components/CdImportCancelDialog/CdImportCancelDialog";
-import { CdMetadataPicker } from "./components/CdMetadataPicker/CdMetadataPicker";
-import { CdMusicBrainzFetchModal } from "./components/CdMusicBrainzFetchModal/CdMusicBrainzFetchModal";
+import { CdImportCancelDialog } from "./components/cd/CdImportCancelDialog/CdImportCancelDialog";
+import { CdMetadataPicker } from "./components/cd/CdMetadataPicker/CdMetadataPicker";
+import { CdMusicBrainzFetchModal } from "./components/cd/CdMusicBrainzFetchModal/CdMusicBrainzFetchModal";
 import { PlaylistEditorModal } from "./components/PlaylistEditorModal/PlaylistEditorModal";
 import { PreferencesModal } from "./components/PreferencesModal/PreferencesModal";
 import { CrashReportModal } from "./components/ActivityLogs/CrashReportModal";
@@ -27,25 +27,28 @@ import { CustomWindowFrame } from "./components/WindowChrome/CustomWindowFrame";
 import { useStartupCrashReport } from "./hooks/useStartupCrashReport";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useArtistImageStore } from "./store/useArtistImageStore";
-import { setupAppMenu, type AppMenuHandlers } from "./lib/appMenu";
+import { setupAppMenu, type AppMenuHandlers } from "./lib/windows/appMenu";
 import { resetOnboardingCompleted } from "./lib/onboardingPreferences";
-import { toggleStubLocaleAndReload } from "./lib/appLocale";
-import { t } from "./lib/i18n";
-import { fetchMissingLyrics } from "./lib/fetchMissingLyrics";
+import { toggleStubLocaleAndReload } from "./lib/i18n/appLocale";
+import { t } from "./lib/i18n/i18n";
+import { fetchMissingLyrics } from "./lib/lyrics/fetchMissingLyrics";
 import { refreshLibraryMetadata } from "./lib/refreshLibraryMetadata";
-import { openSkinMode, quitApplication } from "./lib/skinModeWindow";
-import { openActivityLogsWindow } from "./lib/activityLogsWindow";
+import {
+  openSkinMode,
+  quitApplication,
+} from "./lib/skin/modeWindow/skinModeWindow";
+import { openActivityLogsWindow } from "./lib/windows/activityLogsWindow";
 import {
   openAppearanceWindow,
   ITEM_UPDATES_CHANGED_EVENT,
-} from "./lib/appearanceWindow";
-import { openAboutWindow } from "./lib/aboutWindow";
+} from "./lib/windows/appearanceWindow";
+import { openAboutWindow } from "./lib/windows/aboutWindow";
 import { LIBRARY_TRACKS_CHANGED_EVENT } from "./lib/tauri";
 import { useSourcesStore } from "./store/useSourcesStore";
-import { openEqualizerWindow } from "./lib/equalizerWindow";
-import { toggleToastLabWindow } from "./lib/toastLabWindow";
+import { openEqualizerWindow } from "./lib/equalizer/equalizerWindow";
+import { toggleToastLabWindow } from "./lib/toast/toastLabWindow";
 import { reloadLinkedItemsWithRefresh } from "./lib/items/itemActions";
-import { usesCustomWindowChrome } from "./lib/windowChrome";
+import { usesCustomWindowChrome } from "./lib/windows/windowChrome";
 import { useCdMonitor } from "./hooks/useCdMonitor";
 import { useMediaHotkeys } from "./hooks/useMediaHotkeys";
 import { loadTrackListPreferences } from "./components/TrackList/trackListPreferences";
@@ -141,12 +144,12 @@ function App() {
             void toggleToastLabWindow();
           },
           toggleSoundLab: () => {
-            void import("./lib/soundLabWindow").then((mod) =>
+            void import("./lib/windows/soundLabWindow").then((mod) =>
               mod.toggleSoundLabWindow(),
             );
           },
           toggleIconLab: () => {
-            void import("./lib/iconLabWindow").then((mod) =>
+            void import("./lib/windows/iconLabWindow").then((mod) =>
               mod.toggleIconLabWindow(),
             );
           },
@@ -265,14 +268,14 @@ function App() {
       }
       if (import.meta.env.DEV && key === "s" && e.altKey && !e.shiftKey) {
         e.preventDefault();
-        void import("./lib/soundLabWindow").then((mod) =>
+        void import("./lib/windows/soundLabWindow").then((mod) =>
           mod.toggleSoundLabWindow(),
         );
         return;
       }
       if (import.meta.env.DEV && key === "l" && e.altKey && !e.shiftKey) {
         e.preventDefault();
-        void import("./lib/iconLabWindow").then((mod) =>
+        void import("./lib/windows/iconLabWindow").then((mod) =>
           mod.toggleIconLabWindow(),
         );
         return;

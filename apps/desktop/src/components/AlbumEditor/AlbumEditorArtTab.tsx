@@ -1,9 +1,12 @@
 import { useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { useContextMenu } from "../../hooks/useContextMenu";
-import { ContextMenu, ContextMenuItem } from "../ContextMenu/ContextMenu";
-import { EntityArt } from "../EntityArt/EntityArt";
-import { IconCrop, IconDownload, IconOpenFolder } from "../icons";
+import { useContextMenu } from "@/hooks/useContextMenu";
+import {
+  ContextMenu,
+  ContextMenuItem,
+} from "@/components/ContextMenu/ContextMenu";
+import { EntityArt } from "@/components/EntityArt/EntityArt";
+import { IconCrop, IconDownload, IconOpenFolder } from "@/components/icons";
 import { ART_TYPE_LABEL_KEY, type AlbumArtType } from "./AlbumArtPicker";
 import "./AlbumEditor.css";
 

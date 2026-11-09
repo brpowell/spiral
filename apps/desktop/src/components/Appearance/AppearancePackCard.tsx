@@ -1,6 +1,6 @@
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { IconCheck, IconLink } from "../icons";
+import { IconCheck, IconLink } from "@/components/icons";
 import "./AppearancePackCard.css";
 
 export interface AppearancePackCardProps {

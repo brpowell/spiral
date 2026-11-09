@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { usePlayerStore } from "./usePlayerStore";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 
 export interface CdImportProgress {
   driveId: string;

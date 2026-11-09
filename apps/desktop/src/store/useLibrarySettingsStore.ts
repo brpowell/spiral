@@ -1,12 +1,12 @@
 import { create } from "zustand";
-import { afterUiTransition } from "../lib/scheduling";
+import { afterUiTransition } from "@/lib/scheduling";
 import {
   getImportSource,
   getLibrarySettings,
   saveLibrarySettings as persistLibrarySettings,
-} from "../lib/tauri";
-import type { LibrarySettings, LibrarySettingsPatch } from "../types/library";
-import type { PreferencesSectionId } from "../components/PreferencesModal/preferencesSections";
+} from "@/lib/tauri";
+import type { LibrarySettings, LibrarySettingsPatch } from "@/types/library";
+import type { PreferencesSectionId } from "@/components/PreferencesModal/preferencesSections";
 
 /** Which source an import copies into. */
 export interface ImportChoice {

@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { useLibrarySettingsStore } from "../../../store/useLibrarySettingsStore";
-import type { LibrarySettingsPatch } from "../../../types/library";
-import { Checkbox } from "../../common/Checkbox/Checkbox";
+import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
+import type { LibrarySettingsPatch } from "@/types/library";
+import { Checkbox } from "@/components/common/Checkbox/Checkbox";
 
 /** One checkbox with its explanatory note underneath. */
 function Option({

@@ -1,6 +1,6 @@
 /** Mirrors Rust `VizManifest` / summary types (viz.json). */
 
-import type { VizScene } from "../components/visualizer/scene/types";
+import type { VizScene } from "@/components/visualizer/scene/types";
 import type { PackZone } from "./pack";
 
 /** Host context scene. Visualizer manifests have a single layer list. */
