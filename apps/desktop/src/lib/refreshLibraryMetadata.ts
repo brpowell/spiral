@@ -4,7 +4,7 @@ import {
   refreshLibraryMetadataFromFiles,
   type RefreshLibraryMetadataResult,
 } from "./tauri";
-import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
+import { formatPeerOutcomeTitle } from "./toast/toastPeerOutcomes";
 import type { BackgroundTaskSettleAsOptions } from "@/store/useBackgroundTasksStore";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import { usePlayerStore } from "@/store/usePlayerStore";

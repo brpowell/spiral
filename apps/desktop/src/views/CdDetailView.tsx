@@ -20,21 +20,21 @@ import {
 import {
   discMetadataOverrideHasEdits,
   mergeDiscDisplayLayers,
-} from "@/lib/cdMetadata";
-import { ensureCdHeroArtValid } from "@/lib/cdArt";
+} from "@/lib/cd/cdMetadata";
+import { ensureCdHeroArtValid } from "@/lib/cd/cdArt";
 import {
   startCdHeroArtFetch,
   startCdMetadataFetch,
-} from "@/lib/cdMetadataFetch";
+} from "@/lib/cd/cdMetadataFetch";
 import {
   albumTotalDurationSecondsFromCd,
   cdSidebarDiscLabel,
   cdTrackListId,
   cdTrackNumberFromListId,
   cdTracksForList,
-} from "@/lib/cdTracks";
+} from "@/lib/cd/cdTracks";
 import { t } from "@/lib/i18n";
-import { startCdImport } from "@/lib/cdImport";
+import { startCdImport } from "@/lib/cd/cdImport";
 import { formatTime } from "@/lib/format";
 import { setCdDetailDrive } from "@/lib/tauri";
 import { isAlbumInLibrary, linkableArtistKey } from "@/lib/trackNavigation";

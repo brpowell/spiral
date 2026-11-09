@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { t } from "./i18n";
 import { convertTracksSettleOptions } from "./convertTracks";
 import { formatImportSummary } from "./import";
-import { formatLyricsFetchPeerTitle } from "./lyricsFetchToastSettle";
+import { formatLyricsFetchPeerTitle } from "./lyrics/lyricsFetchToastSettle";
 import { resolveSkinTooltip } from "./skin/skinTooltips";
-import { queueAddedPayload } from "./toastPayloads";
+import { queueAddedPayload } from "./toast/toastPayloads";
 import { minimalBindState } from "@/test/skinBindFixtures";
 
 describe("i18n Phase 6 catalogs", () => {

@@ -20,7 +20,7 @@ import {
   saveTrack,
 } from "./tauri";
 import { shouldAutoReplaceMissingDuplicate } from "./missingFileTrack";
-import { importLyricsConflict, trackLyricsToInput } from "./lyrics";
+import { importLyricsConflict, trackLyricsToInput } from "./lyrics/lyrics";
 import {
   applyBatchRule,
   useImportDedupeStore,
@@ -30,7 +30,7 @@ import type { BackgroundTaskSettleAsOptions } from "@/store/useBackgroundTasksSt
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { Track, TrackInput } from "@/types/track";
 import { BackgroundTaskCancelledError } from "./backgroundTaskCancel";
-import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
+import { formatPeerOutcomeTitle } from "./toast/toastPeerOutcomes";
 
 export interface ImportResult {
   imported: number;

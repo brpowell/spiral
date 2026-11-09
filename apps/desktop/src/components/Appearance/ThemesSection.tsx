@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { themeApplyFailedPayload } from "@/lib/toastPayloads";
+import { themeApplyFailedPayload } from "@/lib/toast/toastPayloads";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import { useThemeStore } from "@/store/useThemeStore";
 import type { Theme } from "@/types/theme";

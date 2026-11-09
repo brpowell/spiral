@@ -31,9 +31,9 @@ import {
 } from "@/lib/packs/packInstallActivity";
 import { refreshPackContributionStores } from "@/lib/packs/refreshPackStores";
 import { createRegistryCache } from "@/lib/packs/registryCache";
-import { errorMessageFromUnknown } from "@/lib/cdPlaybackFailure";
+import { errorMessageFromUnknown } from "@/lib/cd/cdPlaybackFailure";
 import { afterUiTransition } from "@/lib/scheduling";
-import { packDownloadFailedPayload } from "@/lib/toastPayloads";
+import { packDownloadFailedPayload } from "@/lib/toast/toastPayloads";
 
 /** Background task key for registry item downloads (cancel wiring). */
 export const ITEM_REGISTRY_DOWNLOAD_KEY = "item-registry-download";

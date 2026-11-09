@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { DEFAULT_ARTIST_JOIN_DELIMITER } from "@/lib/artistNames";
-import { formatTrackLyricsColumnLabel } from "@/lib/lyrics";
+import { formatTrackLyricsColumnLabel } from "@/lib/lyrics/lyrics";
 import { formatDateAdded, formatTime } from "@/lib/format";
 import {
   formatBitrate,

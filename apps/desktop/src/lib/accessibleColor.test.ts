@@ -8,8 +8,8 @@ import {
   raisedSurfaceHex,
   selectedTextSurfacesHex,
 } from "./accessibleColor";
-import { builtinThemeColors } from "./builtinThemeColors.testutil";
-import { windowAppearanceForBackground } from "./theme";
+import { builtinThemeColors } from "./theme/builtinThemeColors.testutil";
+import { windowAppearanceForBackground } from "./theme/theme";
 
 describe("accessibleMutedOnRaised", () => {
   it("returns null for non-hex colors", () => {

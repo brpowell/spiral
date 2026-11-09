@@ -6,8 +6,8 @@ import {
   findThemeById,
   resolveActiveThemeId,
   stripDerivedThemeTokens,
-} from "@/lib/theme";
-import { emitThemeChanged, getLiveThemePreview } from "@/lib/themeBridge";
+} from "@/lib/theme/theme";
+import { emitThemeChanged, getLiveThemePreview } from "@/lib/theme/themeBridge";
 import {
   createThemeItem,
   deleteLinkedItem,
@@ -21,7 +21,7 @@ import {
   formatThemeValidationError,
   validateThemeForApply,
   validateThemeForSave,
-} from "@/lib/themeValidation";
+} from "@/lib/theme/themeValidation";
 import type { Theme } from "@/types/theme";
 
 interface ThemeState {

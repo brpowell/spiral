@@ -85,7 +85,7 @@ vi.mock("@/lib/scheduling", () => ({
   afterUiTransition: () => Promise.resolve(),
 }));
 
-vi.mock("@/lib/toastPayloads", () => ({
+vi.mock("@/lib/toast/toastPayloads", () => ({
   packUpdatesSettleOptions: mockSettleOptions,
 }));
 

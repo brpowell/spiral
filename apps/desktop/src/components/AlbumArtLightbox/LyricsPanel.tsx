@@ -11,7 +11,7 @@ import { subscribePlaybackClock } from "@/lib/playback/playbackClock";
 import { resolvePlaybackDisplaySeconds } from "@/lib/playback/playbackClockPin";
 import { createPlayheadGlide, type PlayheadGlide } from "@/lib/playheadGlide";
 import * as audio from "@/lib/playback";
-import { plainTextToLines } from "@/lib/lyrics";
+import { plainTextToLines } from "@/lib/lyrics/lyrics";
 import {
   findScrollLineIndex,
   findSingingLineIndex,
@@ -19,13 +19,13 @@ import {
   hasSyncedTimestamps,
   nextLyricCueMs,
   scrollLineIntoView,
-} from "@/lib/lyricsScroll";
+} from "@/lib/lyrics/lyricsScroll";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { LightboxCompanionMotionProps } from "@/lib/motion";
 import {
   LYRICS_FETCH_INSTRUMENTAL,
   type LyricsFetchFeedback,
-} from "@/lib/lyricsFetch";
+} from "@/lib/lyrics/lyricsFetch";
 import type { TrackLyrics } from "@/types/lyrics";
 import { Button } from "@/components/common/Button/Button";
 import { EmptyState } from "@/components/common/EmptyState/EmptyState";

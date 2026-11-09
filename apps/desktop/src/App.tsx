@@ -31,7 +31,7 @@ import { setupAppMenu, type AppMenuHandlers } from "./lib/appMenu";
 import { resetOnboardingCompleted } from "./lib/onboardingPreferences";
 import { toggleStubLocaleAndReload } from "./lib/appLocale";
 import { t } from "./lib/i18n";
-import { fetchMissingLyrics } from "./lib/fetchMissingLyrics";
+import { fetchMissingLyrics } from "./lib/lyrics/fetchMissingLyrics";
 import { refreshLibraryMetadata } from "./lib/refreshLibraryMetadata";
 import {
   openSkinMode,
@@ -46,7 +46,7 @@ import { openAboutWindow } from "./lib/aboutWindow";
 import { LIBRARY_TRACKS_CHANGED_EVENT } from "./lib/tauri";
 import { useSourcesStore } from "./store/useSourcesStore";
 import { openEqualizerWindow } from "./lib/equalizer/equalizerWindow";
-import { toggleToastLabWindow } from "./lib/toastLabWindow";
+import { toggleToastLabWindow } from "./lib/toast/toastLabWindow";
 import { reloadLinkedItemsWithRefresh } from "./lib/items/itemActions";
 import { usesCustomWindowChrome } from "./lib/windowChrome";
 import { useCdMonitor } from "./hooks/useCdMonitor";

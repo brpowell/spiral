@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { LyricsSearchCandidate } from "@/types/lyrics";
-import type { LyricsFetchFeedback } from "@/lib/lyricsFetch";
+import type { LyricsFetchFeedback } from "@/lib/lyrics/lyricsFetch";
 
 export type TrackLyricsFetchUI = {
   feedback: LyricsFetchFeedback | null;

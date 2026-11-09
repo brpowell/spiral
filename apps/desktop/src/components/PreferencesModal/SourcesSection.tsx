@@ -14,7 +14,7 @@ import {
   revealPathInFileManager,
   setImportSource,
 } from "@/lib/tauri";
-import { sourceScanPayload } from "@/lib/toastPayloads";
+import { sourceScanPayload } from "@/lib/toast/toastPayloads";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { useSourcesStore } from "@/store/useSourcesStore";

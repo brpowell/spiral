@@ -6,7 +6,7 @@ import {
   resolvePlaybackDisplaySeconds,
 } from "@/lib/playback/playbackClockPin";
 import * as audio from "@/lib/playback";
-import { cdPlaybackTracks } from "@/lib/cdPlaybackArt";
+import { cdPlaybackTracks } from "@/lib/cd/cdPlaybackArt";
 import {
   isCdTrackListId,
   cdTrackNumberFromListId,
@@ -22,7 +22,7 @@ import {
   pickAndImportLibraryPaths,
   startLibraryImport,
 } from "@/lib/libraryImport";
-import { isCdImportBlockingPlayback } from "@/lib/cdImportGuard";
+import { isCdImportBlockingPlayback } from "@/lib/cd/cdImportGuard";
 import {
   showQueueAddedToast,
   showQueueAddedToastForTracks,
@@ -74,7 +74,7 @@ import { showMissingTrackSkippedToast } from "@/lib/playback/playbackToast";
 import {
   errorMessageFromUnknown,
   reportCdPlaybackFailure,
-} from "@/lib/cdPlaybackFailure";
+} from "@/lib/cd/cdPlaybackFailure";
 import { reportUnexpectedError } from "@/lib/unexpectedErrorToast";
 import {
   findNextPlayableInOrder,

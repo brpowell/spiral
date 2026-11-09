@@ -25,8 +25,11 @@ import {
   previewOrganizeSource,
   rescanSource,
 } from "./tauri";
-import { organizeFailedPayload, organizeRunningLabel } from "./toastPayloads";
-import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
+import {
+  organizeFailedPayload,
+  organizeRunningLabel,
+} from "./toast/toastPayloads";
+import { formatPeerOutcomeTitle } from "./toast/toastPeerOutcomes";
 
 /**
  * The finished organize toast, by the bulk operation rules: number-first

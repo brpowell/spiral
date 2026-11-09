@@ -12,8 +12,8 @@ import { EqualizerApp } from "./EqualizerApp";
 import { SkinModeApp } from "./SkinModeApp";
 import { initPlayerStoreBridge } from "./lib/playerStoreBridge";
 import { initSkinBridge } from "./lib/skin/skinBridge";
-import { initThemeBridge } from "./lib/themeBridge";
-import { initVisualizerBridge } from "./lib/visualizerBridge";
+import { initThemeBridge } from "./lib/theme/themeBridge";
+import { initVisualizerBridge } from "./lib/visualizer/visualizerBridge";
 import { initEqBridge } from "./lib/equalizer/eqBridge";
 import { bootstrapSkin } from "./lib/skin/skinBootstrap";
 import { bootstrapSkinAux } from "./lib/skin/auxWindow/skinAuxBootstrap";
@@ -25,14 +25,14 @@ import {
 import { resolveAuxStartupRequirements } from "./lib/skin/auxWindow/skinAuxStartupRequirements";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useSkinStore } from "./store/useSkinStore";
-import { bootstrapTheme } from "./lib/themeBootstrap";
+import { bootstrapTheme } from "./lib/theme/themeBootstrap";
 import { showOnboardingSplash } from "./lib/onboardingSplash";
-import { bootstrapVisualizer } from "./lib/visualizerBootstrap";
+import { bootstrapVisualizer } from "./lib/visualizer/visualizerBootstrap";
 import { bootstrapEqualizer } from "./lib/equalizer/equalizerBootstrap";
 import { bootstrapPlaybackSettings } from "./lib/playback/playbackSettingsBootstrap";
 import { ToastLabApp } from "./ToastLabApp";
 import { initCrashHandlers, installCrashDevConsole } from "./lib/crashReport";
-import { installToastDevConsole } from "./lib/toastDevConsole";
+import { installToastDevConsole } from "./lib/toast/toastDevConsole";
 import { installDevUserTimingGuard } from "./lib/devUserTimingGuard";
 import {
   bootstrapWindowRole,

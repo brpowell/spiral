@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { discMetadataToEntityHit } from "@/lib/cdMetadata";
+import { discMetadataToEntityHit } from "@/lib/cd/cdMetadata";
 import {
   musicBrainzHitFacts,
   musicBrainzHitTitle,

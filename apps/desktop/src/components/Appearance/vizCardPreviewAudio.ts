@@ -9,7 +9,7 @@ import {
   subscribeVisualizerFrames,
   type VisualizerFramePayload,
   type VisualizerRemoteFrame,
-} from "@/lib/visualizerDataBridge";
+} from "@/lib/visualizer/visualizerDataBridge";
 import { computeAudioEnergy } from "@/components/visualizer/rendererUtils";
 import { usePlayerStore } from "@/store/usePlayerStore";
 

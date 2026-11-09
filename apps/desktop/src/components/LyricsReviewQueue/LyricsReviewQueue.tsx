@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import {
   createLyricsFetchFeedback,
   type LyricsLibraryTrackRef,
-} from "@/lib/lyricsFetch";
-import { commitFetchedLyricsForTrack } from "@/lib/lyricsFetchCommit";
+} from "@/lib/lyrics/lyricsFetch";
+import { commitFetchedLyricsForTrack } from "@/lib/lyrics/lyricsFetchCommit";
 import { missingFileErrorDetail } from "@/lib/missingFileTrack";
 import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
 import { usePlayerStore } from "@/store/usePlayerStore";

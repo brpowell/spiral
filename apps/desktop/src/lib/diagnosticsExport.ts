@@ -5,7 +5,7 @@ import { normalizeCrashReport } from "./crashReport";
 import {
   diagnosticsCopiedPayload,
   diagnosticsSavedPayload,
-} from "./toastPayloads";
+} from "./toast/toastPayloads";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import type {
   DiagnosticsBundle,

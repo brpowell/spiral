@@ -4,7 +4,7 @@ import {
   startVisualizerFramePull,
   subscribeVisualizerFrames,
   type VisualizerRemoteFrame,
-} from "@/lib/visualizerDataBridge";
+} from "@/lib/visualizer/visualizerDataBridge";
 
 const EMPTY_REMOTE_FRAME: VisualizerRemoteFrame = {
   bins: null,

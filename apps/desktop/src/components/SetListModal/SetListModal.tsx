@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
-import { isCdTrackListId } from "@/lib/cdTracks";
+import { isCdTrackListId } from "@/lib/cd/cdTracks";
 import { formatTime } from "@/lib/format";
 import { buildPlaybackOrder } from "@/lib/playback/playbackOrder";
 import { isTrackKnownUnplayable } from "@/lib/playback/playbackSkip";

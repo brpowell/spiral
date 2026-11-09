@@ -1,5 +1,8 @@
 import { create } from "zustand";
-import { DEFAULT_VISUALIZER_ID, toVisualizer } from "@/lib/resolveVisualizer";
+import {
+  DEFAULT_VISUALIZER_ID,
+  toVisualizer,
+} from "@/lib/visualizer/resolveVisualizer";
 import {
   getActiveVisualizerId,
   listVisualizers,
@@ -9,8 +12,8 @@ import {
 import type { VizSummary } from "@/types/visualizer";
 import type { Visualizer } from "@/components/visualizer/types";
 import { BARS_FALLBACK_VISUALIZER } from "@/components/visualizer/fallbackVisualizer";
-import { emitVisualizerChanged } from "@/lib/visualizerBridge";
-import { adjacentVisualizerId } from "@/lib/visualizerCycle";
+import { emitVisualizerChanged } from "@/lib/visualizer/visualizerBridge";
+import { adjacentVisualizerId } from "@/lib/visualizer/visualizerCycle";
 
 interface VisualizerState {
   visualizers: VizSummary[];

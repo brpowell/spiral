@@ -5,7 +5,7 @@ import {
   linkItemFolderWithRefresh,
   reloadLinkedItemsWithRefresh,
 } from "@/lib/items/itemActions";
-import { themeCreateFailedPayload } from "@/lib/toastPayloads";
+import { themeCreateFailedPayload } from "@/lib/toast/toastPayloads";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import { useThemeStore } from "@/store/useThemeStore";
 import { ContextMenuItem } from "@/components/ContextMenu/ContextMenu";

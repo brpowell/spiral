@@ -15,18 +15,18 @@ import {
   discNeedsCdText,
   discTocTracks,
   mergeCdTextIntoDisc,
-} from "@/lib/cdTracks";
-import { discFromActivePlayback } from "@/lib/cdActivePlaybackDisc";
-import { isCdImportBlockingPlayback } from "@/lib/cdImportGuard";
+} from "@/lib/cd/cdTracks";
+import { discFromActivePlayback } from "@/lib/cd/cdActivePlaybackDisc";
+import { isCdImportBlockingPlayback } from "@/lib/cd/cdImportGuard";
 import {
   discMetadataOverrideHasEdits,
   selectedDiscFromLookup,
-} from "@/lib/cdMetadata";
+} from "@/lib/cd/cdMetadata";
 import {
   startCdHeroArtFetch,
   startCdMetadataFetch,
-} from "@/lib/cdMetadataFetch";
-import { syncCdHeroArtToPlayback } from "@/lib/cdPlaybackArt";
+} from "@/lib/cd/cdMetadataFetch";
+import { syncCdHeroArtToPlayback } from "@/lib/cd/cdPlaybackArt";
 import { logActivity } from "@/lib/activityLog";
 import { isNetworkLikelyAvailable } from "@/lib/network";
 import {

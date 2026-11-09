@@ -11,7 +11,7 @@ import type { LyricsLine, LyricsSource } from "@/types/lyrics";
 import {
   buildTrackLyricsInputFromEditor,
   lyricsEditorStatesEquivalent,
-} from "./lyrics";
+} from "./lyrics/lyrics";
 import { UNRATED, type CanonicalRating } from "./trackRating";
 
 function tracksShareAlbum(tracks: Track[]): boolean {

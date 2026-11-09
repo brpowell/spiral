@@ -3,7 +3,7 @@ import { isAnySkinWindow } from "@/lib/windowRole";
 import {
   DEFAULT_VISUALIZER_ID,
   resolveSkinVisualizerFixedId,
-} from "@/lib/resolveVisualizer";
+} from "@/lib/visualizer/resolveVisualizer";
 import { useSkinStore } from "@/store/useSkinStore";
 import { useVisualizerStore } from "@/store/useVisualizerStore";
 import { BARS_FALLBACK_VISUALIZER } from "./fallbackVisualizer";

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { startVisualizerDataProvider } from "@/lib/visualizerDataBridge";
+import { startVisualizerDataProvider } from "@/lib/visualizer/visualizerDataBridge";
 import { isSkinModeWindow } from "@/lib/windowRole";
 
 export function useVisualizerDataProvider(): void {

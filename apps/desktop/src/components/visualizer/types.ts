@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 import type { SkinBindPath } from "@/types/skin";
-import type { VisualizerRemoteFrame } from "@/lib/visualizerDataBridge";
+import type { VisualizerRemoteFrame } from "@/lib/visualizer/visualizerDataBridge";
 import type { VisualizerScene } from "@/types/visualizer";
 import type { VizScene } from "./scene/types";
 import type { VizFrameTrack } from "./vizTrack";

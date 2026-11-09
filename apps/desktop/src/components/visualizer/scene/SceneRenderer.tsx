@@ -11,7 +11,7 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
-import type { VisualizerRemoteFrame } from "@/lib/visualizerDataBridge";
+import type { VisualizerRemoteFrame } from "@/lib/visualizer/visualizerDataBridge";
 import { vizMediaLayerUrl } from "@/lib/presentation/assets";
 import { Button } from "@/components/common/Button/Button";
 import { IconMaximize, IconMinimize } from "@/components/icons";

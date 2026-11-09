@@ -8,7 +8,7 @@ import {
   DEFAULT_THEME_ID,
   findThemeById,
   resolveThemeTokens,
-} from "@/lib/theme";
+} from "@/lib/theme/theme";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { useThemeStore } from "@/store/useThemeStore";
 import type { SkinBindPath } from "@/types/skin";

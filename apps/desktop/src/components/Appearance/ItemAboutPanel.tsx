@@ -8,7 +8,7 @@ import {
   prefetchPackReadme,
   setPackReadmeCache,
 } from "@/lib/packs/packReadmeCache";
-import { LIBRARY_PACKS_CHANGED_EVENT } from "@/lib/themeBridge";
+import { LIBRARY_PACKS_CHANGED_EVENT } from "@/lib/theme/themeBridge";
 import { writeItemReadme } from "@/lib/tauri";
 import { isEditablePackZone } from "@/types/pack";
 import type { ItemSummary } from "@/types/item";

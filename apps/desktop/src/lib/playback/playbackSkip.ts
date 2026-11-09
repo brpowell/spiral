@@ -1,5 +1,5 @@
 import { fileExists } from "@/lib/artPath";
-import { isCdTrackListId } from "@/lib/cdTracks";
+import { isCdTrackListId } from "@/lib/cd/cdTracks";
 import { isTrackImporting } from "@/lib/pendingImportTrack";
 import { isTrackMissingFile } from "@/lib/missingFileTrack";
 import type { RepeatMode, Track } from "@/types/track";

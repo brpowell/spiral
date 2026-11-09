@@ -1,10 +1,13 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { LyricsFormat, LyricsLine } from "@/types/lyrics";
-import type { LyricsFetchFeedback } from "@/lib/lyricsFetch";
-import { formatLyricsFormatLabel, parseEditorLyricsChange } from "@/lib/lyrics";
-import { serializeLrc } from "@/lib/lyricsLrc";
-import { hasSyncedTimestamps } from "@/lib/lyricsScroll";
+import type { LyricsFetchFeedback } from "@/lib/lyrics/lyricsFetch";
+import {
+  formatLyricsFormatLabel,
+  parseEditorLyricsChange,
+} from "@/lib/lyrics/lyrics";
+import { serializeLrc } from "@/lib/lyrics/lyricsLrc";
+import { hasSyncedTimestamps } from "@/lib/lyrics/lyricsScroll";
 import { Button } from "@/components/common/Button/Button";
 import { Alert } from "@/components/common/Alert/Alert";
 import { Badge } from "@/components/common/Badge/Badge";

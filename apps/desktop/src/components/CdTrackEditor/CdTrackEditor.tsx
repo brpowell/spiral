@@ -15,9 +15,9 @@ import {
 import {
   cdArtCacheKey,
   discOverridePatchFromTrackForm,
-} from "@/lib/cdOverrideFromForm";
-import { mergeDiscDisplayLayers } from "@/lib/cdMetadata";
-import { cdTrackNumberFromListId, cdTracksForList } from "@/lib/cdTracks";
+} from "@/lib/cd/cdOverrideFromForm";
+import { mergeDiscDisplayLayers } from "@/lib/cd/cdMetadata";
+import { cdTrackNumberFromListId, cdTracksForList } from "@/lib/cd/cdTracks";
 import { t } from "@/lib/i18n";
 import { fetchCoverArtCandidates } from "@/lib/albumArtFetch";
 import {

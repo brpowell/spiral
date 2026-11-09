@@ -23,7 +23,7 @@ import {
 import {
   activeVisualizerName,
   canCycleVisualizers,
-} from "@/lib/visualizerCycle";
+} from "@/lib/visualizer/visualizerCycle";
 import { useAssetUrl } from "@/hooks/useAssetUrl";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";

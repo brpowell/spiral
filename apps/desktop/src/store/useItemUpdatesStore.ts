@@ -3,7 +3,7 @@ import { emit } from "@tauri-apps/api/event";
 import { create } from "zustand";
 import { ITEM_UPDATES_CHANGED_EVENT } from "@/lib/appearanceWindow";
 import { BackgroundTaskCancelledError } from "@/lib/backgroundTaskCancel";
-import { errorMessageFromUnknown } from "@/lib/cdPlaybackFailure";
+import { errorMessageFromUnknown } from "@/lib/cd/cdPlaybackFailure";
 import { t } from "@/lib/i18n";
 import {
   isDownloadCancelled,
@@ -15,7 +15,7 @@ import {
 } from "@/lib/packs/packInstallActivity";
 import { refreshPackContributionStores } from "@/lib/packs/refreshPackStores";
 import { afterUiTransition } from "@/lib/scheduling";
-import { packUpdatesSettleOptions } from "@/lib/toastPayloads";
+import { packUpdatesSettleOptions } from "@/lib/toast/toastPayloads";
 import { AUTOMATIC_UPDATE_INTERVAL_MS } from "@/lib/updater";
 import {
   cancelItemDownload,

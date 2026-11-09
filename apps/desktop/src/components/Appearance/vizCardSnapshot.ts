@@ -5,8 +5,8 @@ import {
   findThemeById,
   OBSIDIAN_DEFAULT_TOKENS,
   resolveThemeTokens,
-} from "@/lib/theme";
-import { getLiveThemePreview } from "@/lib/themeBridge";
+} from "@/lib/theme/theme";
+import { getLiveThemePreview } from "@/lib/theme/themeBridge";
 import type { Visualizer } from "@/components/visualizer/types";
 import { SandboxedVizRenderer } from "@/components/visualizer/sandbox/SandboxedVizRenderer";
 import {

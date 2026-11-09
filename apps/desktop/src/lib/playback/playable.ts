@@ -2,7 +2,7 @@ import {
   cdTrackListId,
   cdTrackNumberFromListId,
   isCdTrackListId,
-} from "@/lib/cdTracks";
+} from "@/lib/cd/cdTracks";
 import type { PlayableRef } from "@/types/playable";
 import type { Track } from "@/types/track";
 import type { PlaybackSource } from "./types";

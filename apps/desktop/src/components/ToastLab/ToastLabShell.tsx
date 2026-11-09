@@ -4,13 +4,13 @@ import { Button } from "@/components/common/Button/Button";
 import { FormField } from "@/components/common/Field/Field";
 import { TextInput } from "@/components/common/TextInput/TextInput";
 import { BackgroundTaskCancelledError } from "@/lib/backgroundTaskCancel";
-import { joinPeerOutcomeClauses } from "@/lib/toastPeerOutcomes";
+import { joinPeerOutcomeClauses } from "@/lib/toast/toastPeerOutcomes";
 import { t } from "@/lib/i18n";
 import {
   playbackFileMissingPayload,
   playlistAddedPayload,
   queueAddedPayload,
-} from "@/lib/toastPayloads";
+} from "@/lib/toast/toastPayloads";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import {
   toastLabScenarioFireCtx,

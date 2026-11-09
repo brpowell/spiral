@@ -1,5 +1,5 @@
-import { mergeRemoteMetadataIntoDisc } from "./cdMetadata";
-import { cdSidebarDiscLabel } from "./cdTracks";
+import { mergeRemoteMetadataIntoDisc } from "./cd/cdMetadata";
+import { cdSidebarDiscLabel } from "./cd/cdTracks";
 import { t } from "./i18n";
 import { getPlaylistById } from "./playlists";
 import { useCdStore } from "@/store/useCdStore";

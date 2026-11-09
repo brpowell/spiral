@@ -1,4 +1,4 @@
-import { playlistAddedPayload } from "./toastPayloads";
+import { playlistAddedPayload } from "./toast/toastPayloads";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import type { Playlist } from "@/types/playlist";
 import type { Track } from "@/types/track";

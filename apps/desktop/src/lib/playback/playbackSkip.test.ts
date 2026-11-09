@@ -5,7 +5,7 @@ vi.mock("@/lib/artPath", () => ({
 }));
 
 import { fileExists } from "@/lib/artPath";
-import { cdTrackListId } from "@/lib/cdTracks";
+import { cdTrackListId } from "@/lib/cd/cdTracks";
 import {
   getNextSkippingKnownUnplayable,
   findNextPlayableInOrder,

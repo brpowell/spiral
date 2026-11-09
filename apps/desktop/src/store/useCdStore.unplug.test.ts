@@ -34,12 +34,12 @@ vi.mock("@/lib/tauri", () => ({
   saveDiscMetadataPreference: vi.fn(),
 }));
 
-vi.mock("@/lib/cdMetadataFetch", () => ({
+vi.mock("@/lib/cd/cdMetadataFetch", () => ({
   startCdHeroArtFetch: vi.fn(),
   startCdMetadataFetch: vi.fn(),
 }));
 
-vi.mock("@/lib/cdPlaybackArt", () => ({
+vi.mock("@/lib/cd/cdPlaybackArt", () => ({
   syncCdHeroArtToPlayback: vi.fn(),
 }));
 
@@ -51,11 +51,11 @@ vi.mock("@/lib/network", () => ({
   isNetworkLikelyAvailable: () => false,
 }));
 
-vi.mock("@/lib/cdImportGuard", () => ({
+vi.mock("@/lib/cd/cdImportGuard", () => ({
   isCdImportBlockingPlayback: () => false,
 }));
 
-vi.mock("@/lib/cdActivePlaybackDisc", () => ({
+vi.mock("@/lib/cd/cdActivePlaybackDisc", () => ({
   discFromActivePlayback: () => null,
 }));
 

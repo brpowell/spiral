@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { LyricsSearchCandidate } from "@/types/lyrics";
-import { formatLyricsFormatLabel } from "@/lib/lyrics";
+import { formatLyricsFormatLabel } from "@/lib/lyrics/lyrics";
 import {
   formatLyricsDuration,
   lyricsCandidateDetails,
   lyricsCandidateDurationMeta,
   lyricsCandidateLabel,
   type LyricsLibraryTrackRef,
-} from "@/lib/lyricsFetch";
+} from "@/lib/lyrics/lyricsFetch";
 import { listLyricsAttempts } from "@/lib/tauri";
 import { IconDownload } from "@/components/icons";
 import { Badge } from "@/components/common/Badge/Badge";

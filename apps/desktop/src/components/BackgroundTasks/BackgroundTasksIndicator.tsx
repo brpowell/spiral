@@ -10,7 +10,7 @@ import {
   IconRefresh,
   IconWarning,
 } from "@/components/icons";
-import { LYRICS_FETCH_MISSING_KEY } from "@/lib/fetchMissingLyrics";
+import { LYRICS_FETCH_MISSING_KEY } from "@/lib/lyrics/fetchMissingLyrics";
 import {
   ITEM_REGISTRY_DOWNLOAD_KEY,
   ITEM_UPDATES_BULK_KEY,

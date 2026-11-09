@@ -60,7 +60,10 @@ import type {
   TrackLyrics,
   TrackLyricsInput,
 } from "@/types/lyrics";
-import { normalizeTrackLyrics, normalizeTrackLyricsInput } from "./lyrics";
+import {
+  normalizeTrackLyrics,
+  normalizeTrackLyricsInput,
+} from "./lyrics/lyrics";
 import type { ListenEventPayload } from "@/types/listenEvent";
 import type { ActivityLogContext } from "@/types/activityLog";
 import { reportSkinLayoutValidation } from "./skin/skinLayoutReport";

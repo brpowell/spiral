@@ -43,11 +43,11 @@ import {
   lyricsFetchFailureFeedback,
   type LyricsFetchFeedback,
   type LyricsLibraryTrackRef,
-} from "@/lib/lyricsFetch";
+} from "@/lib/lyrics/lyricsFetch";
 import {
   runLyricsFetchInBackground,
   searchLyricsOptionsInBackground,
-} from "@/lib/lyricsFetchToast";
+} from "@/lib/lyrics/lyricsFetchToast";
 import {
   showBulkTrackMetadataSaveToast,
   showTagWriteSavedToast,

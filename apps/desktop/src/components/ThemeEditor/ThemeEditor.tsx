@@ -13,17 +13,17 @@ import {
   OBSIDIAN_DEFAULT_TOKENS,
   resolveThemeTokens,
   stripDerivedThemeTokens,
-} from "@/lib/theme";
-import { emitThemePreview } from "@/lib/themeBridge";
+} from "@/lib/theme/theme";
+import { emitThemePreview } from "@/lib/theme/themeBridge";
 import {
   formatThemeValidationError,
   isThemeApplicable,
   validateThemeForApply,
-} from "@/lib/themeValidation";
+} from "@/lib/theme/themeValidation";
 import {
   themeActivateFailedPayload,
   themeSaveFailedPayload,
-} from "@/lib/toastPayloads";
+} from "@/lib/toast/toastPayloads";
 import { useEditorDiscardPrompt } from "@/hooks/useEditorDiscardPrompt";
 import { useThemeStore } from "@/store/useThemeStore";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";

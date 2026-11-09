@@ -7,7 +7,7 @@ import { formatBytes } from "@/lib/formatBytes";
 import { RELOAD_LINKED_PACKS_EVENT } from "@/lib/appearanceWindow";
 import { prefetchPackChangelog } from "@/lib/packs/packChangelogCache";
 import { listItems, revealItemFolder, readItemManifestJson } from "@/lib/tauri";
-import { LIBRARY_PACKS_CHANGED_EVENT } from "@/lib/themeBridge";
+import { LIBRARY_PACKS_CHANGED_EVENT } from "@/lib/theme/themeBridge";
 import { updateItemMetadataWithRefresh } from "@/lib/items/itemActions";
 import { useItemsVersionStore } from "@/store/useItemsVersionStore";
 import { isEditableItem, type ItemSummary } from "@/types/item";

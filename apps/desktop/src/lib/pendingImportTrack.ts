@@ -1,4 +1,4 @@
-import { isCdTrackListId } from "./cdTracks";
+import { isCdTrackListId } from "./cd/cdTracks";
 import { mbidFieldsFrom, type Track, type TrackInput } from "@/types/track";
 
 let nextPendingId = -1;

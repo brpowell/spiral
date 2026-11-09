@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { resolveThemeTokens } from "@/lib/theme";
+import { resolveThemeTokens } from "@/lib/theme/theme";
 import type { Theme } from "@/types/theme";
 import "./ThemesSection.css";
 

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { DragDropProvider } from "@dnd-kit/react";
 import { move } from "@dnd-kit/helpers";
 import { useTranslation } from "react-i18next";
-import { isCdSidebarDiscReady } from "@/lib/cdTracks";
+import { isCdSidebarDiscReady } from "@/lib/cd/cdTracks";
 import {
   CLICKABLE_ITEM_POINTER_SENSOR,
   SORT_KEYBOARD_SENSOR,

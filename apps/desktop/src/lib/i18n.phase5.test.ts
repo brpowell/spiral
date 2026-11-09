@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { t } from "./i18n";
-import { formatLyricsFormatLabel } from "./lyrics";
-import { lyricsFetchFailureFeedback } from "./lyricsFetch";
+import { formatLyricsFormatLabel } from "./lyrics/lyrics";
+import { lyricsFetchFailureFeedback } from "./lyrics/lyricsFetch";
 import { mixedFieldPlaceholder, tracksToForm } from "./trackMetadataForm";
 import {
   formatThemeValidationError,
   validateThemeForApply,
   validateThemeForSave,
-} from "./themeValidation";
+} from "./theme/themeValidation";
 import type { Theme } from "@/types/theme";
 import type { Track } from "@/types/track";
 

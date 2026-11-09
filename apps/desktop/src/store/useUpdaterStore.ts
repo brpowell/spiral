@@ -14,7 +14,7 @@ import { saveLibrarySettings } from "@/lib/tauri";
 import {
   availableUpdateActions,
   availableUpdatePayload,
-} from "@/lib/toastPayloads";
+} from "@/lib/toast/toastPayloads";
 import { isTauri } from "@/lib/windowRole";
 import {
   useBackgroundTasksStore,

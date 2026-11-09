@@ -14,14 +14,14 @@ import {
   canFetchLyricsForTrack,
   prepareLyricsFetchForLightbox,
   startLyricsFetchForTrack,
-} from "@/lib/lyricsFetchToast";
-import { commitFetchedLyricsForTrack } from "@/lib/lyricsFetchCommit";
+} from "@/lib/lyrics/lyricsFetchToast";
+import { commitFetchedLyricsForTrack } from "@/lib/lyrics/lyricsFetchCommit";
 import {
   createLyricsFetchFeedback,
   LYRICS_FETCH_INSTRUMENTAL,
   LYRICS_FETCH_NOT_FOUND,
   type LyricsLibraryTrackRef,
-} from "@/lib/lyricsFetch";
+} from "@/lib/lyrics/lyricsFetch";
 import { missingFileErrorDetail } from "@/lib/missingFileTrack";
 import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
 import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
