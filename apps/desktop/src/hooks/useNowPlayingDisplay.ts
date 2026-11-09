@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { useReducedMotion } from "framer-motion";
-import { findPlaybackTrack } from "../lib/playbackTrack";
-import { usePlaybackSettingsStore } from "../store/usePlaybackSettingsStore";
-import { usePlayerStore } from "../store/usePlayerStore";
+import { findPlaybackTrack } from "@/lib/playbackTrack";
+import { usePlaybackSettingsStore } from "@/store/usePlaybackSettingsStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
 import { useAssetUrl } from "./useAssetUrl";
 
 /** Current / crossfading now-playing tracks and resolved art URLs. */

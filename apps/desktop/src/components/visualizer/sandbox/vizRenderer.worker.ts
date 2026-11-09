@@ -21,13 +21,13 @@ import type {
   VizRendererModule,
   VizWebGLRendererInstance,
   VizWebGLRendererModule,
-} from "../vizRendererApi";
+} from "@/components/visualizer/vizRendererApi";
 import {
   materializeVizTrack,
   retainVizImages,
   type VizTrackImagePayload,
   type VizTrackWire,
-} from "../vizTrack";
+} from "@/components/visualizer/vizTrack";
 import type {
   HostToWorkerMessage,
   VizFrameMessage,

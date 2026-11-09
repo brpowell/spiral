@@ -1,11 +1,12 @@
 import { cdTrackNumberFromListId } from "./cdTracks";
-import { usePlayerStore } from "../store/usePlayerStore";
-import type { CdDisc } from "../types/cd";
-import type { Track } from "../types/track";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { CdDisc } from "@/types/cd";
+import type { Track } from "@/types/track";
 
 /** Build a disc snapshot from active CD playback when drive reads must be deferred. */
 export function discFromActivePlayback(driveId: string): CdDisc | null {
-  const { cdDriveId, playbackTracks, cdQueueContext } = usePlayerStore.getState();
+  const { cdDriveId, playbackTracks, cdQueueContext } =
+    usePlayerStore.getState();
 
   let tracks: Track[] | null = null;
   if (cdDriveId === driveId && playbackTracks.length > 0) {

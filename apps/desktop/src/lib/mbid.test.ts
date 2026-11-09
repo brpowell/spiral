@@ -5,7 +5,7 @@ import {
   musicBrainzHitFacts,
   musicBrainzHitTitle,
 } from "./musicBrainzEntityDisplay";
-import type { MusicBrainzEntityHit } from "../types/musicbrainz";
+import type { MusicBrainzEntityHit } from "@/types/musicbrainz";
 
 describe("mbid", () => {
   it("normalizes and validates hyphenated UUIDs", () => {

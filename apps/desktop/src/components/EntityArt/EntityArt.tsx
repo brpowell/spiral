@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { IconDisc2 } from "../icons";
+import { IconDisc2 } from "@/components/icons";
 import { useEntityArtSrc, type EntityArtVariant } from "./useEntityArtSrc";
 import "./EntityArt.css";
 

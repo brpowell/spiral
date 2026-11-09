@@ -1,6 +1,6 @@
 import { compareLocalized } from "./appLocale";
 import { normalizeArtistName, parseArtistField } from "./artistNames";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 
 export function collectArtistNameSuggestions(tracks: Track[]): string[] {
   const byKey = new Map<string, string>();

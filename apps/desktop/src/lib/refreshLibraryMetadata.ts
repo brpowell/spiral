@@ -5,10 +5,10 @@ import {
   type RefreshLibraryMetadataResult,
 } from "./tauri";
 import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
-import type { BackgroundTaskSettleAsOptions } from "../store/useBackgroundTasksStore";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
+import type { BackgroundTaskSettleAsOptions } from "@/store/useBackgroundTasksStore";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
 
 /**
  * Library refresh toast (toast-conventions peer counters).

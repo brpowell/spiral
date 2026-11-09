@@ -7,7 +7,7 @@ import {
   mergeRemoteMetadataIntoDisc,
   selectedDiscFromLookup,
 } from "./cdMetadata";
-import type { CdDisc, DiscMetadata, DiscMetadataOverride } from "../types/cd";
+import type { CdDisc, DiscMetadata, DiscMetadataOverride } from "@/types/cd";
 
 function sampleDisc(overrides: Partial<CdDisc> = {}): CdDisc {
   return {

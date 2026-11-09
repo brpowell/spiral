@@ -1,9 +1,9 @@
 import { useMemo, useRef } from "react";
-import type { CanvasNode, LoadedSkinPack, SkinView } from "../../../types/skin";
-import { resolveViewWindowChrome } from "../../../lib/skinModeWindowChrome";
-import { sortChildrenByZIndex } from "../../../lib/skinLayout";
-import { resolveViewDragInference } from "../../../lib/skinWindowPresentation";
-import { skinDragRegionDeepProps } from "../../../lib/skinDragRegion";
+import type { CanvasNode, LoadedSkinPack, SkinView } from "@/types/skin";
+import { resolveViewWindowChrome } from "@/lib/skinModeWindowChrome";
+import { sortChildrenByZIndex } from "@/lib/skinLayout";
+import { resolveViewDragInference } from "@/lib/skinWindowPresentation";
+import { skinDragRegionDeepProps } from "@/lib/skinDragRegion";
 import { SkinBoundedCanvasNode } from "./SkinBoundedCanvasNode";
 import { SkinButtonGroupHitRegistryProvider } from "./SkinButtonGroupHitRegistry";
 import { SkinLayoutContextProvider } from "./SkinLayoutContext";
@@ -11,10 +11,10 @@ import { SkinViewRuntimeProviders } from "./SkinViewRuntimeProviders";
 import {
   useSkinViewState,
   viewStateDataAttributes,
-} from "../../../lib/skinViewStateContext";
-import { hoverNodeDataAttributes } from "../../../lib/skinHover";
-import { useSkinHoveredNodeIds } from "../../../lib/skinHoverContext";
-import { useSkinCanvasStageSize } from "../../../hooks/useSkinCanvasStageSize";
+} from "@/lib/skinViewStateContext";
+import { hoverNodeDataAttributes } from "@/lib/skinHover";
+import { useSkinHoveredNodeIds } from "@/lib/skinHoverContext";
+import { useSkinCanvasStageSize } from "@/hooks/useSkinCanvasStageSize";
 import { SkinCanvasStageContext } from "./SkinCanvasStageContext";
 import "./SkinCanvasLayout.css";
 

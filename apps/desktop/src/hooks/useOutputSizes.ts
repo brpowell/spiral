@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import type { ImageCrop } from "../lib/imageCrop";
-import { measureArtSizes } from "../lib/tauri";
+import type { ImageCrop } from "@/lib/imageCrop";
+import { measureArtSizes } from "@/lib/tauri";
 
 export type OutputSizes = {
   /** Known once the first size has been measured. */

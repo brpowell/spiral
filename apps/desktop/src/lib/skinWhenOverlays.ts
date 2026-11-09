@@ -1,4 +1,4 @@
-import type { SkinCondition, WhenMapOrList } from "../types/skin";
+import type { SkinCondition, WhenMapOrList } from "@/types/skin";
 
 export function iterWhenOverlays<T extends object>(
   when: WhenMapOrList<T> | undefined,

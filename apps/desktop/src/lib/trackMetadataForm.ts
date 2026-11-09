@@ -5,9 +5,9 @@ import {
   serializeArtistField,
 } from "./artistNames";
 import { t } from "./i18n";
-import type { TrackMetadataUpdate } from "../types/metadata";
-import { mbidFieldsFrom, type Track } from "../types/track";
-import type { LyricsLine, LyricsSource } from "../types/lyrics";
+import type { TrackMetadataUpdate } from "@/types/metadata";
+import { mbidFieldsFrom, type Track } from "@/types/track";
+import type { LyricsLine, LyricsSource } from "@/types/lyrics";
 import {
   buildTrackLyricsInputFromEditor,
   lyricsEditorStatesEquivalent,

@@ -1,7 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { useCdStore } from "../../store/useCdStore";
-import { useOnboardingStore } from "../../store/useOnboardingStore";
+import { useCdStore } from "@/store/useCdStore";
+import { useOnboardingStore } from "@/store/useOnboardingStore";
 import { CdMusicBrainzFetchModal } from "./CdMusicBrainzFetchModal";
 
 describe("CdMusicBrainzFetchModal", () => {

@@ -2,9 +2,9 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 import { CdImportCancelledError, isCdImportCancelledError } from "./cdImport";
 import { isCdImportCancelRequested } from "./cdImportGuard";
 import { cdImportFailedSettleOptions } from "./toastPayloads";
-import { useCdImportStore } from "../store/useCdImportStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import type { Track } from "../types/track";
+import { useCdImportStore } from "@/store/useCdImportStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { Track } from "@/types/track";
 
 function makeTrack(overrides: Partial<Track> = {}): Track {
   return {

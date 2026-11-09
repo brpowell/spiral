@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { hideEqualizerWindow } from "../lib/equalizerWindow";
+import { hideEqualizerWindow } from "@/lib/equalizerWindow";
 
 /** Closing destroys the equalizer webview. The next open creates it again. */
 export function useEqualizerWindowClose(): void {

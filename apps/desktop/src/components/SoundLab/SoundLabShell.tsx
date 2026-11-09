@@ -7,11 +7,11 @@ import {
   type PointerEvent,
   type ReactNode,
 } from "react";
-import { Button } from "../common/Button/Button";
-import { Checkbox } from "../common/Checkbox/Checkbox";
-import { NativeSelect } from "../common/NativeSelect/NativeSelect";
-import { Slider } from "../common/Slider/Slider";
-import { TextInput } from "../common/TextInput/TextInput";
+import { Button } from "@/components/common/Button/Button";
+import { Checkbox } from "@/components/common/Checkbox/Checkbox";
+import { NativeSelect } from "@/components/common/NativeSelect/NativeSelect";
+import { Slider } from "@/components/common/Slider/Slider";
+import { TextInput } from "@/components/common/TextInput/TextInput";
 import {
   IconNext,
   IconPause,
@@ -19,7 +19,7 @@ import {
   IconPrevious,
   IconRepeat,
   IconShuffle,
-} from "../icons";
+} from "@/components/icons";
 import {
   formatPitch,
   formatSemitones,
@@ -33,19 +33,19 @@ import {
   type SoundPreset,
   type TransportAction,
   type TransportSoundRecipe,
-} from "../../lib/transportSignature/recipe";
+} from "@/lib/transportSignature/recipe";
 import {
   playTransportSound,
   renderTransportSound,
-} from "../../lib/transportSignature/synthesize";
+} from "@/lib/transportSignature/synthesize";
 import {
   encodeWavPcm16,
   formatPeakDb,
   peakDb,
-} from "../../lib/transportSignature/wav";
-import { zipStored } from "../../lib/transportSignature/zipStore";
-import "../playback/playbackControl.css";
-import "../playback/PlaybackTransport/PlaybackTransport.css";
+} from "@/lib/transportSignature/wav";
+import { zipStored } from "@/lib/transportSignature/zipStore";
+import "@/components/playback/playbackControl.css";
+import "@/components/playback/PlaybackTransport/PlaybackTransport.css";
 import "./SoundLabShell.css";
 
 const DRAFT_KEY = "spiral.soundLab.draft";

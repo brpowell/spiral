@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 const openReviewQueue = vi.fn();
 
-vi.mock("../store/useLyricsFetchStore", () => ({
+vi.mock("@/store/useLyricsFetchStore", () => ({
   useLyricsFetchStore: {
     getState: () => ({
       openReviewQueue,

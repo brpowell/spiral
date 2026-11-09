@@ -11,25 +11,28 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
-import type { VisualizerRemoteFrame } from "../../../lib/visualizerDataBridge";
-import { vizMediaLayerUrl } from "../../../lib/presentation/assets";
-import { Button } from "../../common/Button/Button";
-import { IconMaximize, IconMinimize } from "../../icons";
-import { t } from "../../../lib/i18n";
-import { useVisualizerContextBuilder } from "../context";
-import { SandboxedVizRenderer } from "../sandbox/SandboxedVizRenderer";
-import "../audioVisualizer.css";
-import { sampleFrequencyData, sampleTimeDomainData } from "../rendererUtils";
+import type { VisualizerRemoteFrame } from "@/lib/visualizerDataBridge";
+import { vizMediaLayerUrl } from "@/lib/presentation/assets";
+import { Button } from "@/components/common/Button/Button";
+import { IconMaximize, IconMinimize } from "@/components/icons";
+import { t } from "@/lib/i18n";
+import { useVisualizerContextBuilder } from "@/components/visualizer/context";
+import { SandboxedVizRenderer } from "@/components/visualizer/sandbox/SandboxedVizRenderer";
+import "@/components/visualizer/audioVisualizer.css";
+import {
+  sampleFrequencyData,
+  sampleTimeDomainData,
+} from "@/components/visualizer/rendererUtils";
 import type {
   VisualizerContext,
   VisualizerDrawState,
   VisualizerRendererProps,
-} from "../types";
+} from "@/components/visualizer/types";
 import {
   buildVizFrame,
   isSafeVizEntry,
   type VizRendererEngine,
-} from "../vizRendererApi";
+} from "@/components/visualizer/vizRendererApi";
 import { resolveLayerTransform } from "./resolveLayerTransform";
 import type { LayoutRect, VizScene, VizSceneLayer } from "./types";
 import { resolveLayout } from "./types";
@@ -38,7 +41,10 @@ import {
   useVisualizerExpandMotion,
 } from "./useVisualizerExpandMotion";
 import "./SceneRenderer.css";
-import { EMPTY_VIZ_TRACK, withPreviewTrackIdentity } from "../vizTrack";
+import {
+  EMPTY_VIZ_TRACK,
+  withPreviewTrackIdentity,
+} from "@/components/visualizer/vizTrack";
 
 interface VizFrameSample {
   context: VisualizerContext;

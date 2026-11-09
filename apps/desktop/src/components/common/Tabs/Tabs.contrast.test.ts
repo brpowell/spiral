@@ -2,14 +2,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { builtinThemeColors } from "../../../lib/builtinThemeColors.testutil";
+import { builtinThemeColors } from "@/lib/builtinThemeColors.testutil";
 import {
   MIN_TEXT_CONTRAST,
   accessibleSelectedText,
   hexContrastRatio,
   selectedTextSurfacesHex,
-} from "../../../lib/accessibleColor";
-import { windowAppearanceForBackground } from "../../../lib/theme";
+} from "@/lib/accessibleColor";
+import { windowAppearanceForBackground } from "@/lib/theme";
 
 const TABS_CSS = readFileSync(join(__dirname, "Tabs.css"), "utf8");
 

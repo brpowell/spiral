@@ -3,7 +3,7 @@ import type {
   LayoutNode,
   SkinCondition,
   WhenMapOrList,
-} from "../types/skin";
+} from "@/types/skin";
 import { iterWhenOverlays } from "./skinWhenOverlays";
 
 export function resolveNodeBounds(

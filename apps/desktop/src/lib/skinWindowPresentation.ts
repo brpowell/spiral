@@ -1,4 +1,4 @@
-import type { DragInference, LoadedSkinPack, SkinView } from "../types/skin";
+import type { DragInference, LoadedSkinPack, SkinView } from "@/types/skin";
 import { resolveViewWindowChrome } from "./skinModeWindowChrome";
 
 /** Home view: the sole view, or the one marked `presentation: "primary"`. */

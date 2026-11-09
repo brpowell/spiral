@@ -5,7 +5,7 @@ import { formatImportSummary } from "./import";
 import { formatLyricsFetchPeerTitle } from "./lyricsFetchToastSettle";
 import { resolveSkinTooltip } from "./skinTooltips";
 import { queueAddedPayload } from "./toastPayloads";
-import { minimalBindState } from "../test/skinBindFixtures";
+import { minimalBindState } from "@/test/skinBindFixtures";
 
 describe("i18n Phase 6 catalogs", () => {
   it("resolves toast labels and plural forms", () => {

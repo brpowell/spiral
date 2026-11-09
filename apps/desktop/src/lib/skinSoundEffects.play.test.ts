@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { LoadedSkinPack } from "../types/skin";
+import type { LoadedSkinPack } from "@/types/skin";
 
 const { mockPlayOneShot, mockResolveCueUrl, mockPreferences } = vi.hoisted(
   () => ({
@@ -16,12 +16,12 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 vi.mock("./sfxPlayer", () => ({ playOneShot: mockPlayOneShot }));
 vi.mock("./packSounds", () => ({ resolveCueUrl: mockResolveCueUrl }));
-vi.mock("../store/useSkinPreferencesStore", () => ({
+vi.mock("@/store/useSkinPreferencesStore", () => ({
   useSkinPreferencesStore: {
     getState: () => ({ preferences: mockPreferences.current }),
   },
 }));
-vi.mock("../store/useSkinStore", () => ({
+vi.mock("@/store/useSkinStore", () => ({
   useSkinStore: { getState: () => ({ activePack: null }) },
 }));
 

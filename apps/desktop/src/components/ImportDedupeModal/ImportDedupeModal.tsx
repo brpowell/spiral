@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { useFileSize } from "../../hooks/useFileSize";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { t } from "../../lib/i18n";
-import { formatLyricsFormatLabel } from "../../lib/lyrics";
+import { useFileSize } from "@/hooks/useFileSize";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { t } from "@/lib/i18n";
+import { formatLyricsFormatLabel } from "@/lib/lyrics";
 import type {
   ImportDedupeAction,
   ImportDedupeResolution,
-} from "../../lib/trackDedupe";
-import { useImportDedupeStore } from "../../store/useImportDedupeStore";
-import type { LyricsFormat } from "../../types/lyrics";
-import { AudioFileSpecs } from "../AudioFileSpecs/AudioFileSpecs";
-import { Badge } from "../common/Badge/Badge";
-import { Button } from "../common/Button/Button";
-import { Checkbox } from "../common/Checkbox/Checkbox";
+} from "@/lib/trackDedupe";
+import { useImportDedupeStore } from "@/store/useImportDedupeStore";
+import type { LyricsFormat } from "@/types/lyrics";
+import { AudioFileSpecs } from "@/components/AudioFileSpecs/AudioFileSpecs";
+import { Badge } from "@/components/common/Badge/Badge";
+import { Button } from "@/components/common/Button/Button";
+import { Checkbox } from "@/components/common/Checkbox/Checkbox";
 import {
   Modal,
   ModalBody,
@@ -21,7 +21,7 @@ import {
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
-} from "../common/Modal/Modal";
+} from "@/components/common/Modal/Modal";
 import "./ImportDedupeModal.css";
 
 function formatTrackSummary(

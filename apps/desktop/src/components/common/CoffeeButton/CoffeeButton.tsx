@@ -1,7 +1,7 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTranslation } from "react-i18next";
-import { BUY_ME_A_COFFEE_URL } from "../../About/aboutContent";
-import { Button, type ButtonProps } from "../Button/Button";
+import { BUY_ME_A_COFFEE_URL } from "@/components/About/aboutContent";
+import { Button, type ButtonProps } from "@/components/common/Button/Button";
 import "./CoffeeButton.css";
 
 type CoffeeButtonProps = Omit<ButtonProps, "variant" | "children" | "onClick">;

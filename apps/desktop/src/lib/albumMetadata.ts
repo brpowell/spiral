@@ -1,6 +1,6 @@
-import type { TrackMetadataUpdate } from "../types/metadata";
-import type { MusicBrainzTrackSlot } from "../types/musicbrainz";
-import { mbidFieldsFrom, type Track } from "../types/track";
+import type { TrackMetadataUpdate } from "@/types/metadata";
+import type { MusicBrainzTrackSlot } from "@/types/musicbrainz";
+import { mbidFieldsFrom, type Track } from "@/types/track";
 import { t } from "./i18n";
 import { matchRecordingMbid } from "./musicBrainzReleaseRecordings";
 import {

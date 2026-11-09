@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ContextMenu } from "../../ContextMenu/ContextMenu";
+import { ContextMenu } from "@/components/ContextMenu/ContextMenu";
 import "./SuggestionMenu.css";
 
 export type SuggestionMenuProps = {

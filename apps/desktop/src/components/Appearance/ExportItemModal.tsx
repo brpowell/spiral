@@ -1,10 +1,10 @@
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { exportItemWithToast } from "../../lib/items/itemActions";
-import { isSemver } from "../../lib/items/itemIds";
-import { getItemExportDefaults } from "../../lib/tauri";
-import { Button } from "../common/Button/Button";
-import { FormField } from "../common/Field/Field";
+import { exportItemWithToast } from "@/lib/items/itemActions";
+import { isSemver } from "@/lib/items/itemIds";
+import { getItemExportDefaults } from "@/lib/tauri";
+import { Button } from "@/components/common/Button/Button";
+import { FormField } from "@/components/common/Field/Field";
 import {
   Modal,
   ModalBody,
@@ -12,9 +12,9 @@ import {
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
-} from "../common/Modal/Modal";
-import { Textarea } from "../common/Textarea/Textarea";
-import { TextInput } from "../common/TextInput/TextInput";
+} from "@/components/common/Modal/Modal";
+import { Textarea } from "@/components/common/Textarea/Textarea";
+import { TextInput } from "@/components/common/TextInput/TextInput";
 
 type LoadState = "loading" | "ready" | "error";
 

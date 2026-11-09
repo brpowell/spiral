@@ -1,5 +1,5 @@
-import type { SkinSetting } from "../types/skin";
-import type { SkinUserPreferences } from "../types/skinPreferences";
+import type { SkinSetting } from "@/types/skin";
+import type { SkinUserPreferences } from "@/types/skinPreferences";
 
 export function findSkinSetting(
   settings: readonly SkinSetting[] | undefined,

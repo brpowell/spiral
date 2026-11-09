@@ -1,9 +1,9 @@
 import { create } from "zustand";
-import type { ArtistBrowseMode } from "../lib/artists";
+import type { ArtistBrowseMode } from "@/lib/artists";
 import {
   loadArtistBrowseMode,
   saveArtistBrowseMode,
-} from "../lib/artistBrowsePreferences";
+} from "@/lib/artistBrowsePreferences";
 import {
   captureReturnContext,
   stateAfterCloseAlbum,
@@ -11,7 +11,7 @@ import {
   stateAfterCloseCd,
   stateAfterClosePlaylist,
   type DetailReturnContext,
-} from "../lib/navigationReturn";
+} from "@/lib/navigationReturn";
 import { usePlaylistStore } from "./usePlaylistStore";
 
 export type NavView = "albums" | "library" | "artists";
@@ -130,6 +130,5 @@ export const useNavigationStore = create<NavigationState>((set) => ({
       cdReturnContext: { kind: "sidebar", view: state.view },
     })),
 
-  closeCdDrive: () =>
-    set((state) => stateAfterCloseCd(state.cdReturnContext)),
+  closeCdDrive: () => set((state) => stateAfterCloseCd(state.cdReturnContext)),
 }));

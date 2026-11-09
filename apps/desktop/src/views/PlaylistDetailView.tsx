@@ -1,29 +1,29 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { confirmAndApplyTrackRatings } from "../lib/applyTrackRating";
-import { albumTotalDurationSeconds } from "../lib/albums";
-import { formatTime } from "../lib/format";
-import { getPlaylistById, resolvePlaylistTracks } from "../lib/playlists";
-import { PlaylistArt } from "../components/PlaylistArt/PlaylistArt";
-import { Button } from "../components/common/Button/Button";
+import { confirmAndApplyTrackRatings } from "@/lib/applyTrackRating";
+import { albumTotalDurationSeconds } from "@/lib/albums";
+import { formatTime } from "@/lib/format";
+import { getPlaylistById, resolvePlaylistTracks } from "@/lib/playlists";
+import { PlaylistArt } from "@/components/PlaylistArt/PlaylistArt";
+import { Button } from "@/components/common/Button/Button";
 import {
   ContextMenuItem,
   ContextMenuSeparator,
-} from "../components/ContextMenu/ContextMenu";
-import { MenuButton } from "../components/MenuButton/MenuButton";
-import { TrackList } from "../components/TrackList/TrackList";
+} from "@/components/ContextMenu/ContextMenu";
+import { MenuButton } from "@/components/MenuButton/MenuButton";
+import { TrackList } from "@/components/TrackList/TrackList";
 import {
   IconAddToQueue,
   IconDelete,
   IconPencil,
   IconPlay,
-} from "../components/icons";
-import { useDeletePlaylistDialog } from "../hooks/useDeletePlaylistDialog";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { usePlaylistStore } from "../store/usePlaylistStore";
-import type { Playlist } from "../types/playlist";
-import type { CanonicalRating } from "../lib/trackRating";
-import type { Track } from "../types/track";
+} from "@/components/icons";
+import { useDeletePlaylistDialog } from "@/hooks/useDeletePlaylistDialog";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { usePlaylistStore } from "@/store/usePlaylistStore";
+import type { Playlist } from "@/types/playlist";
+import type { CanonicalRating } from "@/lib/trackRating";
+import type { Track } from "@/types/track";
 import "./PlaylistDetailView.css";
 import "./DetailViewShared.css";
 

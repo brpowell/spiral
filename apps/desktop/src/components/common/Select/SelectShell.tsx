@@ -5,10 +5,10 @@ import {
   type MouseEvent,
   type ReactNode,
 } from "react";
-import { useContextMenu } from "../../../hooks/useContextMenu";
-import { ContextMenu } from "../../ContextMenu/ContextMenu";
-import { Button } from "../Button/Button";
-import { IconChevronDown } from "../../icons";
+import { useContextMenu } from "@/hooks/useContextMenu";
+import { ContextMenu } from "@/components/ContextMenu/ContextMenu";
+import { Button } from "@/components/common/Button/Button";
+import { IconChevronDown } from "@/components/icons";
 import "./Select.css";
 
 /**

@@ -32,7 +32,7 @@ const {
   mockIsTauri: vi.fn(() => true),
 }));
 
-vi.mock("../lib/updater", () => ({
+vi.mock("@/lib/updater", () => ({
   AUTOMATIC_UPDATE_INTERVAL_MS: 5 * 60 * 60 * 1000,
   checkForAvailableUpdate: mockCheckForAvailableUpdate,
   downloadAndInstallPendingUpdate: mockDownloadAndInstallPendingUpdate,
@@ -41,11 +41,11 @@ vi.mock("../lib/updater", () => ({
   isUpdaterEnabled: () => mockIsUpdaterEnabled(),
 }));
 
-vi.mock("../lib/tauri", () => ({
+vi.mock("@/lib/tauri", () => ({
   saveLibrarySettings: mockSaveLibrarySettings,
 }));
 
-vi.mock("../lib/windowRole", () => ({
+vi.mock("@/lib/windowRole", () => ({
   isTauri: () => mockIsTauri(),
 }));
 
@@ -61,7 +61,7 @@ vi.mock("./useBackgroundTasksStore", () => ({
   },
 }));
 
-vi.mock("../lib/i18n", () => ({
+vi.mock("@/lib/i18n", () => ({
   t: (key: string, opts?: { version?: string }) =>
     opts?.version ? `${key}:${opts.version}` : key,
 }));

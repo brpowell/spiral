@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FLAT_BAND_GAINS } from "./equalizer/types";
 import { applyEqBandSliderGain } from "./eqBandInput";
-import { useEqualizerStore } from "../store/useEqualizerStore";
-import type { LoadedSkinPack, SliderEqNode } from "../types/skin";
+import { useEqualizerStore } from "@/store/useEqualizerStore";
+import type { LoadedSkinPack, SliderEqNode } from "@/types/skin";
 
 vi.mock("./windowRole", () => ({
   getWindowRole: vi.fn(() => "main"),

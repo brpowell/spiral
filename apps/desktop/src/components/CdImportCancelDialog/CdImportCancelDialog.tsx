@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import {
   useCdImportStore,
   type CdImportCancelChoice,
-} from "../../store/useCdImportStore";
-import { Button } from "../common/Button/Button";
+} from "@/store/useCdImportStore";
+import { Button } from "@/components/common/Button/Button";
 import {
   Modal,
   ModalBody,
   ModalFooter,
   ModalHeader,
   ModalTitle,
-} from "../common/Modal/Modal";
-import "../RemoveTrackDialog/RemoveTrackDialog.css";
+} from "@/components/common/Modal/Modal";
+import "@/components/RemoveTrackDialog/RemoveTrackDialog.css";
 import "./CdImportCancelDialog.css";
 
 export function CdImportCancelDialog() {

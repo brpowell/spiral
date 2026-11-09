@@ -1,4 +1,4 @@
-import type { LyricsLine } from "../types/lyrics";
+import type { LyricsLine } from "@/types/lyrics";
 
 export function hasSyncedTimestamps(lines: LyricsLine[]): boolean {
   return lines.some((line) => line.startMs !== undefined);

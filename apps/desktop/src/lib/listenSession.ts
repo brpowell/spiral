@@ -1,11 +1,11 @@
-import { useSkinStore } from "../store/useSkinStore";
-import { useThemeStore } from "../store/useThemeStore";
-import { useVisualizerStore } from "../store/useVisualizerStore";
+import { useSkinStore } from "@/store/useSkinStore";
+import { useThemeStore } from "@/store/useThemeStore";
+import { useVisualizerStore } from "@/store/useVisualizerStore";
 import type {
   ListenCompletion,
   ListenEventPayload,
   ListenUiMode,
-} from "../types/listenEvent";
+} from "@/types/listenEvent";
 
 export type { ListenCompletion, ListenEventPayload, ListenUiMode };
 
@@ -38,7 +38,11 @@ function currentUiMode(): ListenUiMode {
   return skinModeSessionActive ? "skin" : "library";
 }
 
-function addSeconds(listen: ActiveListen, mode: ListenUiMode, seconds: number): void {
+function addSeconds(
+  listen: ActiveListen,
+  mode: ListenUiMode,
+  seconds: number,
+): void {
   if (mode === "skin") {
     listen.skinSeconds += seconds;
   } else {
@@ -57,7 +61,10 @@ function totalSeconds(listen: ActiveListen): number {
   return listen.librarySeconds + listen.skinSeconds;
 }
 
-function currentListenedSeconds(listen: ActiveListen, atMs = performance.now()): number {
+function currentListenedSeconds(
+  listen: ActiveListen,
+  atMs = performance.now(),
+): number {
   let listened = totalSeconds(listen);
   if (listen.playingSince !== null) {
     listened += Math.max(0, (atMs - listen.playingSince) / 1000);
@@ -65,7 +72,10 @@ function currentListenedSeconds(listen: ActiveListen, atMs = performance.now()):
   return listened;
 }
 
-function majorityUiMode(librarySeconds: number, skinSeconds: number): ListenUiMode {
+function majorityUiMode(
+  librarySeconds: number,
+  skinSeconds: number,
+): ListenUiMode {
   return skinSeconds > librarySeconds ? "skin" : "library";
 }
 

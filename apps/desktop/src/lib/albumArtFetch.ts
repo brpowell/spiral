@@ -6,9 +6,9 @@ import {
   fetchCoverArtForRelease,
   resolveCachedArtPath,
 } from "./tauri";
-import type { ActivityLogContext } from "../types/activityLog";
-import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
-import type { CoverArtCandidate } from "../types/coverArt";
+import type { ActivityLogContext } from "@/types/activityLog";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
+import type { CoverArtCandidate } from "@/types/coverArt";
 
 type CachedCoverArt = {
   path: string;

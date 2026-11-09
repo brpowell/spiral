@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { ensureSkinModeOnVisibleMonitor } from "../lib/skinModeWindow";
-import { removeOpenAuxView } from "../lib/skinAuxViewState";
-import { signalSkinAuxViewReset } from "../lib/skinAuxEvents";
-import { persistSkinAuxWindowState } from "../lib/skinAuxWindow";
-import { isSkinModeSnapSuppressed } from "../lib/skinModeWindowChrome";
-import { useSkinStore } from "../store/useSkinStore";
-import { isSkinAuxWindow } from "../lib/windowRole";
+import { ensureSkinModeOnVisibleMonitor } from "@/lib/skinModeWindow";
+import { removeOpenAuxView } from "@/lib/skinAuxViewState";
+import { signalSkinAuxViewReset } from "@/lib/skinAuxEvents";
+import { persistSkinAuxWindowState } from "@/lib/skinAuxWindow";
+import { isSkinModeSnapSuppressed } from "@/lib/skinModeWindowChrome";
+import { useSkinStore } from "@/store/useSkinStore";
+import { isSkinAuxWindow } from "@/lib/windowRole";
 
 const SAVE_DEBOUNCE_MS = 500;
 

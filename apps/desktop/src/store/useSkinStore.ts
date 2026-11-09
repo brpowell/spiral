@@ -1,41 +1,41 @@
 import { create } from "zustand";
 import { emit } from "@tauri-apps/api/event";
-import { SKIN_CHANGED_EVENT, type SkinChangedPayload } from "../lib/skinBridge";
+import { SKIN_CHANGED_EVENT, type SkinChangedPayload } from "@/lib/skinBridge";
 import {
   getActiveSkinId,
   listSkins,
   loadSkinPack,
   saveActiveSkinId,
   saveActiveSkinView,
-} from "../lib/tauri";
+} from "@/lib/tauri";
 import {
   applySkinChangeWindowLayout,
   applySwitchViewWindowLayout,
-} from "../lib/skinModeWindowChrome";
+} from "@/lib/skinModeWindowChrome";
 import {
   closeAllSkinAuxWindows,
   closeSkinAuxWindow,
   isSkinAuxViewOpen,
   openSkinAuxWindow,
   restoreOpenSkinAuxWindows,
-} from "../lib/skinAuxWindow";
+} from "@/lib/skinAuxWindow";
 import {
   readOpenAuxViewsForSkin,
   removeOpenAuxView,
-} from "../lib/skinAuxViewState";
-import { isSkinModeVisible } from "../lib/skinModeWindow";
+} from "@/lib/skinAuxViewState";
+import { isSkinModeVisible } from "@/lib/skinModeWindow";
 import {
   canSwitchView,
   isAuxiliaryView,
   viewWindowGrows,
   viewWindowSizeChanged,
-} from "../lib/skinWindowPresentation";
-import { resolveViewForPack, writeViewForSkin } from "../lib/skinViewState";
-import { SKIN_PLAYLIST_SOURCE_ALL } from "../lib/skinPlaylist";
-import { preloadSkinStylesheet } from "../lib/skinStylesheetCache";
-import { preloadSkinSwitchAssets } from "../lib/skinViewAssetPreload";
-import type { LoadedSkinPack, SkinSummary } from "../types/skin";
-import { isAppearanceWindow, isSkinModeWindow } from "../lib/windowRole";
+} from "@/lib/skinWindowPresentation";
+import { resolveViewForPack, writeViewForSkin } from "@/lib/skinViewState";
+import { SKIN_PLAYLIST_SOURCE_ALL } from "@/lib/skinPlaylist";
+import { preloadSkinStylesheet } from "@/lib/skinStylesheetCache";
+import { preloadSkinSwitchAssets } from "@/lib/skinViewAssetPreload";
+import type { LoadedSkinPack, SkinSummary } from "@/types/skin";
+import { isAppearanceWindow, isSkinModeWindow } from "@/lib/windowRole";
 import { useSkinPreferencesStore } from "./useSkinPreferencesStore";
 
 export const DEFAULT_SKIN_ID = "spiral.skin.vanilla";

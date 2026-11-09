@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { SkinViewStateSpec } from "../types/skin";
+import type { SkinViewStateSpec } from "@/types/skin";
 
 export type ViewStateValues = Record<string, string | number | boolean>;
 

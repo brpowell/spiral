@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { hideActivityLogsWindow } from "../lib/activityLogsWindow";
+import { hideActivityLogsWindow } from "@/lib/activityLogsWindow";
 
 /** Closing destroys the activity-logs webview. The next open creates it again. */
 export function useActivityLogsWindowClose(): void {

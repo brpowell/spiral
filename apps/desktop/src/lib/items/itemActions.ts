@@ -2,8 +2,8 @@ import { emit } from "@tauri-apps/api/event";
 import {
   LINKED_PACKS_CHANGED_EVENT,
   RELOAD_LINKED_PACKS_EVENT,
-} from "../appearanceWindow";
-import { t } from "../i18n";
+} from "@/lib/appearanceWindow";
+import { t } from "@/lib/i18n";
 import {
   deleteLinkedItem,
   exportItem,
@@ -15,19 +15,19 @@ import {
   updateItemMetadata,
   type ExportItemResult,
   type InstallItemResult,
-} from "../tauri";
-import { invalidateAllPackChangelogCaches } from "../packs/packChangelogCache";
-import { invalidateAllPackReadmeCaches } from "../packs/packReadmeCache";
+} from "@/lib/tauri";
+import { invalidateAllPackChangelogCaches } from "@/lib/packs/packChangelogCache";
+import { invalidateAllPackReadmeCaches } from "@/lib/packs/packReadmeCache";
 import {
   clearPackAuthorSkinSettings,
   type ClearableSkinSetting,
-} from "../packs/packSkinSettings";
-import { refreshPackContributionStores } from "../packs/refreshPackStores";
+} from "@/lib/packs/packSkinSettings";
+import { refreshPackContributionStores } from "@/lib/packs/refreshPackStores";
 import {
   logItemInstallSuccess,
   logItemInstallFailure,
-} from "../packs/packInstallActivity";
-import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
+} from "@/lib/packs/packInstallActivity";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 
 function formatInvokeError(err: unknown, fallback: string): string {
   if (typeof err === "string" && err.trim()) return err;

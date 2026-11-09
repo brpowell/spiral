@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { BackgroundTaskRunContext } from "../store/useBackgroundTasksStore";
+import type { BackgroundTaskRunContext } from "@/store/useBackgroundTasksStore";
 
 const {
   runInBackgroundMock,
@@ -35,7 +35,7 @@ const {
   };
 });
 
-vi.mock("../store/useBackgroundTasksStore", () => ({
+vi.mock("@/store/useBackgroundTasksStore", () => ({
   useBackgroundTasksStore: {
     getState: () => ({
       runInBackground: runInBackgroundMock,
@@ -43,7 +43,7 @@ vi.mock("../store/useBackgroundTasksStore", () => ({
   },
 }));
 
-vi.mock("../store/useLyricsFetchStore", () => ({
+vi.mock("@/store/useLyricsFetchStore", () => ({
   useLyricsFetchStore: {
     getState: () => ({
       clearPending: clearPendingMock,

@@ -5,8 +5,8 @@ import {
 } from "./artistNames";
 import type { ArtistBrowseMode } from "./artists";
 import { t } from "./i18n";
-import type { TrackMetadataUpdate } from "../types/metadata";
-import { mbidFieldsFrom, type Track } from "../types/track";
+import type { TrackMetadataUpdate } from "@/types/metadata";
+import { mbidFieldsFrom, type Track } from "@/types/track";
 
 export interface ArtistEditorForm {
   name: string;

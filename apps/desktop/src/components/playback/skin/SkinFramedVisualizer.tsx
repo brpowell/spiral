@@ -1,11 +1,11 @@
 import { useMemo, type CSSProperties } from "react";
-import { VisualizerSlot } from "../VisualizerSlot/VisualizerSlot";
-import { skinAssetFileUrl } from "../../../lib/skinAssets";
+import { VisualizerSlot } from "@/components/playback/VisualizerSlot/VisualizerSlot";
+import { skinAssetFileUrl } from "@/lib/skinAssets";
 import type {
   FramedPanelPresentation,
   LoadedSkinPack,
   VisualizerNode,
-} from "../../../types/skin";
+} from "@/types/skin";
 import "./SkinFramedVisualizer.css";
 
 export function SkinFramedVisualizer({

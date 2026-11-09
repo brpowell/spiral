@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import { RELOAD_LINKED_PACKS_EVENT } from "../../lib/appearanceWindow";
+import { RELOAD_LINKED_PACKS_EVENT } from "@/lib/appearanceWindow";
 import {
   invalidatePackChangelogCache,
   peekPackChangelog,
   prefetchPackChangelog,
   setPackChangelogCache,
-} from "../../lib/packs/packChangelogCache";
-import { LIBRARY_PACKS_CHANGED_EVENT } from "../../lib/themeBridge";
-import { writeItemChangelog } from "../../lib/tauri";
-import { isEditablePackZone } from "../../types/pack";
-import type { ItemSummary } from "../../types/item";
-import { Button } from "../common/Button/Button";
-import { Textarea } from "../common/Textarea/Textarea";
-import { MarkdownBody } from "../common/MarkdownBody/MarkdownBody";
+} from "@/lib/packs/packChangelogCache";
+import { LIBRARY_PACKS_CHANGED_EVENT } from "@/lib/themeBridge";
+import { writeItemChangelog } from "@/lib/tauri";
+import { isEditablePackZone } from "@/types/pack";
+import type { ItemSummary } from "@/types/item";
+import { Button } from "@/components/common/Button/Button";
+import { Textarea } from "@/components/common/Textarea/Textarea";
+import { MarkdownBody } from "@/components/common/MarkdownBody/MarkdownBody";
 
 type ChangelogLoadState = "loading" | "ready" | "error";
 

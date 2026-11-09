@@ -16,27 +16,27 @@ import {
   getMusicBrainzEntity,
   peekMusicBrainzEntity,
   searchMusicBrainzEntities,
-} from "../../lib/tauri";
-import { parseUuidMbid } from "../../lib/mbid";
+} from "@/lib/tauri";
+import { parseUuidMbid } from "@/lib/mbid";
 import {
   musicBrainzEntityUrl,
   musicBrainzHitFacts,
   musicBrainzHitTitle,
-} from "../../lib/musicBrainzEntityDisplay";
+} from "@/lib/musicBrainzEntityDisplay";
 import type {
   MusicBrainzEntityHit,
   MusicBrainzEntityKind,
   MusicBrainzEntityLookup,
-} from "../../types/musicbrainz";
-import { Button } from "../common/Button/Button";
-import { FormField } from "../common/Field/Field";
-import { TextInput } from "../common/TextInput/TextInput";
+} from "@/types/musicbrainz";
+import { Button } from "@/components/common/Button/Button";
+import { FormField } from "@/components/common/Field/Field";
+import { TextInput } from "@/components/common/TextInput/TextInput";
 import {
   IconDownload,
   IconExternalLink,
   IconPencil,
   IconSearch,
-} from "../icons";
+} from "@/components/icons";
 import {
   MusicBrainzEntityCard,
   MusicBrainzEntityCardSkeleton,

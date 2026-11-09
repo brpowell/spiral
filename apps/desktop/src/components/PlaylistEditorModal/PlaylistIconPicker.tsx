@@ -6,7 +6,7 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import { t } from "../../lib/i18n";
+import { t } from "@/lib/i18n";
 import {
   humanizeIconId,
   resolveIconId,
@@ -14,14 +14,14 @@ import {
   SpiralIcon,
   useIconLibraryVersion,
   type SpiralIconDefinition,
-} from "../../lib/iconLibrary";
+} from "@/lib/iconLibrary";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
   usePopover,
-} from "../common/Popover/Popover";
-import { SearchField } from "../SearchField/SearchField";
+} from "@/components/common/Popover/Popover";
+import { SearchField } from "@/components/SearchField/SearchField";
 import "./PlaylistIconPicker.css";
 
 const COVER_TAG = "cover";

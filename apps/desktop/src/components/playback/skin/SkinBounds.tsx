@@ -1,8 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
-import { useSkinDebug } from "../../../hooks/useSkinDebug";
-import type { AbsoluteBounds } from "../../../lib/skinLayout";
-import type { SkinWindowHitKind } from "../../../lib/skinWindowHit";
-import type { SkinLayoutTransition } from "../../../types/skin";
+import { useSkinDebug } from "@/hooks/useSkinDebug";
+import type { AbsoluteBounds } from "@/lib/skinLayout";
+import type { SkinWindowHitKind } from "@/lib/skinWindowHit";
+import type { SkinLayoutTransition } from "@/types/skin";
 import "./SkinBounds.css";
 
 export function SkinBounds({

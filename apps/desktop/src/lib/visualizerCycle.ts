@@ -1,4 +1,4 @@
-import type { VizSummary } from "../types/visualizer";
+import type { VizSummary } from "@/types/visualizer";
 
 export function adjacentVisualizerId(
   visualizers: readonly VizSummary[],

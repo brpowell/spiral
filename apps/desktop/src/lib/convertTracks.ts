@@ -11,12 +11,12 @@ import {
 import { isTrackConvertible } from "./pendingImportTrack";
 import { showPlaybackFileMissingToast } from "./playbackToast";
 import { yieldForInteraction } from "./scheduling";
-import type { BackgroundTaskSettleAsOptions } from "../store/useBackgroundTasksStore";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
-import { useConvertStore } from "../store/useConvertStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
-import type { Track } from "../types/track";
+import type { BackgroundTaskSettleAsOptions } from "@/store/useBackgroundTasksStore";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { useConvertStore } from "@/store/useConvertStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
+import type { Track } from "@/types/track";
 import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
 
 export type ConvertMode = "replace" | "add_new";

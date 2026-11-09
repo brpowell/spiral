@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { stopPlaybackForLibraryRelocate } from "./libraryRelocatePlayback";
-import { usePlayerStore } from "../store/usePlayerStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
 
 describe("stopPlaybackForLibraryRelocate", () => {
   beforeEach(() => {

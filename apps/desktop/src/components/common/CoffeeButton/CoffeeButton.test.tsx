@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { BUY_ME_A_COFFEE_URL } from "../../About/aboutContent";
+import { BUY_ME_A_COFFEE_URL } from "@/components/About/aboutContent";
 import { CoffeeButton } from "./CoffeeButton";
 
 const openUrl = vi.hoisted(() => vi.fn());

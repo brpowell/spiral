@@ -1,8 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { playTransportCue } from "../../../lib/transportCues";
-import type { RepeatMode } from "../../../types/track";
-import { Button } from "../../common/Button/Button";
+import { playTransportCue } from "@/lib/transportCues";
+import type { RepeatMode } from "@/types/track";
+import { Button } from "@/components/common/Button/Button";
 import {
   IconNext,
   IconPause,
@@ -11,8 +11,8 @@ import {
   IconRepeat,
   IconRepeatOne,
   IconShuffle,
-} from "../../icons";
-import "../playbackControl.css";
+} from "@/components/icons";
+import "@/components/playback/playbackControl.css";
 import "./PlaybackTransport.css";
 
 const REPEAT_LABEL_KEYS: Record<

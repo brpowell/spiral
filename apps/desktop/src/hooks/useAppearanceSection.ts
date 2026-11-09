@@ -6,7 +6,7 @@ import {
   type AppearanceSection,
   getStoredAppearanceSection,
   storeAppearanceSection,
-} from "../lib/appearanceWindow";
+} from "@/lib/appearanceWindow";
 
 export function useAppearanceSection(): [
   AppearanceSection,

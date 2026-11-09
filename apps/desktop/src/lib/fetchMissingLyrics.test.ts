@@ -8,7 +8,7 @@ import {
   recordTrackResult,
   type FetchMissingLyricsSummary,
 } from "./fetchMissingLyrics";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 
 const {
   runSingleLyricsFetchMock,
@@ -60,7 +60,7 @@ const setFetchingMock = vi.fn((trackId: number, isFetching: boolean) => {
   else fetchingTrackIds.delete(trackId);
 });
 
-vi.mock("../store/useLyricsFetchStore", () => ({
+vi.mock("@/store/useLyricsFetchStore", () => ({
   useLyricsFetchStore: {
     getState: () => ({
       fetchingTrackIds,
@@ -72,7 +72,7 @@ vi.mock("../store/useLyricsFetchStore", () => ({
 
 let library: Track[] = [];
 
-vi.mock("../store/usePlayerStore", () => ({
+vi.mock("@/store/usePlayerStore", () => ({
   usePlayerStore: {
     getState: () => ({
       library,
@@ -80,7 +80,7 @@ vi.mock("../store/usePlayerStore", () => ({
   },
 }));
 
-vi.mock("../store/useBackgroundTasksStore", () => ({
+vi.mock("@/store/useBackgroundTasksStore", () => ({
   useBackgroundTasksStore: {
     getState: () => ({
       showToast: showToastMock,

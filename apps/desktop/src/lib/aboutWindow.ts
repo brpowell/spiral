@@ -2,7 +2,7 @@ import { emit } from "@tauri-apps/api/event";
 import { ensureAppWindow, releaseAppWindow } from "./appWindows";
 import { applyCustomWindowChrome } from "./windowChrome";
 import { isTauri } from "./windowRole";
-import type { AboutTabId } from "../components/About/aboutContent";
+import type { AboutTabId } from "@/components/About/aboutContent";
 
 const ABOUT_LABEL = "about";
 

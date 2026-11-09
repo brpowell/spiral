@@ -2,7 +2,7 @@ import { fileExists } from "./artPath";
 import { isCdTrackListId } from "./cdTracks";
 import { isTrackImporting } from "./pendingImportTrack";
 import { isTrackMissingFile } from "./missingFileTrack";
-import type { RepeatMode, Track } from "../types/track";
+import type { RepeatMode, Track } from "@/types/track";
 
 export type PlaybackNextIdFn = (
   queue: number[],

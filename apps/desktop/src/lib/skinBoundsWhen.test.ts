@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolveNodeBounds } from "./skinBoundsWhen";
 import { evaluateSkinCondition } from "./skinBinds";
-import { minimalBindState } from "../test/skinBindFixtures";
+import { minimalBindState } from "@/test/skinBindFixtures";
 
 describe("resolveNodeBounds", () => {
   it("applies view-state boundsWhen conditions", () => {

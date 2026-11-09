@@ -4,8 +4,8 @@ import type {
   TiledFramePresentation,
   TiledFramePresetPresentation,
   TiledFrameTileDef,
-} from "../types/skin";
-import { isTiledFrameExplicit } from "../types/skin";
+} from "@/types/skin";
+import { isTiledFrameExplicit } from "@/types/skin";
 
 export const TILED_FRAME_CONTENT_Z = 1;
 

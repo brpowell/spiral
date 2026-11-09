@@ -4,7 +4,7 @@ import {
   DERIVED_THEME_TOKEN_KEYS,
   type Theme,
   type ThemeTokens,
-} from "../types/theme";
+} from "@/types/theme";
 import {
   accessibleMutedOnRaised,
   accessibleSelectedText,

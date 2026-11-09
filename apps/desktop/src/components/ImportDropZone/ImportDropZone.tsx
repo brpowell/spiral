@@ -1,11 +1,11 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { isExternalFileDrag, pathsFromDataTransfer } from "../../lib/dragDrop";
-import { routeDroppedPaths } from "../../lib/fileDropRouting";
-import { isTauri } from "../../lib/windowRole";
-import { useOnboardingStore } from "../../store/useOnboardingStore";
-import { usePlayerStore } from "../../store/usePlayerStore";
+import { isExternalFileDrag, pathsFromDataTransfer } from "@/lib/dragDrop";
+import { routeDroppedPaths } from "@/lib/fileDropRouting";
+import { isTauri } from "@/lib/windowRole";
+import { useOnboardingStore } from "@/store/useOnboardingStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
 import "./ImportDropZone.css";
 
 function handleDroppedPaths(

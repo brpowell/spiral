@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveAuxStartupRequirements } from "./skinAuxStartupRequirements";
-import type { LoadedSkinPack } from "../types/skin";
+import type { LoadedSkinPack } from "@/types/skin";
 
 function makePack(views: LoadedSkinPack["manifest"]["views"]): LoadedSkinPack {
   return {

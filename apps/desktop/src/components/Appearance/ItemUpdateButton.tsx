@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { installRegistryItem } from "../../lib/itemRegistry";
-import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
-import type { PackZone } from "../../types/pack";
-import { Button } from "../common/Button/Button";
+import { installRegistryItem } from "@/lib/itemRegistry";
+import { useItemUpdatesStore } from "@/store/useItemUpdatesStore";
+import type { PackZone } from "@/types/pack";
+import { Button } from "@/components/common/Button/Button";
 
 /**
  * "Update" pill for a collection card's preview corner. Shows only for an installed item with

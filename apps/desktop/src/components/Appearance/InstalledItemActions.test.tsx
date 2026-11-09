@@ -1,10 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ItemSummary } from "../../types/item";
+import type { ItemSummary } from "@/types/item";
 import type {
   CatalogItemEntry,
   RegistryItemSummary,
-} from "../../types/itemRegistry";
+} from "@/types/itemRegistry";
 
 const { mockFetchCatalog, mockEnrich, mockInstall } = vi.hoisted(() => ({
   mockFetchCatalog: vi.fn(),
@@ -12,8 +12,8 @@ const { mockFetchCatalog, mockEnrich, mockInstall } = vi.hoisted(() => ({
   mockInstall: vi.fn(),
 }));
 
-vi.mock("../../lib/itemRegistry", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../lib/itemRegistry")>()),
+vi.mock("@/lib/itemRegistry", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/itemRegistry")>()),
   fetchItemCatalogSafe: mockFetchCatalog,
   enrichItemCatalog: mockEnrich,
   installCatalogEntry: mockInstall,
@@ -23,7 +23,7 @@ vi.mock("../../lib/itemRegistry", async (importOriginal) => ({
   })),
 }));
 
-vi.mock("../../lib/tauri", () => ({
+vi.mock("@/lib/tauri", () => ({
   getAppVersion: vi.fn(async () => "1.0.0"),
 }));
 

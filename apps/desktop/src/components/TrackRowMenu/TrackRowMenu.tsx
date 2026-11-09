@@ -1,5 +1,5 @@
-import { useTrackMenu } from "../../hooks/useTrackMenu";
-import type { Track } from "../../types/track";
+import { useTrackMenu } from "@/hooks/useTrackMenu";
+import type { Track } from "@/types/track";
 
 interface TrackRowMenuProps {
   track: Track;

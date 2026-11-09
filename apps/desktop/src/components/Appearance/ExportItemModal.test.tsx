@@ -32,10 +32,10 @@ vi.mock("framer-motion", () => ({
     ),
   },
 }));
-vi.mock("../../lib/tauri", () => ({
+vi.mock("@/lib/tauri", () => ({
   getItemExportDefaults: mockGetDefaults,
 }));
-vi.mock("../../lib/items/itemActions", () => ({
+vi.mock("@/lib/items/itemActions", () => ({
   exportItemWithToast: mockExport,
 }));
 

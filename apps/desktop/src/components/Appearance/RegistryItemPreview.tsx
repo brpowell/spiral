@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ItemType } from "../../types/item";
+import type { ItemType } from "@/types/item";
 import { itemTypeMeta } from "./itemShared";
 
 /** Catalog preview (Rust-cached `asset:` URL), falling back to the item type's icon. */

@@ -8,15 +8,15 @@ import {
   type RefObject,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { isCdTrackListId } from "../../lib/cdTracks";
-import { formatTime } from "../../lib/format";
-import { buildPlaybackOrder } from "../../lib/playbackOrder";
-import { isTrackKnownUnplayable } from "../../lib/playbackSkip";
-import { indexPlaybackTracks } from "../../lib/playbackTrack";
-import { usePlayerStore } from "../../store/usePlayerStore";
-import type { Track } from "../../types/track";
-import { Button } from "../common/Button/Button";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { isCdTrackListId } from "@/lib/cdTracks";
+import { formatTime } from "@/lib/format";
+import { buildPlaybackOrder } from "@/lib/playbackOrder";
+import { isTrackKnownUnplayable } from "@/lib/playbackSkip";
+import { indexPlaybackTracks } from "@/lib/playbackTrack";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { Track } from "@/types/track";
+import { Button } from "@/components/common/Button/Button";
 import {
   Modal,
   ModalBody,
@@ -24,12 +24,12 @@ import {
   ModalHeader,
   ModalHeaderActions,
   ModalTitle,
-} from "../common/Modal/Modal";
-import { EntityArt } from "../EntityArt/EntityArt";
-import { IconClose } from "../icons";
-import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
-import { usePrefetchVirtualRowArt } from "../TrackList/usePrefetchVirtualRowArt";
-import { useTrackListVirtualizer } from "../TrackList/useTrackListVirtualizer";
+} from "@/components/common/Modal/Modal";
+import { EntityArt } from "@/components/EntityArt/EntityArt";
+import { IconClose } from "@/components/icons";
+import { TrackItemTitle } from "@/components/TrackItemTitle/TrackItemTitle";
+import { usePrefetchVirtualRowArt } from "@/components/TrackList/usePrefetchVirtualRowArt";
+import { useTrackListVirtualizer } from "@/components/TrackList/useTrackListVirtualizer";
 import "./SetListModal.css";
 
 /** Same cutoff as TrackList — a shuffled library is well past this. */

@@ -1,16 +1,12 @@
 import { render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type {
-  ButtonNode,
-  LoadedSkinPack,
-  SubviewNode,
-} from "../../../types/skin";
+import type { ButtonNode, LoadedSkinPack, SubviewNode } from "@/types/skin";
 import { SkinBoundedCanvasNode } from "./SkinBoundedCanvasNode";
 import { SkinLayoutContextProvider } from "./SkinLayoutContext";
 
 const evaluateSkinCondition = vi.hoisted(() => vi.fn(() => false));
 
-vi.mock("../../../lib/skinBinds", () => ({
+vi.mock("@/lib/skinBinds", () => ({
   useSkinVisible: () => true,
   useSkinBindState: () => ({ viewState: {}, hoveredNodeIds: new Set() }),
   evaluateSkinCondition,

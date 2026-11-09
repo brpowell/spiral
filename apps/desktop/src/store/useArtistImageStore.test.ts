@@ -3,13 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const saveArtistImageApi = vi.fn();
 const refreshArtDisplay = vi.fn();
 
-vi.mock("../lib/tauri", () => ({
+vi.mock("@/lib/tauri", () => ({
   getArtistImages: vi.fn(),
   saveArtistImage: (...args: unknown[]) => saveArtistImageApi(...args),
   renameArtistImageKey: vi.fn(),
 }));
 
-vi.mock("../lib/artDisplayCache", () => ({
+vi.mock("@/lib/artDisplayCache", () => ({
   refreshArtDisplay: (...args: unknown[]) => refreshArtDisplay(...args),
 }));
 

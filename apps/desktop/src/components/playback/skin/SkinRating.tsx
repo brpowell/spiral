@@ -1,17 +1,14 @@
 import { useCallback, useMemo } from "react";
-import { confirmAndApplyTrackRatings } from "../../../lib/applyTrackRating";
-import { findPlaybackTrack } from "../../../lib/playbackTrack";
-import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
-import { useSkinControlEnabled } from "../../../lib/skinBinds";
-import {
-  styleFromSkinNode,
-  useResolvedNodeStyle,
-} from "../../../lib/skinNodeStyle";
-import { useSkinTooltip } from "../../../lib/skinTooltips";
-import { UNRATED } from "../../../lib/trackRating";
-import { usePlayerStore } from "../../../store/usePlayerStore";
-import type { RatingNode } from "../../../types/skin";
-import { TrackRating } from "../../TrackRating/TrackRating";
+import { confirmAndApplyTrackRatings } from "@/lib/applyTrackRating";
+import { findPlaybackTrack } from "@/lib/playbackTrack";
+import { skinDragRegionNoneProps } from "@/lib/skinDragRegion";
+import { useSkinControlEnabled } from "@/lib/skinBinds";
+import { styleFromSkinNode, useResolvedNodeStyle } from "@/lib/skinNodeStyle";
+import { useSkinTooltip } from "@/lib/skinTooltips";
+import { UNRATED } from "@/lib/trackRating";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { RatingNode } from "@/types/skin";
+import { TrackRating } from "@/components/TrackRating/TrackRating";
 import "./SkinRating.css";
 
 export function SkinRating({ node }: { node: RatingNode }) {

@@ -4,8 +4,8 @@ import {
   setBooleanCustomPref,
   toggledBooleanCustomPref,
 } from "./skinPrefSettings";
-import { defaultSkinUserPreferences } from "../types/skinPreferences";
-import type { SkinSetting } from "../types/skin";
+import { defaultSkinUserPreferences } from "@/types/skinPreferences";
+import type { SkinSetting } from "@/types/skin";
 
 const hideHelpBubble: SkinSetting = {
   id: "hideHelpBubble",

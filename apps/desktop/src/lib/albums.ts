@@ -1,9 +1,9 @@
 import { compareLocalized } from "./appLocale";
 import { isAlbumArtOverride } from "./artistArt";
 import { t } from "./i18n";
-import type { Album } from "../types/album";
-import type { CdDisc } from "../types/cd";
-import type { Track } from "../types/track";
+import type { Album } from "@/types/album";
+import type { CdDisc } from "@/types/cd";
+import type { Track } from "@/types/track";
 
 export function albumKey(track: Track): string {
   const album = track.album?.trim() || t("common:unknownAlbum");

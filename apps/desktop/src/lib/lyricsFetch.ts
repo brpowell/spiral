@@ -1,4 +1,4 @@
-import type { LyricsSearchCandidate } from "../types/lyrics";
+import type { LyricsSearchCandidate } from "@/types/lyrics";
 import { t } from "./i18n";
 
 export type LyricsFetchFeedback = {

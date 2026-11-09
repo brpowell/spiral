@@ -1,4 +1,4 @@
-import type { LoadedSkinPack } from "../types/skin";
+import type { LoadedSkinPack } from "@/types/skin";
 import { scopeSkinStylesheet } from "./scopeSkinStylesheet";
 import { skinStylesheetUrl } from "./skinStylesheet";
 

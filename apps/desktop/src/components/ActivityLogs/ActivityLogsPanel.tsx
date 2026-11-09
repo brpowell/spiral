@@ -1,21 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "../common/Button/Button";
-import { ContextMenu, ContextMenuItem } from "../ContextMenu/ContextMenu";
-import { IconChevronDown, IconChevronRight, IconCopy } from "../icons";
-import { useContextMenu } from "../../hooks/useContextMenu";
-import { copyTextToClipboard } from "../../lib/clipboard";
+import { Button } from "@/components/common/Button/Button";
+import {
+  ContextMenu,
+  ContextMenuItem,
+} from "@/components/ContextMenu/ContextMenu";
+import {
+  IconChevronDown,
+  IconChevronRight,
+  IconCopy,
+} from "@/components/icons";
+import { useContextMenu } from "@/hooks/useContextMenu";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import {
   formatActivityLogTimestamp,
   formatLogLinePretty,
   serializeLogLines,
-} from "../../lib/activityLogLine";
-import { showActivityLogCopiedToast } from "../../lib/activityLogToast";
+} from "@/lib/activityLogLine";
+import { showActivityLogCopiedToast } from "@/lib/activityLogToast";
 import {
   filterActivityLogEntries,
   useActivityLogStore,
-} from "../../store/useActivityLogStore";
-import { type ActivityLogEntry, type LogLevel } from "../../types/activityLog";
-import { Select } from "../common/Select/Select";
+} from "@/store/useActivityLogStore";
+import { type ActivityLogEntry, type LogLevel } from "@/types/activityLog";
+import { Select } from "@/components/common/Select/Select";
 import { ActivityLogDomainChipField } from "./ActivityLogDomainChipField";
 import { ActivityLogsActionsMenu } from "./ActivityLogsActionsMenu";
 import "./ActivityLogsPanel.css";

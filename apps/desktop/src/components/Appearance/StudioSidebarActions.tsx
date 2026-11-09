@@ -4,20 +4,20 @@ import {
   importItemWithRefresh,
   linkItemFolderWithRefresh,
   reloadLinkedItemsWithRefresh,
-} from "../../lib/items/itemActions";
-import { themeCreateFailedPayload } from "../../lib/toastPayloads";
-import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
-import { useThemeStore } from "../../store/useThemeStore";
-import { ContextMenuItem } from "../ContextMenu/ContextMenu";
+} from "@/lib/items/itemActions";
+import { themeCreateFailedPayload } from "@/lib/toastPayloads";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { useThemeStore } from "@/store/useThemeStore";
+import { ContextMenuItem } from "@/components/ContextMenu/ContextMenu";
 import {
   IconFolderLink,
   IconImport,
   IconPlus,
   IconRefresh,
   IconSettings,
-} from "../icons";
-import { SidebarList, SidebarSection } from "../layout/SidebarChrome";
-import { SidebarMenuItem } from "../layout/SidebarItem/SidebarMenuItem";
+} from "@/components/icons";
+import { SidebarList, SidebarSection } from "@/components/layout/SidebarChrome";
+import { SidebarMenuItem } from "@/components/layout/SidebarItem/SidebarMenuItem";
 import { NewThemeModal, type NewThemeModalResult } from "./NewThemeModal";
 
 type NewKind = "theme";

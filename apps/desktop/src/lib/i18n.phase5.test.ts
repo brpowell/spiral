@@ -8,8 +8,8 @@ import {
   validateThemeForApply,
   validateThemeForSave,
 } from "./themeValidation";
-import type { Theme } from "../types/theme";
-import type { Track } from "../types/track";
+import type { Theme } from "@/types/theme";
+import type { Track } from "@/types/track";
 
 function track(partial: Partial<Track> & Pick<Track, "id">): Track {
   return {

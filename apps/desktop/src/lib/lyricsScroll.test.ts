@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { LyricsLine } from "../types/lyrics";
+import type { LyricsLine } from "@/types/lyrics";
 import {
   findScrollLineIndex,
   findSingingLineIndex,

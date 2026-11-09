@@ -1,19 +1,22 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { LyricsSearchCandidate } from "../../types/lyrics";
-import { formatLyricsFormatLabel } from "../../lib/lyrics";
+import type { LyricsSearchCandidate } from "@/types/lyrics";
+import { formatLyricsFormatLabel } from "@/lib/lyrics";
 import {
   formatLyricsDuration,
   lyricsCandidateDetails,
   lyricsCandidateDurationMeta,
   lyricsCandidateLabel,
   type LyricsLibraryTrackRef,
-} from "../../lib/lyricsFetch";
-import { listLyricsAttempts } from "../../lib/tauri";
-import { IconDownload } from "../icons";
-import { Badge } from "../common/Badge/Badge";
-import { ChoiceList, ChoiceOption } from "../common/ChoiceOption/ChoiceOption";
-import { Separator } from "../common/Separator/Separator";
+} from "@/lib/lyricsFetch";
+import { listLyricsAttempts } from "@/lib/tauri";
+import { IconDownload } from "@/components/icons";
+import { Badge } from "@/components/common/Badge/Badge";
+import {
+  ChoiceList,
+  ChoiceOption,
+} from "@/components/common/ChoiceOption/ChoiceOption";
+import { Separator } from "@/components/common/Separator/Separator";
 import {
   Modal,
   ModalBody,
@@ -22,7 +25,7 @@ import {
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
-} from "../common/Modal/Modal";
+} from "@/components/common/Modal/Modal";
 import "./LyricsCandidatePicker.css";
 
 export type LyricsCandidatePickerProps = {

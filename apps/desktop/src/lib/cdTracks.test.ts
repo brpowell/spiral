@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cdDiscTitle, cdTracksForList } from "./cdTracks";
-import type { CdDisc } from "../types/cd";
+import type { CdDisc } from "@/types/cd";
 
 function disc(partial: Partial<CdDisc> = {}): CdDisc {
   return {

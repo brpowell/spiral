@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { LyricsSearchCandidate } from "../types/lyrics";
+import type { LyricsSearchCandidate } from "@/types/lyrics";
 import { useLyricsFetchStore } from "./useLyricsFetchStore";
 
 function candidate(id: number): LyricsSearchCandidate {

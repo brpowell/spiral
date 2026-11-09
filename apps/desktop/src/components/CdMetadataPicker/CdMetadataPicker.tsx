@@ -1,13 +1,13 @@
 import { useTranslation } from "react-i18next";
-import { discMetadataToEntityHit } from "../../lib/cdMetadata";
+import { discMetadataToEntityHit } from "@/lib/cdMetadata";
 import {
   musicBrainzHitFacts,
   musicBrainzHitTitle,
-} from "../../lib/musicBrainzEntityDisplay";
-import { useCdStore } from "../../store/useCdStore";
-import { useOnboardingStore } from "../../store/useOnboardingStore";
-import { Badge } from "../common/Badge/Badge";
-import { ChoiceList } from "../common/ChoiceOption/ChoiceOption";
+} from "@/lib/musicBrainzEntityDisplay";
+import { useCdStore } from "@/store/useCdStore";
+import { useOnboardingStore } from "@/store/useOnboardingStore";
+import { Badge } from "@/components/common/Badge/Badge";
+import { ChoiceList } from "@/components/common/ChoiceOption/ChoiceOption";
 import {
   Modal,
   ModalBody,
@@ -16,8 +16,8 @@ import {
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
-} from "../common/Modal/Modal";
-import { MusicBrainzEntityCard } from "../MusicBrainzEditorTab/MusicBrainzEntityCard";
+} from "@/components/common/Modal/Modal";
+import { MusicBrainzEntityCard } from "@/components/MusicBrainzEditorTab/MusicBrainzEntityCard";
 
 export function CdMetadataPicker() {
   const { t } = useTranslation(["library", "common"]);

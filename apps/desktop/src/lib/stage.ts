@@ -1,12 +1,12 @@
 // Dev-only: capture and re-apply a staged app state for marketing shots.
 // Installed as `window.__stage` by main.tsx only in dev builds that also run
 // the agent bridge (`window.__agent`). `scripts/stage.mjs` is the client.
-import { useNavigationStore } from "../store/useNavigationStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { usePlaylistStore } from "../store/usePlaylistStore";
-import { useSkinStore } from "../store/useSkinStore";
-import { useThemeStore } from "../store/useThemeStore";
-import { useVisualizerStore } from "../store/useVisualizerStore";
+import { useNavigationStore } from "@/store/useNavigationStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { usePlaylistStore } from "@/store/usePlaylistStore";
+import { useSkinStore } from "@/store/useSkinStore";
+import { useThemeStore } from "@/store/useThemeStore";
+import { useVisualizerStore } from "@/store/useVisualizerStore";
 import {
   STAGE_DEVICE_SELECTOR,
   STAGE_SCROLL_SELECTORS,

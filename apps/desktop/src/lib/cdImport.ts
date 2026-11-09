@@ -30,20 +30,20 @@ import { logActivity } from "./activityLog";
 import { yieldForInteraction } from "./scheduling";
 import { cleanupCdImportTemp, ripCdTrack } from "./tauri";
 import { cdImportFailedSettleOptions } from "./toastPayloads";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
-import { useCdImportStore } from "../store/useCdImportStore";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { useCdImportStore } from "@/store/useCdImportStore";
 import {
   isImportCancelledError,
   useImportDedupeStore,
-} from "../store/useImportDedupeStore";
-import { useNavigationStore } from "../store/useNavigationStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { useLibrarySettingsStore } from "../store/useLibrarySettingsStore";
-import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
-import type { Album } from "../types/album";
-import type { CdDisc } from "../types/cd";
-import type { TrackMetadataUpdate } from "../types/metadata";
-import { mbidFieldsFrom, type Track, type TrackInput } from "../types/track";
+} from "@/store/useImportDedupeStore";
+import { useNavigationStore } from "@/store/useNavigationStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
+import type { Album } from "@/types/album";
+import type { CdDisc } from "@/types/cd";
+import type { TrackMetadataUpdate } from "@/types/metadata";
+import { mbidFieldsFrom, type Track, type TrackInput } from "@/types/track";
 
 export class CdImportCancelledError extends Error {
   constructor() {

@@ -1,9 +1,9 @@
-import { usePlayerStore } from "../../../store/usePlayerStore";
-import { t } from "../../../lib/i18n";
-import { Button } from "../../common/Button/Button";
-import { Slider } from "../../common/Slider/Slider";
-import { IconVolume, IconVolumeMute } from "../../icons";
-import "../playbackControl.css";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { t } from "@/lib/i18n";
+import { Button } from "@/components/common/Button/Button";
+import { Slider } from "@/components/common/Slider/Slider";
+import { IconVolume, IconVolumeMute } from "@/components/icons";
+import "@/components/playback/playbackControl.css";
 import "./VolumeControl.css";
 
 interface VolumeControlProps {

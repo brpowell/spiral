@@ -1,6 +1,10 @@
-import type { Track } from "../types/track";
-import { isUserScrolling, waitForPaint, waitForScrollQuiet } from "./scheduling";
-import { usePlayerStore } from "../store/usePlayerStore";
+import type { Track } from "@/types/track";
+import {
+  isUserScrolling,
+  waitForPaint,
+  waitForScrollQuiet,
+} from "./scheduling";
+import { usePlayerStore } from "@/store/usePlayerStore";
 
 interface QueuedActivation {
   pendingId: number;
@@ -31,7 +35,10 @@ async function flushWhenReady(): Promise<void> {
 
   const epoch = queueEpoch;
   const queuedAt = Date.now();
-  const minBatchWait = Math.max(0, MIN_BATCH_INTERVAL_MS - (queuedAt - lastFlushAt));
+  const minBatchWait = Math.max(
+    0,
+    MIN_BATCH_INTERVAL_MS - (queuedAt - lastFlushAt),
+  );
 
   if (minBatchWait > 0) {
     await new Promise<void>((resolve) => {

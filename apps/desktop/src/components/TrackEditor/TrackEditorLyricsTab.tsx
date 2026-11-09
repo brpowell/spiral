@@ -1,22 +1,22 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { LyricsFormat, LyricsLine } from "../../types/lyrics";
-import type { LyricsFetchFeedback } from "../../lib/lyricsFetch";
+import type { LyricsFormat, LyricsLine } from "@/types/lyrics";
+import type { LyricsFetchFeedback } from "@/lib/lyricsFetch";
+import { formatLyricsFormatLabel, parseEditorLyricsChange } from "@/lib/lyrics";
+import { serializeLrc } from "@/lib/lyricsLrc";
+import { hasSyncedTimestamps } from "@/lib/lyricsScroll";
+import { Button } from "@/components/common/Button/Button";
+import { Alert } from "@/components/common/Alert/Alert";
+import { Badge } from "@/components/common/Badge/Badge";
+import { EmptyState } from "@/components/common/EmptyState/EmptyState";
+import { Switch } from "@/components/common/Switch/Switch";
 import {
-  formatLyricsFormatLabel,
-  parseEditorLyricsChange,
-} from "../../lib/lyrics";
-import { serializeLrc } from "../../lib/lyricsLrc";
-import { hasSyncedTimestamps } from "../../lib/lyricsScroll";
-import { Button } from "../common/Button/Button";
-import { Alert } from "../common/Alert/Alert";
-import { Badge } from "../common/Badge/Badge";
-import { EmptyState } from "../common/EmptyState/EmptyState";
-import { Switch } from "../common/Switch/Switch";
-import { syncTextareaAutoSize, Textarea } from "../common/Textarea/Textarea";
-import { ContextMenuItem } from "../ContextMenu/ContextMenu";
-import { MenuButton } from "../MenuButton/MenuButton";
-import { IconMicrophone, IconSearch, IconSetList } from "../icons";
+  syncTextareaAutoSize,
+  Textarea,
+} from "@/components/common/Textarea/Textarea";
+import { ContextMenuItem } from "@/components/ContextMenu/ContextMenu";
+import { MenuButton } from "@/components/MenuButton/MenuButton";
+import { IconMicrophone, IconSearch, IconSetList } from "@/components/icons";
 import "./TrackEditorLyricsTab.css";
 
 export type TrackEditorLyricsTabProps = {

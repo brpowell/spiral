@@ -15,7 +15,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { FitContentContext } from "../Modal/FitContentContext";
+import { FitContentContext } from "@/components/common/Modal/FitContentContext";
 import "./Tabs.css";
 
 export type TabsVariant = "default" | "underline";

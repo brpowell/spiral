@@ -3,13 +3,13 @@ import {
   mixedFieldPlaceholder,
   type TrackEditorForm,
   type TrackEditorFormField,
-} from "../../lib/trackMetadataForm";
-import type { Track } from "../../types/track";
-import { ArtistChipField } from "../ArtistChipField/ArtistChipField";
-import { TrackRating } from "../TrackRating/TrackRating";
-import { FormField } from "../common/Field/Field";
-import { AutocompleteInput } from "../common/AutocompleteInput/AutocompleteInput";
-import { TextInput } from "../common/TextInput/TextInput";
+} from "@/lib/trackMetadataForm";
+import type { Track } from "@/types/track";
+import { ArtistChipField } from "@/components/ArtistChipField/ArtistChipField";
+import { TrackRating } from "@/components/TrackRating/TrackRating";
+import { FormField } from "@/components/common/Field/Field";
+import { AutocompleteInput } from "@/components/common/AutocompleteInput/AutocompleteInput";
+import { TextInput } from "@/components/common/TextInput/TextInput";
 
 function TrackEditorField({
   label,

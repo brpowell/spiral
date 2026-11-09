@@ -1,6 +1,6 @@
-import { getSkinPreferences, loadSkinPack, saveSkinPreferences } from "../tauri";
-import type { SkinSetting } from "../../types/skin";
-import type { SkinUserPreferences } from "../../types/skinPreferences";
+import { getSkinPreferences, loadSkinPack, saveSkinPreferences } from "@/lib/tauri";
+import type { SkinSetting } from "@/types/skin";
+import type { SkinUserPreferences } from "@/types/skinPreferences";
 
 export interface ClearableSkinSetting {
   skinId: string;

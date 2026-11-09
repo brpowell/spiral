@@ -2,7 +2,7 @@ import { discoverTrackFileMissing } from "./missingFileTrack";
 import { t } from "./i18n";
 import { showPlaybackFileMissingToast } from "./playbackToast";
 import { revealPathInFileManager } from "./tauri";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 
 export function revealInFileManagerLabel(): string {
   const ua = navigator.userAgent;

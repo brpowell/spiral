@@ -1,7 +1,7 @@
 import { spreadLinearBands } from "./equalizer/spread";
 import { walkLayoutTree } from "./skinLayout";
-import { useEqualizerStore } from "../store/useEqualizerStore";
-import type { LoadedSkinPack, SliderEqNode } from "../types/skin";
+import { useEqualizerStore } from "@/store/useEqualizerStore";
+import type { LoadedSkinPack, SliderEqNode } from "@/types/skin";
 
 function collectLinearEqSpreadBands(pack: LoadedSkinPack): number[] {
   const bands = new Set<number>();

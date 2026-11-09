@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { EqualizerState } from "../equalizer/types";
+import type { EqualizerState } from "@/lib/equalizer/types";
 
 type EqualizerParams = Pick<EqualizerState, "enabled" | "bands" | "preampGain">;
 

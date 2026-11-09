@@ -3,7 +3,7 @@ import type {
   SlideshowDeck,
   SlideshowNode,
   SlideshowPresentation,
-} from "../types/skin";
+} from "@/types/skin";
 
 export interface SlideshowRuntimeState {
   deck: string | null;

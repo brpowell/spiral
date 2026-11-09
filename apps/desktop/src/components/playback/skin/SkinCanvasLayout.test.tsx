@@ -1,13 +1,13 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { CanvasNode, LoadedSkinPack, SkinView } from "../../../types/skin";
+import type { CanvasNode, LoadedSkinPack, SkinView } from "@/types/skin";
 import { SkinCanvasLayout } from "./SkinCanvasLayout";
 
 vi.mock("./SkinBoundedCanvasNode", () => ({
   SkinBoundedCanvasNode: () => null,
 }));
 
-vi.mock("../../../hooks/useSkinCanvasStageSize", () => ({
+vi.mock("@/hooks/useSkinCanvasStageSize", () => ({
   useSkinCanvasStageSize: (_ref: unknown, fallback: unknown) => fallback,
 }));
 

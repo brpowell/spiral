@@ -1,17 +1,17 @@
 import { useCallback, useState } from "react";
-import { BackgroundTasksStack } from "../BackgroundTasks/BackgroundTasksIndicator";
-import { Button } from "../common/Button/Button";
-import { FormField } from "../common/Field/Field";
-import { TextInput } from "../common/TextInput/TextInput";
-import { BackgroundTaskCancelledError } from "../../lib/backgroundTaskCancel";
-import { joinPeerOutcomeClauses } from "../../lib/toastPeerOutcomes";
-import { t } from "../../lib/i18n";
+import { BackgroundTasksStack } from "@/components/BackgroundTasks/BackgroundTasksIndicator";
+import { Button } from "@/components/common/Button/Button";
+import { FormField } from "@/components/common/Field/Field";
+import { TextInput } from "@/components/common/TextInput/TextInput";
+import { BackgroundTaskCancelledError } from "@/lib/backgroundTaskCancel";
+import { joinPeerOutcomeClauses } from "@/lib/toastPeerOutcomes";
+import { t } from "@/lib/i18n";
 import {
   playbackFileMissingPayload,
   playlistAddedPayload,
   queueAddedPayload,
-} from "../../lib/toastPayloads";
-import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
+} from "@/lib/toastPayloads";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import {
   toastLabScenarioFireCtx,
   toastLabScenarioGroups,

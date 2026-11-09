@@ -4,7 +4,7 @@ import {
   adjacentVisualizerId,
   canCycleVisualizers,
 } from "./visualizerCycle";
-import type { VizSummary } from "../types/visualizer";
+import type { VizSummary } from "@/types/visualizer";
 
 const packs: VizSummary[] = [
   {

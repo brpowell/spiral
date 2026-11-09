@@ -3,9 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   useLibrarySettingsStore,
   type ImportChoice,
-} from "../../store/useLibrarySettingsStore";
-import { useSourcesStore } from "../../store/useSourcesStore";
-import type { Source } from "../../types/source";
+} from "@/store/useLibrarySettingsStore";
+import { useSourcesStore } from "@/store/useSourcesStore";
+import type { Source } from "@/types/source";
 import { ImportChoiceModal } from "./ImportChoiceModal";
 
 const tauri = vi.hoisted(() => ({
@@ -19,8 +19,8 @@ const tauri = vi.hoisted(() => ({
   getSourceStatuses: vi.fn(),
 }));
 
-vi.mock("../../lib/tauri", () => tauri);
-vi.mock("../../lib/scheduling", () => ({
+vi.mock("@/lib/tauri", () => tauri);
+vi.mock("@/lib/scheduling", () => ({
   afterUiTransition: () => Promise.resolve(),
 }));
 

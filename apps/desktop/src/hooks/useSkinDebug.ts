@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  isSkinDebugEnabled,
-  SKIN_DEBUG_CHANGE_EVENT,
-} from "../lib/skinDebug";
+import { isSkinDebugEnabled, SKIN_DEBUG_CHANGE_EVENT } from "@/lib/skinDebug";
 
 export function useSkinDebug(): boolean {
   const [enabled, setEnabled] = useState(isSkinDebugEnabled);

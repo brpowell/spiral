@@ -1,5 +1,5 @@
-import type { Source } from "../types/source";
-import type { Track } from "../types/track";
+import type { Source } from "@/types/source";
+import type { Track } from "@/types/track";
 import { t } from "./i18n";
 
 /**

@@ -1,16 +1,16 @@
 import { useMemo } from "react";
 import { SidebarItem } from "./SidebarItem/SidebarItem";
-import { Button } from "../common/Button/Button";
-import { ImportIndicator } from "../ImportIndicator/ImportIndicator";
-import { IconDisc, IconEject } from "../icons";
-import { useCdDriveMenu } from "../../hooks/useCdDriveMenu";
-import { mergeRemoteMetadataIntoDisc } from "../../lib/cdMetadata";
-import { cdSidebarDiscLabel } from "../../lib/cdTracks";
-import { t } from "../../lib/i18n";
-import { useCdImportStore } from "../../store/useCdImportStore";
-import { useCdStore } from "../../store/useCdStore";
-import { useNavigationStore } from "../../store/useNavigationStore";
-import type { CdDrive } from "../../types/cd";
+import { Button } from "@/components/common/Button/Button";
+import { ImportIndicator } from "@/components/ImportIndicator/ImportIndicator";
+import { IconDisc, IconEject } from "@/components/icons";
+import { useCdDriveMenu } from "@/hooks/useCdDriveMenu";
+import { mergeRemoteMetadataIntoDisc } from "@/lib/cdMetadata";
+import { cdSidebarDiscLabel } from "@/lib/cdTracks";
+import { t } from "@/lib/i18n";
+import { useCdImportStore } from "@/store/useCdImportStore";
+import { useCdStore } from "@/store/useCdStore";
+import { useNavigationStore } from "@/store/useNavigationStore";
+import type { CdDrive } from "@/types/cd";
 import "./SidebarCdDriveItem.css";
 
 interface SidebarCdDriveItemProps {

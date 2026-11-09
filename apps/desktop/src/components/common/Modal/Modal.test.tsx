@@ -1,10 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useRef, type ReactNode, type Ref } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { releasedOutsidePanel } from "../../../lib/modalBackdropDismiss";
-import { resetModalStack } from "../../../lib/modalStack";
-import { useContextMenu } from "../../../hooks/useContextMenu";
-import { ContextMenu, ContextMenuItem } from "../../ContextMenu/ContextMenu";
+import { releasedOutsidePanel } from "@/lib/modalBackdropDismiss";
+import { resetModalStack } from "@/lib/modalStack";
+import { useContextMenu } from "@/hooks/useContextMenu";
+import {
+  ContextMenu,
+  ContextMenuItem,
+} from "@/components/ContextMenu/ContextMenu";
 import { Modal } from "./Modal";
 
 vi.mock("framer-motion", () => ({

@@ -11,7 +11,7 @@ import {
   setSkinModeSessionActive,
 } from "./listenSession";
 
-vi.mock("../store/useThemeStore", () => ({
+vi.mock("@/store/useThemeStore", () => ({
   useThemeStore: {
     getState: () => ({
       activeThemeId: "spiral.theme.obsidian",
@@ -20,7 +20,7 @@ vi.mock("../store/useThemeStore", () => ({
   },
 }));
 
-vi.mock("../store/useSkinStore", () => ({
+vi.mock("@/store/useSkinStore", () => ({
   useSkinStore: {
     getState: () => ({
       activeSkinId: "spiral.skin.vanilla",
@@ -31,7 +31,7 @@ vi.mock("../store/useSkinStore", () => ({
   },
 }));
 
-vi.mock("../store/useVisualizerStore", () => ({
+vi.mock("@/store/useVisualizerStore", () => ({
   useVisualizerStore: {
     getState: () => ({
       activeVisualizerId: "spiral.visualizer.bars",

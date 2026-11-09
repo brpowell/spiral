@@ -1,5 +1,5 @@
-import type { CdDisc, CdDiscCdText, CdTrack, DiscTocTrack } from "../types/cd";
-import { mbidFieldsFrom, type Track } from "../types/track";
+import type { CdDisc, CdDiscCdText, CdTrack, DiscTocTrack } from "@/types/cd";
+import { mbidFieldsFrom, type Track } from "@/types/track";
 import { t } from "./i18n";
 
 const PLACEHOLDER_TRACK_TITLE = /^Track \d+$/;

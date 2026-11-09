@@ -6,7 +6,7 @@ import {
   type EqualizerRemoteAction,
   type EqualizerStateSnapshot,
 } from "./equalizer/types";
-import { useEqualizerStore } from "../store/useEqualizerStore";
+import { useEqualizerStore } from "@/store/useEqualizerStore";
 import type { WindowRole } from "./windowRole";
 
 export const EQ_STATE_EVENT = "eq://state";

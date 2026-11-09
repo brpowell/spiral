@@ -1,4 +1,4 @@
-import { usePlayerStore } from "../store/usePlayerStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
 
 /**
  * Stop in-flight playback before switching, moving, or replacing the library root.

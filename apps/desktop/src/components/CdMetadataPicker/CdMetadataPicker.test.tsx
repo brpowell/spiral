@@ -1,8 +1,8 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { useCdStore } from "../../store/useCdStore";
-import { useOnboardingStore } from "../../store/useOnboardingStore";
-import type { DiscMetadata } from "../../types/cd";
+import { useCdStore } from "@/store/useCdStore";
+import { useOnboardingStore } from "@/store/useOnboardingStore";
+import type { DiscMetadata } from "@/types/cd";
 import { CdMetadataPicker } from "./CdMetadataPicker";
 
 const release = (album: string) =>

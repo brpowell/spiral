@@ -2,8 +2,8 @@ import { useRef, type ReactNode } from "react";
 import {
   useContextMenu,
   type ContextMenuTriggerPlacement,
-} from "../../../hooks/useContextMenu";
-import { ContextMenu } from "../../ContextMenu/ContextMenu";
+} from "@/hooks/useContextMenu";
+import { ContextMenu } from "@/components/ContextMenu/ContextMenu";
 import { SidebarItem } from "./SidebarItem";
 
 export interface SidebarMenuItemProps {

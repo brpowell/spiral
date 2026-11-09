@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getFileSize } from "../lib/tauri";
+import { getFileSize } from "@/lib/tauri";
 
 /** Load a file's byte size from disk; null while loading or on failure. */
 export function useFileSize(path: string | null | undefined): number | null {

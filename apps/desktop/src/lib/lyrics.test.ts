@@ -11,7 +11,7 @@ import {
   plainTextToLines,
 } from "./lyrics";
 import { parseLrc, serializeLrc } from "./lyricsLrc";
-import type { TrackLyricsInput } from "../types/lyrics";
+import type { TrackLyricsInput } from "@/types/lyrics";
 
 function plainLyrics(plainText: string): TrackLyricsInput {
   return {

@@ -1,20 +1,20 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo } from "react";
-import { isTrackImporting } from "../../lib/pendingImportTrack";
-import { applyArtistImages } from "../../lib/artistArt";
-import { groupTracksIntoAlbums } from "../../lib/albums";
-import { groupTracksIntoArtists } from "../../lib/artists";
-import { viewTransition } from "../../lib/motion";
-import { useArtistImageStore } from "../../store/useArtistImageStore";
-import { useNavigationStore } from "../../store/useNavigationStore";
-import { usePlayerStore } from "../../store/usePlayerStore";
-import { AlbumDetailView } from "../../views/AlbumDetailView";
-import { AlbumsView } from "../../views/AlbumsView";
-import { ArtistDetailView } from "../../views/ArtistDetailView";
-import { ArtistsView } from "../../views/ArtistsView";
-import { PlaylistDetailView } from "../../views/PlaylistDetailView";
-import { CdDetailView } from "../../views/CdDetailView";
-import { TracksView } from "../../views/TracksView";
+import { isTrackImporting } from "@/lib/pendingImportTrack";
+import { applyArtistImages } from "@/lib/artistArt";
+import { groupTracksIntoAlbums } from "@/lib/albums";
+import { groupTracksIntoArtists } from "@/lib/artists";
+import { viewTransition } from "@/lib/motion";
+import { useArtistImageStore } from "@/store/useArtistImageStore";
+import { useNavigationStore } from "@/store/useNavigationStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { AlbumDetailView } from "@/views/AlbumDetailView";
+import { AlbumsView } from "@/views/AlbumsView";
+import { ArtistDetailView } from "@/views/ArtistDetailView";
+import { ArtistsView } from "@/views/ArtistsView";
+import { PlaylistDetailView } from "@/views/PlaylistDetailView";
+import { CdDetailView } from "@/views/CdDetailView";
+import { TracksView } from "@/views/TracksView";
 import "./MainContent.css";
 
 export function MainContent() {

@@ -1,23 +1,20 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  countTracksBySource,
-  describeSourceError,
-} from "../../../lib/sourceAccess";
+import { countTracksBySource, describeSourceError } from "@/lib/sourceAccess";
 import {
   addSource,
   pickMusicFolder,
   removeSource,
   setImportSource,
-} from "../../../lib/tauri";
-import { useOnboardingStore } from "../../../store/useOnboardingStore";
-import { usePlayerStore } from "../../../store/usePlayerStore";
-import { useSourcesStore } from "../../../store/useSourcesStore";
-import type { Source } from "../../../types/source";
-import { Button } from "../../common/Button/Button";
-import { IconPlus } from "../../icons";
-import { SourceCard } from "../../PreferencesModal/SourceCard";
-import { SourceEditFlow } from "../../PreferencesModal/SourceEditFlow";
+} from "@/lib/tauri";
+import { useOnboardingStore } from "@/store/useOnboardingStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { useSourcesStore } from "@/store/useSourcesStore";
+import type { Source } from "@/types/source";
+import { Button } from "@/components/common/Button/Button";
+import { IconPlus } from "@/components/icons";
+import { SourceCard } from "@/components/PreferencesModal/SourceCard";
+import { SourceEditFlow } from "@/components/PreferencesModal/SourceEditFlow";
 
 /**
  * "It's already organized": add the root folders the user's music lives in.

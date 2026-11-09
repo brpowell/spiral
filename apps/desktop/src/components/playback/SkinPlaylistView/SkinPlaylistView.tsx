@@ -1,20 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { useEntityArtSrc } from "../../EntityArt/useEntityArtSrc";
-import { formatTime } from "../../../lib/format";
-import { runSkinAction } from "../../../lib/skinActions";
-import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
+import { useEntityArtSrc } from "@/components/EntityArt/useEntityArtSrc";
+import { formatTime } from "@/lib/format";
+import { runSkinAction } from "@/lib/skinActions";
+import { skinDragRegionNoneProps } from "@/lib/skinDragRegion";
 import {
   buildSkinPlaylistSourceOptions,
   resolveSkinPlaylistTracks,
-} from "../../../lib/skinPlaylist";
-import { usePlayerStore } from "../../../store/usePlayerStore";
-import { usePlaylistStore } from "../../../store/usePlaylistStore";
-import { useSkinStore } from "../../../store/useSkinStore";
-import type { NodeStyle, PlaylistNode } from "../../../types/skin";
-import {
-  styleFromSkinNode,
-  useResolvedNodeStyle,
-} from "../../../lib/skinNodeStyle";
+} from "@/lib/skinPlaylist";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { usePlaylistStore } from "@/store/usePlaylistStore";
+import { useSkinStore } from "@/store/useSkinStore";
+import type { NodeStyle, PlaylistNode } from "@/types/skin";
+import { styleFromSkinNode, useResolvedNodeStyle } from "@/lib/skinNodeStyle";
 import "./SkinPlaylistView.css";
 
 function SkinPlaylistRowArt({ artPath }: { artPath: string | null }) {

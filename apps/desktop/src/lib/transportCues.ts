@@ -1,4 +1,4 @@
-import { SOUND_CUES, type SoundCue } from "../types/soundPack";
+import { SOUND_CUES, type SoundCue } from "@/types/soundPack";
 import { resolveCueUrl } from "./packSounds";
 import { playOneShot } from "./sfxPlayer";
 

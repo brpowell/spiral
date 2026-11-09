@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { SkinClickEffect } from "../types/skin";
+import type { SkinClickEffect } from "@/types/skin";
 import type { SkinBindState } from "./skinBinds";
 import { scheduleSkinEffects } from "./skinEffects";
 import { SKIN_HOVER_RESIZE_QUIET_MS } from "./skinHover";

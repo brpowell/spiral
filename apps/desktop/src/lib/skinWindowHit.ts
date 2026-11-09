@@ -1,4 +1,4 @@
-import type { LayoutNode } from "../types/skin";
+import type { LayoutNode } from "@/types/skin";
 
 /**
  * How a canvas bounds box participates in OS click-through.

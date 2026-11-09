@@ -1,16 +1,16 @@
 import { useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { canDeleteFromDisk } from "../../lib/sourceAccess";
-import type { Track } from "../../types/track";
-import { Button } from "../common/Button/Button";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { canDeleteFromDisk } from "@/lib/sourceAccess";
+import type { Track } from "@/types/track";
+import { Button } from "@/components/common/Button/Button";
 import {
   Modal,
   ModalBody,
   ModalFooter,
   ModalHeader,
   ModalTitle,
-} from "../common/Modal/Modal";
+} from "@/components/common/Modal/Modal";
 import "./RemoveTrackDialog.css";
 
 interface RemoveTrackDialogProps {

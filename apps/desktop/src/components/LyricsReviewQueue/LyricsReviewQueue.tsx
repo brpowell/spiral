@@ -2,13 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import {
   createLyricsFetchFeedback,
   type LyricsLibraryTrackRef,
-} from "../../lib/lyricsFetch";
-import { commitFetchedLyricsForTrack } from "../../lib/lyricsFetchCommit";
-import { missingFileErrorDetail } from "../../lib/missingFileTrack";
-import { useLyricsFetchStore } from "../../store/useLyricsFetchStore";
-import { usePlayerStore } from "../../store/usePlayerStore";
-import type { LyricsSearchCandidate } from "../../types/lyrics";
-import { LyricsCandidatePicker } from "../LyricsCandidatePicker/LyricsCandidatePicker";
+} from "@/lib/lyricsFetch";
+import { commitFetchedLyricsForTrack } from "@/lib/lyricsFetchCommit";
+import { missingFileErrorDetail } from "@/lib/missingFileTrack";
+import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { LyricsSearchCandidate } from "@/types/lyrics";
+import { LyricsCandidatePicker } from "@/components/LyricsCandidatePicker/LyricsCandidatePicker";
 
 /**
  * Sequential post-fetch disambiguation: toast Review/Choose opens this queue

@@ -6,8 +6,8 @@ import {
   libraryPlaybackFailedPayload,
   type ToastPayload,
 } from "./toastPayloads";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
-import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
 
 type UnexpectedErrorKind = "libraryPlayback" | "libraryLoad" | "importPicker";
 

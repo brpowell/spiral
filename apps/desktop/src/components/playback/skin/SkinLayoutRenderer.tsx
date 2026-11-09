@@ -2,17 +2,17 @@ import { useMemo } from "react";
 import {
   useSkinViewState,
   viewStateDataAttributes,
-} from "../../../lib/skinViewStateContext";
-import { hoverNodeDataAttributes } from "../../../lib/skinHover";
-import { useSkinHoveredNodeIds } from "../../../lib/skinHoverContext";
-import { primaryViewId } from "../../../lib/skinWindowPresentation";
+} from "@/lib/skinViewStateContext";
+import { hoverNodeDataAttributes } from "@/lib/skinHover";
+import { useSkinHoveredNodeIds } from "@/lib/skinHoverContext";
+import { primaryViewId } from "@/lib/skinWindowPresentation";
 import type {
   CanvasNode,
   ColumnNode,
   LoadedSkinPack,
   RowNode,
   SkinView,
-} from "../../../types/skin";
+} from "@/types/skin";
 import { SkinCanvasLayout } from "./SkinCanvasLayout";
 import { SkinLayoutNode } from "./SkinLayoutNode";
 import { SkinViewRuntimeProviders } from "./SkinViewRuntimeProviders";

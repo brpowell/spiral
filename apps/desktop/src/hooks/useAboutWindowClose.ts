@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { hideAboutWindow } from "../lib/aboutWindow";
+import { hideAboutWindow } from "@/lib/aboutWindow";
 
 /** Closing destroys the about webview. The next open creates it again. */
 export function useAboutWindowClose(): void {

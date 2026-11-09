@@ -1,6 +1,6 @@
 import { queueAddedPayload } from "./toastPayloads";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
-import type { Track } from "../types/track";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import type { Track } from "@/types/track";
 
 export function showQueueAddedToast(ids: number[], library: Track[]): void {
   const tracks = ids

@@ -2,11 +2,11 @@ import { useCallback } from "react";
 import {
   ContextMenu,
   ContextMenuItem,
-} from "../components/ContextMenu/ContextMenu";
-import { IconEject } from "../components/icons";
-import { t } from "../lib/i18n";
-import { useCdStore } from "../store/useCdStore";
-import type { CdDrive } from "../types/cd";
+} from "@/components/ContextMenu/ContextMenu";
+import { IconEject } from "@/components/icons";
+import { t } from "@/lib/i18n";
+import { useCdStore } from "@/store/useCdStore";
+import type { CdDrive } from "@/types/cd";
 import { useContextMenu } from "./useContextMenu";
 
 export function useCdDriveMenu(drive: CdDrive) {

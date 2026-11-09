@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Source } from "../types/source";
+import type { Source } from "@/types/source";
 import {
   canDeleteFromDisk,
   countTracksBySource,

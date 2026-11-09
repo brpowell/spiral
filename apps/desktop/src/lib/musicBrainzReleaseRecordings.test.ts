@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { matchRecordingMbid } from "./musicBrainzReleaseRecordings";
-import type { MusicBrainzTrackSlot } from "../types/musicbrainz";
+import type { MusicBrainzTrackSlot } from "@/types/musicbrainz";
 
 const slots: MusicBrainzTrackSlot[] = [
   {

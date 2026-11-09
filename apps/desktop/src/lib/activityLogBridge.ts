@@ -1,7 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { ACTIVITY_LOG_EVENT } from "../types/activityLog";
-import { useActivityLogStore } from "../store/useActivityLogStore";
+import { ACTIVITY_LOG_EVENT } from "@/types/activityLog";
+import { useActivityLogStore } from "@/store/useActivityLogStore";
 import { normalizeActivityLogEntry } from "./activityLogLine";
 
 export async function initActivityLogBridge(): Promise<() => void> {
@@ -17,7 +17,9 @@ export async function initActivityLogBridge(): Promise<() => void> {
   const unlisten = await listen<Record<string, unknown>>(
     ACTIVITY_LOG_EVENT,
     (event) => {
-      useActivityLogStore.getState().append(normalizeActivityLogEntry(event.payload));
+      useActivityLogStore
+        .getState()
+        .append(normalizeActivityLogEntry(event.payload));
     },
   );
 

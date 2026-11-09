@@ -3,7 +3,7 @@ import {
   defaultSkinUserPreferences,
   soundEffectsEnabledFromPreferences,
   toggledSoundEffectsPreferences,
-} from "../types/skinPreferences";
+} from "./skinPreferences";
 
 describe("skinPreferences", () => {
   it("defaults sound effects to enabled when absent", () => {

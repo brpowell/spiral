@@ -1,4 +1,4 @@
-import { readItemChangelog } from "../tauri";
+import { readItemChangelog } from "@/lib/tauri";
 
 type PackChangelogCacheEntry =
   | { status: "loading"; promise: Promise<string | null> }

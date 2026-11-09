@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DetailArtistLink } from "../components/DetailArtistLink/DetailArtistLink";
-import { EntityArt } from "../components/EntityArt/EntityArt";
-import { Button } from "../components/common/Button/Button";
+import { DetailArtistLink } from "@/components/DetailArtistLink/DetailArtistLink";
+import { EntityArt } from "@/components/EntityArt/EntityArt";
+import { Button } from "@/components/common/Button/Button";
 import {
   ContextMenuItem,
   ContextMenuSeparator,
-} from "../components/ContextMenu/ContextMenu";
-import { MenuButton } from "../components/MenuButton/MenuButton";
-import { TrackList } from "../components/TrackList/TrackList";
+} from "@/components/ContextMenu/ContextMenu";
+import { MenuButton } from "@/components/MenuButton/MenuButton";
+import { TrackList } from "@/components/TrackList/TrackList";
 import {
   IconAddToQueue,
   IconBack,
@@ -16,46 +16,46 @@ import {
   IconPencil,
   IconPlay,
   IconRefresh,
-} from "../components/icons";
+} from "@/components/icons";
 import {
   discMetadataOverrideHasEdits,
   mergeDiscDisplayLayers,
-} from "../lib/cdMetadata";
-import { ensureCdHeroArtValid } from "../lib/cdArt";
+} from "@/lib/cdMetadata";
+import { ensureCdHeroArtValid } from "@/lib/cdArt";
 import {
   startCdHeroArtFetch,
   startCdMetadataFetch,
-} from "../lib/cdMetadataFetch";
+} from "@/lib/cdMetadataFetch";
 import {
   albumTotalDurationSecondsFromCd,
   cdSidebarDiscLabel,
   cdTrackListId,
   cdTrackNumberFromListId,
   cdTracksForList,
-} from "../lib/cdTracks";
-import { t } from "../lib/i18n";
-import { startCdImport } from "../lib/cdImport";
-import { formatTime } from "../lib/format";
-import { setCdDetailDrive } from "../lib/tauri";
-import { isAlbumInLibrary, linkableArtistKey } from "../lib/trackNavigation";
+} from "@/lib/cdTracks";
+import { t } from "@/lib/i18n";
+import { startCdImport } from "@/lib/cdImport";
+import { formatTime } from "@/lib/format";
+import { setCdDetailDrive } from "@/lib/tauri";
+import { isAlbumInLibrary, linkableArtistKey } from "@/lib/trackNavigation";
 import {
   setAllTracksChecked,
   toggleTrackChecked,
-} from "../lib/trackCheckSelection";
-import { getCdDriveById, useCdStore } from "../store/useCdStore";
-import { useCdImportBlockingPlayback } from "../hooks/useCdImportBlockingPlayback";
+} from "@/lib/trackCheckSelection";
+import { getCdDriveById, useCdStore } from "@/store/useCdStore";
+import { useCdImportBlockingPlayback } from "@/hooks/useCdImportBlockingPlayback";
 import {
   useCdImportStore,
   cdImportRowIndicators,
-} from "../store/useCdImportStore";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
-import { useDetailReturnLabel } from "../hooks/useDetailReturnLabel";
-import { useNavigationStore } from "../store/useNavigationStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import type { Album } from "../types/album";
-import type { Artist } from "../types/artist";
-import type { Track } from "../types/track";
-import { AlertConfirmation } from "../components/common/AlertConfirmation/AlertConfirmation";
+} from "@/store/useCdImportStore";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { useDetailReturnLabel } from "@/hooks/useDetailReturnLabel";
+import { useNavigationStore } from "@/store/useNavigationStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { Album } from "@/types/album";
+import type { Artist } from "@/types/artist";
+import type { Track } from "@/types/track";
+import { AlertConfirmation } from "@/components/common/AlertConfirmation/AlertConfirmation";
 import "./CdDetailView.css";
 import "./DetailViewShared.css";
 

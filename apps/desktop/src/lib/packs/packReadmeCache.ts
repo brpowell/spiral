@@ -1,4 +1,4 @@
-import { readItemReadme } from "../tauri";
+import { readItemReadme } from "@/lib/tauri";
 
 type PackReadmeCacheEntry =
   | { status: "loading"; promise: Promise<string | null> }

@@ -1,12 +1,17 @@
-import { applyTheme, DEFAULT_THEME_ID, findThemeById, resolveActiveThemeId } from "./theme";
+import {
+  applyTheme,
+  DEFAULT_THEME_ID,
+  findThemeById,
+  resolveActiveThemeId,
+} from "./theme";
 import {
   getActiveThemeId,
   getBuiltinThemes,
   loadUserThemes,
   saveActiveThemeId,
 } from "./tauri";
-import { useThemeStore } from "../store/useThemeStore";
-import type { Theme } from "../types/theme";
+import { useThemeStore } from "@/store/useThemeStore";
+import type { Theme } from "@/types/theme";
 
 export async function bootstrapTheme(): Promise<void> {
   let builtin: Theme[] = [];

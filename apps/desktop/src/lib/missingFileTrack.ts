@@ -1,4 +1,4 @@
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 import { fileExists } from "./artPath";
 import { formatDateAdded } from "./format";
 import { t } from "./i18n";

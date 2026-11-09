@@ -1,4 +1,4 @@
-import { IconClock } from "../icons";
+import { IconClock } from "@/components/icons";
 import "./ImportIndicator.css";
 
 interface ImportIndicatorProps {

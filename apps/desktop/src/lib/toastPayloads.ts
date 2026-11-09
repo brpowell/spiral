@@ -3,12 +3,12 @@ import { isMissingFileErrorDetail } from "./missingFileTrack";
 import { lyricsAmbiguousSettleOptions } from "./lyricsFetchToastSettle";
 import { describeSourceError } from "./sourceAccess";
 import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
-import type { ReconcileSummary } from "../types/source";
+import type { ReconcileSummary } from "@/types/source";
 import type {
   BackgroundTaskAction,
   BackgroundTaskSettleAsOptions,
   ShowToastOptions,
-} from "../store/useBackgroundTasksStore";
+} from "@/store/useBackgroundTasksStore";
 
 /** Shared toast option shape for production helpers and Toast Lab presets. */
 export type ToastPayload = ShowToastOptions;

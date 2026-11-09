@@ -2,12 +2,12 @@ import { useMemo } from "react";
 import {
   ContextMenu,
   ContextMenuItem,
-} from "../components/ContextMenu/ContextMenu";
-import { IconAddToQueue, IconPencil } from "../components/icons";
-import { t } from "../lib/i18n";
-import { usePlayerStore } from "../store/usePlayerStore";
-import type { Artist } from "../types/artist";
-import type { ArtistBrowseMode } from "../lib/artists";
+} from "@/components/ContextMenu/ContextMenu";
+import { IconAddToQueue, IconPencil } from "@/components/icons";
+import { t } from "@/lib/i18n";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { Artist } from "@/types/artist";
+import type { ArtistBrowseMode } from "@/lib/artists";
 import { useContextMenu } from "./useContextMenu";
 
 export function useArtistEditMenu(

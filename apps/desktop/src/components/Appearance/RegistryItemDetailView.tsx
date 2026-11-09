@@ -1,21 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { formatBytes } from "../../lib/formatBytes";
+import { formatBytes } from "@/lib/formatBytes";
 import {
   fetchRegistryItemVersionSafe,
   peekRegistryItemVersion,
-} from "../../lib/itemRegistry";
+} from "@/lib/itemRegistry";
 import {
   catalogItemName,
   type CatalogItemEntry,
   type RegistryVersionSummary,
-} from "../../types/itemRegistry";
-import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
-import { BrowseView } from "../BrowseView/BrowseView";
-import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
-import { MarkdownBody } from "../common/MarkdownBody/MarkdownBody";
-import { Skeleton } from "../common/Skeleton/Skeleton";
-import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
+} from "@/types/itemRegistry";
+import { BrowseGridBody } from "@/components/BrowseView/BrowseGridBody";
+import { BrowseView } from "@/components/BrowseView/BrowseView";
+import { BrowseViewHeader } from "@/components/BrowseView/BrowseViewHeader";
+import { MarkdownBody } from "@/components/common/MarkdownBody/MarkdownBody";
+import { Skeleton } from "@/components/common/Skeleton/Skeleton";
+import { Tab, TabList, TabPanel, Tabs } from "@/components/common/Tabs/Tabs";
 import { RegistryItemActions } from "./RegistryItemActions";
 import { itemTypeMeta } from "./itemShared";
 import { RegistryItemPreview } from "./RegistryItemPreview";

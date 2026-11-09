@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isAlbumArtOverride, artistArtCacheKey } from "./artistArt";
 import { pickArtPath } from "./albums";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 
 function track(overrides: Partial<Track> = {}): Track {
   return {

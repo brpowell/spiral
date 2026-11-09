@@ -15,11 +15,11 @@ import {
 import { lyricsNoneMissingPayload } from "./toastPayloads";
 import { yieldForInteraction } from "./scheduling";
 import { clearLyricsFetchCancel, peekLyricsFetchCache } from "./tauri";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
-import { useLyricsFetchStore } from "../store/useLyricsFetchStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
-import type { Track } from "../types/track";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
+import type { Track } from "@/types/track";
 
 export const LYRICS_FETCH_MISSING_KEY = "lyrics-fetch-missing";
 

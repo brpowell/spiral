@@ -1,9 +1,9 @@
 import { create } from "zustand";
-import { isBackgroundTaskCancelledError } from "../lib/backgroundTaskCancel";
-import { isCdImportCancelledError } from "../lib/cdImport";
-import { t } from "../lib/i18n";
-import { waitForPaint, yieldToMain } from "../lib/scheduling";
-import { withLogLinkAction } from "../lib/toastLogLink";
+import { isBackgroundTaskCancelledError } from "@/lib/backgroundTaskCancel";
+import { isCdImportCancelledError } from "@/lib/cdImport";
+import { t } from "@/lib/i18n";
+import { waitForPaint, yieldToMain } from "@/lib/scheduling";
+import { withLogLinkAction } from "@/lib/toastLogLink";
 
 export type BackgroundTaskStatus =
   "running" | "success" | "warning" | "error" | "cancelled" | "info";

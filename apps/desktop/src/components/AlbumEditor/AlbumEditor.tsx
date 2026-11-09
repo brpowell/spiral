@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { describeSourceError } from "../../lib/sourceAccess";
+import { describeSourceError } from "@/lib/sourceAccess";
 import { useTranslation } from "react-i18next";
-import { ImageCropModal } from "../common/ImageCropModal/ImageCropModal";
-import type { ImageCrop } from "../../lib/imageCrop";
-import { useArtFileDrop } from "../../hooks/useArtFileDrop";
-import { useAssetUrl } from "../../hooks/useAssetUrl";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { useResetOnOpen } from "../../hooks/useResetOnOpen";
-import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
+import { ImageCropModal } from "@/components/common/ImageCropModal/ImageCropModal";
+import type { ImageCrop } from "@/lib/imageCrop";
+import { useArtFileDrop } from "@/hooks/useArtFileDrop";
+import { useAssetUrl } from "@/hooks/useAssetUrl";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useResetOnOpen } from "@/hooks/useResetOnOpen";
+import { useEditorDiscardPrompt } from "@/hooks/useEditorDiscardPrompt";
 import {
   bulkSaveFooterProps,
   bulkSaveLabel,
   useCancellableBulkSave,
-} from "../../hooks/useCancellableBulkSave";
+} from "@/hooks/useCancellableBulkSave";
 import {
   albumFormsEqual,
   albumMixedFieldPlaceholder,
@@ -21,19 +21,15 @@ import {
   isReleaseMbidMixed,
   type AlbumEditorForm,
   type AlbumReleaseRecordingOptions,
-} from "../../lib/albumMetadata";
-import {
-  albumKey,
-  getAlbumByKey,
-  groupTracksIntoAlbums,
-} from "../../lib/albums";
-import { fetchCoverArtCandidates } from "../../lib/albumArtFetch";
-import { refreshArtDisplay } from "../../lib/artDisplayCache";
-import { isAlbumArtOverride } from "../../lib/artistArt";
+} from "@/lib/albumMetadata";
+import { albumKey, getAlbumByKey, groupTracksIntoAlbums } from "@/lib/albums";
+import { fetchCoverArtCandidates } from "@/lib/albumArtFetch";
+import { refreshArtDisplay } from "@/lib/artDisplayCache";
+import { isAlbumArtOverride } from "@/lib/artistArt";
 import {
   preloadCoverArtThumbs,
   previewSrcForFetchedCover,
-} from "../../lib/coverArtThumbs";
+} from "@/lib/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
@@ -42,19 +38,19 @@ import {
   pickImageFile,
   renameAlbumArtwork,
   writeTrackMetadata,
-} from "../../lib/tauri";
-import { matchRecordingMbid } from "../../lib/musicBrainzReleaseRecordings";
-import type { MusicBrainzEntityLookup } from "../../types/musicbrainz";
-import { collectArtistNameSuggestions } from "../../lib/artistNameSuggestions";
-import { collectGenreSuggestions } from "../../lib/trackFieldSuggestions";
-import { useNavigationStore } from "../../store/useNavigationStore";
-import { usePlayerStore } from "../../store/usePlayerStore";
-import type { CoverArtCandidate } from "../../types/coverArt";
-import type { Track } from "../../types/track";
-import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
-import { EditorSaveButton } from "../EditorSaveButton/EditorSaveButton";
-import { EntityArt } from "../EntityArt/EntityArt";
-import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
+} from "@/lib/tauri";
+import { matchRecordingMbid } from "@/lib/musicBrainzReleaseRecordings";
+import type { MusicBrainzEntityLookup } from "@/types/musicbrainz";
+import { collectArtistNameSuggestions } from "@/lib/artistNameSuggestions";
+import { collectGenreSuggestions } from "@/lib/trackFieldSuggestions";
+import { useNavigationStore } from "@/store/useNavigationStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { CoverArtCandidate } from "@/types/coverArt";
+import type { Track } from "@/types/track";
+import { AlertConfirmation } from "@/components/common/AlertConfirmation/AlertConfirmation";
+import { EditorSaveButton } from "@/components/EditorSaveButton/EditorSaveButton";
+import { EntityArt } from "@/components/EntityArt/EntityArt";
+import { EditorDiscardOverlay } from "@/components/EditorDiscardOverlay/EditorDiscardOverlay";
 import {
   Modal,
   ModalBody,
@@ -62,15 +58,15 @@ import {
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
-} from "../common/Modal/Modal";
-import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
-import "../TrackEditor/TrackEditor.css";
+} from "@/components/common/Modal/Modal";
+import { Tab, TabList, TabPanel, Tabs } from "@/components/common/Tabs/Tabs";
+import "@/components/TrackEditor/TrackEditor.css";
 import { AlbumArtPicker } from "./AlbumArtPicker";
 import { AlbumEditorArtTab } from "./AlbumEditorArtTab";
 import { AlbumEditorDetailsTab } from "./AlbumEditorDetailsTab";
-import { MusicBrainzEditorTab } from "../MusicBrainzEditorTab/MusicBrainzEditorTab";
-import { showTagWriteSavedToast } from "../../lib/trackMetadataToast";
-import { useTagWriteConfirmStore } from "../../store/useTagWriteConfirmStore";
+import { MusicBrainzEditorTab } from "@/components/MusicBrainzEditorTab/MusicBrainzEditorTab";
+import { showTagWriteSavedToast } from "@/lib/trackMetadataToast";
+import { useTagWriteConfirmStore } from "@/store/useTagWriteConfirmStore";
 
 type AlbumEditorTab = "details" | "art" | "musicbrainz";
 

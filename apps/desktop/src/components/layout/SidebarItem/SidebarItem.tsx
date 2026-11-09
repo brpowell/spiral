@@ -4,7 +4,7 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import { Button, type ButtonProps } from "../../common/Button/Button";
+import { Button, type ButtonProps } from "@/components/common/Button/Button";
 import "./SidebarItem.css";
 
 type SidebarItemShared = {

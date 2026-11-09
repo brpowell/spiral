@@ -1,38 +1,35 @@
 import { useMemo, useState, type CSSProperties } from "react";
-import {
-  BUILTIN_PRESETS,
-  resolvePreset,
-} from "../../lib/equalizer/builtinPresets";
+import { BUILTIN_PRESETS, resolvePreset } from "@/lib/equalizer/builtinPresets";
 import {
   EQ_BAND_FREQUENCIES_HZ,
   EQ_REFERENCE_LINES_DB,
   formatEqBandFrequencyLabel,
   formatEqScaleDb,
   gainDbToRatio,
-} from "../../lib/equalizer/types";
-import { useEqualizerStore } from "../../store/useEqualizerStore";
-import { Button } from "../common/Button/Button";
-import { Switch } from "../common/Switch/Switch";
-import { ContextMenuItem } from "../ContextMenu/ContextMenu";
+} from "@/lib/equalizer/types";
+import { useEqualizerStore } from "@/store/useEqualizerStore";
+import { Button } from "@/components/common/Button/Button";
+import { Switch } from "@/components/common/Switch/Switch";
+import { ContextMenuItem } from "@/components/ContextMenu/ContextMenu";
 import {
   Modal,
   ModalBody,
   ModalFooter,
   ModalHeader,
   ModalTitle,
-} from "../common/Modal/Modal";
-import { NativeSelect } from "../common/NativeSelect/NativeSelect";
-import type { SelectOption } from "../common/Select/selectTypes";
-import { MenuButton } from "../MenuButton/MenuButton";
+} from "@/components/common/Modal/Modal";
+import { NativeSelect } from "@/components/common/NativeSelect/NativeSelect";
+import type { SelectOption } from "@/components/common/Select/selectTypes";
+import { MenuButton } from "@/components/MenuButton/MenuButton";
 import { EqualizerBandSlider } from "./EqualizerBandSlider";
-import { TextInput } from "../common/TextInput/TextInput";
-import { FormField } from "../common/Field/Field";
+import { TextInput } from "@/components/common/TextInput/TextInput";
+import { FormField } from "@/components/common/Field/Field";
 import {
   IconCopy,
   IconDelete,
   IconPencil,
-  IconReset
-} from "../icons";
+  IconReset,
+} from "@/components/icons";
 import "./EqualizerShell.css";
 
 type PresetDialogMode = "save" | "rename" | null;
@@ -58,9 +55,7 @@ export function EqualizerShell() {
 
   const selectedPreset = resolvePreset(presetId, customPresets);
   const canEditPreset =
-    presetId !== "manual" &&
-    selectedPreset != null &&
-    !selectedPreset.builtin;
+    presetId !== "manual" && selectedPreset != null && !selectedPreset.builtin;
 
   const presetOptions = useMemo((): SelectOption<string>[] => {
     const options: SelectOption<string>[] = BUILTIN_PRESETS.map((preset) => ({
@@ -177,8 +172,6 @@ export function EqualizerShell() {
               </>
             )}
           </MenuButton>
-
-
         </div>
 
         <Switch
@@ -200,9 +193,7 @@ export function EqualizerShell() {
               <span
                 key={gain}
                 className="equalizer-shell__scale-mark"
-                style={
-                  { "--eq-ratio": gainDbToRatio(gain) } as CSSProperties
-                }
+                style={{ "--eq-ratio": gainDbToRatio(gain) } as CSSProperties}
               >
                 {formatEqScaleDb(gain)}
               </span>
@@ -216,9 +207,7 @@ export function EqualizerShell() {
               <div
                 key={gain}
                 className={`equalizer-shell__grid-line${gain === 0 ? " equalizer-shell__grid-line--zero" : ""}`}
-                style={
-                  { "--eq-ratio": gainDbToRatio(gain) } as CSSProperties
-                }
+                style={{ "--eq-ratio": gainDbToRatio(gain) } as CSSProperties}
               />
             ))}
           </div>

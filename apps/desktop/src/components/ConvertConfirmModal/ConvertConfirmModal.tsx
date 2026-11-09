@@ -6,19 +6,19 @@ import {
   useRef,
   useState,
 } from "react";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { t } from "../../lib/i18n";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { t } from "@/lib/i18n";
 import {
   formatSourceEncodingProfileLabel,
   loadConvertProfileOptions,
   type EncodingProfileId,
   type EncodingProfileSelectOption,
-} from "../../lib/encodingProfiles";
-import type { ConvertMode } from "../../lib/convertTracks";
-import { useConvertStore } from "../../store/useConvertStore";
-import { usePlayerStore } from "../../store/usePlayerStore";
-import { Button } from "../common/Button/Button";
-import { Field, FieldLabel, FormField } from "../common/Field/Field";
+} from "@/lib/encodingProfiles";
+import type { ConvertMode } from "@/lib/convertTracks";
+import { useConvertStore } from "@/store/useConvertStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { Button } from "@/components/common/Button/Button";
+import { Field, FieldLabel, FormField } from "@/components/common/Field/Field";
 import {
   Modal,
   ModalBody,
@@ -27,9 +27,12 @@ import {
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
-} from "../common/Modal/Modal";
-import { RadioGroup, RadioGroupItem } from "../common/RadioGroup/RadioGroup";
-import { Select } from "../common/Select/Select";
+} from "@/components/common/Modal/Modal";
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@/components/common/RadioGroup/RadioGroup";
+import { Select } from "@/components/common/Select/Select";
 import "./ConvertConfirmModal.css";
 
 function formatTrackSummary(

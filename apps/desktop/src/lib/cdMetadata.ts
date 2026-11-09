@@ -3,8 +3,8 @@ import type {
   DiscMetadata,
   DiscMetadataLookup,
   DiscMetadataOverride,
-} from "../types/cd";
-import type { MusicBrainzEntityHit } from "../types/musicbrainz";
+} from "@/types/cd";
+import type { MusicBrainzEntityHit } from "@/types/musicbrainz";
 
 /** Overlay MusicBrainz (or user-selected) metadata onto a drive disc read. */
 export function mergeRemoteMetadataIntoDisc(

@@ -1,29 +1,26 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import {
-  resolveInteractiveAssetUrl,
-  skinAssetFileUrl,
-} from "../../../lib/skinAssets";
+import { resolveInteractiveAssetUrl, skinAssetFileUrl } from "@/lib/skinAssets";
 import {
   getSkinBitmapIfReady,
   isSkinBitmapReady,
   loadSkinBitmap,
-} from "../../../lib/skinBitmapCache";
-import { preloadInteractiveBitmapAssets } from "../../../lib/skinViewAssetPreload";
+} from "@/lib/skinBitmapCache";
+import { preloadInteractiveBitmapAssets } from "@/lib/skinViewAssetPreload";
 import {
   getDecodedSkinGif,
   loadSkinGif,
   playSkinGifOnCanvas,
   type DecodedSkinGif,
-} from "../../../lib/skinGifPlayback";
-import { scheduleSkinEffects } from "../../../lib/skinEffects";
-import { useSkinBindState } from "../../../lib/skinBinds";
-import { skinDragRegionDeepProps } from "../../../lib/skinDragRegion";
+} from "@/lib/skinGifPlayback";
+import { scheduleSkinEffects } from "@/lib/skinEffects";
+import { useSkinBindState } from "@/lib/skinBinds";
+import { skinDragRegionDeepProps } from "@/lib/skinDragRegion";
 import type {
   BitmapPresentation,
   DecorationNode,
   GifPresentation,
   LoadedSkinPack,
-} from "../../../types/skin";
+} from "@/types/skin";
 import "./SkinDecoration.css";
 
 function SkinGifDecoration({

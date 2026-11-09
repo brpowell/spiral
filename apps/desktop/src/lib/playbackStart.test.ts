@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { playOrResume } from "./playbackStart";
 import { SKIN_PLAYLIST_SOURCE_UP_NEXT } from "./skinPlaylist";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { usePlaylistStore } from "../store/usePlaylistStore";
-import { useSkinStore } from "../store/useSkinStore";
-import type { Playlist } from "../types/playlist";
-import type { Track } from "../types/track";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { usePlaylistStore } from "@/store/usePlaylistStore";
+import { useSkinStore } from "@/store/useSkinStore";
+import type { Playlist } from "@/types/playlist";
+import type { Track } from "@/types/track";
 
 function track(
   id: number,

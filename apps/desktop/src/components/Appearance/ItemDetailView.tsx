@@ -1,27 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import { usePackSizeBytes } from "../../hooks/usePackSizeBytes";
-import { revealInFileManagerLabel } from "../../lib/fileManager";
-import { formatBytes } from "../../lib/formatBytes";
-import { RELOAD_LINKED_PACKS_EVENT } from "../../lib/appearanceWindow";
-import { prefetchPackChangelog } from "../../lib/packs/packChangelogCache";
-import {
-  listItems,
-  revealItemFolder,
-  readItemManifestJson,
-} from "../../lib/tauri";
-import { LIBRARY_PACKS_CHANGED_EVENT } from "../../lib/themeBridge";
-import { updateItemMetadataWithRefresh } from "../../lib/items/itemActions";
-import { useItemsVersionStore } from "../../store/useItemsVersionStore";
-import { isEditableItem, type ItemSummary } from "../../types/item";
-import type { ThemeTokens } from "../../types/theme";
-import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
-import { BrowseView } from "../BrowseView/BrowseView";
-import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
-import { Button } from "../common/Button/Button";
-import { IconBraces, IconPencil } from "../icons";
-import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
+import { usePackSizeBytes } from "@/hooks/usePackSizeBytes";
+import { revealInFileManagerLabel } from "@/lib/fileManager";
+import { formatBytes } from "@/lib/formatBytes";
+import { RELOAD_LINKED_PACKS_EVENT } from "@/lib/appearanceWindow";
+import { prefetchPackChangelog } from "@/lib/packs/packChangelogCache";
+import { listItems, revealItemFolder, readItemManifestJson } from "@/lib/tauri";
+import { LIBRARY_PACKS_CHANGED_EVENT } from "@/lib/themeBridge";
+import { updateItemMetadataWithRefresh } from "@/lib/items/itemActions";
+import { useItemsVersionStore } from "@/store/useItemsVersionStore";
+import { isEditableItem, type ItemSummary } from "@/types/item";
+import type { ThemeTokens } from "@/types/theme";
+import { BrowseGridBody } from "@/components/BrowseView/BrowseGridBody";
+import { BrowseView } from "@/components/BrowseView/BrowseView";
+import { BrowseViewHeader } from "@/components/BrowseView/BrowseViewHeader";
+import { Button } from "@/components/common/Button/Button";
+import { IconBraces, IconPencil } from "@/components/icons";
+import { Tab, TabList, TabPanel, Tabs } from "@/components/common/Tabs/Tabs";
 import { useOpenAppearanceThemeEditor } from "./AppearanceThemeEditorContext";
 import { EditItemModal, type EditItemModalResult } from "./EditItemModal";
 import { InstalledItemActions } from "./InstalledItemActions";

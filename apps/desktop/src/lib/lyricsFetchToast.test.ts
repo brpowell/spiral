@@ -4,7 +4,7 @@ import {
   canFetchLyricsForTrack,
   prepareLyricsFetchForLightbox,
 } from "./lyricsFetchToast";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 
 const {
   getTrackLyricsMock,
@@ -31,7 +31,7 @@ vi.mock("./lyricsFetchQueue", () => ({
   enqueueLyricsFetch: enqueueLyricsFetchMock,
 }));
 
-vi.mock("../store/useLyricsFetchStore", () => ({
+vi.mock("@/store/useLyricsFetchStore", () => ({
   useLyricsFetchStore: {
     getState: () => ({
       clearPending: vi.fn(),
@@ -42,7 +42,7 @@ vi.mock("../store/useLyricsFetchStore", () => ({
   },
 }));
 
-vi.mock("../store/usePlayerStore", () => ({
+vi.mock("@/store/usePlayerStore", () => ({
   usePlayerStore: {
     getState: () => ({
       updateTrackInLibrary: vi.fn(),

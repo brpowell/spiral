@@ -1,5 +1,5 @@
-import type { PlayableRef } from "../../types/playable";
-import type { RepeatMode } from "../../types/track";
+import type { PlayableRef } from "@/types/playable";
+import type { RepeatMode } from "@/types/track";
 import { rampDeckGain, setDeckGain, type DeckId } from "./deckGain";
 import {
   canCrossfade,

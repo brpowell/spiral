@@ -1,4 +1,4 @@
-import type { RepeatMode } from "../types/track";
+import type { RepeatMode } from "@/types/track";
 
 export function getAutoplayNextId(
   queue: number[],

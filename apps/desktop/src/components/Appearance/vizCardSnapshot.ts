@@ -1,27 +1,33 @@
 import { useEffect, useState } from "react";
-import { vizMediaLayerUrl } from "../../lib/presentation/assets";
+import { vizMediaLayerUrl } from "@/lib/presentation/assets";
 import {
   DEFAULT_THEME_ID,
   findThemeById,
   OBSIDIAN_DEFAULT_TOKENS,
   resolveThemeTokens,
-} from "../../lib/theme";
-import { getLiveThemePreview } from "../../lib/themeBridge";
-import type { Visualizer } from "../visualizer/types";
-import { SandboxedVizRenderer } from "../visualizer/sandbox/SandboxedVizRenderer";
-import { resolveLayout, type VizSceneLayer } from "../visualizer/scene/types";
+} from "@/lib/theme";
+import { getLiveThemePreview } from "@/lib/themeBridge";
+import type { Visualizer } from "@/components/visualizer/types";
+import { SandboxedVizRenderer } from "@/components/visualizer/sandbox/SandboxedVizRenderer";
+import {
+  resolveLayout,
+  type VizSceneLayer,
+} from "@/components/visualizer/scene/types";
 import {
   EMPTY_VIZ_TRACK,
   withPreviewTrackIdentity,
-} from "../visualizer/vizTrack";
+} from "@/components/visualizer/vizTrack";
 import {
   isSafeVizEntry,
   type VizFrame,
   type VizRendererEngine,
-} from "../visualizer/vizRendererApi";
-import { useThemeStore } from "../../store/useThemeStore";
-import { useVisualizerStore } from "../../store/useVisualizerStore";
-import { useThemePalette, useVisualizerPalette } from "../visualizer/context";
+} from "@/components/visualizer/vizRendererApi";
+import { useThemeStore } from "@/store/useThemeStore";
+import { useVisualizerStore } from "@/store/useVisualizerStore";
+import {
+  useThemePalette,
+  useVisualizerPalette,
+} from "@/components/visualizer/context";
 import {
   generateDemoVisualizerFrame,
   VIZ_CARD_DEMO_SNAPSHOT_MS,

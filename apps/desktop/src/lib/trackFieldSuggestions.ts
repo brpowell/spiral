@@ -1,4 +1,4 @@
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 import { compareLocalized } from "./appLocale";
 
 function collectUniqueTrackStrings(

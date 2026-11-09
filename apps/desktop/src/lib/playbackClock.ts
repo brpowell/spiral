@@ -3,7 +3,7 @@ import {
   resolvePlaybackDisplaySeconds,
   subscribePlaybackPin,
 } from "./playbackClockPin";
-import { usePlayerStore } from "../store/usePlayerStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
 
 type PlaybackClockListener = (seconds: number) => void;
 

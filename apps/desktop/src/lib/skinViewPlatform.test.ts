@@ -9,7 +9,7 @@ import {
   resolveViewDragInference,
 } from "./skinWindowPresentation";
 import { resolveViewWindowChrome } from "./skinModeWindowChrome";
-import type { LoadedSkinPack } from "../types/skin";
+import type { LoadedSkinPack } from "@/types/skin";
 
 function makePack(views: LoadedSkinPack["manifest"]["views"]): LoadedSkinPack {
   return {

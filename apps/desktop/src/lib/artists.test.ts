@@ -6,7 +6,7 @@ import {
   performerKeysForTrack,
 } from "./artists";
 import { groupTracksIntoAlbums } from "./albums";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 
 function track(overrides: Partial<Track> & Pick<Track, "id">): Track {
   return {

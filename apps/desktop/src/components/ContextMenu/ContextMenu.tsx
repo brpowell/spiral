@@ -11,13 +11,13 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
-import { fitContextMenuPosition } from "../../lib/contextMenuPosition";
+import { fitContextMenuPosition } from "@/lib/contextMenuPosition";
 import {
   focusContextMenuOnOpen,
   handleContextMenuKeyDown,
-} from "../../lib/contextMenuKeyboard";
-import { IconChevronRight, IconCheck } from "../icons";
-import { panelMotion } from "../../lib/motion";
+} from "@/lib/contextMenuKeyboard";
+import { IconChevronRight, IconCheck } from "@/components/icons";
+import { panelMotion } from "@/lib/motion";
 import "./ContextMenu.css";
 
 const ContextMenuOpenContext = createContext(true);

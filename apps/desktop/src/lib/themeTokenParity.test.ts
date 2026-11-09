@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { REQUIRED_THEME_TOKEN_KEYS } from "../types/theme";
+import { REQUIRED_THEME_TOKEN_KEYS } from "@/types/theme";
 
 /** Keys listed in the Rust `REQUIRED_THEME_TOKEN_KEYS` constant. */
 function rustRequiredKeys(): string[] {

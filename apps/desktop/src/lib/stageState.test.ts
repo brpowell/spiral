@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 import { findTrack, missingDevices, trackRef } from "./stageState";
 
 const track = (over: Partial<Track>): Track =>

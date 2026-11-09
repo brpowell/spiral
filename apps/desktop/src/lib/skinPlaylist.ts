@@ -1,13 +1,13 @@
 import { buildPlaybackOrder } from "./playbackOrder";
-import { compareTracks } from "../components/TrackList/trackListSort";
+import { compareTracks } from "@/components/TrackList/trackListSort";
 import { findPlaybackTrack } from "./playbackTrack";
 import {
   getPlaylistById,
   resolvePlaylistTracks,
   sortedPlaylists,
 } from "./playlists";
-import type { Playlist } from "../types/playlist";
-import type { Track } from "../types/track";
+import type { Playlist } from "@/types/playlist";
+import type { Track } from "@/types/track";
 
 export const SKIN_PLAYLIST_SOURCE_ALL = "all";
 export const SKIN_PLAYLIST_SOURCE_UP_NEXT = "upNext";

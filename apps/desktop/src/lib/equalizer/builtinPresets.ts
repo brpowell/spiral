@@ -1,4 +1,4 @@
-import { t } from "../i18n";
+import { t } from "@/lib/i18n";
 import type { EqualizerBandGains, EqualizerPreset } from "./types";
 import { FLAT_BAND_GAINS } from "./types";
 
@@ -76,7 +76,9 @@ export const BUILTIN_PRESETS: readonly EqualizerPreset[] = [
   },
 ] as const;
 
-const presetById = new Map(BUILTIN_PRESETS.map((preset) => [preset.id, preset]));
+const presetById = new Map(
+  BUILTIN_PRESETS.map((preset) => [preset.id, preset]),
+);
 
 export function getBuiltinPreset(id: string): EqualizerPreset | undefined {
   return presetById.get(id);

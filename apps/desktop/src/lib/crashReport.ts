@@ -4,7 +4,7 @@ import type {
   CrashReport,
   CrashReportSummary,
   CrashSource,
-} from "../types/crashReport";
+} from "@/types/crashReport";
 
 let handlingCrash = false;
 

@@ -4,16 +4,16 @@ import {
   ContextMenuCheckboxItem,
   ContextMenuItem,
   ContextMenuSeparator,
-} from "../components/ContextMenu/ContextMenu";
-import { IconPalette, IconTracks } from "../components/icons";
-import { openAppearanceWindow } from "../lib/appearanceWindow";
-import { t } from "../lib/i18n";
-import { useSkinModeAlwaysOnTop } from "../lib/skinModeAlwaysOnTop";
+} from "@/components/ContextMenu/ContextMenu";
+import { IconPalette, IconTracks } from "@/components/icons";
+import { openAppearanceWindow } from "@/lib/appearanceWindow";
+import { t } from "@/lib/i18n";
+import { useSkinModeAlwaysOnTop } from "@/lib/skinModeAlwaysOnTop";
 import {
   restoreMainWindow,
   setSkinModeAlwaysOnTop,
-} from "../lib/skinModeWindow";
-import { isSkinModeWindow } from "../lib/windowRole";
+} from "@/lib/skinModeWindow";
+import { isSkinModeWindow } from "@/lib/windowRole";
 import { useContextMenu } from "./useContextMenu";
 
 export function useSkinModeContextMenu() {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useItemUpdatesStore } from "./useItemUpdatesStore";
-import type { ItemUpdate } from "../types/itemRegistry";
+import type { ItemUpdate } from "@/types/itemRegistry";
 
 const {
   mockCheckItemUpdates,
@@ -26,13 +26,13 @@ const {
   mockSettleOptions: vi.fn(() => ({ status: "success", label: "ok" })),
 }));
 
-vi.mock("../lib/itemRegistry", () => ({
+vi.mock("@/lib/itemRegistry", () => ({
   ITEM_UPDATES_BULK_KEY: "item-updates-bulk",
   isDownloadCancelled: (message: string) =>
     /item download cancelled/i.test(message),
 }));
 
-vi.mock("../lib/tauri", () => ({
+vi.mock("@/lib/tauri", () => ({
   saveLibrarySettings: mockSaveLibrarySettings,
   checkItemUpdates: mockCheckItemUpdates,
   installItemFromRegistry: mockInstallItemFromRegistry,
@@ -40,7 +40,7 @@ vi.mock("../lib/tauri", () => ({
   clearItemDownloadCancel: vi.fn(),
 }));
 
-vi.mock("../lib/windowRole", () => ({
+vi.mock("@/lib/windowRole", () => ({
   isTauri: () => mockIsTauri(),
 }));
 
@@ -64,28 +64,28 @@ vi.mock("./useBackgroundTasksStore", () => ({
   },
 }));
 
-vi.mock("../lib/i18n", () => ({
+vi.mock("@/lib/i18n", () => ({
   t: (key: string) => key,
 }));
 
-vi.mock("../lib/updater", () => ({
+vi.mock("@/lib/updater", () => ({
   AUTOMATIC_UPDATE_INTERVAL_MS: 5 * 60 * 60 * 1000,
 }));
 
-vi.mock("../lib/packs/packInstallActivity", () => ({
+vi.mock("@/lib/packs/packInstallActivity", () => ({
   logRegistryInstallSuccess: mockLogSuccess,
   logRegistryInstallFailure: mockLogFailure,
 }));
 
-vi.mock("../lib/packs/refreshPackStores", () => ({
+vi.mock("@/lib/packs/refreshPackStores", () => ({
   refreshPackContributionStores: vi.fn(() => Promise.resolve()),
 }));
 
-vi.mock("../lib/scheduling", () => ({
+vi.mock("@/lib/scheduling", () => ({
   afterUiTransition: () => Promise.resolve(),
 }));
 
-vi.mock("../lib/toastPayloads", () => ({
+vi.mock("@/lib/toastPayloads", () => ({
   packUpdatesSettleOptions: mockSettleOptions,
 }));
 

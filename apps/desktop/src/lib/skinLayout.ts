@@ -13,7 +13,7 @@ import type {
   LayoutNode,
   LayoutTreeNode,
   SkinView,
-} from "../types/skin";
+} from "@/types/skin";
 
 export interface SkinLayoutSize {
   width: number;

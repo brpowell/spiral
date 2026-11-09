@@ -4,10 +4,14 @@ import {
   SPIRAL_DISCOVERY_URL,
   SPIRAL_DISCUSSIONS_URL,
   SPIRAL_GITHUB_URL,
-} from "../../About/aboutContent";
-import { Button } from "../../common/Button/Button";
-import { CoffeeButton } from "../../common/CoffeeButton/CoffeeButton";
-import { IconCompass, IconMessagesSquare, IconStarOutline } from "../../icons";
+} from "@/components/About/aboutContent";
+import { Button } from "@/components/common/Button/Button";
+import { CoffeeButton } from "@/components/common/CoffeeButton/CoffeeButton";
+import {
+  IconCompass,
+  IconMessagesSquare,
+  IconStarOutline,
+} from "@/components/icons";
 
 /** The note on the left: gentle, and last so it never blocks setup. */
 export function SupportMessage() {

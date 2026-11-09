@@ -3,7 +3,7 @@ import {
   convertTracksSettleOptions,
   filterConvertibleTrackIds,
 } from "./convertTracks";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 
 function makeTrack(overrides: Partial<Track> = {}): Track {
   return {

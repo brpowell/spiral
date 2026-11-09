@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { toAssetUrl } from "../../lib/assetUrl";
-import { findPlaybackTrack } from "../../lib/playbackTrack";
-import { useArtistImageStore } from "../../store/useArtistImageStore";
-import { usePlayerStore } from "../../store/usePlayerStore";
+import { toAssetUrl } from "@/lib/assetUrl";
+import { findPlaybackTrack } from "@/lib/playbackTrack";
+import { useArtistImageStore } from "@/store/useArtistImageStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
 import { MAX_VIZ_TRACK_IMAGE_EDGE } from "./sandbox/resourceBudgets";
 import {
   registerVizImage,

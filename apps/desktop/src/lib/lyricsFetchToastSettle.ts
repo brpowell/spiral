@@ -1,8 +1,8 @@
 import type {
   BackgroundTaskAction,
   BackgroundTaskSettleAsOptions,
-} from "../store/useBackgroundTasksStore";
-import { useLyricsFetchStore } from "../store/useLyricsFetchStore";
+} from "@/store/useBackgroundTasksStore";
+import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
 import { t } from "./i18n";
 import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
 

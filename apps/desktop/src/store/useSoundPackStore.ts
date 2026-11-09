@@ -1,11 +1,11 @@
 import { create } from "zustand";
-import { broadcastSoundPackChanged } from "../lib/packSounds";
+import { broadcastSoundPackChanged } from "@/lib/packSounds";
 import {
   getActiveSoundPackId,
   listSoundPacks,
   saveActiveSoundPackId,
-} from "../lib/tauri";
-import type { SoundPackSummary } from "../types/soundPack";
+} from "@/lib/tauri";
+import type { SoundPackSummary } from "@/types/soundPack";
 
 export const DEFAULT_SOUND_PACK_ID = "spiral.sound.default";
 

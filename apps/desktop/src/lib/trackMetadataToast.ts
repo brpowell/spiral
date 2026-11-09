@@ -4,8 +4,8 @@ import {
   bulkTrackMetadataSavePayload,
   tagWriteSavedPayload,
 } from "./toastPayloads";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
-import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
 
 export function showBulkTrackMetadataSaveToast(options: {
   total: number;

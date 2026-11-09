@@ -1,7 +1,7 @@
 import { applyArtPathToCdTracks } from "./cdTracks";
-import { useCdStore } from "../store/useCdStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import type { Track } from "../types/track";
+import { useCdStore } from "@/store/useCdStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { Track } from "@/types/track";
 
 export function cdHeroArtPath(driveId: string): string | null {
   return useCdStore.getState().heroArtByDriveId[driveId] ?? null;

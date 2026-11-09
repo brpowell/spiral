@@ -1,6 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
-import type { LyricsFetchOutcome } from "../types/lyrics";
-import { ACTIVITY_LOG_DOMAINS, ACTIVITY_LOG_EVENT } from "../types/activityLog";
+import type { LyricsFetchOutcome } from "@/types/lyrics";
+import { ACTIVITY_LOG_DOMAINS, ACTIVITY_LOG_EVENT } from "@/types/activityLog";
 import {
   createLyricsFetchFeedback,
   LYRICS_FETCH_INSTRUMENTAL,
@@ -14,10 +14,10 @@ import {
 import { normalizeActivityLogEntry } from "./activityLogLine";
 import { t } from "./i18n";
 import { fetchLyricsLrclib, getTrackLyrics } from "./tauri";
-import { useLyricsFetchStore } from "../store/useLyricsFetchStore";
-import { usePlayerStore } from "../store/usePlayerStore";
+import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
 import { missingFileErrorDetail } from "./missingFileTrack";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 
 const LYRICS_FETCH_CANCELLED_MESSAGE = "Lyrics fetch cancelled";
 

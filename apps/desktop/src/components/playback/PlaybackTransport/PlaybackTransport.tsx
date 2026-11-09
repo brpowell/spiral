@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { buildPlaybackOrder } from "../../../lib/playbackOrder";
-import { getManualNextId } from "../../../lib/playbackQueue";
-import { getNextSkippingKnownUnplayable } from "../../../lib/playbackSkip";
-import { isTrackImporting } from "../../../lib/pendingImportTrack";
-import { usePlayerStore } from "../../../store/usePlayerStore";
+import { buildPlaybackOrder } from "@/lib/playbackOrder";
+import { getManualNextId } from "@/lib/playbackQueue";
+import { getNextSkippingKnownUnplayable } from "@/lib/playbackSkip";
+import { isTrackImporting } from "@/lib/pendingImportTrack";
+import { usePlayerStore } from "@/store/usePlayerStore";
 import { TransportButtons } from "./TransportButtons";
 
 interface PlaybackTransportProps {

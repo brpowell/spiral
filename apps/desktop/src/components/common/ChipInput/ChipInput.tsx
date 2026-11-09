@@ -1,8 +1,8 @@
 import { useCallback, useId, useMemo, useRef, useState } from "react";
-import { useSuggestionAutocomplete } from "../../../hooks/useSuggestionAutocomplete";
-import { Chip } from "../Chip/Chip";
-import { SuggestionMenu } from "../SuggestionMenu/SuggestionMenu";
-import { TextInput } from "../TextInput/TextInput";
+import { useSuggestionAutocomplete } from "@/hooks/useSuggestionAutocomplete";
+import { Chip } from "@/components/common/Chip/Chip";
+import { SuggestionMenu } from "@/components/common/SuggestionMenu/SuggestionMenu";
+import { TextInput } from "@/components/common/TextInput/TextInput";
 import "./ChipInput.css";
 
 export type ChipInputProps = {
@@ -142,7 +142,9 @@ export function ChipInput({
           aria-expanded={open}
           aria-controls={open ? menuId : undefined}
           aria-activedescendant={
-            open && activeIndex >= 0 ? `${optionIdPrefix}-${activeIndex}` : undefined
+            open && activeIndex >= 0
+              ? `${optionIdPrefix}-${activeIndex}`
+              : undefined
           }
           aria-label={inputAriaLabel}
           onChange={(e) => setDraft(e.target.value)}

@@ -30,14 +30,14 @@ import {
 } from "./tauri";
 import { isTauri } from "./windowRole";
 import { reportUnexpectedError } from "./unexpectedErrorToast";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import {
   isImportCancelledError,
   useImportDedupeStore,
-} from "../store/useImportDedupeStore";
-import { useLibrarySettingsStore } from "../store/useLibrarySettingsStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
+} from "@/store/useImportDedupeStore";
+import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
 
 interface ResolvedImportPaths {
   audioPaths: string[];

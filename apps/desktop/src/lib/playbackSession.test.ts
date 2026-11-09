@@ -4,8 +4,8 @@ import {
   prunePlaybackSession,
   sessionHasContent,
 } from "./playbackSession";
-import type { PlaybackSession } from "../types/playbackSession";
-import type { Track } from "../types/track";
+import type { PlaybackSession } from "@/types/playbackSession";
+import type { Track } from "@/types/track";
 
 const libraryTrack: Track = {
   id: 1,

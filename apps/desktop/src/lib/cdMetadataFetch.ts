@@ -7,10 +7,10 @@ import { logActivity, withLogContext } from "./activityLog";
 import { t } from "./i18n";
 import { isNetworkLikelyAvailable } from "./network";
 import { resolveCachedArtPath } from "./tauri";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
-import { useCdStore } from "../store/useCdStore";
-import type { ActivityLogContext } from "../types/activityLog";
-import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { useCdStore } from "@/store/useCdStore";
+import type { ActivityLogContext } from "@/types/activityLog";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
 import { selectedDiscFromLookup } from "./cdMetadata";
 import {
   cdHeroArtFetchedSettleOptions,

@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { ChipInput } from "../common/ChipInput/ChipInput";
+import { ChipInput } from "@/components/common/ChipInput/ChipInput";
 import {
   ACTIVITY_LOG_DOMAIN_OPTIONS,
   type ActivityLogDomain,
-} from "../../types/activityLog";
+} from "@/types/activityLog";
 import "./ActivityLogDomainChipField.css";
 
 type ActivityLogDomainChipFieldProps = {

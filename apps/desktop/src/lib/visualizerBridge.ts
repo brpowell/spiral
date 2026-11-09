@@ -1,5 +1,5 @@
 import { emit, listen } from "@tauri-apps/api/event";
-import { useVisualizerStore } from "../store/useVisualizerStore";
+import { useVisualizerStore } from "@/store/useVisualizerStore";
 import type { WindowRole } from "./windowRole";
 import { isAnySkinWindow, isAppearanceWindow } from "./windowRole";
 

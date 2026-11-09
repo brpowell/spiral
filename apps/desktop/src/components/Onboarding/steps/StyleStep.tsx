@@ -1,12 +1,12 @@
 import { useTranslation } from "react-i18next";
-import { useThemeStore } from "../../../store/useThemeStore";
-import { useVisualizerStore } from "../../../store/useVisualizerStore";
-import { ThemeSwatchPreview } from "../../Appearance/ThemeSwatchPreview";
-import { useVizCardHover } from "../../Appearance/useVizCardHover";
-import { VizCardPreview } from "../../Appearance/VisualizersSection";
-import { usePrefersReducedMotion } from "../../visualizer/context";
-import "../../Appearance/ThemesSection.css";
-import "../../Appearance/VisualizersSection.css";
+import { useThemeStore } from "@/store/useThemeStore";
+import { useVisualizerStore } from "@/store/useVisualizerStore";
+import { ThemeSwatchPreview } from "@/components/Appearance/ThemeSwatchPreview";
+import { useVizCardHover } from "@/components/Appearance/useVizCardHover";
+import { VizCardPreview } from "@/components/Appearance/VisualizersSection";
+import { usePrefersReducedMotion } from "@/components/visualizer/context";
+import "@/components/Appearance/ThemesSection.css";
+import "@/components/Appearance/VisualizersSection.css";
 
 /** Pick a theme and a visualizer from the built-ins; both apply immediately. */
 export function StyleStep() {

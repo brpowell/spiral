@@ -10,7 +10,7 @@ vi.mock("./playback", async (importOriginal) => {
   };
 });
 
-import { usePlayerStore } from "../store/usePlayerStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
 import { resetPlaybackClock, subscribePlaybackClock } from "./playbackClock";
 import { pinPlaybackPosition, resetPlaybackClockPin } from "./playbackClockPin";
 

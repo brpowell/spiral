@@ -6,40 +6,34 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { DEFAULT_ARTIST_JOIN_DELIMITER } from "../../lib/artistNames";
-import { formatTrackLyricsColumnLabel } from "../../lib/lyrics";
-import { formatDateAdded, formatTime } from "../../lib/format";
+import { DEFAULT_ARTIST_JOIN_DELIMITER } from "@/lib/artistNames";
+import { formatTrackLyricsColumnLabel } from "@/lib/lyrics";
+import { formatDateAdded, formatTime } from "@/lib/format";
 import {
   formatBitrate,
   formatCodec,
   formatSampleRate,
-} from "../../lib/formatAudio";
+} from "@/lib/formatAudio";
 import {
   artistLinksForTrack,
   hasNavigableAlbum,
   type TrackArtistLink,
-} from "../../lib/trackNavigation";
-import {
-  isTrackImporting,
-  isTrackInteractive,
-} from "../../lib/pendingImportTrack";
-import {
-  isTrackMissingFile,
-  missingFileLabel,
-} from "../../lib/missingFileTrack";
-import { sourceDisplayName } from "../../lib/sourceAccess";
-import { useSourcesStore } from "../../store/useSourcesStore";
-import { Checkbox } from "../common/Checkbox/Checkbox";
-import { IconCheck, IconGrip, IconMissingFile } from "../icons";
-import { ImportIndicator } from "../ImportIndicator/ImportIndicator";
-import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
-import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
-import { TrackRating } from "../TrackRating/TrackRating";
-import { TrackRowMenu } from "../TrackRowMenu/TrackRowMenu";
-import { CdTrackRowMenu } from "../CdTrackRowMenu/CdTrackRowMenu";
+} from "@/lib/trackNavigation";
+import { isTrackImporting, isTrackInteractive } from "@/lib/pendingImportTrack";
+import { isTrackMissingFile, missingFileLabel } from "@/lib/missingFileTrack";
+import { sourceDisplayName } from "@/lib/sourceAccess";
+import { useSourcesStore } from "@/store/useSourcesStore";
+import { Checkbox } from "@/components/common/Checkbox/Checkbox";
+import { IconCheck, IconGrip, IconMissingFile } from "@/components/icons";
+import { ImportIndicator } from "@/components/ImportIndicator/ImportIndicator";
+import { PlayingIndicator } from "@/components/PlayingIndicator/PlayingIndicator";
+import { TrackItemTitle } from "@/components/TrackItemTitle/TrackItemTitle";
+import { TrackRating } from "@/components/TrackRating/TrackRating";
+import { TrackRowMenu } from "@/components/TrackRowMenu/TrackRowMenu";
+import { CdTrackRowMenu } from "@/components/CdTrackRowMenu/CdTrackRowMenu";
 import type { TrackListColumnDef, TrackListColumnId } from "./types";
-import type { Track } from "../../types/track";
-import type { CanonicalRating } from "../../lib/trackRating";
+import type { Track } from "@/types/track";
+import type { CanonicalRating } from "@/lib/trackRating";
 import type {
   CellControlColumn,
   CellControlLocation,

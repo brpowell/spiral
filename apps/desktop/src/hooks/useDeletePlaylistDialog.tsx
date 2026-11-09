@@ -1,9 +1,9 @@
 import { useCallback, useState } from "react";
 import { createPortal } from "react-dom";
-import { DeletePlaylistDialog } from "../components/DeletePlaylistDialog/DeletePlaylistDialog";
-import { useNavigationStore } from "../store/useNavigationStore";
-import { usePlaylistStore } from "../store/usePlaylistStore";
-import type { Playlist } from "../types/playlist";
+import { DeletePlaylistDialog } from "@/components/DeletePlaylistDialog/DeletePlaylistDialog";
+import { useNavigationStore } from "@/store/useNavigationStore";
+import { usePlaylistStore } from "@/store/usePlaylistStore";
+import type { Playlist } from "@/types/playlist";
 
 export function useDeletePlaylistDialog(playlist: Playlist) {
   const [open, setOpen] = useState(false);

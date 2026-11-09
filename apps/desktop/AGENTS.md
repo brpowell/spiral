@@ -8,6 +8,10 @@ Repo-wide rules, including no AI attribution in commits, are in the root [AGENTS
 
 The `Library.db` schema is versioned: changes are append-only migrations in `src-tauri/src/db_migrations.rs`, and there is no schema script to edit. Never change an existing table definition or an existing migration; add a new migration and run `cargo test --lib db_migrations` (from `src-tauri`). Full process in [docs/contributing/database-migrations.md](docs/contributing/database-migrations.md).
 
+## Imports
+
+Import across folders with the `@/` alias (`@/lib/…`, `@/components/…`), which maps to `src/`. Use `./` only for files in the same folder or below it, and never `../`. Exception: modules that `vite.config.ts` imports (and their dependencies) must stay relative, because Vite loads the config before the alias applies.
+
 ## Component placement
 
 `src/components/common/` holds domain-agnostic design-system primitives only (`Button`, `TextInput`, `Modal`, `Chip`, `ChipInput`, `FormField`). A component belongs there only if its props are generic and it imports no domain `lib/` modules (`artistNames`, `trackMetadataForm`, `albums`, …), Zustand stores, or library/playback navigation.

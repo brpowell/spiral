@@ -1,11 +1,11 @@
 import { emit, listen } from "@tauri-apps/api/event";
-import { computeAudioEnergy } from "../components/visualizer/rendererUtils";
+import { computeAudioEnergy } from "@/components/visualizer/rendererUtils";
 import {
   ANALYSER_FREQUENCY_BIN_COUNT,
   ANALYSER_FFT_SIZE,
   getAnalyser,
 } from "./playback";
-import { usePlayerStore } from "../store/usePlayerStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
 
 export const VISUALIZER_FRAME_EVENT = "visualizer://frame";
 export const VISUALIZER_REQUEST_FRAME_EVENT = "visualizer://request-frame";

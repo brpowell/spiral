@@ -1,5 +1,5 @@
 import { useLayoutEffect, type RefObject } from "react";
-import { syncTextareaAutoSize } from "../Textarea/Textarea";
+import { syncTextareaAutoSize } from "@/components/common/Textarea/Textarea";
 import {
   anchorOffsetTop,
   capHeight,

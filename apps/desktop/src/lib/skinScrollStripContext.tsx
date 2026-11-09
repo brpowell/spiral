@@ -14,7 +14,7 @@ import {
   type ScrollStripDefinition,
   type ScrollStripStateMap,
 } from "./skinScrollStrip";
-import type { ScrollStripPresentation } from "../types/skin";
+import type { ScrollStripPresentation } from "@/types/skin";
 
 export interface SkinScrollStripStateApi {
   state: ScrollStripStateMap;
@@ -64,55 +64,67 @@ export function SkinScrollStripStateProvider({
     return map;
   }, [definitions]);
 
-  const prev = useCallback((id: string) => {
-    setState((prevState) => {
-      const presentation = presentations[id];
-      const runtime = prevState[id];
-      if (!presentation || !runtime) return prevState;
+  const prev = useCallback(
+    (id: string) => {
+      setState((prevState) => {
+        const presentation = presentations[id];
+        const runtime = prevState[id];
+        if (!presentation || !runtime) return prevState;
 
-      return {
-        ...prevState,
-        [id]: {
-          slide: clampScrollStripSlide(
-            runtime.slide - 1,
-            scrollStripSlideCount(presentation),
-          ),
-        },
-      };
-    });
-  }, [presentations]);
+        return {
+          ...prevState,
+          [id]: {
+            slide: clampScrollStripSlide(
+              runtime.slide - 1,
+              scrollStripSlideCount(presentation),
+            ),
+          },
+        };
+      });
+    },
+    [presentations],
+  );
 
-  const next = useCallback((id: string) => {
-    setState((prevState) => {
-      const presentation = presentations[id];
-      const runtime = prevState[id];
-      if (!presentation || !runtime) return prevState;
+  const next = useCallback(
+    (id: string) => {
+      setState((prevState) => {
+        const presentation = presentations[id];
+        const runtime = prevState[id];
+        if (!presentation || !runtime) return prevState;
 
-      return {
-        ...prevState,
-        [id]: {
-          slide: clampScrollStripSlide(
-            runtime.slide + 1,
-            scrollStripSlideCount(presentation),
-          ),
-        },
-      };
-    });
-  }, [presentations]);
+        return {
+          ...prevState,
+          [id]: {
+            slide: clampScrollStripSlide(
+              runtime.slide + 1,
+              scrollStripSlideCount(presentation),
+            ),
+          },
+        };
+      });
+    },
+    [presentations],
+  );
 
-  const setSlide = useCallback((id: string, slide: number) => {
-    setState((prevState) => {
-      const presentation = presentations[id];
-      if (!presentation || !prevState[id]) return prevState;
+  const setSlide = useCallback(
+    (id: string, slide: number) => {
+      setState((prevState) => {
+        const presentation = presentations[id];
+        if (!presentation || !prevState[id]) return prevState;
 
-      return {
-        ...prevState,
-        [id]: {
-          slide: clampScrollStripSlide(slide, scrollStripSlideCount(presentation)),
-        },
-      };
-    });
-  }, [presentations]);
+        return {
+          ...prevState,
+          [id]: {
+            slide: clampScrollStripSlide(
+              slide,
+              scrollStripSlideCount(presentation),
+            ),
+          },
+        };
+      });
+    },
+    [presentations],
+  );
 
   const api = useMemo(
     (): SkinScrollStripStateApi => ({

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import { showMissingTrackSkippedToast } from "./playbackToast";
 
 function labels() {

@@ -1,8 +1,8 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { discFromActivePlayback } from "./cdActivePlaybackDisc";
 import { cdTrackListId } from "./cdTracks";
-import { usePlayerStore } from "../store/usePlayerStore";
-import type { Track } from "../types/track";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { Track } from "@/types/track";
 
 function cdTrack(number: number): Track {
   return {

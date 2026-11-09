@@ -26,7 +26,7 @@ vi.mock("./lyricsFetchCommit", () => ({
   commitFetchedLyricsForTrack: commitFetchedLyricsForTrackMock,
 }));
 
-vi.mock("../store/useLyricsFetchStore", () => ({
+vi.mock("@/store/useLyricsFetchStore", () => ({
   useLyricsFetchStore: {
     getState: () => ({
       applyOutcome: applyOutcomeMock,
@@ -34,7 +34,7 @@ vi.mock("../store/useLyricsFetchStore", () => ({
   },
 }));
 
-vi.mock("../store/usePlayerStore", () => ({
+vi.mock("@/store/usePlayerStore", () => ({
   usePlayerStore: {
     getState: () => ({
       library: [
@@ -108,7 +108,9 @@ describe("runSingleLyricsFetch", () => {
   });
 
   it("returns cancelled when LRCLIB invoke reports cancellation", async () => {
-    fetchLyricsLrclibMock.mockRejectedValue(new Error("Lyrics fetch cancelled"));
+    fetchLyricsLrclibMock.mockRejectedValue(
+      new Error("Lyrics fetch cancelled"),
+    );
 
     const result = await runSingleLyricsFetch(1, params);
 

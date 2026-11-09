@@ -2,7 +2,7 @@ import type {
   SkinCondition,
   SkinLayoutTransition,
   WhenMapOrList,
-} from "../types/skin";
+} from "@/types/skin";
 import { iterWhenOverlays } from "./skinWhenOverlays";
 
 /** Shallow-merge `transitionWhen` overlays onto `transition` (last match wins). */

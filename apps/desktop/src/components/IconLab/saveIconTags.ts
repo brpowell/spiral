@@ -1,5 +1,5 @@
-import { setLibraryIconTags } from "../../lib/iconLibrary";
-import { normalizeIconTags } from "../../lib/iconLibrary/iconTagTable";
+import { setLibraryIconTags } from "@/lib/iconLibrary";
+import { normalizeIconTags } from "@/lib/iconLibrary/iconTagTable";
 
 /** Dev server route that writes `iconTags.json` (see vite.config.ts). */
 export const ICON_TAGS_ENDPOINT = "/__icon-lab/tags";

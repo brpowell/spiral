@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CdDisc, DiscMetadata } from "../types/cd";
+import type { CdDisc, DiscMetadata } from "@/types/cd";
 
 const {
   ensureCdHeroArtValidMock,
@@ -48,7 +48,7 @@ vi.mock("./activityLog", () => ({
   }),
 }));
 
-vi.mock("../store/useBackgroundTasksStore", () => ({
+vi.mock("@/store/useBackgroundTasksStore", () => ({
   useBackgroundTasksStore: {
     getState: () => ({
       runInBackground: runInBackgroundMock,
@@ -65,8 +65,8 @@ import {
   cdMetadataFoundSettleOptions,
   cdMetadataNotFoundSettleOptions,
 } from "./toastPayloads";
-import { useCdStore } from "../store/useCdStore";
-import type { BackgroundTaskRunContext } from "../store/useBackgroundTasksStore";
+import { useCdStore } from "@/store/useCdStore";
+import type { BackgroundTaskRunContext } from "@/store/useBackgroundTasksStore";
 
 const driveId = "drive-1";
 

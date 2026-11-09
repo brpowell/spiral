@@ -5,8 +5,8 @@ import { resolveViewForPack } from "./skinViewState";
 import { applyPackWindowLayout } from "./skinModeWindowChrome";
 import { installSkinDevConsole } from "./skinDevConsole";
 import { isSkinModeVisible } from "./skinModeWindow";
-import { DEFAULT_SKIN_ID, useSkinStore } from "../store/useSkinStore";
-import { useSkinPreferencesStore } from "../store/useSkinPreferencesStore";
+import { DEFAULT_SKIN_ID, useSkinStore } from "@/store/useSkinStore";
+import { useSkinPreferencesStore } from "@/store/useSkinPreferencesStore";
 import { isSkinModeWindow } from "./windowRole";
 
 export async function bootstrapSkin(): Promise<void> {

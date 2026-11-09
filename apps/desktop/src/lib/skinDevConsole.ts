@@ -3,7 +3,7 @@
  * Loaded from `skinBootstrap` / `skinAuxBootstrap` in DEV builds.
  */
 import { reloadActiveSkinPack } from "./skinReload";
-import { useSkinStore } from "../store/useSkinStore";
+import { useSkinStore } from "@/store/useSkinStore";
 
 const SKIN_RELOAD_SHORTCUT = "Cmd+Shift+R (Ctrl+Shift+R on Windows/Linux)";
 

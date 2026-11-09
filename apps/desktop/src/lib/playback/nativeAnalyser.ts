@@ -1,5 +1,5 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { getWindowRole } from "../windowRole";
+import { getWindowRole } from "@/lib/windowRole";
 
 /** The slice of `AnalyserNode` the visualizers read. */
 export interface AudioAnalyser {

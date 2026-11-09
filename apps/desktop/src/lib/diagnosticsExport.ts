@@ -6,12 +6,12 @@ import {
   diagnosticsCopiedPayload,
   diagnosticsSavedPayload,
 } from "./toastPayloads";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import type {
   DiagnosticsBundle,
   DiagnosticsCrashReport,
   DiagnosticsEnvironment,
-} from "../types/diagnosticsExport";
+} from "@/types/diagnosticsExport";
 
 function normalizeEnvironment(
   raw: Record<string, unknown>,

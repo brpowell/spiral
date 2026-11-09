@@ -1,5 +1,5 @@
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
-import { useCdImportStore } from "../store/useCdImportStore";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { useCdImportStore } from "@/store/useCdImportStore";
 
 const CD_IMPORT_TASK_KEY = "cd-import";
 

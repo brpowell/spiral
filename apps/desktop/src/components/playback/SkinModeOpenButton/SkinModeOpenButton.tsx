@@ -1,8 +1,8 @@
-import { Button } from "../../common/Button/Button";
-import { IconBoombox } from "../../icons";
-import { t } from "../../../lib/i18n";
-import { openSkinMode } from "../../../lib/skinModeWindow";
-import { isTauri } from "../../../lib/windowRole";
+import { Button } from "@/components/common/Button/Button";
+import { IconBoombox } from "@/components/icons";
+import { t } from "@/lib/i18n";
+import { openSkinMode } from "@/lib/skinModeWindow";
+import { isTauri } from "@/lib/windowRole";
 
 export function SkinModeOpenButton() {
   if (!isTauri()) return null;

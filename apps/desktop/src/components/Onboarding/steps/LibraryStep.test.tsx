@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useLibrarySettingsStore } from "../../../store/useLibrarySettingsStore";
-import { useOnboardingStore } from "../../../store/useOnboardingStore";
-import type { LibrarySettings } from "../../../types/library";
+import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
+import { useOnboardingStore } from "@/store/useOnboardingStore";
+import type { LibrarySettings } from "@/types/library";
 import { LibraryStep } from "./LibraryStep";
 
 const path = vi.hoisted(() => ({ homeDir: vi.fn() }));

@@ -13,7 +13,7 @@ import {
   resolveRegistryItemPreview,
   type InstallItemResult,
 } from "./tauri";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import type {
   CatalogItemEntry,
   ItemCatalogQuery,
@@ -23,8 +23,8 @@ import type {
   RegistryItemSummary,
   RegistryVersionDetail,
   RegistryVersionSummary,
-} from "../types/itemRegistry";
-import { catalogItemName } from "../types/itemRegistry";
+} from "@/types/itemRegistry";
+import { catalogItemName } from "@/types/itemRegistry";
 import {
   logRegistryInstallFailure,
   logRegistryInstallSuccess,
@@ -385,7 +385,7 @@ export function installRegistryItem(
               );
             } finally {
               // Dynamic import avoids a circular dependency with useItemUpdatesStore.
-              void import("../store/useItemUpdatesStore").then(
+              void import("@/store/useItemUpdatesStore").then(
                 ({ refreshItemUpdatesAfterInstall }) => {
                   void refreshItemUpdatesAfterInstall(result.effectiveId);
                 },

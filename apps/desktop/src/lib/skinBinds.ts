@@ -21,28 +21,28 @@ import {
   resolveSkinPlaylistTrackCount,
 } from "./skinPlaylist";
 import { activeVisualizerName, canCycleVisualizers } from "./visualizerCycle";
-import { useAssetUrl } from "../hooks/useAssetUrl";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { usePlaylistStore } from "../store/usePlaylistStore";
-import { useSkinStore } from "../store/useSkinStore";
-import { useVisualizerStore } from "../store/useVisualizerStore";
-import { useEqualizerStore } from "../store/useEqualizerStore";
-import { usePlaybackSettingsStore } from "../store/usePlaybackSettingsStore";
-import { useSkinPreferencesStore } from "../store/useSkinPreferencesStore";
-import { soundEffectsEnabledFromPreferences } from "../types/skinPreferences";
-import type { SkinUserPreferences } from "../types/skinPreferences";
+import { useAssetUrl } from "@/hooks/useAssetUrl";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { usePlaylistStore } from "@/store/usePlaylistStore";
+import { useSkinStore } from "@/store/useSkinStore";
+import { useVisualizerStore } from "@/store/useVisualizerStore";
+import { useEqualizerStore } from "@/store/useEqualizerStore";
+import { usePlaybackSettingsStore } from "@/store/usePlaybackSettingsStore";
+import { useSkinPreferencesStore } from "@/store/useSkinPreferencesStore";
+import { soundEffectsEnabledFromPreferences } from "@/types/skinPreferences";
+import type { SkinUserPreferences } from "@/types/skinPreferences";
 import { evaluateAuthorSkinPref } from "./skinPrefSettings";
 import type { EqualizerBandGains, EqualizerPreset } from "./equalizer/types";
-import type { PlayableRef } from "../types/playable";
+import type { PlayableRef } from "@/types/playable";
 import type {
   ScrollStripPresentation,
   SkinBindPath,
   SkinCondition,
   SkinSetting,
   SlideshowPresentation,
-} from "../types/skin";
-import type { Track } from "../types/track";
-import type { Playlist } from "../types/playlist";
+} from "@/types/skin";
+import type { Track } from "@/types/track";
+import type { Playlist } from "@/types/playlist";
 import type { ScrollStripStateMap } from "./skinScrollStrip";
 import type { SlideshowStateMap } from "./skinSlideshow";
 import type { ViewStateValues } from "./skinViewStateContext";

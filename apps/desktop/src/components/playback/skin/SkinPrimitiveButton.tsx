@@ -1,34 +1,28 @@
 import type { ReactNode } from "react";
-import { Button } from "../../common/Button/Button";
-import { skinAssetFileUrl } from "../../../lib/skinAssets";
+import { Button } from "@/components/common/Button/Button";
+import { skinAssetFileUrl } from "@/lib/skinAssets";
 import {
   isSkinAssetIconPath,
   resolveSkinLibraryIcon,
-} from "../../../lib/skinLibraryIcons";
-import { useSkinModeAlwaysOnTop } from "../../../lib/skinModeAlwaysOnTop";
-import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
+} from "@/lib/skinLibraryIcons";
+import { useSkinModeAlwaysOnTop } from "@/lib/skinModeAlwaysOnTop";
+import { skinDragRegionNoneProps } from "@/lib/skinDragRegion";
 import {
   evaluateSkinBind,
   evaluateSkinCondition,
   type SkinBindState,
   useSkinBindState,
   useSkinControlEnabled,
-} from "../../../lib/skinBinds";
-import {
-  playSkinSound,
-  resolveSkinClickSound,
-} from "../../../lib/skinSoundEffects";
-import { useSkinTooltip } from "../../../lib/skinTooltips";
-import {
-  styleFromSkinNode,
-  useResolvedNodeStyle,
-} from "../../../lib/skinNodeStyle";
+} from "@/lib/skinBinds";
+import { playSkinSound, resolveSkinClickSound } from "@/lib/skinSoundEffects";
+import { useSkinTooltip } from "@/lib/skinTooltips";
+import { styleFromSkinNode, useResolvedNodeStyle } from "@/lib/skinNodeStyle";
 import {
   primaryClickAction,
   primaryClickViewId,
   scheduleSkinEffects,
-} from "../../../lib/skinEffects";
-import type { ButtonNode, LoadedSkinPack } from "../../../types/skin";
+} from "@/lib/skinEffects";
+import type { ButtonNode, LoadedSkinPack } from "@/types/skin";
 import "./SkinPrimitiveButton.css";
 
 function PrimitiveIcon({

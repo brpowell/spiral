@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { viewTransition } from "../../lib/motion";
+import { viewTransition } from "@/lib/motion";
 import {
   catalogCacheKey,
   catalogItemKey,
@@ -9,41 +9,41 @@ import {
   fetchItemCatalogSafe,
   installCatalogEntry,
   prefetchItemDetail,
-} from "../../lib/itemRegistry";
-import { useCatalogViewStore } from "../../store/useCatalogViewStore";
-import { useItemsVersionStore } from "../../store/useItemsVersionStore";
-import { ITEM_TYPES, type ItemType } from "../../types/item";
+} from "@/lib/itemRegistry";
+import { useCatalogViewStore } from "@/store/useCatalogViewStore";
+import { useItemsVersionStore } from "@/store/useItemsVersionStore";
+import { ITEM_TYPES, type ItemType } from "@/types/item";
 import {
   CATALOG_SORTS,
   type CatalogItemEntry,
   type CatalogSort,
   type RegistryVersionSummary,
-} from "../../types/itemRegistry";
-import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
-import { BrowseView } from "../BrowseView/BrowseView";
-import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
-import { Button } from "../common/Button/Button";
-import { EmptyState } from "../common/EmptyState/EmptyState";
+} from "@/types/itemRegistry";
+import { BrowseGridBody } from "@/components/BrowseView/BrowseGridBody";
+import { BrowseView } from "@/components/BrowseView/BrowseView";
+import { BrowseViewHeader } from "@/components/BrowseView/BrowseViewHeader";
+import { Button } from "@/components/common/Button/Button";
+import { EmptyState } from "@/components/common/EmptyState/EmptyState";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-} from "../common/InputGroup/InputGroup";
-import { Skeleton } from "../common/Skeleton/Skeleton";
-import { Select } from "../common/Select/Select";
+} from "@/components/common/InputGroup/InputGroup";
+import { Skeleton } from "@/components/common/Skeleton/Skeleton";
+import { Select } from "@/components/common/Select/Select";
 import {
   ContextMenuCheckboxItem,
   ContextMenuItem,
   ContextMenuSeparator,
-} from "../ContextMenu/ContextMenu";
+} from "@/components/ContextMenu/ContextMenu";
 import {
   IconArrowUpDown,
   IconDisconnected,
   IconListFilter,
   IconListX,
   IconSearch,
-} from "../icons";
-import { MenuButton } from "../MenuButton/MenuButton";
+} from "@/components/icons";
+import { MenuButton } from "@/components/MenuButton/MenuButton";
 import { itemTypeMeta } from "./itemShared";
 import { RegistryItemCard } from "./RegistryItemCard";
 import { RegistryItemDetailView } from "./RegistryItemDetailView";

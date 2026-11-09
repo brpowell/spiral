@@ -14,7 +14,7 @@ import {
   type SlideshowDefinition,
   type SlideshowStateMap,
 } from "./skinSlideshow";
-import type { SlideshowPresentation } from "../types/skin";
+import type { SlideshowPresentation } from "@/types/skin";
 
 export interface SkinSlideshowStateApi {
   state: SlideshowStateMap;
@@ -64,54 +64,63 @@ export function SkinSlideshowStateProvider({
     return map;
   }, [definitions]);
 
-  const setDeck = useCallback((id: string, deck: string) => {
-    setState((prev) => {
-      const presentation = presentations[id];
-      if (!presentation?.decks[deck]) return prev;
-      return {
-        ...prev,
-        [id]: { deck, page: 1 },
-      };
-    });
-  }, [presentations]);
+  const setDeck = useCallback(
+    (id: string, deck: string) => {
+      setState((prev) => {
+        const presentation = presentations[id];
+        if (!presentation?.decks[deck]) return prev;
+        return {
+          ...prev,
+          [id]: { deck, page: 1 },
+        };
+      });
+    },
+    [presentations],
+  );
 
-  const prev = useCallback((id: string) => {
-    setState((prevState) => {
-      const runtime = prevState[id];
-      const presentation = presentations[id];
-      if (!runtime?.deck || !presentation) return prevState;
+  const prev = useCallback(
+    (id: string) => {
+      setState((prevState) => {
+        const runtime = prevState[id];
+        const presentation = presentations[id];
+        if (!runtime?.deck || !presentation) return prevState;
 
-      const deck = deckConfig(presentation, runtime.deck);
-      if (!deck) return prevState;
+        const deck = deckConfig(presentation, runtime.deck);
+        if (!deck) return prevState;
 
-      return {
-        ...prevState,
-        [id]: {
-          ...runtime,
-          page: clampSlideshowPage(runtime.page - 1, deck.pages),
-        },
-      };
-    });
-  }, [presentations]);
+        return {
+          ...prevState,
+          [id]: {
+            ...runtime,
+            page: clampSlideshowPage(runtime.page - 1, deck.pages),
+          },
+        };
+      });
+    },
+    [presentations],
+  );
 
-  const next = useCallback((id: string) => {
-    setState((prevState) => {
-      const runtime = prevState[id];
-      const presentation = presentations[id];
-      if (!runtime?.deck || !presentation) return prevState;
+  const next = useCallback(
+    (id: string) => {
+      setState((prevState) => {
+        const runtime = prevState[id];
+        const presentation = presentations[id];
+        if (!runtime?.deck || !presentation) return prevState;
 
-      const deck = deckConfig(presentation, runtime.deck);
-      if (!deck) return prevState;
+        const deck = deckConfig(presentation, runtime.deck);
+        if (!deck) return prevState;
 
-      return {
-        ...prevState,
-        [id]: {
-          ...runtime,
-          page: clampSlideshowPage(runtime.page + 1, deck.pages),
-        },
-      };
-    });
-  }, [presentations]);
+        return {
+          ...prevState,
+          [id]: {
+            ...runtime,
+            page: clampSlideshowPage(runtime.page + 1, deck.pages),
+          },
+        };
+      });
+    },
+    [presentations],
+  );
 
   const api = useMemo(
     (): SkinSlideshowStateApi => ({

@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { updateItemMetadataWithRefresh } from "../../lib/items/itemActions";
-import { revealInFileManagerLabel } from "../../lib/fileManager";
-import { listItems, revealItemFolder } from "../../lib/tauri";
-import type { ItemSummary, ItemType } from "../../types/item";
-import { isEditablePackZone, type PackZone } from "../../types/pack";
+import { updateItemMetadataWithRefresh } from "@/lib/items/itemActions";
+import { revealInFileManagerLabel } from "@/lib/fileManager";
+import { listItems, revealItemFolder } from "@/lib/tauri";
+import type { ItemSummary, ItemType } from "@/types/item";
+import { isEditablePackZone, type PackZone } from "@/types/pack";
 import {
   ContextMenuItem,
   ContextMenuSeparator,
-} from "../ContextMenu/ContextMenu";
+} from "@/components/ContextMenu/ContextMenu";
 import {
   IconBraces,
   IconDelete,
@@ -16,8 +16,8 @@ import {
   IconOpenFolder,
   IconPackage,
   IconPencil,
-} from "../icons";
-import { MenuButton } from "../MenuButton/MenuButton";
+} from "@/components/icons";
+import { MenuButton } from "@/components/MenuButton/MenuButton";
 import { useOpenAppearanceThemeEditor } from "./AppearanceThemeEditorContext";
 import { EditItemModal, type EditItemModalResult } from "./EditItemModal";
 import { ExportItemModal } from "./ExportItemModal";

@@ -1,6 +1,6 @@
 import { getPlaybackSettings } from "./tauri";
-import { usePlaybackSettingsStore } from "../store/usePlaybackSettingsStore";
-import { defaultPlaybackSettings } from "../types/playbackSettings";
+import { usePlaybackSettingsStore } from "@/store/usePlaybackSettingsStore";
+import { defaultPlaybackSettings } from "@/types/playbackSettings";
 
 export async function bootstrapPlaybackSettings(): Promise<void> {
   try {

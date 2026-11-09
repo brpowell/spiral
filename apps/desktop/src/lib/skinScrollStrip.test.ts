@@ -9,7 +9,7 @@ import {
   resolveScrollStripSlideLayout,
   scrollStripSlideCount,
 } from "./skinScrollStrip";
-import type { LayoutTreeNode, ScrollStripNode } from "../types/skin";
+import type { LayoutTreeNode, ScrollStripNode } from "@/types/skin";
 
 const scrollStripNode: ScrollStripNode = {
   type: "scrollStrip",

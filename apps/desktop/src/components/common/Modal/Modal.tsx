@@ -10,16 +10,16 @@ import { createPortal } from "react-dom";
 import {
   releasedOutsidePanel,
   shouldDismissModalOnBackdropRelease,
-} from "../../../lib/modalBackdropDismiss";
+} from "@/lib/modalBackdropDismiss";
 import {
   isTopModalLayer,
   popModalLayer,
   pushModalLayer,
-} from "../../../lib/modalStack";
-import { backdropMotion, panelMotion } from "../../../lib/motion";
-import { t } from "../../../lib/i18n";
-import { Button } from "../Button/Button";
-import { IconClose } from "../../icons";
+} from "@/lib/modalStack";
+import { backdropMotion, panelMotion } from "@/lib/motion";
+import { t } from "@/lib/i18n";
+import { Button } from "@/components/common/Button/Button";
+import { IconClose } from "@/components/icons";
 import { FitContentContext } from "./FitContentContext";
 import { useFitModalHeight } from "./useFitModalHeight";
 import "./Modal.css";

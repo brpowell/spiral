@@ -1,6 +1,6 @@
-import "../vendor/spiral-motion/bundle.js";
-import "../components/Onboarding/Onboarding.css";
-import { useOnboardingStore } from "../store/useOnboardingStore";
+import "@/vendor/spiral-motion/bundle.js";
+import "@/components/Onboarding/Onboarding.css";
+import { useOnboardingStore } from "@/store/useOnboardingStore";
 import { t } from "./i18n";
 import { usesCustomWindowChrome, usesMacOverlayChrome } from "./windowChrome";
 

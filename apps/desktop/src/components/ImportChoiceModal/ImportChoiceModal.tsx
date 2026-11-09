@@ -1,12 +1,12 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { describeSourceError, sourceDisplayName } from "../../lib/sourceAccess";
-import { addSource, pickMusicFolder, setImportSource } from "../../lib/tauri";
-import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
-import { useSourcesStore } from "../../store/useSourcesStore";
-import { Button } from "../common/Button/Button";
-import { FormField } from "../common/Field/Field";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { describeSourceError, sourceDisplayName } from "@/lib/sourceAccess";
+import { addSource, pickMusicFolder, setImportSource } from "@/lib/tauri";
+import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
+import { useSourcesStore } from "@/store/useSourcesStore";
+import { Button } from "@/components/common/Button/Button";
+import { FormField } from "@/components/common/Field/Field";
 import {
   Modal,
   ModalBody,
@@ -15,9 +15,9 @@ import {
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
-} from "../common/Modal/Modal";
-import { Select } from "../common/Select/Select";
-import { IconPlus } from "../icons";
+} from "@/components/common/Modal/Modal";
+import { Select } from "@/components/common/Select/Select";
+import { IconPlus } from "@/components/icons";
 
 import "./ImportChoiceModal.css";
 

@@ -1,5 +1,5 @@
-import * as audio from "../lib/playback";
-import { usePlayerStore } from "../store/usePlayerStore";
+import * as audio from "@/lib/playback";
+import { usePlayerStore } from "@/store/usePlayerStore";
 
 /**
  * Seek interaction for a progress control. Does not subscribe to the playhead,

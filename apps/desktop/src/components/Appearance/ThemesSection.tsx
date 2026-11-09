@@ -1,11 +1,11 @@
 import { useTranslation } from "react-i18next";
-import { themeApplyFailedPayload } from "../../lib/toastPayloads";
-import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
-import { useThemeStore } from "../../store/useThemeStore";
-import type { Theme } from "../../types/theme";
-import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
-import { BrowseView } from "../BrowseView/BrowseView";
-import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
+import { themeApplyFailedPayload } from "@/lib/toastPayloads";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { useThemeStore } from "@/store/useThemeStore";
+import type { Theme } from "@/types/theme";
+import { BrowseGridBody } from "@/components/BrowseView/BrowseGridBody";
+import { BrowseView } from "@/components/BrowseView/BrowseView";
+import { BrowseViewHeader } from "@/components/BrowseView/BrowseViewHeader";
 import { ItemActionsMenu } from "./ItemActionsMenu";
 import { ItemUpdateButton } from "./ItemUpdateButton";
 import { AppearancePackCard } from "./AppearancePackCard";

@@ -14,7 +14,7 @@ import {
   suppressSkinModeSnap,
 } from "./skinModeWindowChrome";
 import { resolveViewForPack } from "./skinViewState";
-import { useSkinStore } from "../store/useSkinStore";
+import { useSkinStore } from "@/store/useSkinStore";
 import { getActiveSkinId, loadSkinPack, quitApp } from "./tauri";
 import {
   patchPersistedSkinModeState,

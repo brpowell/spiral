@@ -1,8 +1,8 @@
 import { parseOptionalInt } from "./albumMetadata";
-import type { DiscMetadataOverride, DiscTrackOverride } from "../types/cd";
-import type { MusicBrainzTrackSlot } from "../types/musicbrainz";
+import type { DiscMetadataOverride, DiscTrackOverride } from "@/types/cd";
+import type { MusicBrainzTrackSlot } from "@/types/musicbrainz";
 import type { TrackEditorForm } from "./trackMetadataForm";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 import { cdTrackNumberFromListId } from "./cdTracks";
 import { matchRecordingMbid } from "./musicBrainzReleaseRecordings";
 

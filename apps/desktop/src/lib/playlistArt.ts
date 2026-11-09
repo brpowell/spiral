@@ -1,5 +1,5 @@
-import type { Playlist, PlaylistImageMode } from "../types/playlist";
-import type { Track } from "../types/track";
+import type { Playlist, PlaylistImageMode } from "@/types/playlist";
+import type { Track } from "@/types/track";
 import { albumKey } from "./albums";
 import { resolveIconId } from "./iconLibrary";
 import { defaultPlaylistDesignCover } from "./playlistCoverPresets";

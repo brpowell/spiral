@@ -5,17 +5,17 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
-import { Slider } from "../../common/Slider/Slider";
-import * as audio from "../../../lib/playback";
-import { subscribePlaybackClock } from "../../../lib/playbackClock";
-import { resolvePlaybackDisplaySeconds } from "../../../lib/playbackClockPin";
-import { createPlayheadGlide } from "../../../lib/playheadGlide";
-import { formatRemainingTime, formatTime } from "../../../lib/format";
-import { t } from "../../../lib/i18n";
-import { findPlaybackTrack } from "../../../lib/playbackTrack";
-import { isAnySkinWindow } from "../../../lib/windowRole";
-import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
-import { usePlayerStore } from "../../../store/usePlayerStore";
+import { Slider } from "@/components/common/Slider/Slider";
+import * as audio from "@/lib/playback";
+import { subscribePlaybackClock } from "@/lib/playbackClock";
+import { resolvePlaybackDisplaySeconds } from "@/lib/playbackClockPin";
+import { createPlayheadGlide } from "@/lib/playheadGlide";
+import { formatRemainingTime, formatTime } from "@/lib/format";
+import { t } from "@/lib/i18n";
+import { findPlaybackTrack } from "@/lib/playbackTrack";
+import { isAnySkinWindow } from "@/lib/windowRole";
+import { usePlaybackProgress } from "@/hooks/usePlaybackProgress";
+import { usePlayerStore } from "@/store/usePlayerStore";
 import "./SeekBar.css";
 
 interface SeekBarProps {

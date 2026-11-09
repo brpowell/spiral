@@ -8,7 +8,7 @@ vi.mock("./i18n", () => ({
   t: (key: string) => key.split(":").pop(),
 }));
 
-import { useTagWriteConfirmStore } from "../store/useTagWriteConfirmStore";
+import { useTagWriteConfirmStore } from "@/store/useTagWriteConfirmStore";
 import { confirmTagWriteNative } from "./tagWriteConfirmNative";
 
 describe("confirmTagWriteNative", () => {

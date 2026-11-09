@@ -1,19 +1,16 @@
 import { create } from "zustand";
-import {
-  DEFAULT_VISUALIZER_ID,
-  toVisualizer,
-} from "../lib/resolveVisualizer";
+import { DEFAULT_VISUALIZER_ID, toVisualizer } from "@/lib/resolveVisualizer";
 import {
   getActiveVisualizerId,
   listVisualizers,
   loadVisualizer,
   saveActiveVisualizerId,
-} from "../lib/tauri";
-import type { VizSummary } from "../types/visualizer";
-import type { Visualizer } from "../components/visualizer/types";
-import { BARS_FALLBACK_VISUALIZER } from "../components/visualizer/fallbackVisualizer";
-import { emitVisualizerChanged } from "../lib/visualizerBridge";
-import { adjacentVisualizerId } from "../lib/visualizerCycle";
+} from "@/lib/tauri";
+import type { VizSummary } from "@/types/visualizer";
+import type { Visualizer } from "@/components/visualizer/types";
+import { BARS_FALLBACK_VISUALIZER } from "@/components/visualizer/fallbackVisualizer";
+import { emitVisualizerChanged } from "@/lib/visualizerBridge";
+import { adjacentVisualizerId } from "@/lib/visualizerCycle";
 
 interface VisualizerState {
   visualizers: VizSummary[];

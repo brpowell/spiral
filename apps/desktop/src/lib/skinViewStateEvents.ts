@@ -1,4 +1,4 @@
-import type { SkinViewStateSpec, SkinViewStateTransition } from "../types/skin";
+import type { SkinViewStateSpec, SkinViewStateTransition } from "@/types/skin";
 import type { SkinViewStateApi } from "./skinViewStateContext";
 
 const VIEW_MOTION_VALUES = new Set(["opening", "closing"]);

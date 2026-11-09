@@ -6,7 +6,7 @@ import {
   type KeyboardEvent,
   type RefObject,
 } from "react";
-import { filterSubstringSuggestions } from "../lib/suggestionFilter";
+import { filterSubstringSuggestions } from "@/lib/suggestionFilter";
 import { useInputAnchoredMenu } from "./useInputAnchoredMenu";
 
 export type UseSuggestionAutocompleteOptions = {

@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from "react";
-import { normalizeIconTag } from "../../lib/iconLibrary/iconTagTable";
+import { normalizeIconTag } from "@/lib/iconLibrary/iconTagTable";
 
 const SUGGESTION_LIST_ID = "icon-lab-tag-suggestions";
 const MAX_QUICK_ADD = 8;

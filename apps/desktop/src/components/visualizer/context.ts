@@ -1,20 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toAssetUrl } from "../../lib/assetUrl";
-import { findPlaybackTrack } from "../../lib/playbackTrack";
-import {
-  extractPaletteFromImageUrl,
-  getDefaultPalette,
-} from "../../lib/palette";
-import { evaluateSkinBind, useSkinBindState } from "../../lib/skinBinds";
+import { toAssetUrl } from "@/lib/assetUrl";
+import { findPlaybackTrack } from "@/lib/playbackTrack";
+import { extractPaletteFromImageUrl, getDefaultPalette } from "@/lib/palette";
+import { evaluateSkinBind, useSkinBindState } from "@/lib/skinBinds";
 import {
   OBSIDIAN_DEFAULT_TOKENS,
   DEFAULT_THEME_ID,
   findThemeById,
   resolveThemeTokens,
-} from "../../lib/theme";
-import { usePlayerStore } from "../../store/usePlayerStore";
-import { useThemeStore } from "../../store/useThemeStore";
-import type { SkinBindPath } from "../../types/skin";
+} from "@/lib/theme";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { useThemeStore } from "@/store/useThemeStore";
+import type { SkinBindPath } from "@/types/skin";
 import { computeAudioEnergy } from "./rendererUtils";
 import type { VisualizerContext } from "./types";
 import { useVisualizerTrack } from "./vizTrackImages";

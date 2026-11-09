@@ -1,10 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { usePlayerStore } from "../../store/usePlayerStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
 import { TransportPreview } from "./TransportPreview";
 
 const playTransportCue = vi.hoisted(() => vi.fn());
-vi.mock("../../lib/transportCues", () => ({ playTransportCue }));
+vi.mock("@/lib/transportCues", () => ({ playTransportCue }));
 
 describe("TransportPreview", () => {
   beforeEach(() => {

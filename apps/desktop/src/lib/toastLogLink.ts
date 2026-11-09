@@ -1,4 +1,4 @@
-import type { BackgroundTaskAction } from "../store/useBackgroundTasksStore";
+import type { BackgroundTaskAction } from "@/store/useBackgroundTasksStore";
 import { openActivityLogsWindow } from "./activityLogsWindow";
 import { t } from "./i18n";
 

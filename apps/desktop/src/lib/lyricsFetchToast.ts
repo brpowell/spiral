@@ -1,7 +1,7 @@
 import { peekLyricsFetchCache, searchLyricsCandidates } from "./tauri";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import { t } from "./i18n";
-import type { LyricsSearchCandidate } from "../types/lyrics";
+import type { LyricsSearchCandidate } from "@/types/lyrics";
 import { enqueueLyricsFetch } from "./lyricsFetchQueue";
 import type { LyricsFetchParams } from "./lyricsFetchRunner";
 import {
@@ -13,7 +13,7 @@ import {
   trackIsMarkedInstrumental,
 } from "./lyricsFetchRunner";
 import { commitInstrumentalMarkForTrack } from "./lyricsFetchCommit";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 
 export type { LyricsFetchParams } from "./lyricsFetchRunner";
 export { buildLyricsFetchParamsForTrack, canFetchLyricsForTrack };

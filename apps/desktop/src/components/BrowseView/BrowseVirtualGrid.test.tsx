@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { useRef } from "react";
 import { describe, expect, it } from "vitest";
-import { BROWSE_GRID_VIRTUALIZE_AFTER } from "../../lib/browseGridLayout";
+import { BROWSE_GRID_VIRTUALIZE_AFTER } from "@/lib/browseGridLayout";
 import { BrowseGridBody } from "./BrowseGridBody";
 import { BrowseVirtualGrid } from "./BrowseVirtualGrid";
 

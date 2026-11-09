@@ -3,20 +3,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   SKIN_PLAYLIST_SOURCE_ALL,
   SKIN_PLAYLIST_SOURCE_UP_NEXT,
-} from "../../../lib/skinPlaylist";
-import { usePlayerStore } from "../../../store/usePlayerStore";
-import { useSkinStore } from "../../../store/useSkinStore";
-import type { Track } from "../../../types/track";
-import type { PlaylistNode } from "../../../types/skin";
+} from "@/lib/skinPlaylist";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { useSkinStore } from "@/store/useSkinStore";
+import type { Track } from "@/types/track";
+import type { PlaylistNode } from "@/types/skin";
 import { SkinPlaylistView } from "./SkinPlaylistView";
 
-vi.mock("../../EntityArt/useEntityArtSrc", () => ({
+vi.mock("@/components/EntityArt/useEntityArtSrc", () => ({
   useEntityArtSrc: (path: string | null) => (path ? "asset://thumb" : null),
 }));
 
-vi.mock("../../../lib/skinNodeStyle", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("../../../lib/skinNodeStyle")>();
+vi.mock("@/lib/skinNodeStyle", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/skinNodeStyle")>();
   return {
     ...actual,
     useResolvedNodeStyle: (style: unknown) => style,

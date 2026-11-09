@@ -1,13 +1,13 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { useContextMenu } from "../../hooks/useContextMenu";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useContextMenu } from "@/hooks/useContextMenu";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import {
   DEFAULT_CD_IMPORT_PROFILE_ID,
   ENCODING_PROFILE_SELECT_OPTIONS,
   isKnownEncodingProfileId,
   type EncodingProfileId,
-} from "../../lib/encodingProfiles";
+} from "@/lib/encodingProfiles";
 import {
   pickLibraryFolder,
   clearMetadataCache,
@@ -16,65 +16,68 @@ import {
   relocateLibrary,
   getDefaultPublisherId,
   saveDefaultPublisherId,
-} from "../../lib/tauri";
-import { stopPlaybackForLibraryRelocate } from "../../lib/libraryRelocatePlayback";
-import { isPublisherId } from "../../lib/items/itemIds";
-import { useArtistImageStore } from "../../store/useArtistImageStore";
-import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
-import { usePlaybackSettingsStore } from "../../store/usePlaybackSettingsStore";
-import { usePlayerStore } from "../../store/usePlayerStore";
-import { usePlaylistStore } from "../../store/usePlaylistStore";
-import { useSourcesStore } from "../../store/useSourcesStore";
-import { useUpdaterStore } from "../../store/useUpdaterStore";
-import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
+} from "@/lib/tauri";
+import { stopPlaybackForLibraryRelocate } from "@/lib/libraryRelocatePlayback";
+import { isPublisherId } from "@/lib/items/itemIds";
+import { useArtistImageStore } from "@/store/useArtistImageStore";
+import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
+import { usePlaybackSettingsStore } from "@/store/usePlaybackSettingsStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { usePlaylistStore } from "@/store/usePlaylistStore";
+import { useSourcesStore } from "@/store/useSourcesStore";
+import { useUpdaterStore } from "@/store/useUpdaterStore";
+import { useItemUpdatesStore } from "@/store/useItemUpdatesStore";
 import {
   MIN_CROSSFADE_SECONDS,
   MAX_CROSSFADE_SECONDS,
-} from "../../types/playbackSettings";
+} from "@/types/playbackSettings";
 import type {
   CdMetadataFetchMode,
   LibraryDestinationInfo,
   LibraryRelocateMode,
   LibrarySettingsPatch,
-} from "../../types/library";
-import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
-import { useTagWriteConfirmStore } from "../../store/useTagWriteConfirmStore";
-import { Button } from "../common/Button/Button";
-import { Checkbox } from "../common/Checkbox/Checkbox";
+} from "@/types/library";
+import { AlertConfirmation } from "@/components/common/AlertConfirmation/AlertConfirmation";
+import { useTagWriteConfirmStore } from "@/store/useTagWriteConfirmStore";
+import { Button } from "@/components/common/Button/Button";
+import { Checkbox } from "@/components/common/Checkbox/Checkbox";
 import {
   Field,
   FieldContent,
   FieldDescription,
   FieldLabel,
   FormField,
-} from "../common/Field/Field";
+} from "@/components/common/Field/Field";
 import {
   Modal,
   ModalBody,
   ModalCloseButton,
   ModalHeader,
   ModalTitle,
-} from "../common/Modal/Modal";
-import { RadioGroup, RadioGroupItem } from "../common/RadioGroup/RadioGroup";
-import { Separator } from "../common/Separator/Separator";
-import { TextInput } from "../common/TextInput/TextInput";
-import { TextLink } from "../common/TextLink/TextLink";
-import { Select } from "../common/Select/Select";
-import { Slider } from "../common/Slider/Slider";
+} from "@/components/common/Modal/Modal";
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@/components/common/RadioGroup/RadioGroup";
+import { Separator } from "@/components/common/Separator/Separator";
+import { TextInput } from "@/components/common/TextInput/TextInput";
+import { TextLink } from "@/components/common/TextLink/TextLink";
+import { Select } from "@/components/common/Select/Select";
+import { Slider } from "@/components/common/Slider/Slider";
 import {
   ContextMenu,
   ContextMenuItem,
   ContextMenuSeparator,
-} from "../ContextMenu/ContextMenu";
-import { SidebarItem } from "../layout/SidebarItem/SidebarItem";
-import { SidebarFrame, SidebarList } from "../layout/SidebarChrome";
+} from "@/components/ContextMenu/ContextMenu";
+import { SidebarItem } from "@/components/layout/SidebarItem/SidebarItem";
+import { SidebarFrame, SidebarList } from "@/components/layout/SidebarChrome";
 import {
   IconCheck,
   IconChevronDown,
   IconOpenFolder,
   IconRefresh,
   IconReset,
-} from "../icons";
+} from "@/components/icons";
 import { LibraryRelocateDialog } from "./LibraryRelocateDialog";
 import { SourcesSection } from "./SourcesSection";
 import {

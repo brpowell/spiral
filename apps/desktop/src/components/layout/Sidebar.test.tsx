@@ -1,15 +1,15 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
-import { usePlaylistStore } from "../../store/usePlaylistStore";
-import type { Playlist } from "../../types/playlist";
+import { useItemUpdatesStore } from "@/store/useItemUpdatesStore";
+import { usePlaylistStore } from "@/store/usePlaylistStore";
+import type { Playlist } from "@/types/playlist";
 import { Sidebar } from "./Sidebar";
 
 const { openAppearanceWindow } = vi.hoisted(() => ({
   openAppearanceWindow: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("../../lib/appearanceWindow", () => ({ openAppearanceWindow }));
+vi.mock("@/lib/appearanceWindow", () => ({ openAppearanceWindow }));
 
 const openPlaylistEditor = vi.fn();
 

@@ -5,7 +5,7 @@ import {
   findTrackAtSourcePath,
   tracksAreMetadataDuplicates,
 } from "./trackDedupe";
-import type { Track, TrackInput } from "../types/track";
+import type { Track, TrackInput } from "@/types/track";
 
 function input(overrides: Partial<TrackInput> = {}): TrackInput {
   return {

@@ -1,24 +1,24 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { usePlayerStore } from "../../../store/usePlayerStore";
-import type { RatingNode } from "../../../types/skin";
-import type { Track } from "../../../types/track";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { RatingNode } from "@/types/skin";
+import type { Track } from "@/types/track";
 import { SkinRating } from "./SkinRating";
 
 const confirmAndApplyTrackRatings = vi.fn();
 
-vi.mock("../../../lib/applyTrackRating", () => ({
+vi.mock("@/lib/applyTrackRating", () => ({
   confirmAndApplyTrackRatings: (...args: unknown[]) =>
     confirmAndApplyTrackRatings(...args),
 }));
 
-vi.mock("../../../lib/skinBinds", () => ({
+vi.mock("@/lib/skinBinds", () => ({
   useSkinControlEnabled: () => true,
   useSkinBindState: () => ({ viewState: {}, hoveredNodeIds: new Set() }),
   evaluateSkinCondition: () => false,
 }));
 
-vi.mock("../../../lib/skinTooltips", () => ({
+vi.mock("@/lib/skinTooltips", () => ({
   useSkinTooltip: () => "",
 }));
 

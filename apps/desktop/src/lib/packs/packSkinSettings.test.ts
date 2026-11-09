@@ -4,8 +4,8 @@ import {
   clearableSkinSettingsFromLoaded,
   withoutAuthorSettingOverrides,
 } from "./packSkinSettings";
-import type { SkinSetting } from "../../types/skin";
-import { defaultSkinUserPreferences } from "../../types/skinPreferences";
+import type { SkinSetting } from "@/types/skin";
+import { defaultSkinUserPreferences } from "@/types/skinPreferences";
 
 const hideHelpBubble: SkinSetting = {
   id: "hideHelpBubble",

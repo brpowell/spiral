@@ -1,7 +1,7 @@
-import type { PlaybackSession } from "../types/playbackSession";
-import type { RepeatMode, Track } from "../types/track";
+import type { PlaybackSession } from "@/types/playbackSession";
+import type { RepeatMode, Track } from "@/types/track";
 import * as audio from "./playback";
-import { usePlayerStore } from "../store/usePlayerStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
 
 const REPEAT_MODES: RepeatMode[] = ["off", "all", "one"];
 

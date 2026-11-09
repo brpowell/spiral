@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Source } from "../types/source";
+import type { Source } from "@/types/source";
 
 const tauri = vi.hoisted(() => ({
   createManagedSource: vi.fn(),
@@ -8,9 +8,9 @@ const tauri = vi.hoisted(() => ({
   listSources: vi.fn(),
   getSourceStatuses: vi.fn(),
 }));
-vi.mock("../lib/tauri", () => tauri);
+vi.mock("@/lib/tauri", () => tauri);
 const organize = vi.hoisted(() => ({ organizeInBackground: vi.fn() }));
-vi.mock("../lib/organizeSource", () => organize);
+vi.mock("@/lib/organizeSource", () => organize);
 vi.mock("./useLibrarySettingsStore", () => ({
   useLibrarySettingsStore: {
     getState: () => ({ settings: { mediaFolder: "/Music/Spiral/Tracks" } }),

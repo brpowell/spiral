@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { evaluateSkinCondition } from "./skinBinds";
 import { resolveNodeStyle, styleFromSkinNode } from "./skinNodeStyle";
-import { minimalBindState } from "../test/skinBindFixtures";
+import { minimalBindState } from "@/test/skinBindFixtures";
 
 describe("styleFromSkinNode", () => {
   it("returns undefined when style is omitted", () => {

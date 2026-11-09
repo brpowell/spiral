@@ -1,5 +1,5 @@
-import { useTagWriteConfirmStore } from "../store/useTagWriteConfirmStore";
-import type { Track } from "../types/track";
+import { useTagWriteConfirmStore } from "@/store/useTagWriteConfirmStore";
+import type { Track } from "@/types/track";
 import { setTrackRating } from "./tauri";
 import { confirmTagWriteNative } from "./tagWriteConfirmNative";
 import type { CanonicalRating } from "./trackRating";

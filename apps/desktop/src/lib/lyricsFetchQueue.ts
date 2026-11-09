@@ -1,6 +1,6 @@
-import type { BackgroundTaskRunContext } from "../store/useBackgroundTasksStore";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
-import { useLyricsFetchStore } from "../store/useLyricsFetchStore";
+import type { BackgroundTaskRunContext } from "@/store/useBackgroundTasksStore";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
 import { logActivity } from "./activityLog";
 import { t } from "./i18n";
 import {
@@ -12,7 +12,7 @@ import {
   runSingleLyricsFetch,
   type LyricsFetchParams,
 } from "./lyricsFetchRunner";
-import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
 
 export const LYRICS_FETCH_BULK_KEY = "lyrics-fetch-bulk";
 

@@ -1,20 +1,20 @@
 import { useMemo, useState } from "react";
-import * as audio from "../../../lib/playback";
-import { findPlaybackTrack } from "../../../lib/playbackTrack";
-import { skinAssetFileUrl } from "../../../lib/skinAssets";
+import * as audio from "@/lib/playback";
+import { findPlaybackTrack } from "@/lib/playbackTrack";
+import { skinAssetFileUrl } from "@/lib/skinAssets";
 import {
   digitTimeDisplaySeconds,
   mmssDigitFrames,
   type DigitSlotRole,
-} from "../../../lib/skinDigitTime";
-import { usePlayheadSeconds } from "../../../hooks/usePlaybackProgress";
-import { useSkinTooltip } from "../../../lib/skinTooltips";
-import { usePlayerStore } from "../../../store/usePlayerStore";
+} from "@/lib/skinDigitTime";
+import { usePlayheadSeconds } from "@/hooks/usePlaybackProgress";
+import { useSkinTooltip } from "@/lib/skinTooltips";
+import { usePlayerStore } from "@/store/usePlayerStore";
 import type {
   DigitStripPresentation,
   LoadedSkinPack,
   TimeNode,
-} from "../../../types/skin";
+} from "@/types/skin";
 import "./SkinDigitTime.css";
 
 function slotFrame(

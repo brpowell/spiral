@@ -1,4 +1,4 @@
-import type { LayoutTreeNode, LoadedSkinPack } from "../types/skin";
+import type { LayoutTreeNode, LoadedSkinPack } from "@/types/skin";
 
 export interface AuxStartupRequirements {
   /** Player store bridge — always true for aux windows today. */

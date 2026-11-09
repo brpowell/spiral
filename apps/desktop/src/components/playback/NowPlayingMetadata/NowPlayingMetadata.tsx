@@ -7,39 +7,39 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useNowPlayingDisplay } from "../../../hooks/useNowPlayingDisplay";
-import { t } from "../../../lib/i18n";
-import { getTrackLyrics } from "../../../lib/tauri";
+import { useNowPlayingDisplay } from "@/hooks/useNowPlayingDisplay";
+import { t } from "@/lib/i18n";
+import { getTrackLyrics } from "@/lib/tauri";
 import {
   canFetchLyricsForTrack,
   prepareLyricsFetchForLightbox,
   startLyricsFetchForTrack,
-} from "../../../lib/lyricsFetchToast";
-import { commitFetchedLyricsForTrack } from "../../../lib/lyricsFetchCommit";
+} from "@/lib/lyricsFetchToast";
+import { commitFetchedLyricsForTrack } from "@/lib/lyricsFetchCommit";
 import {
   createLyricsFetchFeedback,
   LYRICS_FETCH_INSTRUMENTAL,
   LYRICS_FETCH_NOT_FOUND,
   type LyricsLibraryTrackRef,
-} from "../../../lib/lyricsFetch";
-import { missingFileErrorDetail } from "../../../lib/missingFileTrack";
-import { useLibrarySettingsStore } from "../../../store/useLibrarySettingsStore";
-import { useLyricsFetchStore } from "../../../store/useLyricsFetchStore";
-import { usePlayerStore } from "../../../store/usePlayerStore";
-import type { LyricsSearchCandidate, TrackLyrics } from "../../../types/lyrics";
-import type { Track } from "../../../types/track";
+} from "@/lib/lyricsFetch";
+import { missingFileErrorDetail } from "@/lib/missingFileTrack";
+import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
+import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { LyricsSearchCandidate, TrackLyrics } from "@/types/lyrics";
+import type { Track } from "@/types/track";
 import {
   AlbumArtLightbox,
   albumArtLayoutTransition,
   NOW_PLAYING_ART_LAYOUT_ID,
   NOW_PLAYING_ART_RADIUS,
-} from "../../AlbumArtLightbox/AlbumArtLightbox";
-import { LyricsCandidatePicker } from "../../LyricsCandidatePicker/LyricsCandidatePicker";
-import { ScrollingText } from "../../ScrollingText/ScrollingText";
+} from "@/components/AlbumArtLightbox/AlbumArtLightbox";
+import { LyricsCandidatePicker } from "@/components/LyricsCandidatePicker/LyricsCandidatePicker";
+import { ScrollingText } from "@/components/ScrollingText/ScrollingText";
 import {
   CrossfadeOpacity,
   NowPlayingArtVisual,
-} from "../NowPlayingArt/NowPlayingArt";
+} from "@/components/playback/NowPlayingArt/NowPlayingArt";
 import {
   NowPlayingSubtitle,
   nowPlayingSubtitleText,

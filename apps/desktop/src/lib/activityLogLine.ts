@@ -1,4 +1,4 @@
-import type { ActivityLogEntry, ActivityLogLine } from "../types/activityLog";
+import type { ActivityLogEntry, ActivityLogLine } from "@/types/activityLog";
 
 export function normalizeActivityLogEntry(
   raw: Record<string, unknown>,

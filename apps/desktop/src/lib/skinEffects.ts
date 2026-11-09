@@ -1,4 +1,4 @@
-import type { SkinClickEffect } from "../types/skin";
+import type { SkinClickEffect } from "@/types/skin";
 import { runSkinAction } from "./skinActions";
 import { evaluateSkinCondition, type SkinBindState } from "./skinBinds";
 import { playActiveSkinSound } from "./skinSoundEffects";

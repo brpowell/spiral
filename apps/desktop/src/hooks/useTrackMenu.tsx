@@ -6,9 +6,9 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuSubmenu,
-} from "../components/ContextMenu/ContextMenu";
-import { ContextMenuRatingItem } from "../components/ContextMenu/ContextMenuRatingItem";
-import { RemoveTrackDialog } from "../components/RemoveTrackDialog/RemoveTrackDialog";
+} from "@/components/ContextMenu/ContextMenu";
+import { ContextMenuRatingItem } from "@/components/ContextMenu/ContextMenuRatingItem";
+import { RemoveTrackDialog } from "@/components/RemoveTrackDialog/RemoveTrackDialog";
 import {
   IconAddToQueue,
   IconAlbums,
@@ -21,37 +21,37 @@ import {
   IconRemoveFromPlaylist,
   IconRemoveFromQueue,
   IconInfo,
-} from "../components/icons";
-import { confirmAndApplyTrackRatings } from "../lib/applyTrackRating";
+} from "@/components/icons";
+import { confirmAndApplyTrackRatings } from "@/lib/applyTrackRating";
 import {
   revealInFileManagerLabel,
   revealTrackInFileManager,
-} from "../lib/fileManager";
-import { t } from "../lib/i18n";
-import type { CanonicalRating } from "../lib/trackRating";
+} from "@/lib/fileManager";
+import { t } from "@/lib/i18n";
+import type { CanonicalRating } from "@/lib/trackRating";
 import {
   openConvertForTrackIds,
   filterConvertibleTrackIds,
-} from "../lib/convertTracks";
-import { isTrackMissingFile } from "../lib/missingFileTrack";
+} from "@/lib/convertTracks";
+import { isTrackMissingFile } from "@/lib/missingFileTrack";
 import {
   PlaylistContextMenuIcon,
   usePlaylistTracksById,
-} from "../components/PlaylistArt/PlaylistContextMenuIcon";
-import { showPlaylistAddedToast } from "../lib/playlistToast";
-import { recentPlaylists, sortedPlaylists } from "../lib/playlists";
-import type { Playlist } from "../types/playlist";
-import { tracksForContextAction } from "../lib/trackSelection";
-import { albumKey } from "../lib/albums";
+} from "@/components/PlaylistArt/PlaylistContextMenuIcon";
+import { showPlaylistAddedToast } from "@/lib/playlistToast";
+import { recentPlaylists, sortedPlaylists } from "@/lib/playlists";
+import type { Playlist } from "@/types/playlist";
+import { tracksForContextAction } from "@/lib/trackSelection";
+import { albumKey } from "@/lib/albums";
 import {
   hasNavigableAlbum,
   hasNavigableArtist,
   navigationArtistKey,
-} from "../lib/trackNavigation";
-import { useNavigationStore } from "../store/useNavigationStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { usePlaylistStore } from "../store/usePlaylistStore";
-import type { Track } from "../types/track";
+} from "@/lib/trackNavigation";
+import { useNavigationStore } from "@/store/useNavigationStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { usePlaylistStore } from "@/store/usePlaylistStore";
+import type { Track } from "@/types/track";
 import { useContextMenu } from "./useContextMenu";
 
 interface UseTrackMenuOptions {

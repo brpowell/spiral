@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fileExists } from "../lib/artPath";
+import { fileExists } from "@/lib/artPath";
 
 /** Whether a path exists on disk; null while resolving. */
 export function useFileExists(path: string | null | undefined): boolean | null {

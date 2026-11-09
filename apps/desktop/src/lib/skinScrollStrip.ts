@@ -2,7 +2,7 @@ import type {
   LayoutTreeNode,
   ScrollStripNode,
   ScrollStripPresentation,
-} from "../types/skin";
+} from "@/types/skin";
 
 export interface ScrollStripRuntimeState {
   slide: number;

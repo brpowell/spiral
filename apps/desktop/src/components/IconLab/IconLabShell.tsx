@@ -6,11 +6,11 @@ import {
   SPIRAL_ICONS,
   SpiralIcon,
   useIconLibraryVersion,
-} from "../../lib/iconLibrary";
-import { countIconTags } from "../../lib/iconLibrary/iconTagTable";
-import { PlaylistIconPicker } from "../PlaylistEditorModal/PlaylistIconPicker";
-import "../PlaylistEditorModal/PlaylistEditorModal.css";
-import { SearchField } from "../SearchField/SearchField";
+} from "@/lib/iconLibrary";
+import { countIconTags } from "@/lib/iconLibrary/iconTagTable";
+import { PlaylistIconPicker } from "@/components/PlaylistEditorModal/PlaylistIconPicker";
+import "@/components/PlaylistEditorModal/PlaylistEditorModal.css";
+import { SearchField } from "@/components/SearchField/SearchField";
 import { IconTagEditor } from "./IconTagEditor";
 import { saveIconTags } from "./saveIconTags";
 import "./IconLabShell.css";

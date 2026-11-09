@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyViewStateEvent } from "./skinViewStateEvents";
-import type { SkinViewStateSpec } from "../types/skin";
+import type { SkinViewStateSpec } from "@/types/skin";
 import type { SkinViewStateApi } from "./skinViewStateContext";
 
 const shutterToggle = [

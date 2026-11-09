@@ -4,7 +4,7 @@ import type {
   LyricsSource,
   TrackLyrics,
   TrackLyricsInput,
-} from "../types/lyrics";
+} from "@/types/lyrics";
 import { t } from "./i18n";
 import {
   createTrackLyricsInputFromText,

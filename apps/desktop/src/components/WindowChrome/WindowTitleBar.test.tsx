@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { AppMenuHandlers } from "../../lib/appMenu";
-import { useOnboardingStore } from "../../store/useOnboardingStore";
+import type { AppMenuHandlers } from "@/lib/appMenu";
+import { useOnboardingStore } from "@/store/useOnboardingStore";
 import { WindowTitleBar } from "./WindowTitleBar";
 
 vi.mock("@tauri-apps/api/window", () => ({
@@ -18,8 +18,8 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: () => Promise.resolve(() => {}),
 }));
 
-vi.mock("../../lib/appMenu", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../lib/appMenu")>();
+vi.mock("@/lib/appMenu", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/appMenu")>();
   return {
     ...actual,
     linkedPacksAvailable: vi.fn().mockResolvedValue(false),

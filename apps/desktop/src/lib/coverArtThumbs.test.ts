@@ -7,7 +7,7 @@ import {
   preloadCoverArtThumbs,
   previewSrcForFetchedCover,
 } from "./coverArtThumbs";
-import type { CoverArtCandidate } from "../types/coverArt";
+import type { CoverArtCandidate } from "@/types/coverArt";
 
 const PIXEL =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";

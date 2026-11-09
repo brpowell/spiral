@@ -6,7 +6,7 @@ import {
   resolveSlideshowAssetForState,
   resolveSlideshowAssetPath,
 } from "./skinSlideshow";
-import type { LayoutTreeNode, SlideshowNode } from "../types/skin";
+import type { LayoutTreeNode, SlideshowNode } from "@/types/skin";
 
 const slideshowNode: SlideshowNode = {
   type: "slideshow",

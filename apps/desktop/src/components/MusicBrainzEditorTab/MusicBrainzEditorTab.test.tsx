@@ -4,8 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   MusicBrainzEntityHit,
   MusicBrainzEntityLookup,
-} from "../../types/musicbrainz";
-import { resetModalStack } from "../../lib/modalStack";
+} from "@/types/musicbrainz";
+import { resetModalStack } from "@/lib/modalStack";
 import { MusicBrainzEditorTab } from "./MusicBrainzEditorTab";
 
 vi.mock("framer-motion", () => ({
@@ -48,7 +48,7 @@ const fetchMusicBrainzEntity = vi.fn();
 const getMusicBrainzEntity = vi.fn();
 const peekMusicBrainzEntity = vi.fn();
 
-vi.mock("../../lib/tauri", () => ({
+vi.mock("@/lib/tauri", () => ({
   searchMusicBrainzEntities: (...args: unknown[]) =>
     searchMusicBrainzEntities(...args),
   fetchMusicBrainzEntity: (...args: unknown[]) =>

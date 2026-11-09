@@ -3,8 +3,8 @@ import {
   ContextMenuCheckboxItem,
   ContextMenuItem,
   ContextMenuSeparator,
-} from "../../ContextMenu/ContextMenu";
-import { IconListX } from "../../icons";
+} from "@/components/ContextMenu/ContextMenu";
+import { IconListX } from "@/components/icons";
 import { SelectShell } from "./SelectShell";
 import type { SelectOption } from "./selectTypes";
 

@@ -1,7 +1,7 @@
 import { emit, listen } from "@tauri-apps/api/event";
-import type { Theme } from "../types/theme";
+import type { Theme } from "@/types/theme";
 import { applyTheme } from "./theme";
-import { useThemeStore } from "../store/useThemeStore";
+import { useThemeStore } from "@/store/useThemeStore";
 import type { WindowRole } from "./windowRole";
 import { isAnySkinWindow, isAppearanceWindow } from "./windowRole";
 

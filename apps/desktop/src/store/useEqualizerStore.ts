@@ -3,7 +3,7 @@ import {
   cyclePresetId,
   isKnownPresetId,
   resolvePreset,
-} from "../lib/equalizer/builtinPresets";
+} from "@/lib/equalizer/builtinPresets";
 import {
   clampPreampGain,
   FLAT_BAND_GAINS,
@@ -11,16 +11,16 @@ import {
   type EqualizerBandGains,
   type EqualizerPreset,
   type EqualizerStateSnapshot,
-} from "../lib/equalizer/types";
-import { applyEqualizerState } from "../lib/playback/nativeEqualizer";
+} from "@/lib/equalizer/types";
+import { applyEqualizerState } from "@/lib/playback/nativeEqualizer";
 import {
   deleteEqualizerCustomPreset,
   saveEqualizerCustomPreset,
   saveEqualizerSettings,
   type EqualizerPresetRecord,
   type EqualizerSettings,
-} from "../lib/tauri";
-import { getWindowRole } from "../lib/windowRole";
+} from "@/lib/tauri";
+import { getWindowRole } from "@/lib/windowRole";
 
 interface EqualizerStoreState {
   enabled: boolean;

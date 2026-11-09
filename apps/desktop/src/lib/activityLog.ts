@@ -3,7 +3,7 @@ import type {
   ActivityLogContext,
   ActivityLogDraft,
   ActivityLogEntry,
-} from "../types/activityLog";
+} from "@/types/activityLog";
 import { normalizeActivityLogEntry } from "./activityLogLine";
 
 export function logActivity(draft: ActivityLogDraft): void {

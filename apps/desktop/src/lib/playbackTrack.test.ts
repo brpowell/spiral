@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { findPlaybackTrack, indexPlaybackTracks } from "./playbackTrack";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 
 function track(overrides: Partial<Track> & Pick<Track, "id">): Track {
   return {

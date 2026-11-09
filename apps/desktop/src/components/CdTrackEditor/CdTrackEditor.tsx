@@ -1,44 +1,44 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { refreshArtDisplay } from "../../lib/artDisplayCache";
-import { useArtFileDrop } from "../../hooks/useArtFileDrop";
-import { useAssetUrl } from "../../hooks/useAssetUrl";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { useResetOnOpen } from "../../hooks/useResetOnOpen";
-import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
-import { useTrackMetadataForm } from "../../hooks/useTrackMetadataForm";
-import { parseArtistField } from "../../lib/artistNames";
-import { collectArtistNameSuggestions } from "../../lib/artistNameSuggestions";
+import { refreshArtDisplay } from "@/lib/artDisplayCache";
+import { useArtFileDrop } from "@/hooks/useArtFileDrop";
+import { useAssetUrl } from "@/hooks/useAssetUrl";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useResetOnOpen } from "@/hooks/useResetOnOpen";
+import { useEditorDiscardPrompt } from "@/hooks/useEditorDiscardPrompt";
+import { useTrackMetadataForm } from "@/hooks/useTrackMetadataForm";
+import { parseArtistField } from "@/lib/artistNames";
+import { collectArtistNameSuggestions } from "@/lib/artistNameSuggestions";
 import {
   collectAlbumSuggestions,
   collectGenreSuggestions,
-} from "../../lib/trackFieldSuggestions";
+} from "@/lib/trackFieldSuggestions";
 import {
   cdArtCacheKey,
   discOverridePatchFromTrackForm,
-} from "../../lib/cdOverrideFromForm";
-import { mergeDiscDisplayLayers } from "../../lib/cdMetadata";
-import { cdTrackNumberFromListId, cdTracksForList } from "../../lib/cdTracks";
-import { t } from "../../lib/i18n";
-import { fetchCoverArtCandidates } from "../../lib/albumArtFetch";
+} from "@/lib/cdOverrideFromForm";
+import { mergeDiscDisplayLayers } from "@/lib/cdMetadata";
+import { cdTrackNumberFromListId, cdTracksForList } from "@/lib/cdTracks";
+import { t } from "@/lib/i18n";
+import { fetchCoverArtCandidates } from "@/lib/albumArtFetch";
 import {
   preloadCoverArtThumbs,
   previewSrcForFetchedCover,
-} from "../../lib/coverArtThumbs";
+} from "@/lib/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
   pickImageFile,
   warmMusicBrainzEntity,
-} from "../../lib/tauri";
-import { deriveRecordingFromCachedRelease } from "../../lib/musicBrainzReleaseRecordings";
-import { useCdStore } from "../../store/useCdStore";
-import { usePlayerStore } from "../../store/usePlayerStore";
-import type { CoverArtCandidate } from "../../types/coverArt";
-import { AlbumArtPicker } from "../AlbumEditor/AlbumArtPicker";
-import { AlbumEditorArtTab } from "../AlbumEditor/AlbumEditorArtTab";
-import { ImageCropModal } from "../common/ImageCropModal/ImageCropModal";
-import type { ImageCrop } from "../../lib/imageCrop";
-import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
+} from "@/lib/tauri";
+import { deriveRecordingFromCachedRelease } from "@/lib/musicBrainzReleaseRecordings";
+import { useCdStore } from "@/store/useCdStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { CoverArtCandidate } from "@/types/coverArt";
+import { AlbumArtPicker } from "@/components/AlbumEditor/AlbumArtPicker";
+import { AlbumEditorArtTab } from "@/components/AlbumEditor/AlbumEditorArtTab";
+import { ImageCropModal } from "@/components/common/ImageCropModal/ImageCropModal";
+import type { ImageCrop } from "@/lib/imageCrop";
+import { EditorDiscardOverlay } from "@/components/EditorDiscardOverlay/EditorDiscardOverlay";
 import {
   Modal,
   ModalBody,
@@ -47,14 +47,14 @@ import {
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
-} from "../common/Modal/Modal";
-import { Button } from "../common/Button/Button";
-import { EntityArt } from "../EntityArt/EntityArt";
-import { TrackEditorDetailsTab } from "../TrackEditor/TrackEditorDetailsTab";
-import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
-import { MusicBrainzEditorTab } from "../MusicBrainzEditorTab/MusicBrainzEditorTab";
-import { isTrackEditorFieldMixed } from "../../lib/trackMetadataForm";
-import "../TrackEditor/TrackEditor.css";
+} from "@/components/common/Modal/Modal";
+import { Button } from "@/components/common/Button/Button";
+import { EntityArt } from "@/components/EntityArt/EntityArt";
+import { TrackEditorDetailsTab } from "@/components/TrackEditor/TrackEditorDetailsTab";
+import { Tab, TabList, TabPanel, Tabs } from "@/components/common/Tabs/Tabs";
+import { MusicBrainzEditorTab } from "@/components/MusicBrainzEditorTab/MusicBrainzEditorTab";
+import { isTrackEditorFieldMixed } from "@/lib/trackMetadataForm";
+import "@/components/TrackEditor/TrackEditor.css";
 
 type CdTrackEditorTab = "details" | "art" | "musicbrainz";
 

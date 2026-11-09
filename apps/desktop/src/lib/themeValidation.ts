@@ -1,5 +1,5 @@
-import type { Theme, ThemeTokens } from "../types/theme";
-import { REQUIRED_THEME_TOKEN_KEYS } from "../types/theme";
+import type { Theme, ThemeTokens } from "@/types/theme";
+import { REQUIRED_THEME_TOKEN_KEYS } from "@/types/theme";
 import { t } from "./i18n";
 
 export type ThemeValidationIssue = {

@@ -1,4 +1,4 @@
-import { SOUND_CUES } from "../../types/soundPack";
+import { SOUND_CUES } from "@/types/soundPack";
 
 /** Loose view over a parsed manifest; the types below only read what they show. */
 export type ManifestJson = Record<string, unknown>;

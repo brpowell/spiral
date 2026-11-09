@@ -3,8 +3,8 @@ import type { VirtualItem } from "@tanstack/react-virtual";
 import {
   cancelRowArtThumbPrefetch,
   queueRowArtThumbPrefetch,
-} from "../../lib/rowArtThumb";
-import type { Track } from "../../types/track";
+} from "@/lib/rowArtThumb";
+import type { Track } from "@/types/track";
 
 /** Extra rows beyond the virtualizer overscan to warm ahead of scroll. */
 const PREFETCH_ROW_MARGIN = 16;

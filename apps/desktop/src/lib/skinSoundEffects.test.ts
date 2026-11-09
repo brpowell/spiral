@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveSkinClickSound } from "./skinSoundEffects";
-import { minimalBindState } from "../test/skinBindFixtures";
+import { minimalBindState } from "@/test/skinBindFixtures";
 
 describe("resolveSkinClickSound", () => {
   it("returns sound when soundWhen is omitted", () => {

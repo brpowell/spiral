@@ -3,8 +3,8 @@ import { buildImportPlans } from "./cdImport";
 import { discOverridePatchFromTrackForm } from "./cdOverrideFromForm";
 import { pendingTrackFromInput } from "./pendingImportTrack";
 import { cdTrackListId } from "./cdTracks";
-import type { CdDisc } from "../types/cd";
-import type { Track } from "../types/track";
+import type { CdDisc } from "@/types/cd";
+import type { Track } from "@/types/track";
 import type { TrackEditorForm } from "./trackMetadataForm";
 
 function sampleDisc(): CdDisc {

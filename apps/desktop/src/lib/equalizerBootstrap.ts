@@ -1,10 +1,7 @@
 import { getBuiltinPreset } from "./equalizer/builtinPresets";
 import { FLAT_BAND_GAINS } from "./equalizer/types";
-import {
-  getEqualizerSettings,
-  listEqualizerCustomPresets,
-} from "./tauri";
-import { recordToPreset, useEqualizerStore } from "../store/useEqualizerStore";
+import { getEqualizerSettings, listEqualizerCustomPresets } from "./tauri";
+import { recordToPreset, useEqualizerStore } from "@/store/useEqualizerStore";
 
 export async function bootstrapEqualizer(): Promise<void> {
   try {

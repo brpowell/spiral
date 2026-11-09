@@ -1,4 +1,4 @@
-import type { MusicBrainzTrackSlot } from "../types/musicbrainz";
+import type { MusicBrainzTrackSlot } from "@/types/musicbrainz";
 import { parseOptionalInt } from "./albumMetadata";
 import { getMusicBrainzEntity } from "./tauri";
 

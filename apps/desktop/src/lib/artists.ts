@@ -1,9 +1,9 @@
 import { compareLocalized } from "./appLocale";
 import { normalizeArtistName, parseArtistField } from "./artistNames";
 import { t } from "./i18n";
-import type { Album } from "../types/album";
-import type { Artist } from "../types/artist";
-import type { Track } from "../types/track";
+import type { Album } from "@/types/album";
+import type { Artist } from "@/types/artist";
+import type { Track } from "@/types/track";
 
 export type ArtistBrowseMode = "discography" | "performers";
 

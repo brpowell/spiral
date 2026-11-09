@@ -2,14 +2,14 @@ import { useEffect, useRef, type ReactNode } from "react";
 import {
   useContextMenu,
   type ContextMenuTriggerPlacement,
-} from "../../hooks/useContextMenu";
+} from "@/hooks/useContextMenu";
 import {
   Button,
   type ButtonSize,
   type ButtonVariant,
-} from "../common/Button/Button";
-import { ContextMenu } from "../ContextMenu/ContextMenu";
-import { IconChevronDown, IconMore } from "../icons";
+} from "@/components/common/Button/Button";
+import { ContextMenu } from "@/components/ContextMenu/ContextMenu";
+import { IconChevronDown, IconMore } from "@/components/icons";
 import "./MenuButton.css";
 
 export type MenuButtonChildren = ReactNode | ((close: () => void) => ReactNode);

@@ -5,7 +5,7 @@ import type {
   LayoutTreeNode,
   SkinView,
   CanvasNode,
-} from "../types/skin";
+} from "@/types/skin";
 import {
   flattenLayout,
   localizeBounds,

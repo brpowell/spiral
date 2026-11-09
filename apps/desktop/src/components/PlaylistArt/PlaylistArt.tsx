@@ -1,11 +1,11 @@
 import type { CSSProperties } from "react";
-import { useAssetUrl } from "../../hooks/useAssetUrl";
-import { assetUrlFromPath } from "../../lib/assetUrl";
-import { cropToFrameStyle, type ImageCrop } from "../../lib/imageCrop";
-import { playlistUsesDesignCover } from "../../lib/playlistArt";
-import type { Playlist } from "../../types/playlist";
-import type { Track } from "../../types/track";
-import { IconImage } from "../icons";
+import { useAssetUrl } from "@/hooks/useAssetUrl";
+import { assetUrlFromPath } from "@/lib/assetUrl";
+import { cropToFrameStyle, type ImageCrop } from "@/lib/imageCrop";
+import { playlistUsesDesignCover } from "@/lib/playlistArt";
+import type { Playlist } from "@/types/playlist";
+import type { Track } from "@/types/track";
+import { IconImage } from "@/components/icons";
 import { PlaylistDesignedArt } from "./PlaylistDesignedArt";
 import { PlaylistGeneratedArt } from "./PlaylistGeneratedArt";
 import "./PlaylistArt.css";

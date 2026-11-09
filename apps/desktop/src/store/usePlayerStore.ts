@@ -1,34 +1,34 @@
 import { create } from "zustand";
-import { notifyCrossfadeVisual } from "../lib/crossfadeVisualClock";
-import { notifyLivePosition } from "../lib/livePosition";
+import { notifyCrossfadeVisual } from "@/lib/crossfadeVisualClock";
+import { notifyLivePosition } from "@/lib/livePosition";
 import {
   pinPlaybackPosition,
   resolvePlaybackDisplaySeconds,
-} from "../lib/playbackClockPin";
-import * as audio from "../lib/playback";
-import { cdPlaybackTracks } from "../lib/cdPlaybackArt";
+} from "@/lib/playbackClockPin";
+import * as audio from "@/lib/playback";
+import { cdPlaybackTracks } from "@/lib/cdPlaybackArt";
 import {
   isCdTrackListId,
   cdTrackNumberFromListId,
   playableRefFromTrackListId,
   resolvePlaybackSource,
   trackListIdForPlayable,
-} from "../lib/playback";
-import { buildPlaybackOrder } from "../lib/playbackOrder";
-import { findPlaybackTrack } from "../lib/playbackTrack";
-import { groupTracksIntoAlbums } from "../lib/albums";
-import { groupTracksIntoArtists, type ArtistBrowseMode } from "../lib/artists";
+} from "@/lib/playback";
+import { buildPlaybackOrder } from "@/lib/playbackOrder";
+import { findPlaybackTrack } from "@/lib/playbackTrack";
+import { groupTracksIntoAlbums } from "@/lib/albums";
+import { groupTracksIntoArtists, type ArtistBrowseMode } from "@/lib/artists";
 import {
   pickAndImportLibraryPaths,
   startLibraryImport,
-} from "../lib/libraryImport";
-import { isCdImportBlockingPlayback } from "../lib/cdImportGuard";
+} from "@/lib/libraryImport";
+import { isCdImportBlockingPlayback } from "@/lib/cdImportGuard";
 import {
   showQueueAddedToast,
   showQueueAddedToastForTracks,
-} from "../lib/queueToast";
-import { seekRatioToPositionSeconds } from "../lib/playbackSeek";
-import { parseRepeatMode, prunePlaybackSession } from "../lib/playbackSession";
+} from "@/lib/queueToast";
+import { seekRatioToPositionSeconds } from "@/lib/playbackSeek";
+import { parseRepeatMode, prunePlaybackSession } from "@/lib/playbackSession";
 import {
   closeListen,
   closeListenForHandoff,
@@ -37,18 +37,18 @@ import {
   resumeListenAccumulation,
   type ListenCompletion,
   type ListenEventPayload,
-} from "../lib/listenSession";
+} from "@/lib/listenSession";
 import { usePlaybackSettingsStore } from "./usePlaybackSettingsStore";
 import {
   getLibrary,
   getPlaybackSession,
   recordListenEvent,
   removeTrack,
-} from "../lib/tauri";
+} from "@/lib/tauri";
 import {
   applyTrackSelection,
   type TrackSelectionModifiers,
-} from "../lib/trackSelection";
+} from "@/lib/trackSelection";
 import {
   cycleRepeatMode,
   toggleRepeatMode,
@@ -58,32 +58,32 @@ import {
   shuffleNewTrackList,
   restoreSequentialOrder,
   shuffleTrackList,
-} from "../lib/playbackQueue";
-import { isPendingTrackId, isTrackImporting } from "../lib/pendingImportTrack";
-import { fileExists } from "../lib/artPath";
+} from "@/lib/playbackQueue";
+import { isPendingTrackId, isTrackImporting } from "@/lib/pendingImportTrack";
+import { fileExists } from "@/lib/artPath";
 import {
   mergeLibraryClientState,
   isMissingFileError,
   isTrackMissingFile,
   withTrackMissingFile,
-} from "../lib/missingFileTrack";
-import { showMissingTrackSkippedToast } from "../lib/playbackToast";
+} from "@/lib/missingFileTrack";
+import { showMissingTrackSkippedToast } from "@/lib/playbackToast";
 import {
   errorMessageFromUnknown,
   reportCdPlaybackFailure,
-} from "../lib/cdPlaybackFailure";
-import { reportUnexpectedError } from "../lib/unexpectedErrorToast";
+} from "@/lib/cdPlaybackFailure";
+import { reportUnexpectedError } from "@/lib/unexpectedErrorToast";
 import {
   findNextPlayableInOrder,
   getNextSkippingKnownUnplayable,
   isTrackKnownUnplayable,
   type PlaybackNextIdFn,
-} from "../lib/playbackSkip";
-import type { PlayableRef } from "../types/playable";
-import type { PlaybackSource } from "../lib/playback";
-import type { CrossfadeVisualState } from "../lib/playback";
-import type { PlaybackState, RepeatMode, Track } from "../types/track";
-import { playOrResume } from "../lib/playbackStart";
+} from "@/lib/playbackSkip";
+import type { PlayableRef } from "@/types/playable";
+import type { PlaybackSource } from "@/lib/playback";
+import type { CrossfadeVisualState } from "@/lib/playback";
+import type { PlaybackState, RepeatMode, Track } from "@/types/track";
+import { playOrResume } from "@/lib/playbackStart";
 
 export type TrackEditorTab =
   "details" | "art" | "file" | "lyrics" | "musicbrainz";

@@ -7,7 +7,7 @@ import type {
   InteractiveAssetState,
   SkinAssetFile,
   ThumbAssets,
-} from "../types/skin";
+} from "@/types/skin";
 
 /** True when the asset path refers to an animated GIF. */
 export function isSkinGifAsset(file: SkinAssetFile): boolean {

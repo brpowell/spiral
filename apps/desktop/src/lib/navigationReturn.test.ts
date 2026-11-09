@@ -7,10 +7,10 @@ import {
   stateAfterCloseArtist,
   stateAfterClosePlaylist,
 } from "./navigationReturn";
-import { useCdStore } from "../store/useCdStore";
-import { useNavigationStore } from "../store/useNavigationStore";
-import type { Artist } from "../types/artist";
-import type { Playlist } from "../types/playlist";
+import { useCdStore } from "@/store/useCdStore";
+import { useNavigationStore } from "@/store/useNavigationStore";
+import type { Artist } from "@/types/artist";
+import type { Playlist } from "@/types/playlist";
 
 function playlist(id: number, title: string): Playlist {
   return {

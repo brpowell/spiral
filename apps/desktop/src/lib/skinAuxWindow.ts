@@ -6,7 +6,7 @@ import {
   getCurrentWindow,
   type Window,
 } from "@tauri-apps/api/window";
-import type { LoadedSkinPack } from "../types/skin";
+import type { LoadedSkinPack } from "@/types/skin";
 import {
   addOpenAuxView,
   readOpenAuxViewsForSkin,

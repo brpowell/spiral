@@ -1,8 +1,8 @@
 import { useEffect, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
-import { backdropMotion, panelMotion } from "../../lib/motion";
-import { Button } from "../common/Button/Button";
+import { backdropMotion, panelMotion } from "@/lib/motion";
+import { Button } from "@/components/common/Button/Button";
 import "./EditorDiscardOverlay.css";
 
 interface EditorDiscardOverlayProps {

@@ -3,9 +3,9 @@ import {
   acknowledgeCrashReport,
   listUnacknowledgedStartupRustCrashReports,
   readCrashReport,
-} from "../lib/crashReport";
-import { useOnboardingStore } from "../store/useOnboardingStore";
-import type { CrashReport } from "../types/crashReport";
+} from "@/lib/crashReport";
+import { useOnboardingStore } from "@/store/useOnboardingStore";
+import type { CrashReport } from "@/types/crashReport";
 
 export function useStartupCrashReport() {
   const [open, setOpen] = useState(false);

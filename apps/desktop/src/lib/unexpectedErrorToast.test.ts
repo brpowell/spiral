@@ -6,7 +6,7 @@ const { mockShowErrorToast, mockLogActivity } = vi.hoisted(() => ({
   mockLogActivity: vi.fn(),
 }));
 
-vi.mock("../store/useBackgroundTasksStore", () => ({
+vi.mock("@/store/useBackgroundTasksStore", () => ({
   useBackgroundTasksStore: {
     getState: () => ({
       showErrorToast: mockShowErrorToast,
@@ -23,7 +23,7 @@ vi.mock("./i18n", () => ({
 }));
 
 import { reportUnexpectedError } from "./unexpectedErrorToast";
-import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
 
 describe("reportUnexpectedError", () => {
   beforeEach(() => {

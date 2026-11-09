@@ -30,10 +30,10 @@ import {
   replaceTrackFromImport,
   saveTrack,
 } from "./tauri";
-import { useImportDedupeStore } from "../store/useImportDedupeStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import type { Track, TrackInput } from "../types/track";
-import type { TrackLyrics, TrackLyricsInput } from "../types/lyrics";
+import { useImportDedupeStore } from "@/store/useImportDedupeStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { Track, TrackInput } from "@/types/track";
+import type { TrackLyrics, TrackLyricsInput } from "@/types/lyrics";
 
 function trackInput(overrides: Partial<TrackInput> = {}): TrackInput {
   return {

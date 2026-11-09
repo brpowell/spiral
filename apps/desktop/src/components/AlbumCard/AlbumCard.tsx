@@ -1,9 +1,9 @@
 import { motion } from "framer-motion";
-import { EntityArt } from "../EntityArt/EntityArt";
-import { useAlbumEditMenu } from "../../hooks/useAlbumEditMenu";
-import { usePointerTiltArt } from "../../hooks/usePointerTiltArt";
-import { useNavigationStore } from "../../store/useNavigationStore";
-import type { Album } from "../../types/album";
+import { EntityArt } from "@/components/EntityArt/EntityArt";
+import { useAlbumEditMenu } from "@/hooks/useAlbumEditMenu";
+import { usePointerTiltArt } from "@/hooks/usePointerTiltArt";
+import { useNavigationStore } from "@/store/useNavigationStore";
+import type { Album } from "@/types/album";
 import "./AlbumCard.css";
 
 interface AlbumCardProps {

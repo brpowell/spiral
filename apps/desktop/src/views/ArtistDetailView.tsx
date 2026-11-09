@@ -1,31 +1,31 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { DiscographyTimeline } from "../components/DiscographyTimeline/DiscographyTimeline";
-import { EntityArt } from "../components/EntityArt/EntityArt";
-import { Button } from "../components/common/Button/Button";
-import { Field, FieldLabel } from "../components/common/Field/Field";
-import { Switch } from "../components/common/Switch/Switch";
-import { ContextMenuItem } from "../components/ContextMenu/ContextMenu";
-import { MenuButton } from "../components/MenuButton/MenuButton";
+import { DiscographyTimeline } from "@/components/DiscographyTimeline/DiscographyTimeline";
+import { EntityArt } from "@/components/EntityArt/EntityArt";
+import { Button } from "@/components/common/Button/Button";
+import { Field, FieldLabel } from "@/components/common/Field/Field";
+import { Switch } from "@/components/common/Switch/Switch";
+import { ContextMenuItem } from "@/components/ContextMenu/ContextMenu";
+import { MenuButton } from "@/components/MenuButton/MenuButton";
 import {
   IconAddToQueue,
   IconArtists,
   IconBack,
   IconPencil,
   IconPlay,
-} from "../components/icons";
+} from "@/components/icons";
 import {
   albumsForArtist,
   type ArtistBrowseMode,
   artistTotalDurationSeconds,
   getArtistByKey,
-} from "../lib/artists";
-import { formatDurationNatural } from "../lib/format";
-import { useDetailReturnLabel } from "../hooks/useDetailReturnLabel";
-import { useNavigationStore } from "../store/useNavigationStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import type { Album } from "../types/album";
-import type { Artist } from "../types/artist";
+} from "@/lib/artists";
+import { formatDurationNatural } from "@/lib/format";
+import { useDetailReturnLabel } from "@/hooks/useDetailReturnLabel";
+import { useNavigationStore } from "@/store/useNavigationStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { Album } from "@/types/album";
+import type { Artist } from "@/types/artist";
 import "./ArtistDetailView.css";
 import "./DetailViewShared.css";
 

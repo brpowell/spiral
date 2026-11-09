@@ -3,7 +3,7 @@ import { t } from "./i18n";
 import type {
   MusicBrainzEntityHit,
   MusicBrainzEntityKind,
-} from "../types/musicbrainz";
+} from "@/types/musicbrainz";
 
 export function musicBrainzEntityUrl(
   kind: MusicBrainzEntityKind,

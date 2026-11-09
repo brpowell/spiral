@@ -1,4 +1,4 @@
-import { mbidFieldsFrom, type Track, type TrackInput } from "../types/track";
+import { mbidFieldsFrom, type Track, type TrackInput } from "@/types/track";
 import { compareLocalized } from "./appLocale";
 import { t } from "./i18n";
 

@@ -1,24 +1,24 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BrowseView } from "../components/BrowseView/BrowseView";
-import { BrowseViewHeader } from "../components/BrowseView/BrowseViewHeader";
-import { LibraryEmptyState } from "../components/LibraryEmptyState/LibraryEmptyState";
-import { useDebouncedValue } from "../hooks/useDebouncedValue";
-import { SearchField } from "../components/SearchField/SearchField";
-import { TrackList } from "../components/TrackList/TrackList";
-import { TrackListSkeleton } from "../components/TrackList/TrackListSkeleton";
+import { BrowseView } from "@/components/BrowseView/BrowseView";
+import { BrowseViewHeader } from "@/components/BrowseView/BrowseViewHeader";
+import { LibraryEmptyState } from "@/components/LibraryEmptyState/LibraryEmptyState";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { SearchField } from "@/components/SearchField/SearchField";
+import { TrackList } from "@/components/TrackList/TrackList";
+import { TrackListSkeleton } from "@/components/TrackList/TrackListSkeleton";
 import {
   compareTracks,
   nextSort,
   scoreTracksBySearch,
   type SortState,
-} from "../components/TrackList/trackListSort";
-import type { TrackListSortField } from "../components/TrackList/types";
-import { confirmAndApplyTrackRatings } from "../lib/applyTrackRating";
-import { isTrackImporting } from "../lib/pendingImportTrack";
-import type { CanonicalRating } from "../lib/trackRating";
-import { usePlayerStore } from "../store/usePlayerStore";
-import type { Track } from "../types/track";
+} from "@/components/TrackList/trackListSort";
+import type { TrackListSortField } from "@/components/TrackList/types";
+import { confirmAndApplyTrackRatings } from "@/lib/applyTrackRating";
+import { isTrackImporting } from "@/lib/pendingImportTrack";
+import type { CanonicalRating } from "@/lib/trackRating";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { Track } from "@/types/track";
 import "./TracksView.css";
 
 interface TracksViewProps {

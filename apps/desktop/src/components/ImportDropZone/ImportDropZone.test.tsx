@@ -1,14 +1,14 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useOnboardingStore } from "../../store/useOnboardingStore";
-import { usePlayerStore } from "../../store/usePlayerStore";
+import { useOnboardingStore } from "@/store/useOnboardingStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
 import { ImportDropZone } from "./ImportDropZone";
 
-vi.mock("../../lib/windowRole", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../lib/windowRole")>()),
+vi.mock("@/lib/windowRole", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/windowRole")>()),
   isTauri: () => false,
 }));
-vi.mock("../../lib/dragDrop", () => ({
+vi.mock("@/lib/dragDrop", () => ({
   isExternalFileDrag: () => true,
   pathsFromDataTransfer: () => ["/music/song.mp3"],
 }));

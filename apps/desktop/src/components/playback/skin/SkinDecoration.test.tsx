@@ -1,21 +1,22 @@
 import { render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { DecorationNode, LoadedSkinPack } from "../../../types/skin";
+import type { DecorationNode, LoadedSkinPack } from "@/types/skin";
 import { SkinDecoration } from "./SkinDecoration";
 
 const viewState: Record<string, string> = { shutter: "shut" };
 
-vi.mock("../../../lib/skinBinds", async () => {
-  const actual = await vi.importActual<typeof import("../../../lib/skinBinds")>(
-    "../../../lib/skinBinds",
-  );
+vi.mock("@/lib/skinBinds", async () => {
+  const actual =
+    await vi.importActual<typeof import("../../../lib/skinBinds")>(
+      "@/lib/skinBinds",
+    );
   return { ...actual, useSkinBindState: () => ({ viewState }) };
 });
 
 const loadSkinBitmap = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 const getSkinBitmapIfReady = vi.hoisted(() => vi.fn(() => undefined));
 
-vi.mock("../../../lib/skinBitmapCache", () => ({
+vi.mock("@/lib/skinBitmapCache", () => ({
   isSkinBitmapReady: () => true,
   getSkinBitmapIfReady,
   loadSkinBitmap,
@@ -27,7 +28,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 const decoded = new Map<string, object>();
 
-vi.mock("../../../lib/skinGifPlayback", () => ({
+vi.mock("@/lib/skinGifPlayback", () => ({
   getDecodedSkinGif: (url: string) => decoded.get(url),
   loadSkinGif: () => new Promise(() => {}),
   // Deliberately never reports onFirstFrameDrawn, so visibility can only come

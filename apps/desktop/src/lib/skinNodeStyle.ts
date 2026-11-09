@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { evaluateSkinCondition, useSkinBindState } from "./skinBinds";
 import { iterWhenOverlays } from "./skinWhenOverlays";
-import type { NodeStyle, SkinCondition, WhenMapOrList } from "../types/skin";
+import type { NodeStyle, SkinCondition, WhenMapOrList } from "@/types/skin";
 
 /** Shallow-merge `styleWhen` overlays onto `style` (last match wins). */
 export function resolveNodeStyle(

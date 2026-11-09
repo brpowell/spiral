@@ -6,7 +6,7 @@ const { mockShowErrorToast, mockLogActivity } = vi.hoisted(() => ({
   mockLogActivity: vi.fn(),
 }));
 
-vi.mock("../store/useBackgroundTasksStore", () => ({
+vi.mock("@/store/useBackgroundTasksStore", () => ({
   useBackgroundTasksStore: {
     getState: () => ({
       showErrorToast: mockShowErrorToast,
@@ -27,7 +27,7 @@ import {
   reportCdPlaybackFailure,
   resetCdPlaybackFailureDedupeForTests,
 } from "./cdPlaybackFailure";
-import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
 
 describe("classifyCdPlaybackFailure", () => {
   it("treats disconnect and mid-stream read failures as disconnected", () => {

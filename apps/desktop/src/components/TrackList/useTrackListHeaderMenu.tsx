@@ -5,9 +5,9 @@ import {
   ContextMenuHeading,
   ContextMenuItem,
   ContextMenuSeparator,
-} from "../ContextMenu/ContextMenu";
-import { IconHide } from "../icons";
-import { useContextMenu } from "../../hooks/useContextMenu";
+} from "@/components/ContextMenu/ContextMenu";
+import { IconHide } from "@/components/icons";
+import { useContextMenu } from "@/hooks/useContextMenu";
 import type { TrackListColumnDef, TrackListColumnId } from "./types";
 
 interface UseTrackListHeaderMenuOptions {
@@ -39,9 +39,11 @@ export function useTrackListHeaderMenu({
     .map((col) => (isColumnVisible(col.id) ? "1" : "0"))
     .join("");
 
-  const { open, anchor, position, menuRef, closeMenu, openAt } = useContextMenu({
-    layoutDeps: [targetColumn?.id, otherColumns.length, visibilityKey],
-  });
+  const { open, anchor, position, menuRef, closeMenu, openAt } = useContextMenu(
+    {
+      layoutDeps: [targetColumn?.id, otherColumns.length, visibilityKey],
+    },
+  );
 
   const onHeaderContextMenu = useCallback(
     (col: TrackListColumnDef) => (e: React.MouseEvent) => {

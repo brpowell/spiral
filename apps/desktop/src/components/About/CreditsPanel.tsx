@@ -1,7 +1,7 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTranslation } from "react-i18next";
-import { CoffeeButton } from "../common/CoffeeButton/CoffeeButton";
-import { TextLink } from "../common/TextLink/TextLink";
+import { CoffeeButton } from "@/components/common/CoffeeButton/CoffeeButton";
+import { TextLink } from "@/components/common/TextLink/TextLink";
 import { CREDIT_ENTRIES } from "./aboutContent";
 
 export function CreditsPanel() {

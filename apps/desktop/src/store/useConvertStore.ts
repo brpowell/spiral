@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { afterUiTransition } from "../lib/scheduling";
-import type { ConvertMode } from "../lib/convertTracks";
+import { afterUiTransition } from "@/lib/scheduling";
+import type { ConvertMode } from "@/lib/convertTracks";
 
 interface ConvertConfirmResult {
   profileId: string;

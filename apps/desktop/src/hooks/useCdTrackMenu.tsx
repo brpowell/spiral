@@ -2,13 +2,13 @@ import { useCallback, useMemo } from "react";
 import {
   ContextMenu,
   ContextMenuItem,
-} from "../components/ContextMenu/ContextMenu";
-import { IconAddToQueue, IconInfo } from "../components/icons";
-import { t } from "../lib/i18n";
-import { tracksForContextAction } from "../lib/trackSelection";
-import { useCdStore } from "../store/useCdStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import type { Track } from "../types/track";
+} from "@/components/ContextMenu/ContextMenu";
+import { IconAddToQueue, IconInfo } from "@/components/icons";
+import { t } from "@/lib/i18n";
+import { tracksForContextAction } from "@/lib/trackSelection";
+import { useCdStore } from "@/store/useCdStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { Track } from "@/types/track";
 import { useCdImportBlockingPlayback } from "./useCdImportBlockingPlayback";
 import { useContextMenu } from "./useContextMenu";
 

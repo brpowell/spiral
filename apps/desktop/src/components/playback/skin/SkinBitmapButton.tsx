@@ -6,33 +6,30 @@ import {
   resolveInteractiveAssets,
   resolveInteractiveAssetUrl,
   skinAssetFileUrl,
-} from "../../../lib/skinAssets";
-import {
-  playSkinSound,
-  resolveSkinClickSound,
-} from "../../../lib/skinSoundEffects";
-import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
+} from "@/lib/skinAssets";
+import { playSkinSound, resolveSkinClickSound } from "@/lib/skinSoundEffects";
+import { skinDragRegionNoneProps } from "@/lib/skinDragRegion";
 import {
   evaluateSkinCondition,
   useSkinBindState,
   useSkinBindValue,
   useSkinControlEnabled,
-} from "../../../lib/skinBinds";
+} from "@/lib/skinBinds";
 import {
   suppressSkinButtonHoverUntilPointerMove,
   useSkinButtonHoverSuppressed,
-} from "../../../lib/skinButtonHoverSuppression";
-import { useSkinTooltip } from "../../../lib/skinTooltips";
+} from "@/lib/skinButtonHoverSuppression";
+import { useSkinTooltip } from "@/lib/skinTooltips";
 import {
   primaryClickAction,
   primaryClickViewId,
   scheduleSkinEffects,
-} from "../../../lib/skinEffects";
+} from "@/lib/skinEffects";
 import type {
   ButtonNode,
   InteractiveAssetState,
   LoadedSkinPack,
-} from "../../../types/skin";
+} from "@/types/skin";
 import { SkinInteractiveAssetCanvas } from "./SkinInteractiveAssetCanvas";
 import "./SkinBitmapButton.css";
 

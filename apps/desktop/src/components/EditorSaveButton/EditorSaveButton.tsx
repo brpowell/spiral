@@ -1,4 +1,4 @@
-import { Button, type ButtonProps } from "../common/Button/Button";
+import { Button, type ButtonProps } from "@/components/common/Button/Button";
 
 type EditorSaveButtonProps = Omit<ButtonProps, "variant" | "isLoading"> & {
   saving: boolean;

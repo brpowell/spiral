@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveSkinTooltip } from "./skinTooltips";
-import { minimalBindState } from "../test/skinBindFixtures";
+import { minimalBindState } from "@/test/skinBindFixtures";
 
 describe("resolveSkinTooltip", () => {
   it("prefers tooltipWhen over tooltip and defaults", () => {

@@ -1,9 +1,9 @@
 import { useId, useRef, useState } from "react";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { useCdStore } from "../../store/useCdStore";
-import { useOnboardingStore } from "../../store/useOnboardingStore";
-import { Button } from "../common/Button/Button";
-import { Checkbox } from "../common/Checkbox/Checkbox";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useCdStore } from "@/store/useCdStore";
+import { useOnboardingStore } from "@/store/useOnboardingStore";
+import { Button } from "@/components/common/Button/Button";
+import { Checkbox } from "@/components/common/Checkbox/Checkbox";
 import {
   Modal,
   ModalBody,
@@ -11,7 +11,7 @@ import {
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
-} from "../common/Modal/Modal";
+} from "@/components/common/Modal/Modal";
 import "./CdMusicBrainzFetchModal.css";
 export function CdMusicBrainzFetchModal() {
   const promptDriveId = useCdStore((s) => s.metadataFetchPromptDriveId);

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CdDisc, CdDiscChangedPayload, CdDrive } from "../types/cd";
+import type { CdDisc, CdDiscChangedPayload, CdDrive } from "@/types/cd";
 
 const {
   mockListen,
@@ -20,7 +20,7 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: mockListen,
 }));
 
-vi.mock("../lib/tauri", () => ({
+vi.mock("@/lib/tauri", () => ({
   ejectCdDisc: vi.fn(),
   getDiscCdText: vi.fn(),
   getDiscInfo: vi.fn(),
@@ -34,28 +34,28 @@ vi.mock("../lib/tauri", () => ({
   saveDiscMetadataPreference: vi.fn(),
 }));
 
-vi.mock("../lib/cdMetadataFetch", () => ({
+vi.mock("@/lib/cdMetadataFetch", () => ({
   startCdHeroArtFetch: vi.fn(),
   startCdMetadataFetch: vi.fn(),
 }));
 
-vi.mock("../lib/cdPlaybackArt", () => ({
+vi.mock("@/lib/cdPlaybackArt", () => ({
   syncCdHeroArtToPlayback: vi.fn(),
 }));
 
-vi.mock("../lib/activityLog", () => ({
+vi.mock("@/lib/activityLog", () => ({
   logActivity: vi.fn(),
 }));
 
-vi.mock("../lib/network", () => ({
+vi.mock("@/lib/network", () => ({
   isNetworkLikelyAvailable: () => false,
 }));
 
-vi.mock("../lib/cdImportGuard", () => ({
+vi.mock("@/lib/cdImportGuard", () => ({
   isCdImportBlockingPlayback: () => false,
 }));
 
-vi.mock("../lib/cdActivePlaybackDisc", () => ({
+vi.mock("@/lib/cdActivePlaybackDisc", () => ({
   discFromActivePlayback: () => null,
 }));
 
@@ -191,7 +191,7 @@ describe("useCdStore unplug / absent drive", () => {
   });
 
   it("removes during post-load quiet when the drive no longer enumerates", async () => {
-    const { getDiscInfo } = await import("../lib/tauri");
+    const { getDiscInfo } = await import("@/lib/tauri");
     vi.mocked(getDiscInfo).mockResolvedValue(disc);
 
     useCdStore.setState({

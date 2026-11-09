@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from "vitest";
-import type { Theme } from "../types/theme";
+import type { Theme } from "@/types/theme";
 import {
   DEFAULT_THEME_ID,
   OBSIDIAN_DEFAULT_TOKENS,

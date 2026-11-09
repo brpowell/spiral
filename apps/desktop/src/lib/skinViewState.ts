@@ -1,4 +1,4 @@
-import type { LoadedSkinPack } from "../types/skin";
+import type { LoadedSkinPack } from "@/types/skin";
 import { primaryViewId } from "./skinWindowPresentation";
 
 const STORAGE_KEY = "spiral:skin-view-by-skin";

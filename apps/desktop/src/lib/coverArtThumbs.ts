@@ -1,5 +1,5 @@
 import { formatBytes, formatDimensions } from "./formatBytes";
-import type { CoverArtCandidate } from "../types/coverArt";
+import type { CoverArtCandidate } from "@/types/coverArt";
 
 const MAX_CACHED_THUMBS = 64;
 const thumbCache = new Map<string, HTMLImageElement>();

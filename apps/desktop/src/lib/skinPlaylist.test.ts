@@ -7,8 +7,8 @@ import {
   resolveIdlePlaybackTrackIds,
   resolveSkinPlaylistTrackIds,
 } from "./skinPlaylist";
-import type { Playlist } from "../types/playlist";
-import type { Track } from "../types/track";
+import type { Playlist } from "@/types/playlist";
+import type { Track } from "@/types/track";
 
 function track(id: number, title: string): Track {
   return {

@@ -1,4 +1,4 @@
-import type { Artist } from "../types/artist";
+import type { Artist } from "@/types/artist";
 
 /** Stable cache key for artist cover art in the Artwork tree. */
 export function artistArtCacheKey(artistKey: string): string {

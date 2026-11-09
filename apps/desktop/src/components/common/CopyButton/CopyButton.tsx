@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { Button, type ButtonProps } from "../Button/Button";
-import { IconCheck, IconCopy } from "../../icons";
-import { copyTextToClipboard } from "../../../lib/clipboard";
+import { Button, type ButtonProps } from "@/components/common/Button/Button";
+import { IconCheck, IconCopy } from "@/components/icons";
+import { copyTextToClipboard } from "@/lib/clipboard";
 
 const COPY_FEEDBACK_MS = 2000;
 
-type CopyButtonProps = Omit<ButtonProps, "onClick" | "children" | "aria-label"> & {
+type CopyButtonProps = Omit<
+  ButtonProps,
+  "onClick" | "children" | "aria-label"
+> & {
   text: string;
   "aria-label"?: string;
   copiedAriaLabel?: string;

@@ -1,13 +1,13 @@
 import { emit } from "@tauri-apps/api/event";
 import { albumKey as albumKeyFromTrack } from "./albums";
-import { useNavigationStore } from "../store/useNavigationStore";
+import { useNavigationStore } from "@/store/useNavigationStore";
 import { findPlaybackTrack } from "./playbackTrack";
 import {
   resolveSkinPlaylistTrackIds,
   shouldReplacePlayContextForSkinPlaylistSource,
 } from "./skinPlaylist";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { usePlaylistStore } from "../store/usePlaylistStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { usePlaylistStore } from "@/store/usePlaylistStore";
 import { openAppearanceWindow } from "./appearanceWindow";
 import {
   exitSkinMode,
@@ -17,12 +17,12 @@ import {
   restoreMainWindow,
   setSkinModeAlwaysOnTop,
 } from "./skinModeWindow";
-import type { SkinActionId, SkinActionPayloadFields } from "../types/skin";
-import { useSkinStore } from "../store/useSkinStore";
-import { useSkinPreferencesStore } from "../store/useSkinPreferencesStore";
-import { useVisualizerStore } from "../store/useVisualizerStore";
-import { useEqualizerStore } from "../store/useEqualizerStore";
-import { usePlaybackSettingsStore } from "../store/usePlaybackSettingsStore";
+import type { SkinActionId, SkinActionPayloadFields } from "@/types/skin";
+import { useSkinStore } from "@/store/useSkinStore";
+import { useSkinPreferencesStore } from "@/store/useSkinPreferencesStore";
+import { useVisualizerStore } from "@/store/useVisualizerStore";
+import { useEqualizerStore } from "@/store/useEqualizerStore";
+import { usePlaybackSettingsStore } from "@/store/usePlaybackSettingsStore";
 import { pickAndImportLibraryPaths } from "./libraryImport";
 import { confirmAndOpenSkinUrl } from "./skinOpenUrl";
 import {

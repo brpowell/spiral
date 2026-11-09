@@ -1,7 +1,7 @@
-import { skinAssetFileUrl } from "../../../lib/skinAssets";
-import { resolveSlideshowAssetForState } from "../../../lib/skinSlideshow";
-import { useSkinSlideshowState } from "../../../lib/skinSlideshowContext";
-import type { LoadedSkinPack, SlideshowNode } from "../../../types/skin";
+import { skinAssetFileUrl } from "@/lib/skinAssets";
+import { resolveSlideshowAssetForState } from "@/lib/skinSlideshow";
+import { useSkinSlideshowState } from "@/lib/skinSlideshowContext";
+import type { LoadedSkinPack, SlideshowNode } from "@/types/skin";
 import "./SkinSlideshow.css";
 
 export function SkinSlideshow({

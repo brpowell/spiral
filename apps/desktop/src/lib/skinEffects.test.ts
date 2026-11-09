@@ -7,8 +7,8 @@ import {
 import * as skinActions from "./skinActions";
 import * as skinSoundEffects from "./skinSoundEffects";
 import * as skinViewStateContext from "./skinViewStateContext";
-import type { SkinLifecycleEffect } from "../types/skin";
-import { minimalBindState } from "../test/skinBindFixtures";
+import type { SkinLifecycleEffect } from "@/types/skin";
+import { minimalBindState } from "@/test/skinBindFixtures";
 
 const introLightEffect: SkinLifecycleEffect = {
   when: "state.introLight.pending",

@@ -1,13 +1,13 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { assetUrlFromPath } from "../../../lib/assetUrl";
-import { imageOutputSizeOptions, type ImageCrop } from "../../../lib/imageCrop";
-import { Button } from "../Button/Button";
-import { useOutputSizes } from "../../../hooks/useOutputSizes";
-import { formatBytes } from "../../../lib/formatBytes";
-import { clearArtMeasureCache } from "../../../lib/tauri";
-import { Select } from "../Select/Select";
-import { ImageCropper } from "../ImageCropper/ImageCropper";
+import { assetUrlFromPath } from "@/lib/assetUrl";
+import { imageOutputSizeOptions, type ImageCrop } from "@/lib/imageCrop";
+import { Button } from "@/components/common/Button/Button";
+import { useOutputSizes } from "@/hooks/useOutputSizes";
+import { formatBytes } from "@/lib/formatBytes";
+import { clearArtMeasureCache } from "@/lib/tauri";
+import { Select } from "@/components/common/Select/Select";
+import { ImageCropper } from "@/components/common/ImageCropper/ImageCropper";
 import {
   Modal,
   ModalBody,
@@ -15,7 +15,7 @@ import {
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
-} from "../Modal/Modal";
+} from "@/components/common/Modal/Modal";
 import "./ImageCropModal.css";
 
 export type ImageCropModalProps = {

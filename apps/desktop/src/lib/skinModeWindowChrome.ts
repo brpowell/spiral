@@ -5,7 +5,7 @@ import {
   type Color,
   type Window,
 } from "@tauri-apps/api/window";
-import type { LoadedSkinPack, WindowChrome } from "../types/skin";
+import type { LoadedSkinPack, WindowChrome } from "@/types/skin";
 import { resolveViewForPack } from "./skinViewState";
 import { setSkinModeAlwaysOnTopSnapshot } from "./skinModeAlwaysOnTop";
 import { restoreSkinModeGeometry } from "./skinModeSnap";

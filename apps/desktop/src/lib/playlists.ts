@@ -1,5 +1,5 @@
-import type { Playlist } from "../types/playlist";
-import type { Track } from "../types/track";
+import type { Playlist } from "@/types/playlist";
+import type { Track } from "@/types/track";
 import { compareLocalized } from "./appLocale";
 
 export const RECENT_PLAYLISTS_LIMIT = 5;

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useOnboardingStore } from "../store/useOnboardingStore";
+import { useOnboardingStore } from "@/store/useOnboardingStore";
 import {
   adoptOnboardingSplash,
   onboardingOverlayTop,

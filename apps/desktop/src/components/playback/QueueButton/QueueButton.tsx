@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { buildPlaybackOrder } from "../../../lib/playbackOrder";
-import { usePlayerStore } from "../../../store/usePlayerStore";
-import { Button } from "../../common/Button/Button";
-import { IconSetList } from "../../icons";
-import "../playbackControl.css";
+import { buildPlaybackOrder } from "@/lib/playbackOrder";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { Button } from "@/components/common/Button/Button";
+import { IconSetList } from "@/components/icons";
+import "@/components/playback/playbackControl.css";
 import "./QueueButton.css";
 
 interface QueueButtonProps {

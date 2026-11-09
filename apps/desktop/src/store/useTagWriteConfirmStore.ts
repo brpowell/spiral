@@ -1,12 +1,12 @@
 import { create } from "zustand";
-import { afterUiTransition } from "../lib/scheduling";
+import { afterUiTransition } from "@/lib/scheduling";
 import {
   emptyTagWriteDismissals,
   loadTagWriteDismissals,
   saveTagWriteDismissals,
   type TagWriteContext,
   type TagWriteDismissals,
-} from "../lib/tagWriteConfirmPreferences";
+} from "@/lib/tagWriteConfirmPreferences";
 
 export interface TagWritePrompt {
   context: TagWriteContext;

@@ -1,21 +1,21 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useFileSize } from "../../hooks/useFileSize";
-import { useFileExists } from "../../hooks/useFileExists";
-import { useShortenHomePath } from "../../lib/homePath";
+import { useFileSize } from "@/hooks/useFileSize";
+import { useFileExists } from "@/hooks/useFileExists";
+import { useShortenHomePath } from "@/lib/homePath";
 import {
   revealInFileManagerLabel,
   revealTrackInFileManager,
-} from "../../lib/fileManager";
+} from "@/lib/fileManager";
 import {
   discoverTrackFileMissing,
   isTrackMissingFile,
-} from "../../lib/missingFileTrack";
-import type { Track } from "../../types/track";
-import { AudioFileSpecs } from "../AudioFileSpecs/AudioFileSpecs";
-import { Button } from "../common/Button/Button";
-import { FieldLabel } from "../common/Field/Field";
-import { IconWarning } from "../icons";
+} from "@/lib/missingFileTrack";
+import type { Track } from "@/types/track";
+import { AudioFileSpecs } from "@/components/AudioFileSpecs/AudioFileSpecs";
+import { Button } from "@/components/common/Button/Button";
+import { FieldLabel } from "@/components/common/Field/Field";
+import { IconWarning } from "@/components/icons";
 import "./TrackEditorFileTab.css";
 
 export type TrackEditorFileTabProps = {

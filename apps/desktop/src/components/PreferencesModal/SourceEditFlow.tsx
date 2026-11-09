@@ -2,17 +2,17 @@ import { useMemo, useState } from "react";
 import {
   GENERIC_ORGANIZE_PATH_SAMPLE,
   trackToOrganizePathSample,
-} from "../../lib/organizePathFormat";
-import { organizeInBackground } from "../../lib/organizeSource";
+} from "@/lib/organizePathFormat";
+import { organizeInBackground } from "@/lib/organizeSource";
 import {
   relocateSource,
   setSourceOrganize,
   setSourcePathFormat,
-} from "../../lib/tauri";
-import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
-import { usePlayerStore } from "../../store/usePlayerStore";
-import { useSourcesStore } from "../../store/useSourcesStore";
-import type { Source } from "../../types/source";
+} from "@/lib/tauri";
+import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { useSourcesStore } from "@/store/useSourcesStore";
+import type { Source } from "@/types/source";
 import { SourceEditDialog, type SourceEdits } from "./SourceEditDialog";
 
 interface SourceEditFlowProps {

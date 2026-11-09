@@ -1,13 +1,13 @@
 import { Fragment, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { revealInFileManagerLabel } from "../../lib/fileManager";
-import { useShortenHomePath } from "../../lib/homePath";
-import { sourceDisplayName } from "../../lib/sourceAccess";
-import type { Source } from "../../types/source";
+import { revealInFileManagerLabel } from "@/lib/fileManager";
+import { useShortenHomePath } from "@/lib/homePath";
+import { sourceDisplayName } from "@/lib/sourceAccess";
+import type { Source } from "@/types/source";
 import {
   ContextMenuItem,
   ContextMenuSeparator,
-} from "../ContextMenu/ContextMenu";
+} from "@/components/ContextMenu/ContextMenu";
 import {
   IconCheck,
   IconDelete,
@@ -15,8 +15,8 @@ import {
   IconOpenFolder,
   IconPencil,
   IconRefresh,
-} from "../icons";
-import { MenuButton } from "../MenuButton/MenuButton";
+} from "@/components/icons";
+import { MenuButton } from "@/components/MenuButton/MenuButton";
 import "./SourcesSection.css";
 
 interface SourceCardProps {

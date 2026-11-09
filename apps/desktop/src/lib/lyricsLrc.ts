@@ -2,7 +2,7 @@ import type {
   LyricsLine,
   LyricsSource,
   TrackLyricsInput,
-} from "../types/lyrics";
+} from "@/types/lyrics";
 import { linesToPlainText } from "./lyrics";
 
 const METADATA_TAG_KEYS = new Set([

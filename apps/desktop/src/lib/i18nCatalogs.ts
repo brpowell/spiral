@@ -1,17 +1,17 @@
-import enAbout from "../locales/en/about.json";
-import enCommon from "../locales/en/common.json";
-import enDialogs from "../locales/en/dialogs.json";
-import enErrors from "../locales/en/errors.json";
-import enLibrary from "../locales/en/library.json";
-import enMenus from "../locales/en/menus.json";
-import enPlayback from "../locales/en/playback.json";
-import enPreferences from "../locales/en/preferences.json";
-import enStudio from "../locales/en/studio.json";
-import enToasts from "../locales/en/toasts.json";
+import enAbout from "@/locales/en/about.json";
+import enCommon from "@/locales/en/common.json";
+import enDialogs from "@/locales/en/dialogs.json";
+import enErrors from "@/locales/en/errors.json";
+import enLibrary from "@/locales/en/library.json";
+import enMenus from "@/locales/en/menus.json";
+import enPlayback from "@/locales/en/playback.json";
+import enPreferences from "@/locales/en/preferences.json";
+import enStudio from "@/locales/en/studio.json";
+import enToasts from "@/locales/en/toasts.json";
 
-import deCommon from "../locales/de/common.json";
-import deErrors from "../locales/de/errors.json";
-import deMenus from "../locales/de/menus.json";
+import deCommon from "@/locales/de/common.json";
+import deErrors from "@/locales/de/errors.json";
+import deMenus from "@/locales/de/menus.json";
 
 export const I18N_NAMESPACES = [
   "about",

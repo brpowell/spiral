@@ -25,10 +25,10 @@ import {
   applyBatchRule,
   useImportDedupeStore,
   isImportCancelledError,
-} from "../store/useImportDedupeStore";
-import type { BackgroundTaskSettleAsOptions } from "../store/useBackgroundTasksStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import type { Track, TrackInput } from "../types/track";
+} from "@/store/useImportDedupeStore";
+import type { BackgroundTaskSettleAsOptions } from "@/store/useBackgroundTasksStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { Track, TrackInput } from "@/types/track";
 import { BackgroundTaskCancelledError } from "./backgroundTaskCancel";
 import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
 

@@ -1,4 +1,4 @@
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 import { t } from "./i18n";
 
 export const DEFAULT_ORGANIZE_PATH_FORMAT =

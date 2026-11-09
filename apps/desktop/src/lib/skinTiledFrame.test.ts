@@ -17,7 +17,7 @@ import {
 import type {
   TiledFrameExplicitPresentation,
   TiledFramePresetPresentation,
-} from "../types/skin";
+} from "@/types/skin";
 
 const plPresentation: TiledFramePresetPresentation = {
   kind: "tiledFrame",

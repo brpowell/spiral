@@ -5,7 +5,7 @@ import {
 } from "./artists";
 import { normalizeArtistName, parseArtistField } from "./artistNames";
 import { albumKey } from "./albums";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 
 export interface TrackArtistLink {
   name: string;

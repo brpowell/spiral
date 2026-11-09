@@ -1,4 +1,4 @@
-import { useNavigationStore } from "../../store/useNavigationStore";
+import { useNavigationStore } from "@/store/useNavigationStore";
 import "./DetailArtistLink.css";
 
 interface DetailArtistLinkProps {

@@ -1,20 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { describeSourceError } from "../../lib/sourceAccess";
+import { describeSourceError } from "@/lib/sourceAccess";
 import { useTranslation } from "react-i18next";
-import { ImageCropModal } from "../common/ImageCropModal/ImageCropModal";
-import type { ImageCrop } from "../../lib/imageCrop";
-import { useArtFileDrop } from "../../hooks/useArtFileDrop";
-import { useAssetUrl } from "../../hooks/useAssetUrl";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { useResetOnOpen } from "../../hooks/useResetOnOpen";
-import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
+import { ImageCropModal } from "@/components/common/ImageCropModal/ImageCropModal";
+import type { ImageCrop } from "@/lib/imageCrop";
+import { useArtFileDrop } from "@/hooks/useArtFileDrop";
+import { useAssetUrl } from "@/hooks/useAssetUrl";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useResetOnOpen } from "@/hooks/useResetOnOpen";
+import { useEditorDiscardPrompt } from "@/hooks/useEditorDiscardPrompt";
 import {
   bulkSaveFooterProps,
   bulkSaveLabel,
   useCancellableBulkSave,
-} from "../../hooks/useCancellableBulkSave";
-import { artistArtCacheKey, applyArtistImages } from "../../lib/artistArt";
-import { refreshArtDisplay } from "../../lib/artDisplayCache";
+} from "@/hooks/useCancellableBulkSave";
+import { artistArtCacheKey, applyArtistImages } from "@/lib/artistArt";
+import { refreshArtDisplay } from "@/lib/artDisplayCache";
 import {
   artistFormsEqual,
   artistKeyAfterRename,
@@ -24,28 +24,28 @@ import {
   buildTrackArtistMetadata,
   isArtistMbidMixed,
   type ArtistEditorForm,
-} from "../../lib/artistMetadata";
-import { getArtistByKey, groupTracksIntoArtists } from "../../lib/artists";
+} from "@/lib/artistMetadata";
+import { getArtistByKey, groupTracksIntoArtists } from "@/lib/artists";
 import {
   preloadCoverArtThumbs,
   previewSrcForFetchedCover,
-} from "../../lib/coverArtThumbs";
+} from "@/lib/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
   fetchArtistArt,
   pickImageFile,
   writeTrackMetadata,
-} from "../../lib/tauri";
-import { useArtistImageStore } from "../../store/useArtistImageStore";
-import { useNavigationStore } from "../../store/useNavigationStore";
-import { usePlayerStore } from "../../store/usePlayerStore";
-import type { CoverArtCandidate } from "../../types/coverArt";
-import type { Track } from "../../types/track";
-import { EntityArt } from "../EntityArt/EntityArt";
-import { EditorSaveButton } from "../EditorSaveButton/EditorSaveButton";
-import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
-import { IconArtists } from "../icons";
+} from "@/lib/tauri";
+import { useArtistImageStore } from "@/store/useArtistImageStore";
+import { useNavigationStore } from "@/store/useNavigationStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { CoverArtCandidate } from "@/types/coverArt";
+import type { Track } from "@/types/track";
+import { EntityArt } from "@/components/EntityArt/EntityArt";
+import { EditorSaveButton } from "@/components/EditorSaveButton/EditorSaveButton";
+import { EditorDiscardOverlay } from "@/components/EditorDiscardOverlay/EditorDiscardOverlay";
+import { IconArtists } from "@/components/icons";
 import {
   Modal,
   ModalBody,
@@ -53,16 +53,16 @@ import {
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
-} from "../common/Modal/Modal";
-import { FormField } from "../common/Field/Field";
-import { TextInput } from "../common/TextInput/TextInput";
-import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
-import { AlbumArtPicker } from "../AlbumEditor/AlbumArtPicker";
-import { AlbumEditorArtTab } from "../AlbumEditor/AlbumEditorArtTab";
-import { MusicBrainzEditorTab } from "../MusicBrainzEditorTab/MusicBrainzEditorTab";
-import { showTagWriteSavedToast } from "../../lib/trackMetadataToast";
-import { useTagWriteConfirmStore } from "../../store/useTagWriteConfirmStore";
-import "../TrackEditor/TrackEditor.css";
+} from "@/components/common/Modal/Modal";
+import { FormField } from "@/components/common/Field/Field";
+import { TextInput } from "@/components/common/TextInput/TextInput";
+import { Tab, TabList, TabPanel, Tabs } from "@/components/common/Tabs/Tabs";
+import { AlbumArtPicker } from "@/components/AlbumEditor/AlbumArtPicker";
+import { AlbumEditorArtTab } from "@/components/AlbumEditor/AlbumEditorArtTab";
+import { MusicBrainzEditorTab } from "@/components/MusicBrainzEditorTab/MusicBrainzEditorTab";
+import { showTagWriteSavedToast } from "@/lib/trackMetadataToast";
+import { useTagWriteConfirmStore } from "@/store/useTagWriteConfirmStore";
+import "@/components/TrackEditor/TrackEditor.css";
 
 type ArtistEditorTab = "details" | "art" | "musicbrainz";
 

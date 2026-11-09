@@ -1,8 +1,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { defaultNewItemLocation, pickNewItemFolder } from "../../lib/tauri";
-import { Button } from "../common/Button/Button";
-import { FormField } from "../common/Field/Field";
+import { defaultNewItemLocation, pickNewItemFolder } from "@/lib/tauri";
+import { Button } from "@/components/common/Button/Button";
+import { FormField } from "@/components/common/Field/Field";
 import {
   Modal,
   ModalBody,
@@ -10,8 +10,8 @@ import {
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
-} from "../common/Modal/Modal";
-import { TextInput } from "../common/TextInput/TextInput";
+} from "@/components/common/Modal/Modal";
+import { TextInput } from "@/components/common/TextInput/TextInput";
 import "./NewThemeModal.css";
 
 export interface NewThemeModalResult {

@@ -1,4 +1,4 @@
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 
 /**
  * Portable description of a staged app state, used by the dev-only marketing

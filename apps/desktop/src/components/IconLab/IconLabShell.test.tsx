@@ -11,7 +11,7 @@ import {
   applyIconTagTable,
   getLibraryIcon,
   listLibraryIcons,
-} from "../../lib/iconLibrary";
+} from "@/lib/iconLibrary";
 import { ICON_TAGS_ENDPOINT } from "./saveIconTags";
 import { IconLabShell } from "./IconLabShell";
 

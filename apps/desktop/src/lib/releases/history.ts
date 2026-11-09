@@ -1,5 +1,5 @@
-import { getIntlLocale } from "../appLocale";
-import type { AvailableUpdateInfo } from "../updater";
+import { getIntlLocale } from "@/lib/appLocale";
+import type { AvailableUpdateInfo } from "@/lib/updater";
 
 export const RELEASES_HISTORY_URL =
   "https://www.spiralpowered.com/api/releases";

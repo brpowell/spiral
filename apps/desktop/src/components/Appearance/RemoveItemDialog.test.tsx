@@ -6,7 +6,7 @@ const { mockUnlink, mockDelete } = vi.hoisted(() => ({
   mockDelete: vi.fn(async () => true),
 }));
 
-vi.mock("../../lib/items/itemActions", () => ({
+vi.mock("@/lib/items/itemActions", () => ({
   unlinkItemWithRefresh: mockUnlink,
   deleteLinkedItemWithRefresh: mockDelete,
 }));

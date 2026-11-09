@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getLibraryIcon, setLibraryIconTags } from "../../lib/iconLibrary";
+import { getLibraryIcon, setLibraryIconTags } from "@/lib/iconLibrary";
 import { ICON_TAGS_ENDPOINT, saveIconTags } from "./saveIconTags";
 
 const original = [...(getLibraryIcon("play")?.tags ?? [])];

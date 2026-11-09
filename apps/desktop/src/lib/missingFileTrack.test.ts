@@ -4,7 +4,7 @@ vi.mock("./artPath", () => ({
   fileExists: vi.fn().mockResolvedValue(true),
 }));
 
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 import {
   isTrackMissingFile,
   mergeLibraryClientState,

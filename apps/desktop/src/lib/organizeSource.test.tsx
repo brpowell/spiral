@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
-import type { FilePlanApplySummary, Source } from "../types/source";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import type { FilePlanApplySummary, Source } from "@/types/source";
 import { organizeInBackground, organizeSettleOptions } from "./organizeSource";
 
 const tauri = vi.hoisted(() => ({
@@ -29,7 +29,7 @@ vi.mock("@tauri-apps/api/event", () => ({
     },
   ),
 }));
-vi.mock("../store/usePlayerStore", () => ({
+vi.mock("@/store/usePlayerStore", () => ({
   usePlayerStore: { getState: () => player },
 }));
 

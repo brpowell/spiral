@@ -2,6 +2,8 @@ import fs from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+// Vite loads this config before `resolve.alias` applies, so these modules (and
+// anything they import) must use relative imports, not `@/`.
 import { VIZ_WORKER_CSP } from "./src/components/visualizer/sandbox/workerCsp";
 import {
   applyIconTagUpdate,
@@ -114,6 +116,9 @@ function iconLabTags(): Plugin {
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react(), stripMjsShebang(), vizWorkerCsp(), iconLabTags()],
+  resolve: {
+    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+  },
   // Expose SPIRAL_* (e.g. SPIRAL_ENABLE_UPDATER) alongside default VITE_*.
   envPrefix: ["VITE_", "SPIRAL_"],
   test: {

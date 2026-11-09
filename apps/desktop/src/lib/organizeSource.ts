@@ -2,16 +2,16 @@ import { listen } from "@tauri-apps/api/event";
 import type {
   BackgroundTaskRunContext,
   BackgroundTaskSettleAsOptions,
-} from "../store/useBackgroundTasksStore";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { useSourcesStore } from "../store/useSourcesStore";
-import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
+} from "@/store/useBackgroundTasksStore";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { useSourcesStore } from "@/store/useSourcesStore";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
 import type {
   FilePlanApplySummary,
   FilePlanProgress,
   Source,
-} from "../types/source";
+} from "@/types/source";
 import { logActivity } from "./activityLog";
 import { t } from "./i18n";
 import {

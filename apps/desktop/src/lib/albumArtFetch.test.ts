@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CoverArtCandidate } from "../types/coverArt";
+import type { CoverArtCandidate } from "@/types/coverArt";
 
 const { fetchCoverArt, fetchCoverArtForRelease, cacheArtFromUrl } = vi.hoisted(
   () => ({
@@ -33,7 +33,7 @@ import {
   fetchAlbumArtPreferringRelease,
   fetchCoverArtCandidates,
 } from "./albumArtFetch";
-import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
 
 function candidate(
   url: string,

@@ -1,22 +1,19 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { isSkinGifAsset } from "../../../lib/skinAssets";
+import { isSkinGifAsset } from "@/lib/skinAssets";
 import {
   getSkinBitmapIfReady,
   isSkinBitmapReady,
   loadSkinBitmap,
-} from "../../../lib/skinBitmapCache";
+} from "@/lib/skinBitmapCache";
 import {
   drawSkinGifLastFrame,
   loadSkinGif,
   playSkinGifOnCanvas,
-} from "../../../lib/skinGifPlayback";
-import type { SkinAssetFile } from "../../../types/skin";
+} from "@/lib/skinGifPlayback";
+import type { SkinAssetFile } from "@/types/skin";
 import "./SkinInteractiveAssetCanvas.css";
 
-function drawBitmap(
-  canvas: HTMLCanvasElement,
-  image: HTMLImageElement,
-): void {
+function drawBitmap(canvas: HTMLCanvasElement, image: HTMLImageElement): void {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   canvas.width = image.naturalWidth;

@@ -6,9 +6,9 @@ import {
   within,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useOnboardingStore } from "../../../store/useOnboardingStore";
-import { useSourcesStore } from "../../../store/useSourcesStore";
-import type { Source } from "../../../types/source";
+import { useOnboardingStore } from "@/store/useOnboardingStore";
+import { useSourcesStore } from "@/store/useSourcesStore";
+import type { Source } from "@/types/source";
 import { FoldersStep } from "./FoldersStep";
 
 const tauri = vi.hoisted(() => ({
@@ -25,8 +25,8 @@ const player = vi.hoisted(() => ({
   library: [] as { sourceId: number; missingSince: string | null }[],
 }));
 
-vi.mock("../../../lib/tauri", () => tauri);
-vi.mock("../../../store/usePlayerStore", () => ({
+vi.mock("@/lib/tauri", () => tauri);
+vi.mock("@/store/usePlayerStore", () => ({
   usePlayerStore: Object.assign(
     (select: (s: typeof player) => unknown) => select(player),
     { getState: () => player },

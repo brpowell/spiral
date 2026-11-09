@@ -1,19 +1,19 @@
 import { useTranslation } from "react-i18next";
-import { audioExtensionFromPath } from "../../lib/supportedAudio";
+import { audioExtensionFromPath } from "@/lib/supportedAudio";
 import {
   formatBitrate,
   formatCodec,
   formatSampleRate,
-} from "../../lib/formatAudio";
-import { formatBytes } from "../../lib/formatBytes";
-import { formatDateAdded } from "../../lib/format";
+} from "@/lib/formatAudio";
+import { formatBytes } from "@/lib/formatBytes";
+import { formatDateAdded } from "@/lib/format";
 import {
   IconAudioWaveform,
   IconBitrate,
   IconCalendarPlus,
   IconFileMusic,
   IconHardDrive,
-} from "../icons";
+} from "@/components/icons";
 import "./AudioFileSpecs.css";
 
 function SpecItem({

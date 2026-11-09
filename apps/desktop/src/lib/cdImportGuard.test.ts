@@ -5,8 +5,8 @@ import {
   isCdImportCancelRequested,
   isCdImportRunning,
 } from "./cdImportGuard";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
-import { useCdImportStore } from "../store/useCdImportStore";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { useCdImportStore } from "@/store/useCdImportStore";
 
 describe("cdImportGuard", () => {
   beforeEach(() => {

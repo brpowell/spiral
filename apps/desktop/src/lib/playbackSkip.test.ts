@@ -12,7 +12,7 @@ import {
   isPlaybackIdKnownUnplayable,
 } from "./playbackSkip";
 import { getAutoplayNextId, getManualPreviousId } from "./playbackQueue";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 
 function track(id: number, overrides: Partial<Track> = {}): Track {
   return {

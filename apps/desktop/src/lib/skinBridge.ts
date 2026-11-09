@@ -1,10 +1,10 @@
 import { listen } from "@tauri-apps/api/event";
 import { closeAllSkinAuxWindows } from "./skinAuxWindow";
-import { useSkinStore } from "../store/useSkinStore";
-import { useSkinPreferencesStore } from "../store/useSkinPreferencesStore";
-import { useThemeStore } from "../store/useThemeStore";
-import { useVisualizerStore } from "../store/useVisualizerStore";
-import type { SkinUserPreferences } from "../types/skinPreferences";
+import { useSkinStore } from "@/store/useSkinStore";
+import { useSkinPreferencesStore } from "@/store/useSkinPreferencesStore";
+import { useThemeStore } from "@/store/useThemeStore";
+import { useVisualizerStore } from "@/store/useVisualizerStore";
+import type { SkinUserPreferences } from "@/types/skinPreferences";
 import { APPEARANCE_REFRESH_EVENT } from "./appearanceWindow";
 import type { WindowRole } from "./windowRole";
 import {
@@ -94,11 +94,7 @@ async function listenSkinPreferencesActions(): Promise<void> {
           break;
         case "setPref":
           void store
-            .setPref(
-              event.payload.settingId,
-              event.payload.value,
-              activeSkinId,
-            )
+            .setPref(event.payload.settingId, event.payload.value, activeSkinId)
             .catch((err: unknown) => {
               console.error("Failed to set skin preference:", err);
             });

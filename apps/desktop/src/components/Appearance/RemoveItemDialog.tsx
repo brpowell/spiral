@@ -1,19 +1,22 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import {
   deleteLinkedItemWithRefresh,
   unlinkItemWithRefresh,
-} from "../../lib/items/itemActions";
-import { Button } from "../common/Button/Button";
+} from "@/lib/items/itemActions";
+import { Button } from "@/components/common/Button/Button";
 import {
   Modal,
   ModalBody,
   ModalFooter,
   ModalHeader,
   ModalTitle,
-} from "../common/Modal/Modal";
-import { RadioGroup, RadioGroupItem } from "../common/RadioGroup/RadioGroup";
+} from "@/components/common/Modal/Modal";
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@/components/common/RadioGroup/RadioGroup";
 import "./RemoveItemDialog.css";
 
 type RemoveMode = "unlink" | "delete";

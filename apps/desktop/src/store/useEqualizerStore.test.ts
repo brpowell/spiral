@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getBuiltinPreset } from "../lib/equalizer/builtinPresets";
-import { FLAT_BAND_GAINS, type EqualizerPreset } from "../lib/equalizer/types";
+import { getBuiltinPreset } from "@/lib/equalizer/builtinPresets";
+import { FLAT_BAND_GAINS, type EqualizerPreset } from "@/lib/equalizer/types";
 import { useEqualizerStore } from "./useEqualizerStore";
 
-vi.mock("../lib/windowRole", () => ({
+vi.mock("@/lib/windowRole", () => ({
   getWindowRole: vi.fn(() => "main"),
 }));
 
-vi.mock("../lib/playback/nativeEqualizer", () => ({
+vi.mock("@/lib/playback/nativeEqualizer", () => ({
   applyEqualizerState: vi.fn(),
 }));
 
-vi.mock("../lib/tauri", () => ({
+vi.mock("@/lib/tauri", () => ({
   getEqualizerSettings: vi.fn(),
   saveEqualizerSettings: vi.fn(() => Promise.resolve()),
   listEqualizerCustomPresets: vi.fn(() => Promise.resolve([])),

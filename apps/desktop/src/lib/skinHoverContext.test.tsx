@@ -1,7 +1,7 @@
 import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SKIN_HOVER_RESIZE_QUIET_MS } from "./skinHover";
-import type { SkinClickEffect } from "../types/skin";
+import type { SkinClickEffect } from "@/types/skin";
 import type { SkinBindState } from "./skinBinds";
 import {
   SkinHoverProvider,

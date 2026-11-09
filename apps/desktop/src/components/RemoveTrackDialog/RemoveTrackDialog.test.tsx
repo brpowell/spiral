@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { Track } from "../../types/track";
+import type { Track } from "@/types/track";
 import { RemoveTrackDialog } from "./RemoveTrackDialog";
 
 const track = (id: number, sourceId: number, missingSince?: string) =>

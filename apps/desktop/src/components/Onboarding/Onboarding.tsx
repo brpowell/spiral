@@ -10,15 +10,15 @@ import {
   adoptOnboardingSplash,
   mountLogoReveal,
   onboardingOverlayTop,
-} from "../../lib/onboardingSplash";
+} from "@/lib/onboardingSplash";
 import {
   onboardingSteps,
   useOnboardingStore,
   type OnboardingStepId,
-} from "../../store/useOnboardingStore";
-import { describeSourceError } from "../../lib/sourceAccess";
-import { useSourcesStore } from "../../store/useSourcesStore";
-import { Button } from "../common/Button/Button";
+} from "@/store/useOnboardingStore";
+import { describeSourceError } from "@/lib/sourceAccess";
+import { useSourcesStore } from "@/store/useSourcesStore";
+import { Button } from "@/components/common/Button/Button";
 import { FadingScroller } from "./FadingScroller";
 import { TransportPreview } from "./TransportPreview";
 import { FoldersStep } from "./steps/FoldersStep";

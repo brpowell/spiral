@@ -2,10 +2,10 @@ import { mergeRemoteMetadataIntoDisc } from "./cdMetadata";
 import { cdSidebarDiscLabel } from "./cdTracks";
 import { t } from "./i18n";
 import { getPlaylistById } from "./playlists";
-import { useCdStore } from "../store/useCdStore";
-import type { Artist } from "../types/artist";
-import type { Playlist } from "../types/playlist";
-import type { NavView } from "../store/useNavigationStore";
+import { useCdStore } from "@/store/useCdStore";
+import type { Artist } from "@/types/artist";
+import type { Playlist } from "@/types/playlist";
+import type { NavView } from "@/store/useNavigationStore";
 
 export type DetailReturnContext =
   | { kind: "sidebar"; view: NavView }

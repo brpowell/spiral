@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { IconChevronDown } from "../../icons";
-import type { SelectBaseProps } from "../Select/selectTypes";
+import { IconChevronDown } from "@/components/icons";
+import type { SelectBaseProps } from "@/components/common/Select/selectTypes";
 import "./NativeSelect.css";
 
 export type NativeSelectProps<T extends string> = SelectBaseProps<T>;
@@ -22,7 +22,11 @@ export function NativeSelect<T extends string>({
 }: NativeSelectProps<T>) {
   return (
     <div
-      className={["native-select-wrap", className, disabled && "native-select-wrap--disabled"]
+      className={[
+        "native-select-wrap",
+        className,
+        disabled && "native-select-wrap--disabled",
+      ]
         .filter(Boolean)
         .join(" ")}
     >

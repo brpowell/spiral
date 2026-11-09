@@ -4,7 +4,7 @@ import {
 } from "./albumArtFetch";
 import { resolveArtPathIfExists } from "./artPath";
 import { cdHeroArtPath } from "./cdPlaybackArt";
-import { useCdStore } from "../store/useCdStore";
+import { useCdStore } from "@/store/useCdStore";
 
 export async function ensureCdHeroArtValid(
   driveId: string,

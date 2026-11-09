@@ -3,20 +3,20 @@ import { emit } from "@tauri-apps/api/event";
 import {
   SKIN_PREFERENCES_CHANGED_EVENT,
   type SkinPreferencesChangedPayload,
-} from "../lib/skinBridge";
-import { getSkinPreferences, saveSkinPreferences } from "../lib/tauri";
+} from "@/lib/skinBridge";
+import { getSkinPreferences, saveSkinPreferences } from "@/lib/tauri";
 import {
   evaluateAuthorSkinPref,
   findSkinSetting,
   setBooleanCustomPref,
   toggledBooleanCustomPref,
-} from "../lib/skinPrefSettings";
+} from "@/lib/skinPrefSettings";
 import { useSkinStore } from "./useSkinStore";
 import {
   defaultSkinUserPreferences,
   toggledSoundEffectsPreferences,
   type SkinUserPreferences,
-} from "../types/skinPreferences";
+} from "@/types/skinPreferences";
 
 interface SkinPreferencesState {
   skinId: string | null;
@@ -99,7 +99,11 @@ export const useSkinPreferencesStore = create<SkinPreferencesState>(
 
       const settings = useSkinStore.getState().activePack?.manifest.settings;
       const setting = findSkinSetting(settings, settingId);
-      if (!setting || setting.type !== "boolean" || typeof value !== "boolean") {
+      if (
+        !setting ||
+        setting.type !== "boolean" ||
+        typeof value !== "boolean"
+      ) {
         return;
       }
 

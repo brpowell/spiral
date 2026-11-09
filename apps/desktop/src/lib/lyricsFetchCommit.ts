@@ -9,9 +9,9 @@ import {
   recordLyricsAttempt,
   saveTrackLyrics,
 } from "./tauri";
-import { usePlayerStore } from "../store/usePlayerStore";
-import type { LyricsFormat, LyricsLine } from "../types/lyrics";
-import type { Track } from "../types/track";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import type { LyricsFormat, LyricsLine } from "@/types/lyrics";
+import type { Track } from "@/types/track";
 
 export type CommitFetchedLyricsResult =
   | { status: "ok" }

@@ -1,5 +1,5 @@
 import { message } from "@tauri-apps/plugin-dialog";
-import { useTagWriteConfirmStore } from "../store/useTagWriteConfirmStore";
+import { useTagWriteConfirmStore } from "@/store/useTagWriteConfirmStore";
 import { t } from "./i18n";
 import type { TagWriteContext } from "./tagWriteConfirmPreferences";
 

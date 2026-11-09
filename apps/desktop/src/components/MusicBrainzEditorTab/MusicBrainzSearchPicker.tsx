@@ -2,12 +2,12 @@ import { useTranslation } from "react-i18next";
 import {
   musicBrainzHitFacts,
   musicBrainzHitTitle,
-} from "../../lib/musicBrainzEntityDisplay";
+} from "@/lib/musicBrainzEntityDisplay";
 import type {
   MusicBrainzEntityHit,
   MusicBrainzEntityKind,
-} from "../../types/musicbrainz";
-import { ChoiceList } from "../common/ChoiceOption/ChoiceOption";
+} from "@/types/musicbrainz";
+import { ChoiceList } from "@/components/common/ChoiceOption/ChoiceOption";
 import {
   Modal,
   ModalBody,
@@ -16,7 +16,7 @@ import {
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
-} from "../common/Modal/Modal";
+} from "@/components/common/Modal/Modal";
 import {
   MusicBrainzEntityCard,
   MusicBrainzEntityCardSkeleton,

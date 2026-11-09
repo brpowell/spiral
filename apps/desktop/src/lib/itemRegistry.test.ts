@@ -44,7 +44,7 @@ import {
   catalogItemName,
   type RegistryItemSummary,
   type RegistryVersionSummary,
-} from "../types/itemRegistry";
+} from "@/types/itemRegistry";
 
 const REGISTRY = "https://spk.spiralpowered.com";
 

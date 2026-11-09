@@ -2,9 +2,9 @@ import { create } from "zustand";
 import {
   hasCompletedOnboarding,
   markOnboardingCompleted,
-} from "../lib/onboardingPreferences";
-import { organizeInBackground } from "../lib/organizeSource";
-import { createManagedSource, getLibrary, removeSource } from "../lib/tauri";
+} from "@/lib/onboardingPreferences";
+import { organizeInBackground } from "@/lib/organizeSource";
+import { createManagedSource, getLibrary, removeSource } from "@/lib/tauri";
 import { useLibrarySettingsStore } from "./useLibrarySettingsStore";
 import { useSourcesStore } from "./useSourcesStore";
 

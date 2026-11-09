@@ -1,9 +1,9 @@
-import { BackgroundTaskCancelledError } from "../../lib/backgroundTaskCancel";
-import { logActivityEntry } from "../../lib/activityLog";
-import { convertTracksSettleOptions } from "../../lib/convertTracks";
-import { t } from "../../lib/i18n";
-import { lyricsFetchBulkSettleOptions } from "../../lib/lyricsFetchToastSettle";
-import { organizeSettleOptions } from "../../lib/organizeSource";
+import { BackgroundTaskCancelledError } from "@/lib/backgroundTaskCancel";
+import { logActivityEntry } from "@/lib/activityLog";
+import { convertTracksSettleOptions } from "@/lib/convertTracks";
+import { t } from "@/lib/i18n";
+import { lyricsFetchBulkSettleOptions } from "@/lib/lyricsFetchToastSettle";
+import { organizeSettleOptions } from "@/lib/organizeSource";
 import {
   activityLogCopiedPayload,
   availableUpdatePayload,
@@ -36,24 +36,24 @@ import {
   themeCreateFailedPayload,
   themeSaveFailedPayload,
   updaterCheckErrorPayload,
-} from "../../lib/toastPayloads";
-import { ITEM_UPDATES_BULK_KEY } from "../../lib/itemRegistry";
+} from "@/lib/toastPayloads";
+import { ITEM_UPDATES_BULK_KEY } from "@/lib/itemRegistry";
 import {
   importCompletionSettleOptions,
   importNoAudioSettleOptions,
-} from "../../lib/import";
-import { libraryRefreshSettleOptions } from "../../lib/refreshLibraryMetadata";
-import { ACTIVITY_LOG_DOMAINS } from "../../types/activityLog";
-import type { LyricsSearchCandidate } from "../../types/lyrics";
-import type { Track } from "../../types/track";
+} from "@/lib/import";
+import { libraryRefreshSettleOptions } from "@/lib/refreshLibraryMetadata";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
+import type { LyricsSearchCandidate } from "@/types/lyrics";
+import type { Track } from "@/types/track";
 import type {
   BackgroundTaskRunContext,
   useBackgroundTasksStore,
-} from "../../store/useBackgroundTasksStore";
-import { useLyricsFetchStore } from "../../store/useLyricsFetchStore";
-import { usePlayerStore } from "../../store/usePlayerStore";
-import { useUpdaterStore } from "../../store/useUpdaterStore";
-import { useWhatsNewStore } from "../../store/useWhatsNewStore";
+} from "@/store/useBackgroundTasksStore";
+import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { useUpdaterStore } from "@/store/useUpdaterStore";
+import { useWhatsNewStore } from "@/store/useWhatsNewStore";
 
 type Store = ReturnType<typeof useBackgroundTasksStore.getState>;
 

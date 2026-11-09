@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 const showToast = vi.fn();
 const logActivity = vi.fn();
 
-vi.mock("../store/useBackgroundTasksStore", () => ({
+vi.mock("@/store/useBackgroundTasksStore", () => ({
   useBackgroundTasksStore: {
     getState: () => ({ showToast }),
   },

@@ -5,7 +5,7 @@ import {
   isSkinControlEnabled,
   isSkinVisible,
 } from "./skinBinds";
-import { minimalBindState } from "../test/skinBindFixtures";
+import { minimalBindState } from "@/test/skinBindFixtures";
 import { evaluateSlideshowBind, initSlideshowState } from "./skinSlideshow";
 import { initScrollStripState } from "./skinScrollStrip";
 import { evaluateStateBind } from "./skinViewStateContext";
@@ -13,7 +13,7 @@ import type {
   ScrollStripPresentation,
   SkinSetting,
   SlideshowPresentation,
-} from "../types/skin";
+} from "@/types/skin";
 
 const promoPresentation: SlideshowPresentation = {
   kind: "imageSequence",

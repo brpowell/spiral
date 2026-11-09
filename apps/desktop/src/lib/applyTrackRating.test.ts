@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Track } from "../types/track";
+import type { Track } from "@/types/track";
 
 const setTrackRating = vi.fn();
 const confirmTagWriteNative = vi.fn();
@@ -14,7 +14,7 @@ vi.mock("./scheduling", () => ({
   afterUiTransition: () => Promise.resolve(),
 }));
 
-import { useTagWriteConfirmStore } from "../store/useTagWriteConfirmStore";
+import { useTagWriteConfirmStore } from "@/store/useTagWriteConfirmStore";
 import { confirmAndApplyTrackRatings } from "./applyTrackRating";
 
 const track = (id: number, rating: number) => ({ id, rating }) as Track;

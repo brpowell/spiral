@@ -7,14 +7,14 @@ import {
   within,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
-import { usePlayerStore } from "../../store/usePlayerStore";
-import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
-import { useSourcesStore } from "../../store/useSourcesStore";
-import type { LibrarySettings } from "../../types/library";
-import type { FilePlanSummary, Source } from "../../types/source";
-import type { Track } from "../../types/track";
-import { revealInFileManagerLabel } from "../../lib/fileManager";
+import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { useSourcesStore } from "@/store/useSourcesStore";
+import type { LibrarySettings } from "@/types/library";
+import type { FilePlanSummary, Source } from "@/types/source";
+import type { Track } from "@/types/track";
+import { revealInFileManagerLabel } from "@/lib/fileManager";
 import { SourcesSection } from "./SourcesSection";
 
 const tauri = vi.hoisted(() => ({
@@ -34,7 +34,7 @@ const tauri = vi.hoisted(() => ({
   FILE_PLAN_PROGRESS_EVENT: "library://file-plan-progress",
 }));
 
-vi.mock("../../lib/tauri", () => tauri);
+vi.mock("@/lib/tauri", () => tauri);
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn().mockResolvedValue(() => {}),
 }));

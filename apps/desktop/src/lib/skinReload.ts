@@ -1,6 +1,6 @@
 import { resolveViewForPack } from "./skinViewState";
 import { loadSkinPack } from "./tauri";
-import { useSkinStore } from "../store/useSkinStore";
+import { useSkinStore } from "@/store/useSkinStore";
 import { getSkinAuxContext } from "./windowRole";
 
 export async function reloadActiveSkinPack(): Promise<void> {

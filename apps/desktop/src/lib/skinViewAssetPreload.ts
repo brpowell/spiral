@@ -5,7 +5,7 @@ import type {
   LayoutTreeNode,
   LoadedSkinPack,
   StripSliderPresentation,
-} from "../types/skin";
+} from "@/types/skin";
 import { loadStripSliderPositionMap } from "./skinStripSliderMap";
 import { loadSkinGif } from "./skinGifPlayback";
 import { loadSkinBitmap } from "./skinBitmapCache";

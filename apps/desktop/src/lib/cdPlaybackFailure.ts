@@ -1,7 +1,7 @@
 import { logActivity } from "./activityLog";
 import { cdPlaybackFailurePayload } from "./toastPayloads";
-import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
-import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
+import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
 
 const DEDUPE_MS = 2_500;
 

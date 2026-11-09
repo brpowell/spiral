@@ -1,9 +1,9 @@
 import {
   ContextMenuCheckboxItem,
   ContextMenuHeading,
-} from "../ContextMenu/ContextMenu";
-import { IconColumns } from "../icons";
-import { MenuButton } from "../MenuButton/MenuButton";
+} from "@/components/ContextMenu/ContextMenu";
+import { IconColumns } from "@/components/icons";
+import { MenuButton } from "@/components/MenuButton/MenuButton";
 import type { TrackListColumnDef, TrackListColumnId } from "./types";
 
 interface TrackListColumnMenuProps {

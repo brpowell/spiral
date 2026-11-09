@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import {
   copyDiagnosticsToClipboard,
   fetchDiagnosticsBundle,
   saveDiagnosticsToFile,
-} from "../../lib/diagnosticsExport";
-import type { CrashReport } from "../../types/crashReport";
-import { Button } from "../common/Button/Button";
+} from "@/lib/diagnosticsExport";
+import type { CrashReport } from "@/types/crashReport";
+import { Button } from "@/components/common/Button/Button";
 import {
   Modal,
   ModalBody,
@@ -14,14 +14,14 @@ import {
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
-} from "../common/Modal/Modal";
+} from "@/components/common/Modal/Modal";
 import {
   IconCheck,
   IconChevronDown,
   IconChevronRight,
   IconCopy,
   IconOpenFolder,
-} from "../icons";
+} from "@/components/icons";
 import "./CrashReportModal.css";
 
 const COPY_FEEDBACK_MS = 2000;
@@ -41,7 +41,9 @@ export function CrashReportModal({
 }: CrashReportModalProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
-  const copyResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [detailsJson, setDetailsJson] = useState<string | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -190,13 +192,17 @@ export function CrashReportModal({
               {detailsExpanded && (
                 <div className="crash-report-modal__details-body">
                   {detailsLoading ? (
-                    <p className="crash-report-modal__details-status">Loading…</p>
+                    <p className="crash-report-modal__details-status">
+                      Loading…
+                    </p>
                   ) : detailsError != null ? (
                     <p className="crash-report-modal__details-status crash-report-modal__details-status--error">
                       {detailsError}
                     </p>
                   ) : detailsJson != null ? (
-                    <pre className="crash-report-modal__json">{detailsJson}</pre>
+                    <pre className="crash-report-modal__json">
+                      {detailsJson}
+                    </pre>
                   ) : null}
                 </div>
               )}

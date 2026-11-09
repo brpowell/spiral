@@ -1,4 +1,4 @@
-import * as AppIcons from "../../components/icons";
+import * as AppIcons from "@/components/icons";
 import { EXTRA_LIBRARY_ICONS } from "./extraIcons";
 import iconTagsJson from "./iconTags.json";
 import { normalizeIconTags, type IconTagTable } from "./iconTagTable";

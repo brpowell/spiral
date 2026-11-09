@@ -1,5 +1,5 @@
-import { useCdTrackMenu } from "../../hooks/useCdTrackMenu";
-import type { Track } from "../../types/track";
+import { useCdTrackMenu } from "@/hooks/useCdTrackMenu";
+import type { Track } from "@/types/track";
 
 interface CdTrackRowMenuProps {
   track: Track;

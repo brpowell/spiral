@@ -4,7 +4,7 @@ import {
   formatActivityLogDisplayLine,
   formatActivityLogDisplayList,
 } from "./activityLogLine";
-import type { ActivityLogEntry } from "../types/activityLog";
+import type { ActivityLogEntry } from "@/types/activityLog";
 
 function entry(partial: Partial<ActivityLogEntry> = {}): ActivityLogEntry {
   return {

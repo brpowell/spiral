@@ -1,10 +1,10 @@
 import { useMemo } from "react";
-import { ChipInput } from "../common/ChipInput/ChipInput";
+import { ChipInput } from "@/components/common/ChipInput/ChipInput";
 import {
   normalizeArtistName,
   parseArtistField,
   serializeArtistField,
-} from "../../lib/artistNames";
+} from "@/lib/artistNames";
 import "./ArtistChipField.css";
 
 export type ArtistChipFieldProps = {

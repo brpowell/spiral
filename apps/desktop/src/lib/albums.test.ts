@@ -6,8 +6,8 @@ import {
   groupAlbumTracksByDisc,
   groupTracksIntoAlbums,
 } from "./albums";
-import type { CdDisc } from "../types/cd";
-import type { Track } from "../types/track";
+import type { CdDisc } from "@/types/cd";
+import type { Track } from "@/types/track";
 
 function track(overrides: Partial<Track> & Pick<Track, "id">): Track {
   return {

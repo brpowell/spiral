@@ -1,11 +1,11 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { useSkinPreferencesStore } from "../store/useSkinPreferencesStore";
-import { useSkinStore } from "../store/useSkinStore";
-import { soundEffectsEnabledFromPreferences } from "../types/skinPreferences";
+import { useSkinPreferencesStore } from "@/store/useSkinPreferencesStore";
+import { useSkinStore } from "@/store/useSkinStore";
+import { soundEffectsEnabledFromPreferences } from "@/types/skinPreferences";
 import { evaluateSkinBind, type SkinBindState } from "./skinBinds";
 import { resolveCueUrl } from "./packSounds";
 import { playOneShot } from "./sfxPlayer";
-import type { LoadedSkinPack } from "../types/skin";
+import type { LoadedSkinPack } from "@/types/skin";
 
 /** Bind path → soundEffects key when truthy (last match wins). Falls back to `sound`. */
 export function resolveSkinClickSound(
