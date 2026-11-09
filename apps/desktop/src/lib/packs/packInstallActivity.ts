@@ -1,4 +1,4 @@
-import { logActivity } from "@/lib/activityLog";
+import { logActivity } from "@/lib/activity/activityLog";
 import { errorMessageFromUnknown } from "@/lib/cd/cdPlaybackFailure";
 import type { InstallItemResult } from "@/lib/tauri";
 import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";

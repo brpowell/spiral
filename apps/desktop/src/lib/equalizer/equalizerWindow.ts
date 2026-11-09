@@ -1,6 +1,6 @@
-import { ensureAppWindow, releaseAppWindow } from "@/lib/appWindows";
-import { applyCustomWindowChrome } from "@/lib/windowChrome";
-import { isTauri } from "@/lib/windowRole";
+import { ensureAppWindow, releaseAppWindow } from "@/lib/windows/appWindows";
+import { applyCustomWindowChrome } from "@/lib/windows/windowChrome";
+import { isTauri } from "@/lib/windows/windowRole";
 
 const EQUALIZER_LABEL = "equalizer";
 

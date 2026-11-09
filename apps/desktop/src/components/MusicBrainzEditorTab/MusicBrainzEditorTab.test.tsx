@@ -5,7 +5,7 @@ import type {
   MusicBrainzEntityHit,
   MusicBrainzEntityLookup,
 } from "@/types/musicbrainz";
-import { resetModalStack } from "@/lib/modalStack";
+import { resetModalStack } from "@/lib/ui/modalStack";
 import { MusicBrainzEditorTab } from "./MusicBrainzEditorTab";
 
 vi.mock("framer-motion", () => ({

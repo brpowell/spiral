@@ -1,6 +1,6 @@
 import type { Theme, ThemeTokens } from "@/types/theme";
 import { REQUIRED_THEME_TOKEN_KEYS } from "@/types/theme";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 
 export type ThemeValidationIssue = {
   field: string;

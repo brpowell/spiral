@@ -4,9 +4,9 @@ import {
   formatBitrate,
   formatCodec,
   formatSampleRate,
-} from "@/lib/formatAudio";
-import { formatBytes } from "@/lib/formatBytes";
-import { formatDateAdded } from "@/lib/format";
+} from "@/lib/format/formatAudio";
+import { formatBytes } from "@/lib/format/formatBytes";
+import { formatDateAdded } from "@/lib/format/format";
 import {
   IconAudioWaveform,
   IconBitrate,

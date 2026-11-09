@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { confirmAndApplyTrackRatings } from "@/lib/tracks/applyTrackRating";
 import { albumTotalDurationSeconds } from "@/lib/albums/albums";
-import { formatTime } from "@/lib/format";
+import { formatTime } from "@/lib/format/format";
 import {
   getPlaylistById,
   resolvePlaylistTracks,

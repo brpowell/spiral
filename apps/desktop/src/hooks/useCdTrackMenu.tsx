@@ -4,7 +4,7 @@ import {
   ContextMenuItem,
 } from "@/components/ContextMenu/ContextMenu";
 import { IconAddToQueue, IconInfo } from "@/components/icons";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { tracksForContextAction } from "@/lib/tracks/trackSelection";
 import { useCdStore } from "@/store/useCdStore";
 import { usePlayerStore } from "@/store/usePlayerStore";

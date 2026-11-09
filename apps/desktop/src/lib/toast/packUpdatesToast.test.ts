@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { packUpdatesSettleOptions } from "./toast/toastPayloads";
+import { packUpdatesSettleOptions } from "./toastPayloads";
 
 describe("packUpdatesSettleOptions", () => {
   it("formats all-success as number-first updated clause", () => {

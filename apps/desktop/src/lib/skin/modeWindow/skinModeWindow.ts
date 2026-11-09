@@ -1,6 +1,6 @@
 import { emit } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { ensureAppWindow } from "@/lib/appWindows";
+import { ensureAppWindow } from "@/lib/windows/appWindows";
 import { availableMonitors, getCurrentWindow } from "@tauri-apps/api/window";
 import {
   closeAllSkinAuxWindows,
@@ -24,7 +24,7 @@ import {
 import { PLAYER_REQUEST_STATE_EVENT } from "@/lib/playback/playerStoreBridge";
 import { setSkinModeAlwaysOnTopSnapshot } from "./skinModeAlwaysOnTop";
 import { setSkinModeSessionActive } from "@/lib/playback/listenSession";
-import { isTauri } from "@/lib/windowRole";
+import { isTauri } from "@/lib/windows/windowRole";
 
 export { DEFAULT_SKIN_MODE_ALWAYS_ON_TOP } from "./skinModeWindowState";
 

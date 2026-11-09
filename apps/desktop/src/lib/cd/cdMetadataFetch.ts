@@ -3,8 +3,8 @@ import {
   resolveAlbumArtPath,
 } from "@/lib/albums/albumArtFetch";
 import { ensureCdHeroArtValid } from "./cdArt";
-import { logActivity, withLogContext } from "@/lib/activityLog";
-import { t } from "@/lib/i18n";
+import { logActivity, withLogContext } from "@/lib/activity/activityLog";
+import { t } from "@/lib/i18n/i18n";
 import { isNetworkLikelyAvailable } from "@/lib/network";
 import { resolveCachedArtPath } from "@/lib/tauri";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";

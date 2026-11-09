@@ -3,7 +3,7 @@ import {
   acknowledgeCrashReport,
   listUnacknowledgedStartupRustCrashReports,
   readCrashReport,
-} from "@/lib/crashReport";
+} from "@/lib/activity/crashReport";
 import { useOnboardingStore } from "@/store/useOnboardingStore";
 import type { CrashReport } from "@/types/crashReport";
 

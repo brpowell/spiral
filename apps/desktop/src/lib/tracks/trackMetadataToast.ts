@@ -1,4 +1,4 @@
-import { logActivity } from "@/lib/activityLog";
+import { logActivity } from "@/lib/activity/activityLog";
 import { isMissingFileErrorDetail } from "./missingFileTrack";
 import {
   bulkTrackMetadataSavePayload,

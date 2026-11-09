@@ -4,7 +4,7 @@ import { isTrackImporting } from "@/lib/import/pendingImportTrack";
 import { applyArtistImages } from "@/lib/artists/artistArt";
 import { groupTracksIntoAlbums } from "@/lib/albums/albums";
 import { groupTracksIntoArtists } from "@/lib/artists/artists";
-import { viewTransition } from "@/lib/motion";
+import { viewTransition } from "@/lib/ui/motion";
 import { useArtistImageStore } from "@/store/useArtistImageStore";
 import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";

@@ -1,4 +1,4 @@
-import { t, type TranslationKey } from "@/lib/i18n";
+import { t, type TranslationKey } from "@/lib/i18n/i18n";
 import { isMissingFileErrorDetail } from "@/lib/tracks/missingFileTrack";
 import { lyricsAmbiguousSettleOptions } from "@/lib/lyrics/lyricsFetchToastSettle";
 import { describeSourceError } from "@/lib/files/sourceAccess";

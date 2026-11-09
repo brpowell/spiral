@@ -1,7 +1,7 @@
 import type { TrackMetadataUpdate } from "@/types/metadata";
 import type { MusicBrainzTrackSlot } from "@/types/musicbrainz";
 import { mbidFieldsFrom, type Track } from "@/types/track";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { matchRecordingMbid } from "@/lib/musicbrainz/musicBrainzReleaseRecordings";
 import {
   isTrackEditorFieldMixed,

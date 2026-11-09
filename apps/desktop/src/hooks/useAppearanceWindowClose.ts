@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { hideAppearanceWindow } from "@/lib/appearanceWindow";
+import { hideAppearanceWindow } from "@/lib/windows/appearanceWindow";
 
 /** Keep the appearance webview alive; closing only hides it so it can reopen. */
 export function useAppearanceWindowClose(): void {

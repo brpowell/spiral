@@ -1,10 +1,10 @@
 import { Channel } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { create } from "zustand";
-import { ITEM_UPDATES_CHANGED_EVENT } from "@/lib/appearanceWindow";
-import { BackgroundTaskCancelledError } from "@/lib/backgroundTaskCancel";
+import { ITEM_UPDATES_CHANGED_EVENT } from "@/lib/windows/appearanceWindow";
+import { BackgroundTaskCancelledError } from "@/lib/activity/backgroundTaskCancel";
 import { errorMessageFromUnknown } from "@/lib/cd/cdPlaybackFailure";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import {
   isDownloadCancelled,
   ITEM_UPDATES_BULK_KEY,
@@ -24,7 +24,7 @@ import {
   installItemFromRegistry,
   saveLibrarySettings,
 } from "@/lib/tauri";
-import { isTauri } from "@/lib/windowRole";
+import { isTauri } from "@/lib/windows/windowRole";
 import { catalogItemName, type ItemUpdate } from "@/types/itemRegistry";
 import { useBackgroundTasksStore } from "./useBackgroundTasksStore";
 

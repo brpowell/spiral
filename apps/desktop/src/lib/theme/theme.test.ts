@@ -12,7 +12,7 @@ import {
   stripDerivedThemeTokens,
   windowAppearanceForBackground,
 } from "./theme";
-import { resolveFontStack } from "@/lib/fonts";
+import { resolveFontStack } from "@/lib/ui/fonts";
 
 function makeTheme(id: string, name: string): Theme {
   const parts = id.split(".");

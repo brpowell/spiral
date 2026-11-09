@@ -4,8 +4,9 @@ import type { Track } from "@/types/track";
 
 const env = vi.hoisted(() => ({ skinWindow: false, audioSeconds: 0 }));
 
-vi.mock("@/lib/windowRole", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/windowRole")>();
+vi.mock("@/lib/windows/windowRole", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/windows/windowRole")>();
   return { ...actual, isAnySkinWindow: () => env.skinWindow };
 });
 

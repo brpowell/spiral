@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import {
   AUTOMATIC_UPDATE_INTERVAL_MS,
   checkForAvailableUpdate,
@@ -15,7 +15,7 @@ import {
   availableUpdateActions,
   availableUpdatePayload,
 } from "@/lib/toast/toastPayloads";
-import { isTauri } from "@/lib/windowRole";
+import { isTauri } from "@/lib/windows/windowRole";
 import {
   useBackgroundTasksStore,
   type BackgroundTaskAction,

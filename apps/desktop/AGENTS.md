@@ -12,6 +12,10 @@ The `Library.db` schema is versioned: changes are append-only migrations in `src
 
 Import across folders with the `@/` alias (`@/lib/…`, `@/components/…`), which maps to `src/`. Use `./` only for files in the same folder or below it, and never `../`. Exception: modules that `vite.config.ts` imports (and their dependencies) must stay relative, because Vite loads the config before the alias applies.
 
+## Lib placement
+
+`src/lib/` is grouped by folder: domain folders (`tracks/`, `artists/`, `playback/`, `skin/`, `import/`, …) and infrastructure folders (`windows/`, `activity/`, `i18n/`, `format/`, `ui/`, `dev/`). Put a new module in the folder it belongs to, next to its test. Only app-wide modules (`tauri`, `network`, `scheduling`, `updater`, …) sit directly in `src/lib/`.
+
 ## Component placement
 
 `src/components/common/` holds domain-agnostic design-system primitives only (`Button`, `TextInput`, `Modal`, `Chip`, `ChipInput`, `FormField`). A component belongs there only if its props are generic and it imports no domain `lib/` modules (`artistNames`, `trackMetadataForm`, `albums`, …), Zustand stores, or library/playback navigation.

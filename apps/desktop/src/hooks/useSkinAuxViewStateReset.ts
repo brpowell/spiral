@@ -5,7 +5,7 @@ import {
   type SkinAuxViewEventPayload,
 } from "@/lib/skin/auxWindow/skinAuxEvents";
 import { resetSkinViewRuntimeState } from "@/lib/skin/skinViewRuntimeState";
-import { getSkinAuxContext, isSkinAuxWindow } from "@/lib/windowRole";
+import { getSkinAuxContext, isSkinAuxWindow } from "@/lib/windows/windowRole";
 
 export function useSkinAuxViewStateReset(): void {
   useEffect(() => {

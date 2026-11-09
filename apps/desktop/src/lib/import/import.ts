@@ -4,7 +4,7 @@ import {
   resetPendingTrackIds,
 } from "./pendingImportTrack";
 import { yieldForInteraction } from "@/lib/scheduling";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { describeSourceError } from "@/lib/files/sourceAccess";
 import {
   findLibraryDuplicate,
@@ -29,7 +29,7 @@ import {
 import type { BackgroundTaskSettleAsOptions } from "@/store/useBackgroundTasksStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { Track, TrackInput } from "@/types/track";
-import { BackgroundTaskCancelledError } from "@/lib/backgroundTaskCancel";
+import { BackgroundTaskCancelledError } from "@/lib/activity/backgroundTaskCancel";
 import { formatPeerOutcomeTitle } from "@/lib/toast/toastPeerOutcomes";
 
 export interface ImportResult {

@@ -10,7 +10,7 @@ import {
   IconRemoveFromQueue,
 } from "@/components/icons";
 import { openConvertForTrackIds } from "@/lib/files/convertTracks";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { isTrackConvertible } from "@/lib/import/pendingImportTrack";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { Album } from "@/types/album";

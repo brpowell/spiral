@@ -45,8 +45,8 @@ User-facing copy belongs in `src/locales/en/` and is referenced via `t` / `useTr
 
 - Extract strings you change in the same PR (boy scout); don't block unrelated work on extracting a whole feature. Use stable descriptive keys (`library.empty.tracks`) and i18n plurals/interpolation, not `count === 1 ? …` branches.
 - DEV-only copy (Developer menu, Toast Lab chrome, other debug UX) stays hardcoded English; pack/skin author content never goes in app catalogs.
-- React: `useTranslation()` / `<Trans>`. Non-React (`src/lib/`, menus, toasts): `t` / `i18n` from `src/lib/i18n`.
-- `t()` is typed from the English JSON catalogs (`TranslationKey` in `src/lib/i18nKeys.ts`). Use `tUnchecked` only for interpolated key paths.
+- React: `useTranslation()` / `<Trans>`. Non-React (`src/lib/`, menus, toasts): `t` / `i18n` from `src/lib/i18n/i18n`.
+- `t()` is typed from the English JSON catalogs (`TranslationKey` in `src/lib/i18n/i18nKeys.ts`). Use `tUnchecked` only for interpolated key paths.
 - `npm run lint:i18n` (also part of `npm run lint`) fails when a static `t("ns:key")` is missing from `src/locales/en`.
 - Date/sort helpers use the app locale (`getIntlLocale` / `compareLocalized`). A German stub catalog (`src/locales/de`) plus Developer → Language proves switching; it is not a product locale.
 - Untouched screens may still have inline English until a boy-scout extract on touch.

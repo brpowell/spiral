@@ -20,7 +20,7 @@ import {
   type EqualizerPresetRecord,
   type EqualizerSettings,
 } from "@/lib/tauri";
-import { getWindowRole } from "@/lib/windowRole";
+import { getWindowRole } from "@/lib/windows/windowRole";
 
 interface EqualizerStoreState {
   enabled: boolean;

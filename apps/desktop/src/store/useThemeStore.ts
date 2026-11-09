@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { compareLocalized } from "@/lib/appLocale";
+import { compareLocalized } from "@/lib/i18n/appLocale";
 import {
   applyTheme,
   DEFAULT_THEME_ID,

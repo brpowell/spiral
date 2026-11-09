@@ -1,4 +1,4 @@
-import { getIntlLocale } from "./appLocale";
+import { getIntlLocale } from "@/lib/i18n/appLocale";
 
 export function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";

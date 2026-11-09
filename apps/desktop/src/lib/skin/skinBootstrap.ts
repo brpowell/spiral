@@ -7,7 +7,7 @@ import { installSkinDevConsole } from "./skinDevConsole";
 import { isSkinModeVisible } from "./modeWindow/skinModeWindow";
 import { DEFAULT_SKIN_ID, useSkinStore } from "@/store/useSkinStore";
 import { useSkinPreferencesStore } from "@/store/useSkinPreferencesStore";
-import { isSkinModeWindow } from "@/lib/windowRole";
+import { isSkinModeWindow } from "@/lib/windows/windowRole";
 
 export async function bootstrapSkin(): Promise<void> {
   try {

@@ -6,7 +6,7 @@ import {
   pathsFromDataTransfer,
 } from "@/lib/import/dragDrop";
 import { routeDroppedPaths } from "@/lib/import/fileDropRouting";
-import { isTauri } from "@/lib/windowRole";
+import { isTauri } from "@/lib/windows/windowRole";
 import { useOnboardingStore } from "@/store/useOnboardingStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import "./ImportDropZone.css";

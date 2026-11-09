@@ -7,8 +7,8 @@ import { useAppearanceWindowClose } from "@/hooks/useAppearanceWindowClose";
 import {
   ITEM_UPDATES_CHANGED_EVENT,
   RELOAD_LINKED_PACKS_EVENT,
-} from "@/lib/appearanceWindow";
-import { t } from "@/lib/i18n";
+} from "@/lib/windows/appearanceWindow";
+import { t } from "@/lib/i18n/i18n";
 import { refreshPackContributionStores } from "@/lib/packs/refreshPackStores";
 import { useItemUpdatesStore } from "@/store/useItemUpdatesStore";
 import { useSkinStore } from "@/store/useSkinStore";

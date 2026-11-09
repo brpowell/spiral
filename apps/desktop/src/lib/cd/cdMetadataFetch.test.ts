@@ -40,7 +40,7 @@ vi.mock("@/lib/tauri", async (importOriginal) => {
   };
 });
 
-vi.mock("@/lib/activityLog", () => ({
+vi.mock("@/lib/activity/activityLog", () => ({
   logActivity: vi.fn(),
   withLogContext: (ctx: unknown, extra: unknown) => ({
     ...(ctx as object),
@@ -58,7 +58,7 @@ vi.mock("@/store/useBackgroundTasksStore", () => ({
 }));
 
 import { startCdHeroArtFetch, startCdMetadataFetch } from "./cdMetadataFetch";
-import { logActivity } from "@/lib/activityLog";
+import { logActivity } from "@/lib/activity/activityLog";
 import {
   cdHeroArtFetchedSettleOptions,
   cdMetadataFailedSettleOptions,

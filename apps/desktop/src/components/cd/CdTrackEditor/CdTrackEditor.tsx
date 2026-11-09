@@ -18,7 +18,7 @@ import {
 } from "@/lib/cd/cdOverrideFromForm";
 import { mergeDiscDisplayLayers } from "@/lib/cd/cdMetadata";
 import { cdTrackNumberFromListId, cdTracksForList } from "@/lib/cd/cdTracks";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { fetchCoverArtCandidates } from "@/lib/albums/albumArtFetch";
 import {
   preloadCoverArtThumbs,

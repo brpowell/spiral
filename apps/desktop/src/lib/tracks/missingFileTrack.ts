@@ -1,7 +1,7 @@
 import type { Track } from "@/types/track";
 import { fileExists } from "@/lib/art/artPath";
-import { formatDateAdded } from "@/lib/format";
-import { t } from "@/lib/i18n";
+import { formatDateAdded } from "@/lib/format/format";
+import { t } from "@/lib/i18n/i18n";
 
 /** Missing when the library marked it so on a scan, or playback couldn't find it. */
 export function isTrackMissingFile(track: Track): boolean {

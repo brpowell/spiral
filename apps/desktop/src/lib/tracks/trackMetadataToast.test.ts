@@ -9,7 +9,7 @@ vi.mock("@/store/useBackgroundTasksStore", () => ({
   },
 }));
 
-vi.mock("@/lib/activityLog", () => ({
+vi.mock("@/lib/activity/activityLog", () => ({
   logActivity: (...args: unknown[]) => logActivity(...args),
 }));
 

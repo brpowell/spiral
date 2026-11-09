@@ -6,8 +6,8 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   applyCustomWindowChrome,
   getDesktopPlatform,
-} from "@/lib/windowChrome";
-import { isTauri } from "@/lib/windowRole";
+} from "@/lib/windows/windowChrome";
+import { isTauri } from "@/lib/windows/windowRole";
 
 export const TOAST_LAB_LABEL = "toast-lab";
 export const TOAST_LAB_QUERY = "toast-lab=1";

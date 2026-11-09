@@ -38,7 +38,7 @@ import {
 } from "@/lib/skin/modeWindow/skinModeWindowChrome";
 import { restoreSkinModeGeometry } from "@/lib/skin/modeWindow/skinModeSnap";
 import { DEFAULT_SKIN_MODE_ALWAYS_ON_TOP } from "@/lib/skin/modeWindow/skinModeWindowState";
-import { isTauri } from "@/lib/windowRole";
+import { isTauri } from "@/lib/windows/windowRole";
 import { isAuxiliaryView } from "@/lib/skin/skinWindowPresentation";
 
 const openingAuxWindows = new Map<string, Promise<void>>();

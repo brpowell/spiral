@@ -1,4 +1,4 @@
-import { formatBytes, formatDimensions } from "@/lib/formatBytes";
+import { formatBytes, formatDimensions } from "@/lib/format/formatBytes";
 import type { CoverArtCandidate } from "@/types/coverArt";
 
 const MAX_CACHED_THUMBS = 64;

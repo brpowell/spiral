@@ -1,5 +1,5 @@
 import { discoverTrackFileMissing } from "@/lib/tracks/missingFileTrack";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { showPlaybackFileMissingToast } from "@/lib/playback/playbackToast";
 import { revealPathInFileManager } from "@/lib/tauri";
 import type { Track } from "@/types/track";

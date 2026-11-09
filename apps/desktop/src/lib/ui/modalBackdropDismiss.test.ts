@@ -10,9 +10,9 @@ describe("shouldDismissModalOnBackdropRelease", () => {
   ])(
     "pressed=$pressed released=$released => dismiss=$dismiss",
     ({ pressed, released, dismiss }) => {
-      expect(
-        shouldDismissModalOnBackdropRelease(pressed, released),
-      ).toBe(dismiss);
+      expect(shouldDismissModalOnBackdropRelease(pressed, released)).toBe(
+        dismiss,
+      );
     },
   );
 });

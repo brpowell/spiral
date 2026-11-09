@@ -1,9 +1,9 @@
 import { useRef } from "react";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import {
   detailReturnLabel,
   type DetailReturnContext,
-} from "@/lib/navigationReturn";
+} from "@/lib/ui/navigationReturn";
 import type { Artist } from "@/types/artist";
 
 /**

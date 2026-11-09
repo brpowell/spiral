@@ -5,8 +5,8 @@ import {
   formatEqGainDb,
   ratioToGainDb,
 } from "@/lib/equalizer/types";
-import { formatRemainingTime, formatTime } from "@/lib/format";
-import { t, tUnchecked } from "@/lib/i18n";
+import { formatRemainingTime, formatTime } from "@/lib/format/format";
+import { t, tUnchecked } from "@/lib/i18n/i18n";
 import {
   evaluateSkinBind,
   type SkinBindState,

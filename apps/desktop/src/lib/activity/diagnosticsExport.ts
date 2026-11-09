@@ -1,11 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { normalizeActivityLogEntry } from "./activityLogLine";
-import { copyTextToClipboard } from "./clipboard";
+import { copyTextToClipboard } from "@/lib/ui/clipboard";
 import { normalizeCrashReport } from "./crashReport";
 import {
   diagnosticsCopiedPayload,
   diagnosticsSavedPayload,
-} from "./toast/toastPayloads";
+} from "@/lib/toast/toastPayloads";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import type {
   DiagnosticsBundle,

@@ -4,7 +4,7 @@ import {
   ContextMenuItem,
 } from "@/components/ContextMenu/ContextMenu";
 import { IconEject } from "@/components/icons";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { useCdStore } from "@/store/useCdStore";
 import type { CdDrive } from "@/types/cd";
 import { useContextMenu } from "./useContextMenu";

@@ -27,7 +27,7 @@ import {
   revealInFileManagerLabel,
   revealTrackInFileManager,
 } from "@/lib/files/fileManager";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import type { CanonicalRating } from "@/lib/tracks/trackRating";
 import {
   openConvertForTrackIds,

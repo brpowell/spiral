@@ -4,7 +4,7 @@ import { assetUrlFromPath } from "@/lib/art/assetUrl";
 import { imageOutputSizeOptions, type ImageCrop } from "@/lib/art/imageCrop";
 import { Button } from "@/components/common/Button/Button";
 import { useOutputSizes } from "@/hooks/useOutputSizes";
-import { formatBytes } from "@/lib/formatBytes";
+import { formatBytes } from "@/lib/format/formatBytes";
 import { clearArtMeasureCache } from "@/lib/tauri";
 import { Select } from "@/components/common/Select/Select";
 import { ImageCropper } from "@/components/common/ImageCropper/ImageCropper";

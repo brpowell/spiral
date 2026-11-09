@@ -1,6 +1,6 @@
-import { compareLocalized } from "@/lib/appLocale";
+import { compareLocalized } from "@/lib/i18n/appLocale";
 import { isAlbumArtOverride } from "@/lib/artists/artistArt";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import type { Album } from "@/types/album";
 import type { CdDisc } from "@/types/cd";
 import type { Track } from "@/types/track";

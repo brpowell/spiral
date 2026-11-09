@@ -1,11 +1,11 @@
 import { logActivity } from "./activityLog";
-import { errorMessageFromUnknown } from "./cd/cdPlaybackFailure";
+import { errorMessageFromUnknown } from "@/lib/cd/cdPlaybackFailure";
 import {
   importPickerFailedPayload,
   libraryLoadFailedPayload,
   libraryPlaybackFailedPayload,
   type ToastPayload,
-} from "./toast/toastPayloads";
+} from "@/lib/toast/toastPayloads";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
 

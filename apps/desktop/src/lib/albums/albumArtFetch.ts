@@ -1,5 +1,5 @@
 import { isNetworkLikelyAvailable } from "@/lib/network";
-import { logActivity, withLogContext } from "@/lib/activityLog";
+import { logActivity, withLogContext } from "@/lib/activity/activityLog";
 import {
   cacheArtFromUrl,
   fetchCoverArt,

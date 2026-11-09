@@ -1,7 +1,7 @@
-import { BackgroundTaskCancelledError } from "@/lib/backgroundTaskCancel";
-import { logActivityEntry } from "@/lib/activityLog";
+import { BackgroundTaskCancelledError } from "@/lib/activity/backgroundTaskCancel";
+import { logActivityEntry } from "@/lib/activity/activityLog";
 import { convertTracksSettleOptions } from "@/lib/files/convertTracks";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { lyricsFetchBulkSettleOptions } from "@/lib/lyrics/lyricsFetchToastSettle";
 import { organizeSettleOptions } from "@/lib/files/organizeSource";
 import {

@@ -1,6 +1,6 @@
 import { mbidFieldsFrom, type Track, type TrackInput } from "@/types/track";
-import { compareLocalized } from "@/lib/appLocale";
-import { t } from "@/lib/i18n";
+import { compareLocalized } from "@/lib/i18n/appLocale";
+import { t } from "@/lib/i18n/i18n";
 
 export type ImportDedupeAction = "skip" | "replace" | "import";
 

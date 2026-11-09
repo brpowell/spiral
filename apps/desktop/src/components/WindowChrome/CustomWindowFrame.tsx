@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import type { AppMenuHandlers } from "@/lib/appMenu";
+import type { AppMenuHandlers } from "@/lib/windows/appMenu";
 import {
   usesCustomWindowChrome,
   usesMacOverlayChrome,
-} from "@/lib/windowChrome";
+} from "@/lib/windows/windowChrome";
 import { MacOverlayTitleBar } from "./MacOverlayTitleBar";
 import { WindowTitleBar } from "./WindowTitleBar";
 import "./CustomWindowFrame.css";

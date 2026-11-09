@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode, Ref } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resetModalStack } from "@/lib/modalStack";
+import { resetModalStack } from "@/lib/ui/modalStack";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { Track } from "@/types/track";
 import { SET_LIST_VIRTUALIZE_AFTER, SetListModal } from "./SetListModal";

@@ -12,8 +12,8 @@ import type {
   FilePlanProgress,
   Source,
 } from "@/types/source";
-import { logActivity } from "@/lib/activityLog";
-import { t } from "@/lib/i18n";
+import { logActivity } from "@/lib/activity/activityLog";
+import { t } from "@/lib/i18n/i18n";
 import {
   countTracksBySource,
   describeSourceError,

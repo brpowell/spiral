@@ -11,8 +11,8 @@ import {
   queuePendingImportRemoval,
   resetImportActivationQueue,
 } from "./importActivationQueue";
-import { logActivity } from "@/lib/activityLog";
-import { BackgroundTaskCancelledError } from "@/lib/backgroundTaskCancel";
+import { logActivity } from "@/lib/activity/activityLog";
+import { BackgroundTaskCancelledError } from "@/lib/activity/backgroundTaskCancel";
 import { isTrackImporting, pendingTrackFromInput } from "./pendingImportTrack";
 import {
   filterPathsForLibraryImport,
@@ -24,7 +24,7 @@ import {
   yieldForInteraction,
   yieldToMain,
 } from "@/lib/scheduling";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { SKIN_AUX_LABEL_PREFIX } from "@/lib/skin/auxWindow/skinAuxContext";
 import {
   cleanupZipImport,
@@ -32,8 +32,8 @@ import {
   scanFolder,
   scanZipImport,
 } from "@/lib/tauri";
-import { isTauri } from "@/lib/windowRole";
-import { reportUnexpectedError } from "@/lib/unexpectedErrorToast";
+import { isTauri } from "@/lib/windows/windowRole";
+import { reportUnexpectedError } from "@/lib/activity/unexpectedErrorToast";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import {
   isImportCancelledError,

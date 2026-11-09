@@ -24,7 +24,7 @@ import {
   scrollLineIntoView,
 } from "@/lib/lyrics/lyricsScroll";
 import { usePlayerStore } from "@/store/usePlayerStore";
-import type { LightboxCompanionMotionProps } from "@/lib/motion";
+import type { LightboxCompanionMotionProps } from "@/lib/ui/motion";
 import {
   LYRICS_FETCH_INSTRUMENTAL,
   type LyricsFetchFeedback,

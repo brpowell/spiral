@@ -1,6 +1,6 @@
 import type { Source } from "@/types/source";
 import type { Track } from "@/types/track";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 
 /**
  * Whether removing the track may also delete its file. Every source's files

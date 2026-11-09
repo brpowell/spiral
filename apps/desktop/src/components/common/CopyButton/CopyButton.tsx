@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, type ButtonProps } from "@/components/common/Button/Button";
 import { IconCheck, IconCopy } from "@/components/icons";
-import { copyTextToClipboard } from "@/lib/clipboard";
+import { copyTextToClipboard } from "@/lib/ui/clipboard";
 
 const COPY_FEEDBACK_MS = 2000;
 

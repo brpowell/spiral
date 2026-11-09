@@ -6,7 +6,7 @@ import {
   groupAlbumTracksByDisc,
 } from "@/lib/albums/albums";
 import { confirmAndApplyTrackRatings } from "@/lib/tracks/applyTrackRating";
-import { formatDurationNatural } from "@/lib/format";
+import { formatDurationNatural } from "@/lib/format/format";
 import { linkableArtistKey } from "@/lib/tracks/trackNavigation";
 import type { CanonicalRating } from "@/lib/tracks/trackRating";
 import { DetailArtistLink } from "@/components/DetailArtistLink/DetailArtistLink";

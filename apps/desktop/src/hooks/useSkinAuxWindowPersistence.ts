@@ -6,7 +6,7 @@ import { signalSkinAuxViewReset } from "@/lib/skin/auxWindow/skinAuxEvents";
 import { persistSkinAuxWindowState } from "@/lib/skin/auxWindow/skinAuxWindow";
 import { isSkinModeSnapSuppressed } from "@/lib/skin/modeWindow/skinModeWindowChrome";
 import { useSkinStore } from "@/store/useSkinStore";
-import { isSkinAuxWindow } from "@/lib/windowRole";
+import { isSkinAuxWindow } from "@/lib/windows/windowRole";
 
 const SAVE_DEBOUNCE_MS = 500;
 

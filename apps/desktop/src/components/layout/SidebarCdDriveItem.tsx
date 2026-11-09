@@ -6,7 +6,7 @@ import { IconDisc, IconEject } from "@/components/icons";
 import { useCdDriveMenu } from "@/hooks/useCdDriveMenu";
 import { mergeRemoteMetadataIntoDisc } from "@/lib/cd/cdMetadata";
 import { cdSidebarDiscLabel } from "@/lib/cd/cdTracks";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { useCdImportStore } from "@/store/useCdImportStore";
 import { useCdStore } from "@/store/useCdStore";
 import { useNavigationStore } from "@/store/useNavigationStore";

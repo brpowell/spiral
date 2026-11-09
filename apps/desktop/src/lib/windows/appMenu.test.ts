@@ -38,9 +38,9 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: () => Promise.resolve(() => {}),
 }));
 vi.mock("./appearanceWindow", () => ({ LINKED_PACKS_CHANGED_EVENT: "linked" }));
-vi.mock("./appLocale", () => ({ stubLocaleMenuLabel: () => "Stub" }));
-vi.mock("./i18n", () => ({ t: (key: string) => key }));
-vi.mock("./tauri", () => ({
+vi.mock("@/lib/i18n/appLocale", () => ({ stubLocaleMenuLabel: () => "Stub" }));
+vi.mock("@/lib/i18n/i18n", () => ({ t: (key: string) => key }));
+vi.mock("@/lib/tauri", () => ({
   listItems: () => Promise.resolve([{ zone: "linked" }]),
 }));
 

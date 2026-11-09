@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { Button } from "@/components/common/Button/Button";
 import { IconBack } from "@/components/icons";
 import "./BrowseView.css";

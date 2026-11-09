@@ -1,4 +1,4 @@
-import { t } from "./i18n";
+import { t } from "@/lib/i18n/i18n";
 
 export function formatFailureDetail(errors: string[], maxLines = 3): string {
   if (errors.length === 0) return "";

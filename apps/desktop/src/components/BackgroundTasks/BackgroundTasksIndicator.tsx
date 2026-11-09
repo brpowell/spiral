@@ -15,7 +15,7 @@ import {
   ITEM_REGISTRY_DOWNLOAD_KEY,
   ITEM_UPDATES_BULK_KEY,
 } from "@/lib/items/itemRegistry";
-import { panelMotion } from "@/lib/motion";
+import { panelMotion } from "@/lib/ui/motion";
 import { cancelItemDownload, cancelLyricsFetch } from "@/lib/tauri";
 import { useCdImportStore } from "@/store/useCdImportStore";
 import {

@@ -6,7 +6,7 @@ import { isCdSidebarDiscReady } from "@/lib/cd/cdTracks";
 import {
   CLICKABLE_ITEM_POINTER_SENSOR,
   SORT_KEYBOARD_SENSOR,
-} from "@/lib/dndSortSensors";
+} from "@/lib/ui/dndSortSensors";
 import { type NavView, useNavigationStore } from "@/store/useNavigationStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";
 import { useCdStore } from "@/store/useCdStore";

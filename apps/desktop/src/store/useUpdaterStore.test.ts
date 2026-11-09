@@ -45,7 +45,7 @@ vi.mock("@/lib/tauri", () => ({
   saveLibrarySettings: mockSaveLibrarySettings,
 }));
 
-vi.mock("@/lib/windowRole", () => ({
+vi.mock("@/lib/windows/windowRole", () => ({
   isTauri: () => mockIsTauri(),
 }));
 
@@ -61,7 +61,7 @@ vi.mock("./useBackgroundTasksStore", () => ({
   },
 }));
 
-vi.mock("@/lib/i18n", () => ({
+vi.mock("@/lib/i18n/i18n", () => ({
   t: (key: string, opts?: { version?: string }) =>
     opts?.version ? `${key}:${opts.version}` : key,
 }));

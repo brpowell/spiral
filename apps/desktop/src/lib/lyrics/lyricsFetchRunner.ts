@@ -11,8 +11,8 @@ import {
   commitFetchedLyricsForTrack,
   commitInstrumentalMarkForTrack,
 } from "./lyricsFetchCommit";
-import { normalizeActivityLogEntry } from "@/lib/activityLogLine";
-import { t } from "@/lib/i18n";
+import { normalizeActivityLogEntry } from "@/lib/activity/activityLogLine";
+import { t } from "@/lib/i18n/i18n";
 import { fetchLyricsLrclib, getTrackLyrics } from "@/lib/tauri";
 import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
 import { usePlayerStore } from "@/store/usePlayerStore";

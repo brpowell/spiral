@@ -1,5 +1,5 @@
 import type { Track } from "@/types/track";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 
 export const DEFAULT_ORGANIZE_PATH_FORMAT =
   "{albumArtist}/{album}/{trackNumber:02} - {title}.{ext}";

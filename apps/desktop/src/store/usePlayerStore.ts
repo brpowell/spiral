@@ -81,7 +81,7 @@ import {
   errorMessageFromUnknown,
   reportCdPlaybackFailure,
 } from "@/lib/cd/cdPlaybackFailure";
-import { reportUnexpectedError } from "@/lib/unexpectedErrorToast";
+import { reportUnexpectedError } from "@/lib/activity/unexpectedErrorToast";
 import {
   findNextPlayableInOrder,
   getNextSkippingKnownUnplayable,

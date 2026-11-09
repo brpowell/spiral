@@ -4,7 +4,7 @@ const message = vi.fn();
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   message: (...args: unknown[]) => message(...args),
 }));
-vi.mock("@/lib/i18n", () => ({
+vi.mock("@/lib/i18n/i18n", () => ({
   t: (key: string) => key.split(":").pop(),
 }));
 

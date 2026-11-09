@@ -3,8 +3,8 @@ import { BackgroundTasksIndicator } from "@/components/BackgroundTasks/Backgroun
 import { ActivityLogsPanel } from "@/components/ActivityLogs/ActivityLogsPanel";
 import { CustomWindowFrame } from "@/components/WindowChrome/CustomWindowFrame";
 import { useActivityLogsWindowClose } from "@/hooks/useActivityLogsWindowClose";
-import { initActivityLogBridge } from "@/lib/activityLogBridge";
-import { t } from "@/lib/i18n";
+import { initActivityLogBridge } from "@/lib/activity/activityLogBridge";
+import { t } from "@/lib/i18n/i18n";
 import "./ActivityLogsApp.css";
 
 export function ActivityLogsApp() {

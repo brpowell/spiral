@@ -38,7 +38,7 @@ import { SKIN_PLAYLIST_SOURCE_ALL } from "@/lib/skin/skinPlaylist";
 import { preloadSkinStylesheet } from "@/lib/skin/skinStylesheetCache";
 import { preloadSkinSwitchAssets } from "@/lib/skin/skinViewAssetPreload";
 import type { LoadedSkinPack, SkinSummary } from "@/types/skin";
-import { isAppearanceWindow, isSkinModeWindow } from "@/lib/windowRole";
+import { isAppearanceWindow, isSkinModeWindow } from "@/lib/windows/windowRole";
 import { useSkinPreferencesStore } from "./useSkinPreferencesStore";
 
 export const DEFAULT_SKIN_ID = "spiral.skin.vanilla";

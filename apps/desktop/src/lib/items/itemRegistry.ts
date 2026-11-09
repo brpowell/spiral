@@ -1,6 +1,6 @@
 import { Channel, convertFileSrc } from "@tauri-apps/api/core";
-import { t } from "@/lib/i18n";
-import { BackgroundTaskCancelledError } from "@/lib/backgroundTaskCancel";
+import { t } from "@/lib/i18n/i18n";
+import { BackgroundTaskCancelledError } from "@/lib/activity/backgroundTaskCancel";
 import {
   cancelItemDownload,
   clearItemDownloadCancel,

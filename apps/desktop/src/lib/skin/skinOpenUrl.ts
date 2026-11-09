@@ -1,6 +1,6 @@
 import { ask, message } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 
 let inFlight = false;
 

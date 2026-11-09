@@ -12,7 +12,7 @@ import {
   pickPlaybackSettingsSnapshot,
   usePlaybackSettingsStore,
 } from "@/store/usePlaybackSettingsStore";
-import type { WindowRole } from "@/lib/windowRole";
+import type { WindowRole } from "@/lib/windows/windowRole";
 import { pickAndImportLibraryPaths } from "@/lib/import/libraryImport";
 
 export const PLAYER_STATE_EVENT = "player://state";

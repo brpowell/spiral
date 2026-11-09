@@ -1,8 +1,8 @@
 import { convertTrack } from "@/lib/tauri";
-import { logActivity } from "@/lib/activityLog";
-import { formatFailureDetail } from "@/lib/formatFailureDetail";
+import { logActivity } from "@/lib/activity/activityLog";
+import { formatFailureDetail } from "@/lib/format/formatFailureDetail";
 import { getEncodingProfile } from "./encodingProfiles";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { describeSourceError } from "./sourceAccess";
 import {
   discoverTrackFileMissing,

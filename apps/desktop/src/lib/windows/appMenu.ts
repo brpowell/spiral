@@ -6,9 +6,9 @@ import {
   Submenu,
 } from "@tauri-apps/api/menu";
 import { LINKED_PACKS_CHANGED_EVENT } from "./appearanceWindow";
-import { stubLocaleMenuLabel } from "./appLocale";
-import { t } from "./i18n";
-import { listItems } from "./tauri";
+import { stubLocaleMenuLabel } from "@/lib/i18n/appLocale";
+import { t } from "@/lib/i18n/i18n";
+import { listItems } from "@/lib/tauri";
 
 export interface AppMenuHandlers {
   addToLibrary: () => void;

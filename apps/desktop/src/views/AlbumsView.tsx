@@ -8,7 +8,7 @@ import { BrowseVirtualGrid } from "@/components/BrowseView/BrowseVirtualGrid";
 import { LibraryEmptyState } from "@/components/LibraryEmptyState/LibraryEmptyState";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { SearchField } from "@/components/SearchField/SearchField";
-import { createFuzzyMatcher } from "@/lib/fuzzySearch";
+import { createFuzzyMatcher } from "@/lib/ui/fuzzySearch";
 import type { Album } from "@/types/album";
 
 interface AlbumsViewProps {

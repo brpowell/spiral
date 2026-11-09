@@ -7,7 +7,7 @@ import {
 import { resolveCdSharedArtPath } from "./cdArt";
 import { isCdImportCancelRequested } from "./cdImportGuard";
 import { errorMessageFromUnknown } from "./cdPlaybackFailure";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import {
   commitImportEntries,
   importCompletionSettleOptions,
@@ -26,7 +26,7 @@ import {
   pendingTrackFromInput,
   resetPendingTrackIds,
 } from "@/lib/import/pendingImportTrack";
-import { logActivity } from "@/lib/activityLog";
+import { logActivity } from "@/lib/activity/activityLog";
 import { yieldForInteraction } from "@/lib/scheduling";
 import { cleanupCdImportTemp, ripCdTrack } from "@/lib/tauri";
 import { cdImportFailedSettleOptions } from "@/lib/toast/toastPayloads";

@@ -19,7 +19,7 @@ import { preloadSkinViewAssets } from "@/lib/skin/skinViewAssetPreload";
 import { listSwitchableViewIds } from "@/lib/skin/skinWindowPresentation";
 import { usePlaylistStore } from "@/store/usePlaylistStore";
 import { useSkinStore } from "@/store/useSkinStore";
-import { isSkinAuxWindow } from "@/lib/windowRole";
+import { isSkinAuxWindow } from "@/lib/windows/windowRole";
 import "./SkinModeApp.css";
 
 export function SkinModeApp() {

@@ -3,7 +3,7 @@ import type {
   BackgroundTaskSettleAsOptions,
 } from "@/store/useBackgroundTasksStore";
 import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { formatPeerOutcomeTitle } from "@/lib/toast/toastPeerOutcomes";
 
 /**

@@ -27,7 +27,7 @@ import {
   startCdMetadataFetch,
 } from "@/lib/cd/cdMetadataFetch";
 import { syncCdHeroArtToPlayback } from "@/lib/cd/cdPlaybackArt";
-import { logActivity } from "@/lib/activityLog";
+import { logActivity } from "@/lib/activity/activityLog";
 import { isNetworkLikelyAvailable } from "@/lib/network";
 import {
   clearDiscMetadataOverride,

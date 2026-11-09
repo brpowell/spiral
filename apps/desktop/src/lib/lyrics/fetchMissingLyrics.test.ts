@@ -40,7 +40,7 @@ vi.mock("./lyricsFetchCommit", () => ({
   commitInstrumentalMarkForTrack: commitInstrumentalMarkForTrackMock,
 }));
 
-vi.mock("@/lib/activityLog", () => ({
+vi.mock("@/lib/activity/activityLog", () => ({
   logActivity: logActivityMock,
 }));
 

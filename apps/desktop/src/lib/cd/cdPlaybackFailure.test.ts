@@ -14,11 +14,11 @@ vi.mock("@/store/useBackgroundTasksStore", () => ({
   },
 }));
 
-vi.mock("@/lib/activityLog", () => ({
+vi.mock("@/lib/activity/activityLog", () => ({
   logActivity: mockLogActivity,
 }));
 
-vi.mock("@/lib/i18n", () => ({
+vi.mock("@/lib/i18n/i18n", () => ({
   t: (key: string) => key,
 }));
 

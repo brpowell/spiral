@@ -2,7 +2,7 @@ import type { Track } from "@/types/track";
 
 /**
  * Portable description of a staged app state, used by the dev-only marketing
- * stage tooling (`scripts/stage.mjs`, `src/lib/stage.ts`). Nothing here refers
+ * stage tooling (`scripts/stage.mjs`, `src/lib/dev/stage.ts`). Nothing here refers
  * to database ids, so a scene recorded on one machine applies on another.
  */
 export interface StageTrackRef {

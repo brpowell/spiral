@@ -8,7 +8,7 @@ vi.mock("@/lib/tauri", () => ({
   resolveSoundCue: mockResolveSoundCue,
   resolveSoundPackAsset: vi.fn(),
 }));
-vi.mock("@/lib/windowRole", () => ({ isTauri: () => false }));
+vi.mock("@/lib/windows/windowRole", () => ({ isTauri: () => false }));
 vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: (path: string) => `asset://${path}`,
 }));

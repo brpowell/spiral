@@ -18,7 +18,7 @@ vi.mock("./activityLog", () => ({
   logActivity: mockLogActivity,
 }));
 
-vi.mock("./i18n", () => ({
+vi.mock("@/lib/i18n/i18n", () => ({
   t: (key: string) => key,
 }));
 

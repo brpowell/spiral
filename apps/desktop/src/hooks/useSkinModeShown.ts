@@ -11,7 +11,7 @@ import {
   getSkinAuxContext,
   isSkinAuxWindow,
   isSkinModeWindow,
-} from "@/lib/windowRole";
+} from "@/lib/windows/windowRole";
 
 /** True once this skin view's window is visible (skin-mode or auxiliary). */
 export function useSkinModeShown(enabled: boolean): boolean {

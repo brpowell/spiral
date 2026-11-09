@@ -43,7 +43,7 @@ vi.mock("@/lib/cd/cdPlaybackArt", () => ({
   syncCdHeroArtToPlayback: vi.fn(),
 }));
 
-vi.mock("@/lib/activityLog", () => ({
+vi.mock("@/lib/activity/activityLog", () => ({
   logActivity: vi.fn(),
 }));
 

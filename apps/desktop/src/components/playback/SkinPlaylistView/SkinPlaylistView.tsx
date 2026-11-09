@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useEntityArtSrc } from "@/components/EntityArt/useEntityArtSrc";
-import { formatTime } from "@/lib/format";
+import { formatTime } from "@/lib/format/format";
 import { runSkinAction } from "@/lib/skin/skinActions";
 import { skinDragRegionNoneProps } from "@/lib/skin/skinDragRegion";
 import {

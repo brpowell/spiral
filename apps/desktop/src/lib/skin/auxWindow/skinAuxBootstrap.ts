@@ -4,7 +4,7 @@ import { readOpenAuxViewsForSkin } from "./skinAuxViewState";
 import { installSkinDevConsole } from "@/lib/skin/skinDevConsole";
 import { DEFAULT_SKIN_ID, useSkinStore } from "@/store/useSkinStore";
 import { useSkinPreferencesStore } from "@/store/useSkinPreferencesStore";
-import { getSkinAuxContext } from "@/lib/windowRole";
+import { getSkinAuxContext } from "@/lib/windows/windowRole";
 
 /** Minimal startup for auxiliary skin windows (eq, playlist, etc.). */
 export async function bootstrapSkinAux(): Promise<void> {

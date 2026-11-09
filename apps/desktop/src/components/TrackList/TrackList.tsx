@@ -10,8 +10,8 @@ import { move, arrayMove } from "@dnd-kit/helpers";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { albumKey } from "@/lib/albums/albums";
 import { groupTracksIntoArtists } from "@/lib/artists/artists";
-import { t } from "@/lib/i18n";
-import { HANDLE_POINTER_SENSOR } from "@/lib/dndSortSensors";
+import { t } from "@/lib/i18n/i18n";
+import { HANDLE_POINTER_SENSOR } from "@/lib/ui/dndSortSensors";
 import {
   isTrackImporting,
   isTrackInteractive,

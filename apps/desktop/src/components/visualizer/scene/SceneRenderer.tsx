@@ -15,7 +15,7 @@ import type { VisualizerRemoteFrame } from "@/lib/visualizer/visualizerDataBridg
 import { vizMediaLayerUrl } from "@/lib/presentation/assets";
 import { Button } from "@/components/common/Button/Button";
 import { IconMaximize, IconMinimize } from "@/components/icons";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { useVisualizerContextBuilder } from "@/components/visualizer/context";
 import { SandboxedVizRenderer } from "@/components/visualizer/sandbox/SandboxedVizRenderer";
 import "@/components/visualizer/audioVisualizer.css";

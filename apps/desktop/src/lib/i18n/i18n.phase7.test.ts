@@ -6,7 +6,7 @@ import {
   getIntlLocale,
   STUB_APP_LOCALE,
 } from "./appLocale";
-import { formatDateAdded } from "./format";
+import { formatDateAdded } from "@/lib/format/format";
 import { i18n, setAppLocale, t } from "./i18n";
 
 async function restoreEnglish(): Promise<void> {

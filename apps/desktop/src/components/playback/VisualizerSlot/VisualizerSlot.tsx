@@ -1,5 +1,5 @@
 import { useVisualizerFrameRef } from "@/hooks/useVisualizerFrame";
-import { isAnySkinWindow } from "@/lib/windowRole";
+import { isAnySkinWindow } from "@/lib/windows/windowRole";
 import { SceneRenderer } from "@/components/visualizer/scene/SceneRenderer";
 import { useResolvedVisualizer } from "@/components/visualizer/useResolvedVisualizer";
 import type { VisualizerRendererProps } from "@/components/visualizer/types";

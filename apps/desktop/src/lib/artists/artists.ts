@@ -1,6 +1,6 @@
-import { compareLocalized } from "@/lib/appLocale";
+import { compareLocalized } from "@/lib/i18n/appLocale";
 import { normalizeArtistName, parseArtistField } from "./artistNames";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import type { Album } from "@/types/album";
 import type { Artist } from "@/types/artist";
 import type { Track } from "@/types/track";

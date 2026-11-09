@@ -4,7 +4,7 @@ import { applyEqBandSliderGain } from "./eqBandInput";
 import { useEqualizerStore } from "@/store/useEqualizerStore";
 import type { LoadedSkinPack, SliderEqNode } from "@/types/skin";
 
-vi.mock("@/lib/windowRole", () => ({
+vi.mock("@/lib/windows/windowRole", () => ({
   getWindowRole: vi.fn(() => "main"),
 }));
 

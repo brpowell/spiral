@@ -1,6 +1,6 @@
 import type { BackgroundTaskAction } from "@/store/useBackgroundTasksStore";
-import { openActivityLogsWindow } from "@/lib/activityLogsWindow";
-import { t } from "@/lib/i18n";
+import { openActivityLogsWindow } from "@/lib/windows/activityLogsWindow";
+import { t } from "@/lib/i18n/i18n";
 
 function viewLogsAction(): BackgroundTaskAction {
   return {

@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { assetUrlFromPath } from "./assetUrl";
-import { BROWSE_GRID_MIN_COL_PX } from "@/lib/browseGridLayout";
+import { BROWSE_GRID_MIN_COL_PX } from "@/lib/ui/browseGridLayout";
 
 /** Matches Rust `ROW_THUMB_SIZE` (2× `--track-list-art-size`). */
 export const ROW_ART_THUMB_SIZE = 72;

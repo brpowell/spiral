@@ -1,4 +1,4 @@
-import { logActivity } from "@/lib/activityLog";
+import { logActivity } from "@/lib/activity/activityLog";
 import { cdPlaybackFailurePayload } from "@/lib/toast/toastPayloads";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";

@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { t } from "./i18n";
-import { formatLyricsFormatLabel } from "./lyrics/lyrics";
-import { lyricsFetchFailureFeedback } from "./lyrics/lyricsFetch";
+import { formatLyricsFormatLabel } from "@/lib/lyrics/lyrics";
+import { lyricsFetchFailureFeedback } from "@/lib/lyrics/lyricsFetch";
 import {
   mixedFieldPlaceholder,
   tracksToForm,
-} from "./tracks/trackMetadataForm";
+} from "@/lib/tracks/trackMetadataForm";
 import {
   formatThemeValidationError,
   validateThemeForApply,
   validateThemeForSave,
-} from "./theme/themeValidation";
+} from "@/lib/theme/themeValidation";
 import type { Theme } from "@/types/theme";
 import type { Track } from "@/types/track";
 

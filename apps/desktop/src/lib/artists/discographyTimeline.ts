@@ -1,5 +1,5 @@
 import type { Album } from "@/types/album";
-import { compareLocalized } from "@/lib/appLocale";
+import { compareLocalized } from "@/lib/i18n/appLocale";
 
 export interface DiscographyYearGroup {
   year: number | null;

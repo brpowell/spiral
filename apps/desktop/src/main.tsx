@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { I18nextProvider } from "react-i18next";
-import { WINDOW_READY_EVENT } from "./lib/appWindows";
+import { WINDOW_READY_EVENT } from "./lib/windows/appWindows";
 import App from "./App";
 import { AboutApp } from "./windows/AboutApp";
 import { ActivityLogsApp } from "./windows/ActivityLogsApp";
@@ -31,9 +31,12 @@ import { bootstrapVisualizer } from "./lib/visualizer/visualizerBootstrap";
 import { bootstrapEqualizer } from "./lib/equalizer/equalizerBootstrap";
 import { bootstrapPlaybackSettings } from "./lib/playback/playbackSettingsBootstrap";
 import { ToastLabApp } from "./windows/ToastLabApp";
-import { initCrashHandlers, installCrashDevConsole } from "./lib/crashReport";
+import {
+  initCrashHandlers,
+  installCrashDevConsole,
+} from "./lib/activity/crashReport";
 import { installToastDevConsole } from "./lib/toast/toastDevConsole";
-import { installDevUserTimingGuard } from "./lib/devUserTimingGuard";
+import { installDevUserTimingGuard } from "./lib/dev/devUserTimingGuard";
 import {
   bootstrapWindowRole,
   getSkinAuxContext,
@@ -47,9 +50,9 @@ import {
   isIconLabWindow,
   isToastLabWindow,
   isSoundLabWindow,
-} from "./lib/windowRole";
-import { applyCustomWindowChrome } from "./lib/windowChrome";
-import { i18n } from "./lib/i18n";
+} from "./lib/windows/windowRole";
+import { applyCustomWindowChrome } from "./lib/windows/windowChrome";
+import { i18n } from "./lib/i18n/i18n";
 import "./styles/fonts.css";
 import "./styles/theme.css";
 import "./styles/scrollbars.css";
@@ -104,9 +107,10 @@ async function start() {
   installToastDevConsole();
   installDevUserTimingGuard();
   if (import.meta.env.DEV) {
-    const { installSoundDevConsole } = await import("./lib/soundDevConsole");
+    const { installSoundDevConsole } =
+      await import("./lib/dev/soundDevConsole");
     installSoundDevConsole();
-    const { installStage } = await import("./lib/stage");
+    const { installStage } = await import("./lib/dev/stage");
     installStage();
   }
 

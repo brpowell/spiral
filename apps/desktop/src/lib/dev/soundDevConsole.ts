@@ -2,7 +2,10 @@
  * Dev-only console helpers for the transport signature lab.
  * Loaded from `main.tsx` in DEV builds.
  */
-import { openSoundLabWindow, toggleSoundLabWindow } from "./soundLabWindow";
+import {
+  openSoundLabWindow,
+  toggleSoundLabWindow,
+} from "@/lib/windows/soundLabWindow";
 
 const SPIRAL_SOUNDS_DEV_HELP = `
 spiralSounds — transport signature helpers (DEV builds only)

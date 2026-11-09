@@ -4,8 +4,8 @@ import { useOnboardingStore } from "@/store/useOnboardingStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { ImportDropZone } from "./ImportDropZone";
 
-vi.mock("@/lib/windowRole", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/windowRole")>()),
+vi.mock("@/lib/windows/windowRole", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/windows/windowRole")>()),
   isTauri: () => false,
 }));
 vi.mock("@/lib/import/dragDrop", () => ({

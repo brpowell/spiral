@@ -1,5 +1,5 @@
-import { logActivity } from "./activityLog";
-import { t } from "./i18n";
+import { logActivity } from "./activity/activityLog";
+import { t } from "./i18n/i18n";
 import {
   refreshLibraryMetadataFromFiles,
   type RefreshLibraryMetadataResult,

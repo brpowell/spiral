@@ -7,7 +7,7 @@ import {
   type EqualizerStateSnapshot,
 } from "./types";
 import { useEqualizerStore } from "@/store/useEqualizerStore";
-import type { WindowRole } from "@/lib/windowRole";
+import type { WindowRole } from "@/lib/windows/windowRole";
 
 export const EQ_STATE_EVENT = "eq://state";
 export const EQ_ACTION_EVENT = "eq://action";

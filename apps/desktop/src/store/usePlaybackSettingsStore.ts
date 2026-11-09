@@ -5,7 +5,7 @@ import {
   defaultPlaybackSettings,
   type PlaybackSettings,
 } from "@/types/playbackSettings";
-import { getWindowRole } from "@/lib/windowRole";
+import { getWindowRole } from "@/lib/windows/windowRole";
 
 interface PlaybackSettingsStoreState extends PlaybackSettings {
   initializeFromBootstrap: (settings: PlaybackSettings) => void;

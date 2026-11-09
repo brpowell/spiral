@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  formatBitrate,
-  formatCodec,
-  formatSampleRate,
-} from "./formatAudio";
+import { formatBitrate, formatCodec, formatSampleRate } from "./formatAudio";
 
 describe("formatCodec", () => {
   it("normalizes known codecs", () => {

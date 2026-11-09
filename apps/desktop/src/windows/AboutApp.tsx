@@ -1,7 +1,7 @@
 import { AboutShell } from "@/components/About/AboutShell";
 import { CustomWindowFrame } from "@/components/WindowChrome/CustomWindowFrame";
 import { useAboutWindowClose } from "@/hooks/useAboutWindowClose";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import "./AboutApp.css";
 
 export function AboutApp() {

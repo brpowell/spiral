@@ -8,7 +8,7 @@ import {
 } from "./skinPlaylist";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";
-import { openAppearanceWindow } from "@/lib/appearanceWindow";
+import { openAppearanceWindow } from "@/lib/windows/appearanceWindow";
 import {
   exitSkinMode,
   minimizeSkinMode,
@@ -29,7 +29,7 @@ import {
   SKIN_PREFERENCES_ACTION_EVENT,
   type SkinPreferencesActionPayload,
 } from "./skinBridge";
-import { getSkinAuxContext, getWindowRole } from "@/lib/windowRole";
+import { getSkinAuxContext, getWindowRole } from "@/lib/windows/windowRole";
 import { getSkinSlideshowStateApi } from "./skinSlideshowContext";
 import { getSkinScrollStripStateApi } from "./skinScrollStripContext";
 import { getSkinViewStateApi } from "./skinViewStateContext";

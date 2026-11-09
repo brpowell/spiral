@@ -3,7 +3,7 @@ import { getBuiltinPreset } from "@/lib/equalizer/builtinPresets";
 import { FLAT_BAND_GAINS, type EqualizerPreset } from "@/lib/equalizer/types";
 import { useEqualizerStore } from "./useEqualizerStore";
 
-vi.mock("@/lib/windowRole", () => ({
+vi.mock("@/lib/windows/windowRole", () => ({
   getWindowRole: vi.fn(() => "main"),
 }));
 

@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { openAppearanceWindow } from "@/lib/appearanceWindow";
+import { openAppearanceWindow } from "@/lib/windows/appearanceWindow";
 import { useItemUpdatesStore } from "@/store/useItemUpdatesStore";
 import {
   StatusIndicator,

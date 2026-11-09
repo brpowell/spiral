@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import * as audio from "@/lib/playback";
 import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
 import { usePlayerStore } from "@/store/usePlayerStore";
-import { isSkinModeWindow, isTauri } from "@/lib/windowRole";
+import { isSkinModeWindow, isTauri } from "@/lib/windows/windowRole";
 
 /** Batch rapid store updates (e.g. track + play state) into one system push. */
 const COALESCE_MS = 80;

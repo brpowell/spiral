@@ -8,8 +8,8 @@ import {
 import {
   accessibleMutedOnRaised,
   accessibleSelectedText,
-} from "@/lib/accessibleColor";
-import { DEFAULT_FONT_ID, resolveFontStack } from "@/lib/fonts";
+} from "@/lib/ui/accessibleColor";
+import { DEFAULT_FONT_ID, resolveFontStack } from "@/lib/ui/fonts";
 
 export const DEFAULT_THEME_ID = "spiral.theme.sprig-dark";
 

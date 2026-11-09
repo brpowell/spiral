@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toAssetUrl } from "@/lib/art/assetUrl";
 import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
-import { extractPaletteFromImageUrl, getDefaultPalette } from "@/lib/palette";
+import {
+  extractPaletteFromImageUrl,
+  getDefaultPalette,
+} from "@/lib/ui/palette";
 import { evaluateSkinBind, useSkinBindState } from "@/lib/skin/skinBinds";
 import {
   OBSIDIAN_DEFAULT_TOKENS,

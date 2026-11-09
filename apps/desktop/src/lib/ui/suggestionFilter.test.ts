@@ -20,8 +20,12 @@ describe("filterSubstringSuggestions", () => {
         "Alternative",
       ),
     ).toEqual(["Alternative Rock"]);
-    expect(filterSubstringSuggestions(["Alternative"], "Alternative")).toEqual([]);
-    expect(filterSubstringSuggestions(["Alternative"], "alternative")).toEqual([]);
+    expect(filterSubstringSuggestions(["Alternative"], "Alternative")).toEqual(
+      [],
+    );
+    expect(filterSubstringSuggestions(["Alternative"], "alternative")).toEqual(
+      [],
+    );
   });
 
   it("applies exclude and limit options", () => {

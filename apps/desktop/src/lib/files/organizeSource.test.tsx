@@ -20,7 +20,7 @@ const player = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/tauri", () => tauri);
-vi.mock("@/lib/activityLog", () => ({ logActivity: vi.fn() }));
+vi.mock("@/lib/activity/activityLog", () => ({ logActivity: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn(
     (name: string, handler: (event: { payload: unknown }) => void) => {

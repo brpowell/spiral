@@ -3,9 +3,9 @@ import { BackgroundTasksStack } from "@/components/BackgroundTasks/BackgroundTas
 import { Button } from "@/components/common/Button/Button";
 import { FormField } from "@/components/common/Field/Field";
 import { TextInput } from "@/components/common/TextInput/TextInput";
-import { BackgroundTaskCancelledError } from "@/lib/backgroundTaskCancel";
+import { BackgroundTaskCancelledError } from "@/lib/activity/backgroundTaskCancel";
 import { joinPeerOutcomeClauses } from "@/lib/toast/toastPeerOutcomes";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import {
   playbackFileMissingPayload,
   playlistAddedPayload,

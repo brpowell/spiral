@@ -5,13 +5,13 @@ import { useSkinPreferencesStore } from "@/store/useSkinPreferencesStore";
 import { useThemeStore } from "@/store/useThemeStore";
 import { useVisualizerStore } from "@/store/useVisualizerStore";
 import type { SkinUserPreferences } from "@/types/skinPreferences";
-import { APPEARANCE_REFRESH_EVENT } from "@/lib/appearanceWindow";
-import type { WindowRole } from "@/lib/windowRole";
+import { APPEARANCE_REFRESH_EVENT } from "@/lib/windows/appearanceWindow";
+import type { WindowRole } from "@/lib/windows/windowRole";
 import {
   isAppearanceWindow,
   isSkinAuxWindow,
   isSkinModeWindow,
-} from "@/lib/windowRole";
+} from "@/lib/windows/windowRole";
 
 export const SKIN_CHANGED_EVENT = "skin://changed";
 export const SKIN_PREFERENCES_CHANGED_EVENT = "skin://preferences-changed";

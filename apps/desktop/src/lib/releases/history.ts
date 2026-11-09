@@ -1,4 +1,4 @@
-import { getIntlLocale } from "@/lib/appLocale";
+import { getIntlLocale } from "@/lib/i18n/appLocale";
 import type { AvailableUpdateInfo } from "@/lib/updater";
 
 export const RELEASES_HISTORY_URL =

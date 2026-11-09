@@ -8,7 +8,7 @@ import {
   accessibleSelectedText,
   hexContrastRatio,
   selectedTextSurfacesHex,
-} from "@/lib/accessibleColor";
+} from "@/lib/ui/accessibleColor";
 import { windowAppearanceForBackground } from "@/lib/theme/theme";
 
 const TABS_CSS = readFileSync(join(__dirname, "Tabs.css"), "utf8");

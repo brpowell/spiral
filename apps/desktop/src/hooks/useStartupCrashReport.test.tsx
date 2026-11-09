@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { useOnboardingStore } from "@/store/useOnboardingStore";
 import { useStartupCrashReport } from "./useStartupCrashReport";
 
-vi.mock("@/lib/crashReport", () => ({
+vi.mock("@/lib/activity/crashReport", () => ({
   acknowledgeCrashReport: vi.fn(() => Promise.resolve()),
   listUnacknowledgedStartupRustCrashReports: vi.fn(() =>
     Promise.resolve([{ id: "crash-1" }]),

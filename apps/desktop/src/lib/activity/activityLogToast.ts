@@ -1,4 +1,4 @@
-import { activityLogCopiedPayload } from "./toast/toastPayloads";
+import { activityLogCopiedPayload } from "@/lib/toast/toastPayloads";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 
 export function showActivityLogCopiedToast(count: number): void {

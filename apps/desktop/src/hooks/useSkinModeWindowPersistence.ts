@@ -9,7 +9,7 @@ import {
 import { isSkinModeSnapSuppressed } from "@/lib/skin/modeWindow/skinModeWindowChrome";
 import { useSkinStore } from "@/store/useSkinStore";
 
-import { isSkinModeWindow } from "@/lib/windowRole";
+import { isSkinModeWindow } from "@/lib/windows/windowRole";
 
 const SAVE_DEBOUNCE_MS = 500;
 

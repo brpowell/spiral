@@ -53,7 +53,8 @@ export function handleContextMenuKeyDown(
   menuEl: HTMLElement,
   target: EventTarget | null,
 ): boolean {
-  if (!(target instanceof HTMLElement) || !menuEl.contains(target)) return false;
+  if (!(target instanceof HTMLElement) || !menuEl.contains(target))
+    return false;
   if (isSuggestionContextMenu(menuEl)) return false;
 
   const items = getContextMenuItems(menuEl);

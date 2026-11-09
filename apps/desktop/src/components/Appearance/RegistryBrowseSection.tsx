@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { viewTransition } from "@/lib/motion";
+import { viewTransition } from "@/lib/ui/motion";
 import {
   catalogCacheKey,
   catalogItemKey,

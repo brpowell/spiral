@@ -1,5 +1,5 @@
-import { logActivity } from "@/lib/activityLog";
-import { BackgroundTaskCancelledError } from "@/lib/backgroundTaskCancel";
+import { logActivity } from "@/lib/activity/activityLog";
+import { BackgroundTaskCancelledError } from "@/lib/activity/backgroundTaskCancel";
 import { commitInstrumentalMarkForTrack } from "./lyricsFetchCommit";
 import {
   buildLyricsFetchParamsForTrack,
@@ -7,7 +7,7 @@ import {
   RETRY_DETAIL,
   runSingleLyricsFetch,
 } from "./lyricsFetchRunner";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import {
   formatLyricsFetchPeerTitle,
   lyricsFetchBulkSettleOptions,

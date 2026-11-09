@@ -10,7 +10,7 @@ import {
   IconPencil,
   IconPlaylistAdd,
 } from "@/components/icons";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { resolvePlaylistTracks } from "@/lib/playlists/playlists";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";

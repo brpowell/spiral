@@ -20,7 +20,7 @@ import {
   artistTotalDurationSeconds,
   getArtistByKey,
 } from "@/lib/artists/artists";
-import { formatDurationNatural } from "@/lib/format";
+import { formatDurationNatural } from "@/lib/format/format";
 import { useDetailReturnLabel } from "@/hooks/useDetailReturnLabel";
 import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";

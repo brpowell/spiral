@@ -40,7 +40,7 @@ vi.mock("@/lib/tauri", () => ({
   clearItemDownloadCancel: vi.fn(),
 }));
 
-vi.mock("@/lib/windowRole", () => ({
+vi.mock("@/lib/windows/windowRole", () => ({
   isTauri: () => mockIsTauri(),
 }));
 
@@ -64,7 +64,7 @@ vi.mock("./useBackgroundTasksStore", () => ({
   },
 }));
 
-vi.mock("@/lib/i18n", () => ({
+vi.mock("@/lib/i18n/i18n", () => ({
   t: (key: string) => key,
 }));
 

@@ -20,7 +20,7 @@ vi.mock("@/lib/network", () => ({
   isNetworkLikelyAvailable: () => true,
 }));
 
-vi.mock("@/lib/activityLog", () => ({
+vi.mock("@/lib/activity/activityLog", () => ({
   logActivity: vi.fn(),
   withLogContext: (base: unknown, extra: unknown) => ({
     ...(typeof base === "object" && base != null ? base : {}),
@@ -28,7 +28,7 @@ vi.mock("@/lib/activityLog", () => ({
   }),
 }));
 
-import { logActivity } from "@/lib/activityLog";
+import { logActivity } from "@/lib/activity/activityLog";
 import {
   fetchAlbumArtPreferringRelease,
   fetchCoverArtCandidates,

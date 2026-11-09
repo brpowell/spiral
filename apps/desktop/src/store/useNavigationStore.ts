@@ -11,7 +11,7 @@ import {
   stateAfterCloseCd,
   stateAfterClosePlaylist,
   type DetailReturnContext,
-} from "@/lib/navigationReturn";
+} from "@/lib/ui/navigationReturn";
 import { usePlaylistStore } from "./usePlaylistStore";
 
 export type NavView = "albums" | "library" | "artists";

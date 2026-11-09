@@ -10,13 +10,13 @@ import {
   IconCopy,
 } from "@/components/icons";
 import { useContextMenu } from "@/hooks/useContextMenu";
-import { copyTextToClipboard } from "@/lib/clipboard";
+import { copyTextToClipboard } from "@/lib/ui/clipboard";
 import {
   formatActivityLogTimestamp,
   formatLogLinePretty,
   serializeLogLines,
-} from "@/lib/activityLogLine";
-import { showActivityLogCopiedToast } from "@/lib/activityLogToast";
+} from "@/lib/activity/activityLogLine";
+import { showActivityLogCopiedToast } from "@/lib/activity/activityLogToast";
 import {
   filterActivityLogEntries,
   useActivityLogStore,

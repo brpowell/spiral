@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import { RELOAD_LINKED_PACKS_EVENT } from "@/lib/appearanceWindow";
+import { RELOAD_LINKED_PACKS_EVENT } from "@/lib/windows/appearanceWindow";
 import {
   invalidatePackChangelogCache,
   peekPackChangelog,

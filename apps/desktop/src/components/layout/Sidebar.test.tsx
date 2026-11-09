@@ -9,7 +9,7 @@ const { openAppearanceWindow } = vi.hoisted(() => ({
   openAppearanceWindow: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("@/lib/appearanceWindow", () => ({ openAppearanceWindow }));
+vi.mock("@/lib/windows/appearanceWindow", () => ({ openAppearanceWindow }));
 
 const openPlaylistEditor = vi.fn();
 

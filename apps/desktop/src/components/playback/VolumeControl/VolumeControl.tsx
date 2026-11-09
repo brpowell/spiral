@@ -1,5 +1,5 @@
 import { usePlayerStore } from "@/store/usePlayerStore";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { Button } from "@/components/common/Button/Button";
 import { Slider } from "@/components/common/Slider/Slider";
 import { IconVolume, IconVolumeMute } from "@/components/icons";

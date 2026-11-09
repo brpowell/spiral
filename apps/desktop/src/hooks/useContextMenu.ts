@@ -9,7 +9,7 @@ import {
 import {
   fitContextMenuPosition,
   type FitContextMenuPositionOptions,
-} from "@/lib/contextMenuPosition";
+} from "@/lib/ui/contextMenuPosition";
 
 const TRIGGER_MENU_GAP = 4;
 

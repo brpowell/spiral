@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { withLogLinkAction } from "./toastLogLink";
 
-vi.mock("@/lib/activityLogsWindow", () => ({
+vi.mock("@/lib/windows/activityLogsWindow", () => ({
   openActivityLogsWindow: vi.fn(),
 }));
 
-vi.mock("@/lib/i18n", () => ({
+vi.mock("@/lib/i18n/i18n", () => ({
   t: (key: string) => key,
 }));
 

@@ -1,8 +1,8 @@
 import type { BackgroundTaskRunContext } from "@/store/useBackgroundTasksStore";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
-import { logActivity } from "@/lib/activityLog";
-import { t } from "@/lib/i18n";
+import { logActivity } from "@/lib/activity/activityLog";
+import { t } from "@/lib/i18n/i18n";
 import {
   lyricsAmbiguousSettleOptions,
   lyricsFetchBulkSettleOptions,

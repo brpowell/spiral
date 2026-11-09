@@ -56,7 +56,7 @@ vi.mock("@/store/useLyricsFetchStore", () => ({
   },
 }));
 
-vi.mock("@/lib/activityLog", () => ({
+vi.mock("@/lib/activity/activityLog", () => ({
   logActivity: vi.fn(),
 }));
 

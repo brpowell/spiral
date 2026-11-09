@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { isAnySkinWindow } from "@/lib/windowRole";
+import { isAnySkinWindow } from "@/lib/windows/windowRole";
 import {
   DEFAULT_VISUALIZER_ID,
   resolveSkinVisualizerFixedId,

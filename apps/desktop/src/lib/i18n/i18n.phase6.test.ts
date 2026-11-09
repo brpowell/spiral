@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { t } from "./i18n";
-import { convertTracksSettleOptions } from "./files/convertTracks";
-import { formatImportSummary } from "./import/import";
-import { formatLyricsFetchPeerTitle } from "./lyrics/lyricsFetchToastSettle";
-import { resolveSkinTooltip } from "./skin/skinTooltips";
-import { queueAddedPayload } from "./toast/toastPayloads";
+import { convertTracksSettleOptions } from "@/lib/files/convertTracks";
+import { formatImportSummary } from "@/lib/import/import";
+import { formatLyricsFetchPeerTitle } from "@/lib/lyrics/lyricsFetchToastSettle";
+import { resolveSkinTooltip } from "@/lib/skin/skinTooltips";
+import { queueAddedPayload } from "@/lib/toast/toastPayloads";
 import { minimalBindState } from "@/test/skinBindFixtures";
 
 describe("i18n Phase 6 catalogs", () => {

@@ -5,7 +5,7 @@ import {
   artistTrackCountOnAlbum,
   type ArtistBrowseMode,
 } from "@/lib/artists/artists";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { useAlbumEditMenu } from "@/hooks/useAlbumEditMenu";
 import { useNavigationStore } from "@/store/useNavigationStore";
 import { EntityArt } from "@/components/EntityArt/EntityArt";

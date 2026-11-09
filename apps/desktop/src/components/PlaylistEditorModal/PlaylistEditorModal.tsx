@@ -9,7 +9,7 @@ import {
 import { useEditorDiscardPrompt } from "@/hooks/useEditorDiscardPrompt";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useResetOnOpen } from "@/hooks/useResetOnOpen";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { cropsEqual, type ImageCrop } from "@/lib/art/imageCrop";
 import { resolvePlaylistDesignFields } from "@/lib/playlists/playlistArt";
 import {

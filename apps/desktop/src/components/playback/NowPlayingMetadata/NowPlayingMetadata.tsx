@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useNowPlayingDisplay } from "@/hooks/useNowPlayingDisplay";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import { getTrackLyrics } from "@/lib/tauri";
 import {
   canFetchLyricsForTrack,

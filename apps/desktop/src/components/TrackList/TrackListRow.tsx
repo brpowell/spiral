@@ -8,12 +8,12 @@ import {
 } from "react";
 import { DEFAULT_ARTIST_JOIN_DELIMITER } from "@/lib/artists/artistNames";
 import { formatTrackLyricsColumnLabel } from "@/lib/lyrics/lyrics";
-import { formatDateAdded, formatTime } from "@/lib/format";
+import { formatDateAdded, formatTime } from "@/lib/format/format";
 import {
   formatBitrate,
   formatCodec,
   formatSampleRate,
-} from "@/lib/formatAudio";
+} from "@/lib/format/formatAudio";
 import {
   artistLinksForTrack,
   hasNavigableAlbum,

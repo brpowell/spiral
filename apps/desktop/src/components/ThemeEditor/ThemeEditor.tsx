@@ -8,7 +8,7 @@ import {
 } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import type { Theme, ThemeTokens } from "@/types/theme";
-import { t as translate } from "@/lib/i18n";
+import { t as translate } from "@/lib/i18n/i18n";
 import {
   OBSIDIAN_DEFAULT_TOKENS,
   resolveThemeTokens,
@@ -37,7 +37,7 @@ import { FormField } from "@/components/common/Field/Field";
 import { Switch } from "@/components/common/Switch/Switch";
 import { TextInput } from "@/components/common/TextInput/TextInput";
 import { TextLink } from "@/components/common/TextLink/TextLink";
-import { DEFAULT_FONT_ID, findThemeFont, THEME_FONTS } from "@/lib/fonts";
+import { DEFAULT_FONT_ID, findThemeFont, THEME_FONTS } from "@/lib/ui/fonts";
 import { Select } from "@/components/common/Select/Select";
 import { EditorDiscardOverlay } from "@/components/EditorDiscardOverlay/EditorDiscardOverlay";
 import { BrowseGridBody } from "@/components/BrowseView/BrowseGridBody";

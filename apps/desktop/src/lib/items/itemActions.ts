@@ -2,8 +2,8 @@ import { emit } from "@tauri-apps/api/event";
 import {
   LINKED_PACKS_CHANGED_EVENT,
   RELOAD_LINKED_PACKS_EVENT,
-} from "@/lib/appearanceWindow";
-import { t } from "@/lib/i18n";
+} from "@/lib/windows/appearanceWindow";
+import { t } from "@/lib/i18n/i18n";
 import {
   deleteLinkedItem,
   exportItem,

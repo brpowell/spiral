@@ -4,7 +4,7 @@ import {
   copyDiagnosticsToClipboard,
   fetchDiagnosticsBundle,
   saveDiagnosticsToFile,
-} from "@/lib/diagnosticsExport";
+} from "@/lib/activity/diagnosticsExport";
 import type { CrashReport } from "@/types/crashReport";
 import { Button } from "@/components/common/Button/Button";
 import {

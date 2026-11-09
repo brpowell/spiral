@@ -2,8 +2,8 @@ import { emit, listen } from "@tauri-apps/api/event";
 import type { Theme } from "@/types/theme";
 import { applyTheme } from "./theme";
 import { useThemeStore } from "@/store/useThemeStore";
-import type { WindowRole } from "@/lib/windowRole";
-import { isAnySkinWindow, isAppearanceWindow } from "@/lib/windowRole";
+import type { WindowRole } from "@/lib/windows/windowRole";
+import { isAnySkinWindow, isAppearanceWindow } from "@/lib/windows/windowRole";
 
 export const THEME_CHANGED_EVENT = "theme://changed";
 export const THEME_PREVIEW_EVENT = "theme://preview";

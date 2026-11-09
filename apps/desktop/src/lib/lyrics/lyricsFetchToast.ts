@@ -1,6 +1,6 @@
 import { peekLyricsFetchCache, searchLyricsCandidates } from "@/lib/tauri";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
-import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n/i18n";
 import type { LyricsSearchCandidate } from "@/types/lyrics";
 import { enqueueLyricsFetch } from "./lyricsFetchQueue";
 import type { LyricsFetchParams } from "./lyricsFetchRunner";

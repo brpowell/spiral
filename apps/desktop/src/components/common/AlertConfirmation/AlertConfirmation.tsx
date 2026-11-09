@@ -1,7 +1,7 @@
 import { useCallback, useId, useRef, type ReactNode } from "react";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
-import { t } from "@/lib/i18n";
-import { MODAL_EXIT_MS } from "@/lib/motion";
+import { t } from "@/lib/i18n/i18n";
+import { MODAL_EXIT_MS } from "@/lib/ui/motion";
 import { Button, type ButtonVariant } from "@/components/common/Button/Button";
 import {
   Modal,

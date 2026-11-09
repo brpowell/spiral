@@ -1,7 +1,7 @@
 import { emit, listen } from "@tauri-apps/api/event";
 import { useVisualizerStore } from "@/store/useVisualizerStore";
-import type { WindowRole } from "@/lib/windowRole";
-import { isAnySkinWindow, isAppearanceWindow } from "@/lib/windowRole";
+import type { WindowRole } from "@/lib/windows/windowRole";
+import { isAnySkinWindow, isAppearanceWindow } from "@/lib/windows/windowRole";
 
 export const VISUALIZER_CHANGED_EVENT = "visualizer://changed";
 
