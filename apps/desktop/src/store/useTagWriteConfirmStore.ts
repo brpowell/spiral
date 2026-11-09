@@ -6,7 +6,7 @@ import {
   saveTagWriteDismissals,
   type TagWriteContext,
   type TagWriteDismissals,
-} from "@/lib/tagWriteConfirmPreferences";
+} from "@/lib/files/tagWriteConfirmPreferences";
 
 export interface TagWritePrompt {
   context: TagWriteContext;

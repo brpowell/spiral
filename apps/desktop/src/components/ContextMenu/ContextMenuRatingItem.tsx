@@ -1,5 +1,5 @@
 import { TrackRating } from "@/components/TrackRating/TrackRating";
-import type { CanonicalRating } from "@/lib/trackRating";
+import type { CanonicalRating } from "@/lib/tracks/trackRating";
 import { IconStar } from "@/components/icons";
 import "./ContextMenuRatingItem.css";
 

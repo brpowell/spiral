@@ -4,7 +4,7 @@ import {
   type LyricsLibraryTrackRef,
 } from "@/lib/lyrics/lyricsFetch";
 import { commitFetchedLyricsForTrack } from "@/lib/lyrics/lyricsFetchCommit";
-import { missingFileErrorDetail } from "@/lib/missingFileTrack";
+import { missingFileErrorDetail } from "@/lib/tracks/missingFileTrack";
 import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { LyricsSearchCandidate } from "@/types/lyrics";

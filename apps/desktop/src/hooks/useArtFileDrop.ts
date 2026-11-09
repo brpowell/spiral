@@ -1,5 +1,8 @@
 import { useEffect, useRef } from "react";
-import { ART_FILE_DROP_EVENT, firstImagePath } from "@/lib/fileDropRouting";
+import {
+  ART_FILE_DROP_EVENT,
+  firstImagePath,
+} from "@/lib/import/fileDropRouting";
 
 export function useArtFileDrop(
   enabled: boolean,

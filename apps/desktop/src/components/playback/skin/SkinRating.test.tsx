@@ -7,7 +7,7 @@ import { SkinRating } from "./SkinRating";
 
 const confirmAndApplyTrackRatings = vi.fn();
 
-vi.mock("@/lib/applyTrackRating", () => ({
+vi.mock("@/lib/tracks/applyTrackRating", () => ({
   confirmAndApplyTrackRatings: (...args: unknown[]) =>
     confirmAndApplyTrackRatings(...args),
 }));

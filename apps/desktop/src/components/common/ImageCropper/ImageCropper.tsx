@@ -17,7 +17,7 @@ import {
   zoomCrop,
   zoomFromCrop,
   type ImageCrop,
-} from "@/lib/imageCrop";
+} from "@/lib/art/imageCrop";
 import { Slider } from "@/components/common/Slider/Slider";
 import "./ImageCropper.css";
 

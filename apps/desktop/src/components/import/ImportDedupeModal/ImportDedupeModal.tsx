@@ -6,7 +6,7 @@ import { formatLyricsFormatLabel } from "@/lib/lyrics/lyrics";
 import type {
   ImportDedupeAction,
   ImportDedupeResolution,
-} from "@/lib/trackDedupe";
+} from "@/lib/tracks/trackDedupe";
 import { useImportDedupeStore } from "@/store/useImportDedupeStore";
 import type { LyricsFormat } from "@/types/lyrics";
 import { AudioFileSpecs } from "@/components/AudioFileSpecs/AudioFileSpecs";

@@ -13,8 +13,8 @@ import {
   loadConvertProfileOptions,
   type EncodingProfileId,
   type EncodingProfileSelectOption,
-} from "@/lib/encodingProfiles";
-import type { ConvertMode } from "@/lib/convertTracks";
+} from "@/lib/files/encodingProfiles";
+import type { ConvertMode } from "@/lib/files/convertTracks";
 import { useConvertStore } from "@/store/useConvertStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { Button } from "@/components/common/Button/Button";

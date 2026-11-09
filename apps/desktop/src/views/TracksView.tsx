@@ -14,9 +14,9 @@ import {
   type SortState,
 } from "@/components/TrackList/trackListSort";
 import type { TrackListSortField } from "@/components/TrackList/types";
-import { confirmAndApplyTrackRatings } from "@/lib/applyTrackRating";
-import { isTrackImporting } from "@/lib/pendingImportTrack";
-import type { CanonicalRating } from "@/lib/trackRating";
+import { confirmAndApplyTrackRatings } from "@/lib/tracks/applyTrackRating";
+import { isTrackImporting } from "@/lib/import/pendingImportTrack";
+import type { CanonicalRating } from "@/lib/tracks/trackRating";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { Track } from "@/types/track";
 import "./TracksView.css";

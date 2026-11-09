@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import { usePackSizeBytes } from "@/hooks/usePackSizeBytes";
-import { revealInFileManagerLabel } from "@/lib/fileManager";
+import { revealInFileManagerLabel } from "@/lib/files/fileManager";
 import { formatBytes } from "@/lib/formatBytes";
 import { RELOAD_LINKED_PACKS_EVENT } from "@/lib/appearanceWindow";
 import { prefetchPackChangelog } from "@/lib/packs/packChangelogCache";

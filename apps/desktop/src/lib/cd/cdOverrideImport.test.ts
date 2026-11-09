@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { buildImportPlans } from "./cdImport";
 import { discOverridePatchFromTrackForm } from "./cdOverrideFromForm";
-import { pendingTrackFromInput } from "@/lib/pendingImportTrack";
+import { pendingTrackFromInput } from "@/lib/import/pendingImportTrack";
 import { cdTrackListId } from "./cdTracks";
 import type { CdDisc } from "@/types/cd";
 import type { Track } from "@/types/track";
-import type { TrackEditorForm } from "@/lib/trackMetadataForm";
+import type { TrackEditorForm } from "@/lib/tracks/trackMetadataForm";
 
 function sampleDisc(): CdDisc {
   return {

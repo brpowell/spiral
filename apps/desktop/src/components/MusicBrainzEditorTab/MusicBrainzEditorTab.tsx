@@ -17,12 +17,12 @@ import {
   peekMusicBrainzEntity,
   searchMusicBrainzEntities,
 } from "@/lib/tauri";
-import { parseUuidMbid } from "@/lib/mbid";
+import { parseUuidMbid } from "@/lib/musicbrainz/mbid";
 import {
   musicBrainzEntityUrl,
   musicBrainzHitFacts,
   musicBrainzHitTitle,
-} from "@/lib/musicBrainzEntityDisplay";
+} from "@/lib/musicbrainz/musicBrainzEntityDisplay";
 import type {
   MusicBrainzEntityHit,
   MusicBrainzEntityKind,

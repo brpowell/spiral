@@ -1,5 +1,5 @@
 import { emit } from "@tauri-apps/api/event";
-import { albumKey as albumKeyFromTrack } from "@/lib/albums";
+import { albumKey as albumKeyFromTrack } from "@/lib/albums/albums";
 import { useNavigationStore } from "@/store/useNavigationStore";
 import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
 import {
@@ -23,7 +23,7 @@ import { useSkinPreferencesStore } from "@/store/useSkinPreferencesStore";
 import { useVisualizerStore } from "@/store/useVisualizerStore";
 import { useEqualizerStore } from "@/store/useEqualizerStore";
 import { usePlaybackSettingsStore } from "@/store/usePlaybackSettingsStore";
-import { pickAndImportLibraryPaths } from "@/lib/libraryImport";
+import { pickAndImportLibraryPaths } from "@/lib/import/libraryImport";
 import { confirmAndOpenSkinUrl } from "./skinOpenUrl";
 import {
   SKIN_PREFERENCES_ACTION_EVENT,

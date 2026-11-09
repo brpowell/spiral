@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { confirmAndApplyTrackRatings } from "@/lib/applyTrackRating";
+import { confirmAndApplyTrackRatings } from "@/lib/tracks/applyTrackRating";
 import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
 import { skinDragRegionNoneProps } from "@/lib/skin/skinDragRegion";
 import { useSkinControlEnabled } from "@/lib/skin/skinBinds";
@@ -8,7 +8,7 @@ import {
   useResolvedNodeStyle,
 } from "@/lib/skin/skinNodeStyle";
 import { useSkinTooltip } from "@/lib/skin/skinTooltips";
-import { UNRATED } from "@/lib/trackRating";
+import { UNRATED } from "@/lib/tracks/trackRating";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { RatingNode } from "@/types/skin";
 import { TrackRating } from "@/components/TrackRating/TrackRating";

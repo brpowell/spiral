@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { countTracksBySource, describeSourceError } from "@/lib/sourceAccess";
+import {
+  countTracksBySource,
+  describeSourceError,
+} from "@/lib/files/sourceAccess";
 import {
   addSource,
   pickMusicFolder,

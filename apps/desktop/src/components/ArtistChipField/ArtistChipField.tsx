@@ -4,7 +4,7 @@ import {
   normalizeArtistName,
   parseArtistField,
   serializeArtistField,
-} from "@/lib/artistNames";
+} from "@/lib/artists/artistNames";
 import "./ArtistChipField.css";
 
 export type ArtistChipFieldProps = {

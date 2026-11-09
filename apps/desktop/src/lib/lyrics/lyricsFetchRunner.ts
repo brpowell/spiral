@@ -16,7 +16,7 @@ import { t } from "@/lib/i18n";
 import { fetchLyricsLrclib, getTrackLyrics } from "@/lib/tauri";
 import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
-import { missingFileErrorDetail } from "@/lib/missingFileTrack";
+import { missingFileErrorDetail } from "@/lib/tracks/missingFileTrack";
 import type { Track } from "@/types/track";
 
 const LYRICS_FETCH_CANCELLED_MESSAGE = "Lyrics fetch cancelled";

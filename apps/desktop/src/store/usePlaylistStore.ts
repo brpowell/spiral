@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { refreshArtDisplay } from "@/lib/artDisplayCache";
+import { refreshArtDisplay } from "@/lib/art/artDisplayCache";
 import {
   addTracksToPlaylist as addTracksToPlaylistApi,
   removeTracksFromPlaylist as removeTracksFromPlaylistApi,

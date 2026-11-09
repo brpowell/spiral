@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { confirmAndApplyTrackRatings } from "@/lib/applyTrackRating";
-import { albumTotalDurationSeconds } from "@/lib/albums";
+import { confirmAndApplyTrackRatings } from "@/lib/tracks/applyTrackRating";
+import { albumTotalDurationSeconds } from "@/lib/albums/albums";
 import { formatTime } from "@/lib/format";
-import { getPlaylistById, resolvePlaylistTracks } from "@/lib/playlists";
+import {
+  getPlaylistById,
+  resolvePlaylistTracks,
+} from "@/lib/playlists/playlists";
 import { PlaylistArt } from "@/components/PlaylistArt/PlaylistArt";
 import { Button } from "@/components/common/Button/Button";
 import {
@@ -22,7 +25,7 @@ import { useDeletePlaylistDialog } from "@/hooks/useDeletePlaylistDialog";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";
 import type { Playlist } from "@/types/playlist";
-import type { CanonicalRating } from "@/lib/trackRating";
+import type { CanonicalRating } from "@/lib/tracks/trackRating";
 import type { Track } from "@/types/track";
 import "./PlaylistDetailView.css";
 import "./DetailViewShared.css";

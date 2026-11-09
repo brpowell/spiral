@@ -3,7 +3,7 @@ import {
   mixedFieldPlaceholder,
   type TrackEditorForm,
   type TrackEditorFormField,
-} from "@/lib/trackMetadataForm";
+} from "@/lib/tracks/trackMetadataForm";
 import type { Track } from "@/types/track";
 import { ArtistChipField } from "@/components/ArtistChipField/ArtistChipField";
 import { TrackRating } from "@/components/TrackRating/TrackRating";

@@ -10,7 +10,7 @@ const tauri = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/tauri", () => tauri);
 const organize = vi.hoisted(() => ({ organizeInBackground: vi.fn() }));
-vi.mock("@/lib/organizeSource", () => organize);
+vi.mock("@/lib/files/organizeSource", () => organize);
 vi.mock("./useLibrarySettingsStore", () => ({
   useLibrarySettingsStore: {
     getState: () => ({ settings: { mediaFolder: "/Music/Spiral/Tracks" } }),

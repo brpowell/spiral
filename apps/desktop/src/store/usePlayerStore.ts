@@ -16,12 +16,15 @@ import {
 } from "@/lib/playback";
 import { buildPlaybackOrder } from "@/lib/playback/playbackOrder";
 import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
-import { groupTracksIntoAlbums } from "@/lib/albums";
-import { groupTracksIntoArtists, type ArtistBrowseMode } from "@/lib/artists";
+import { groupTracksIntoAlbums } from "@/lib/albums/albums";
+import {
+  groupTracksIntoArtists,
+  type ArtistBrowseMode,
+} from "@/lib/artists/artists";
 import {
   pickAndImportLibraryPaths,
   startLibraryImport,
-} from "@/lib/libraryImport";
+} from "@/lib/import/libraryImport";
 import { isCdImportBlockingPlayback } from "@/lib/cd/cdImportGuard";
 import {
   showQueueAddedToast,
@@ -51,7 +54,7 @@ import {
 import {
   applyTrackSelection,
   type TrackSelectionModifiers,
-} from "@/lib/trackSelection";
+} from "@/lib/tracks/trackSelection";
 import {
   cycleRepeatMode,
   toggleRepeatMode,
@@ -62,14 +65,17 @@ import {
   restoreSequentialOrder,
   shuffleTrackList,
 } from "@/lib/playback/playbackQueue";
-import { isPendingTrackId, isTrackImporting } from "@/lib/pendingImportTrack";
-import { fileExists } from "@/lib/artPath";
+import {
+  isPendingTrackId,
+  isTrackImporting,
+} from "@/lib/import/pendingImportTrack";
+import { fileExists } from "@/lib/art/artPath";
 import {
   mergeLibraryClientState,
   isMissingFileError,
   isTrackMissingFile,
   withTrackMissingFile,
-} from "@/lib/missingFileTrack";
+} from "@/lib/tracks/missingFileTrack";
 import { showMissingTrackSkippedToast } from "@/lib/playback/playbackToast";
 import {
   errorMessageFromUnknown,

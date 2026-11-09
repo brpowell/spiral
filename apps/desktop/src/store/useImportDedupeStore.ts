@@ -3,7 +3,7 @@ import { afterUiTransition } from "@/lib/scheduling";
 import type {
   ImportDuplicateContext,
   ImportDedupeResolution,
-} from "@/lib/trackDedupe";
+} from "@/lib/tracks/trackDedupe";
 
 interface ImportDedupePromptRequest {
   context: ImportDuplicateContext;

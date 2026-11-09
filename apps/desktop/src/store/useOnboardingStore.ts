@@ -3,7 +3,7 @@ import {
   hasCompletedOnboarding,
   markOnboardingCompleted,
 } from "@/lib/onboardingPreferences";
-import { organizeInBackground } from "@/lib/organizeSource";
+import { organizeInBackground } from "@/lib/files/organizeSource";
 import { createManagedSource, getLibrary, removeSource } from "@/lib/tauri";
 import { useLibrarySettingsStore } from "./useLibrarySettingsStore";
 import { useSourcesStore } from "./useSourcesStore";

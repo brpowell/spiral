@@ -1,8 +1,8 @@
 import type { CSSProperties } from "react";
 import { useAssetUrl } from "@/hooks/useAssetUrl";
-import { assetUrlFromPath } from "@/lib/assetUrl";
-import { cropToFrameStyle, type ImageCrop } from "@/lib/imageCrop";
-import { playlistUsesDesignCover } from "@/lib/playlistArt";
+import { assetUrlFromPath } from "@/lib/art/assetUrl";
+import { cropToFrameStyle, type ImageCrop } from "@/lib/art/imageCrop";
+import { playlistUsesDesignCover } from "@/lib/playlists/playlistArt";
 import type { Playlist } from "@/types/playlist";
 import type { Track } from "@/types/track";
 import { IconImage } from "@/components/icons";

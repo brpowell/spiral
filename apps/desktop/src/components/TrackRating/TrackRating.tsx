@@ -6,7 +6,7 @@ import {
   DEFAULT_DISPLAY_SCALE_MAX,
   UNRATED,
   type CanonicalRating,
-} from "@/lib/trackRating";
+} from "@/lib/tracks/trackRating";
 import "./TrackRating.css";
 
 const STAR_PATH =

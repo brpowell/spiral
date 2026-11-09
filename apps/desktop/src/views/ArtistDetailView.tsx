@@ -19,7 +19,7 @@ import {
   type ArtistBrowseMode,
   artistTotalDurationSeconds,
   getArtistByKey,
-} from "@/lib/artists";
+} from "@/lib/artists/artists";
 import { formatDurationNatural } from "@/lib/format";
 import { useDetailReturnLabel } from "@/hooks/useDetailReturnLabel";
 import { useNavigationStore } from "@/store/useNavigationStore";

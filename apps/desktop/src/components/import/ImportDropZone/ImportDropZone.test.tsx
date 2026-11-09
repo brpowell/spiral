@@ -8,7 +8,7 @@ vi.mock("@/lib/windowRole", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/windowRole")>()),
   isTauri: () => false,
 }));
-vi.mock("@/lib/dragDrop", () => ({
+vi.mock("@/lib/import/dragDrop", () => ({
   isExternalFileDrag: () => true,
   pathsFromDataTransfer: () => ["/music/song.mp3"],
 }));

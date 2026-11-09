@@ -41,7 +41,7 @@ vi.mock("@/components/EntityArt/useEntityArtSrc", () => ({
   useEntityArtSrc: (path: string | null) => (path ? "asset://thumb" : null),
 }));
 
-vi.mock("@/lib/rowArtThumb", () => ({
+vi.mock("@/lib/art/rowArtThumb", () => ({
   queueRowArtThumbPrefetch: vi.fn(),
   cancelRowArtThumbPrefetch: vi.fn(),
 }));

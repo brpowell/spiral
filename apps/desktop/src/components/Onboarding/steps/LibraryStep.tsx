@@ -1,5 +1,5 @@
 import { Trans, useTranslation } from "react-i18next";
-import { shortenHomePath, useHomeDir } from "@/lib/homePath";
+import { shortenHomePath, useHomeDir } from "@/lib/files/homePath";
 import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
 import {
   useOnboardingStore,

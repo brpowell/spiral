@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/react/sortable";
 import { usePlaylistSidebarMenu } from "@/hooks/usePlaylistSidebarMenu";
-import { resolvePlaylistTracks } from "@/lib/playlists";
+import { resolvePlaylistTracks } from "@/lib/playlists/playlists";
 import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { Playlist } from "@/types/playlist";

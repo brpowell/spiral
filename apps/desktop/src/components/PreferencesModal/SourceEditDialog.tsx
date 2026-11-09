@@ -2,12 +2,12 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useEditorDiscardPrompt } from "@/hooks/useEditorDiscardPrompt";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
-import { useShortenHomePath } from "@/lib/homePath";
+import { useShortenHomePath } from "@/lib/files/homePath";
 import {
   formatOrganizeRelativePath,
   type OrganizePathSample,
-} from "@/lib/organizePathFormat";
-import { describeSourceError, sourceErrorCode } from "@/lib/sourceAccess";
+} from "@/lib/files/organizePathFormat";
+import { describeSourceError, sourceErrorCode } from "@/lib/files/sourceAccess";
 import { pickMusicFolder } from "@/lib/tauri";
 import type { Source } from "@/types/source";
 import { Button } from "@/components/common/Button/Button";

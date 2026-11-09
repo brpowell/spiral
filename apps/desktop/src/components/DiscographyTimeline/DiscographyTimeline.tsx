@@ -1,7 +1,10 @@
 import { motion } from "framer-motion";
 import { useMemo } from "react";
-import { groupAlbumsForTimeline } from "@/lib/discographyTimeline";
-import { artistTrackCountOnAlbum, type ArtistBrowseMode } from "@/lib/artists";
+import { groupAlbumsForTimeline } from "@/lib/artists/discographyTimeline";
+import {
+  artistTrackCountOnAlbum,
+  type ArtistBrowseMode,
+} from "@/lib/artists/artists";
 import { t } from "@/lib/i18n";
 import { useAlbumEditMenu } from "@/hooks/useAlbumEditMenu";
 import { useNavigationStore } from "@/store/useNavigationStore";

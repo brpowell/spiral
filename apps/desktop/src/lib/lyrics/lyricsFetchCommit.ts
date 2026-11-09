@@ -2,7 +2,7 @@ import {
   discoverTrackFileMissing,
   isMissingFileError,
   withTrackMissingFile,
-} from "@/lib/missingFileTrack";
+} from "@/lib/tracks/missingFileTrack";
 import { buildTrackLyricsInputFromEditor } from "./lyrics";
 import {
   markTrackInstrumental,

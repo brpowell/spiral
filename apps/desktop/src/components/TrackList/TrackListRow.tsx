@@ -6,7 +6,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { DEFAULT_ARTIST_JOIN_DELIMITER } from "@/lib/artistNames";
+import { DEFAULT_ARTIST_JOIN_DELIMITER } from "@/lib/artists/artistNames";
 import { formatTrackLyricsColumnLabel } from "@/lib/lyrics/lyrics";
 import { formatDateAdded, formatTime } from "@/lib/format";
 import {
@@ -18,10 +18,16 @@ import {
   artistLinksForTrack,
   hasNavigableAlbum,
   type TrackArtistLink,
-} from "@/lib/trackNavigation";
-import { isTrackImporting, isTrackInteractive } from "@/lib/pendingImportTrack";
-import { isTrackMissingFile, missingFileLabel } from "@/lib/missingFileTrack";
-import { sourceDisplayName } from "@/lib/sourceAccess";
+} from "@/lib/tracks/trackNavigation";
+import {
+  isTrackImporting,
+  isTrackInteractive,
+} from "@/lib/import/pendingImportTrack";
+import {
+  isTrackMissingFile,
+  missingFileLabel,
+} from "@/lib/tracks/missingFileTrack";
+import { sourceDisplayName } from "@/lib/files/sourceAccess";
 import { useSourcesStore } from "@/store/useSourcesStore";
 import { Checkbox } from "@/components/common/Checkbox/Checkbox";
 import { IconCheck, IconGrip, IconMissingFile } from "@/components/icons";
@@ -33,7 +39,7 @@ import { TrackRowMenu } from "@/components/TrackRowMenu/TrackRowMenu";
 import { CdTrackRowMenu } from "@/components/cd/CdTrackRowMenu/CdTrackRowMenu";
 import type { TrackListColumnDef, TrackListColumnId } from "./types";
 import type { Track } from "@/types/track";
-import type { CanonicalRating } from "@/lib/trackRating";
+import type { CanonicalRating } from "@/lib/tracks/trackRating";
 import type {
   CellControlColumn,
   CellControlLocation,

@@ -1,7 +1,7 @@
 import {
   fetchAlbumArtPreferringRelease,
   resolveAlbumArtPath,
-} from "@/lib/albumArtFetch";
+} from "@/lib/albums/albumArtFetch";
 import { ensureCdHeroArtValid } from "./cdArt";
 import { logActivity, withLogContext } from "@/lib/activityLog";
 import { t } from "@/lib/i18n";

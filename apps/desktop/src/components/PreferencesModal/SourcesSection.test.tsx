@@ -14,7 +14,7 @@ import { useSourcesStore } from "@/store/useSourcesStore";
 import type { LibrarySettings } from "@/types/library";
 import type { FilePlanSummary, Source } from "@/types/source";
 import type { Track } from "@/types/track";
-import { revealInFileManagerLabel } from "@/lib/fileManager";
+import { revealInFileManagerLabel } from "@/lib/files/fileManager";
 import { SourcesSection } from "./SourcesSection";
 
 const tauri = vi.hoisted(() => ({

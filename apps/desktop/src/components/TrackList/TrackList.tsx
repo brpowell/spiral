@@ -8,11 +8,14 @@ import {
 import { DragDropProvider, type DragEndEvent } from "@dnd-kit/react";
 import { move, arrayMove } from "@dnd-kit/helpers";
 import { useSortable } from "@dnd-kit/react/sortable";
-import { albumKey } from "@/lib/albums";
-import { groupTracksIntoArtists } from "@/lib/artists";
+import { albumKey } from "@/lib/albums/albums";
+import { groupTracksIntoArtists } from "@/lib/artists/artists";
 import { t } from "@/lib/i18n";
 import { HANDLE_POINTER_SENSOR } from "@/lib/dndSortSensors";
-import { isTrackImporting, isTrackInteractive } from "@/lib/pendingImportTrack";
+import {
+  isTrackImporting,
+  isTrackInteractive,
+} from "@/lib/import/pendingImportTrack";
 import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { Checkbox } from "@/components/common/Checkbox/Checkbox";
@@ -33,9 +36,9 @@ import {
   type TrackListSortDir,
   type TrackListSortField,
 } from "./types";
-import { checkAllState } from "@/lib/trackCheckSelection";
+import { checkAllState } from "@/lib/tracks/trackCheckSelection";
 import type { Track } from "@/types/track";
-import type { CanonicalRating } from "@/lib/trackRating";
+import type { CanonicalRating } from "@/lib/tracks/trackRating";
 import { useTrackListVirtualizer } from "./useTrackListVirtualizer";
 import { usePrefetchVirtualRowArt } from "./usePrefetchVirtualRowArt";
 import { useTrackListHeaderRoving } from "./useTrackListHeaderRoving";

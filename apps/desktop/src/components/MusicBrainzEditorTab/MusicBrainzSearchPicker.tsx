@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import {
   musicBrainzHitFacts,
   musicBrainzHitTitle,
-} from "@/lib/musicBrainzEntityDisplay";
+} from "@/lib/musicbrainz/musicBrainzEntityDisplay";
 import type {
   MusicBrainzEntityHit,
   MusicBrainzEntityKind,

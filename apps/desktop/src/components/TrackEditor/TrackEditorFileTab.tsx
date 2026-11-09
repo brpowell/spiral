@@ -2,15 +2,15 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useFileSize } from "@/hooks/useFileSize";
 import { useFileExists } from "@/hooks/useFileExists";
-import { useShortenHomePath } from "@/lib/homePath";
+import { useShortenHomePath } from "@/lib/files/homePath";
 import {
   revealInFileManagerLabel,
   revealTrackInFileManager,
-} from "@/lib/fileManager";
+} from "@/lib/files/fileManager";
 import {
   discoverTrackFileMissing,
   isTrackMissingFile,
-} from "@/lib/missingFileTrack";
+} from "@/lib/tracks/missingFileTrack";
 import type { Track } from "@/types/track";
 import { AudioFileSpecs } from "@/components/AudioFileSpecs/AudioFileSpecs";
 import { Button } from "@/components/common/Button/Button";

@@ -5,7 +5,7 @@ vi.mock("@/lib/scheduling", () => ({
 }));
 
 import { applyBatchRule, useImportDedupeStore } from "./useImportDedupeStore";
-import type { ImportDuplicateContext } from "@/lib/trackDedupe";
+import type { ImportDuplicateContext } from "@/lib/tracks/trackDedupe";
 import type { Track, TrackInput } from "@/types/track";
 
 function trackInput(overrides: Partial<TrackInput> = {}): TrackInput {

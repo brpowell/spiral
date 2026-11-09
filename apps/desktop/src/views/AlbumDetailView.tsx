@@ -4,11 +4,11 @@ import {
   albumTotalDurationSeconds,
   getAlbumByKey,
   groupAlbumTracksByDisc,
-} from "@/lib/albums";
-import { confirmAndApplyTrackRatings } from "@/lib/applyTrackRating";
+} from "@/lib/albums/albums";
+import { confirmAndApplyTrackRatings } from "@/lib/tracks/applyTrackRating";
 import { formatDurationNatural } from "@/lib/format";
-import { linkableArtistKey } from "@/lib/trackNavigation";
-import type { CanonicalRating } from "@/lib/trackRating";
+import { linkableArtistKey } from "@/lib/tracks/trackNavigation";
+import type { CanonicalRating } from "@/lib/tracks/trackRating";
 import { DetailArtistLink } from "@/components/DetailArtistLink/DetailArtistLink";
 import { EntityArt } from "@/components/EntityArt/EntityArt";
 import { Button } from "@/components/common/Button/Button";

@@ -14,8 +14,8 @@ vi.mock("@/lib/playback", async (importOriginal) => ({
   },
 }));
 
-vi.mock("@/lib/artPath", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/artPath")>()),
+vi.mock("@/lib/art/artPath", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/art/artPath")>()),
   fileExists: mockFileExists,
 }));
 

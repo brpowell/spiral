@@ -37,11 +37,14 @@ import { t } from "@/lib/i18n";
 import { startCdImport } from "@/lib/cd/cdImport";
 import { formatTime } from "@/lib/format";
 import { setCdDetailDrive } from "@/lib/tauri";
-import { isAlbumInLibrary, linkableArtistKey } from "@/lib/trackNavigation";
+import {
+  isAlbumInLibrary,
+  linkableArtistKey,
+} from "@/lib/tracks/trackNavigation";
 import {
   setAllTracksChecked,
   toggleTrackChecked,
-} from "@/lib/trackCheckSelection";
+} from "@/lib/tracks/trackCheckSelection";
 import { getCdDriveById, useCdStore } from "@/store/useCdStore";
 import { useCdImportBlockingPlayback } from "@/hooks/useCdImportBlockingPlayback";
 import {

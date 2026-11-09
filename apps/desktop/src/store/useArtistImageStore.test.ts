@@ -9,7 +9,7 @@ vi.mock("@/lib/tauri", () => ({
   renameArtistImageKey: vi.fn(),
 }));
 
-vi.mock("@/lib/artDisplayCache", () => ({
+vi.mock("@/lib/art/artDisplayCache", () => ({
   refreshArtDisplay: (...args: unknown[]) => refreshArtDisplay(...args),
 }));
 

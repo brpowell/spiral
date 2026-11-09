@@ -5,7 +5,7 @@ import {
   coverArtThumbSrc,
   coverOptionMetaText,
   isCoverArtThumbReady,
-} from "@/lib/coverArtThumbs";
+} from "@/lib/art/coverArtThumbs";
 import type { CoverArtCandidate } from "@/types/coverArt";
 import {
   Modal,

@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { audioExtensionFromPath } from "@/lib/supportedAudio";
+import { audioExtensionFromPath } from "@/lib/import/supportedAudio";
 import {
   formatBitrate,
   formatCodec,

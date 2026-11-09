@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { describeSourceError } from "@/lib/sourceAccess";
+import { describeSourceError } from "@/lib/files/sourceAccess";
 import { useTranslation } from "react-i18next";
 import { ImageCropModal } from "@/components/common/ImageCropModal/ImageCropModal";
-import type { ImageCrop } from "@/lib/imageCrop";
+import type { ImageCrop } from "@/lib/art/imageCrop";
 import { useArtFileDrop } from "@/hooks/useArtFileDrop";
 import { useAssetUrl } from "@/hooks/useAssetUrl";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
@@ -13,8 +13,8 @@ import {
   bulkSaveLabel,
   useCancellableBulkSave,
 } from "@/hooks/useCancellableBulkSave";
-import { artistArtCacheKey, applyArtistImages } from "@/lib/artistArt";
-import { refreshArtDisplay } from "@/lib/artDisplayCache";
+import { artistArtCacheKey, applyArtistImages } from "@/lib/artists/artistArt";
+import { refreshArtDisplay } from "@/lib/art/artDisplayCache";
 import {
   artistFormsEqual,
   artistKeyAfterRename,
@@ -24,12 +24,12 @@ import {
   buildTrackArtistMetadata,
   isArtistMbidMixed,
   type ArtistEditorForm,
-} from "@/lib/artistMetadata";
-import { getArtistByKey, groupTracksIntoArtists } from "@/lib/artists";
+} from "@/lib/artists/artistMetadata";
+import { getArtistByKey, groupTracksIntoArtists } from "@/lib/artists/artists";
 import {
   preloadCoverArtThumbs,
   previewSrcForFetchedCover,
-} from "@/lib/coverArtThumbs";
+} from "@/lib/art/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
@@ -60,7 +60,7 @@ import { Tab, TabList, TabPanel, Tabs } from "@/components/common/Tabs/Tabs";
 import { AlbumArtPicker } from "@/components/AlbumEditor/AlbumArtPicker";
 import { AlbumEditorArtTab } from "@/components/AlbumEditor/AlbumEditorArtTab";
 import { MusicBrainzEditorTab } from "@/components/MusicBrainzEditorTab/MusicBrainzEditorTab";
-import { showTagWriteSavedToast } from "@/lib/trackMetadataToast";
+import { showTagWriteSavedToast } from "@/lib/tracks/trackMetadataToast";
 import { useTagWriteConfirmStore } from "@/store/useTagWriteConfirmStore";
 import "@/components/TrackEditor/TrackEditor.css";
 

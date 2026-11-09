@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { assetUrlFromPath } from "@/lib/assetUrl";
-import { imageOutputSizeOptions, type ImageCrop } from "@/lib/imageCrop";
+import { assetUrlFromPath } from "@/lib/art/assetUrl";
+import { imageOutputSizeOptions, type ImageCrop } from "@/lib/art/imageCrop";
 import { Button } from "@/components/common/Button/Button";
 import { useOutputSizes } from "@/hooks/useOutputSizes";
 import { formatBytes } from "@/lib/formatBytes";

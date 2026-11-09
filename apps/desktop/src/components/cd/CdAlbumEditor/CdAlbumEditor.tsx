@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { refreshArtDisplay } from "@/lib/artDisplayCache";
+import { refreshArtDisplay } from "@/lib/art/artDisplayCache";
 import { useArtFileDrop } from "@/hooks/useArtFileDrop";
 import { useAssetUrl } from "@/hooks/useAssetUrl";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
@@ -12,11 +12,11 @@ import {
 import { mergeDiscDisplayLayers } from "@/lib/cd/cdMetadata";
 import { cdSidebarDiscLabel } from "@/lib/cd/cdTracks";
 import { t } from "@/lib/i18n";
-import { fetchCoverArtCandidates } from "@/lib/albumArtFetch";
+import { fetchCoverArtCandidates } from "@/lib/albums/albumArtFetch";
 import {
   preloadCoverArtThumbs,
   previewSrcForFetchedCover,
-} from "@/lib/coverArtThumbs";
+} from "@/lib/art/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
@@ -33,7 +33,7 @@ import type { CoverArtCandidate } from "@/types/coverArt";
 import { AlbumArtPicker } from "@/components/AlbumEditor/AlbumArtPicker";
 import { AlbumEditorArtTab } from "@/components/AlbumEditor/AlbumEditorArtTab";
 import { ImageCropModal } from "@/components/common/ImageCropModal/ImageCropModal";
-import type { ImageCrop } from "@/lib/imageCrop";
+import type { ImageCrop } from "@/lib/art/imageCrop";
 import { EntityArt } from "@/components/EntityArt/EntityArt";
 import { EditorDiscardOverlay } from "@/components/EditorDiscardOverlay/EditorDiscardOverlay";
 import {

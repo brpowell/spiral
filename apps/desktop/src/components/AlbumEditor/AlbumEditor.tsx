@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { describeSourceError } from "@/lib/sourceAccess";
+import { describeSourceError } from "@/lib/files/sourceAccess";
 import { useTranslation } from "react-i18next";
 import { ImageCropModal } from "@/components/common/ImageCropModal/ImageCropModal";
-import type { ImageCrop } from "@/lib/imageCrop";
+import type { ImageCrop } from "@/lib/art/imageCrop";
 import { useArtFileDrop } from "@/hooks/useArtFileDrop";
 import { useAssetUrl } from "@/hooks/useAssetUrl";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
@@ -21,15 +21,19 @@ import {
   isReleaseMbidMixed,
   type AlbumEditorForm,
   type AlbumReleaseRecordingOptions,
-} from "@/lib/albumMetadata";
-import { albumKey, getAlbumByKey, groupTracksIntoAlbums } from "@/lib/albums";
-import { fetchCoverArtCandidates } from "@/lib/albumArtFetch";
-import { refreshArtDisplay } from "@/lib/artDisplayCache";
-import { isAlbumArtOverride } from "@/lib/artistArt";
+} from "@/lib/albums/albumMetadata";
+import {
+  albumKey,
+  getAlbumByKey,
+  groupTracksIntoAlbums,
+} from "@/lib/albums/albums";
+import { fetchCoverArtCandidates } from "@/lib/albums/albumArtFetch";
+import { refreshArtDisplay } from "@/lib/art/artDisplayCache";
+import { isAlbumArtOverride } from "@/lib/artists/artistArt";
 import {
   preloadCoverArtThumbs,
   previewSrcForFetchedCover,
-} from "@/lib/coverArtThumbs";
+} from "@/lib/art/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
@@ -39,10 +43,10 @@ import {
   renameAlbumArtwork,
   writeTrackMetadata,
 } from "@/lib/tauri";
-import { matchRecordingMbid } from "@/lib/musicBrainzReleaseRecordings";
+import { matchRecordingMbid } from "@/lib/musicbrainz/musicBrainzReleaseRecordings";
 import type { MusicBrainzEntityLookup } from "@/types/musicbrainz";
-import { collectArtistNameSuggestions } from "@/lib/artistNameSuggestions";
-import { collectGenreSuggestions } from "@/lib/trackFieldSuggestions";
+import { collectArtistNameSuggestions } from "@/lib/artists/artistNameSuggestions";
+import { collectGenreSuggestions } from "@/lib/tracks/trackFieldSuggestions";
 import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { CoverArtCandidate } from "@/types/coverArt";
@@ -65,7 +69,7 @@ import { AlbumArtPicker } from "./AlbumArtPicker";
 import { AlbumEditorArtTab } from "./AlbumEditorArtTab";
 import { AlbumEditorDetailsTab } from "./AlbumEditorDetailsTab";
 import { MusicBrainzEditorTab } from "@/components/MusicBrainzEditorTab/MusicBrainzEditorTab";
-import { showTagWriteSavedToast } from "@/lib/trackMetadataToast";
+import { showTagWriteSavedToast } from "@/lib/tracks/trackMetadataToast";
 import { useTagWriteConfirmStore } from "@/store/useTagWriteConfirmStore";
 
 type AlbumEditorTab = "details" | "art" | "musicbrainz";

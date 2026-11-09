@@ -49,7 +49,7 @@ import type {
   MusicBrainzEntityKind,
   MusicBrainzEntityLookup,
 } from "@/types/musicbrainz";
-import type { ImageCrop } from "./imageCrop";
+import type { ImageCrop } from "./art/imageCrop";
 import type { Playlist } from "@/types/playlist";
 import type { PlaybackSettings } from "@/types/playbackSettings";
 import type { Track, TrackInput } from "@/types/track";

@@ -22,7 +22,7 @@ import {
   LYRICS_FETCH_NOT_FOUND,
   type LyricsLibraryTrackRef,
 } from "@/lib/lyrics/lyricsFetch";
-import { missingFileErrorDetail } from "@/lib/missingFileTrack";
+import { missingFileErrorDetail } from "@/lib/tracks/missingFileTrack";
 import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
 import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
 import { usePlayerStore } from "@/store/usePlayerStore";

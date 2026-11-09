@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { t } from "./i18n";
 import { formatLyricsFormatLabel } from "./lyrics/lyrics";
 import { lyricsFetchFailureFeedback } from "./lyrics/lyricsFetch";
-import { mixedFieldPlaceholder, tracksToForm } from "./trackMetadataForm";
+import {
+  mixedFieldPlaceholder,
+  tracksToForm,
+} from "./tracks/trackMetadataForm";
 import {
   formatThemeValidationError,
   validateThemeForApply,

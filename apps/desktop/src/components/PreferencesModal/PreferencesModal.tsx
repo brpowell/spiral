@@ -7,7 +7,7 @@ import {
   ENCODING_PROFILE_SELECT_OPTIONS,
   isKnownEncodingProfileId,
   type EncodingProfileId,
-} from "@/lib/encodingProfiles";
+} from "@/lib/files/encodingProfiles";
 import {
   pickLibraryFolder,
   clearMetadataCache,

@@ -11,7 +11,7 @@ import {
   IconPlaylistAdd,
 } from "@/components/icons";
 import { t } from "@/lib/i18n";
-import { resolvePlaylistTracks } from "@/lib/playlists";
+import { resolvePlaylistTracks } from "@/lib/playlists/playlists";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";
 import type { Playlist } from "@/types/playlist";

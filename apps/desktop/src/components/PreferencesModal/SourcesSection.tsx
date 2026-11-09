@@ -1,11 +1,11 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useShortenHomePath } from "@/lib/homePath";
+import { useShortenHomePath } from "@/lib/files/homePath";
 import {
   countTracksBySource,
   describeSourceError,
   sourceDisplayName,
-} from "@/lib/sourceAccess";
+} from "@/lib/files/sourceAccess";
 import {
   addSource,
   pickMusicFolder,

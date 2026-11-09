@@ -1,9 +1,9 @@
 import { create } from "zustand";
-import type { ArtistBrowseMode } from "@/lib/artists";
+import type { ArtistBrowseMode } from "@/lib/artists/artists";
 import {
   loadArtistBrowseMode,
   saveArtistBrowseMode,
-} from "@/lib/artistBrowsePreferences";
+} from "@/lib/artists/artistBrowsePreferences";
 import {
   captureReturnContext,
   stateAfterCloseAlbum,

@@ -1,8 +1,8 @@
 import {
   fetchAlbumArtPreferringRelease,
   resolveAlbumArtPath,
-} from "@/lib/albumArtFetch";
-import { resolveArtPathIfExists } from "@/lib/artPath";
+} from "@/lib/albums/albumArtFetch";
+import { resolveArtPathIfExists } from "@/lib/art/artPath";
 import { cdHeroArtPath } from "./cdPlaybackArt";
 import { useCdStore } from "@/store/useCdStore";
 

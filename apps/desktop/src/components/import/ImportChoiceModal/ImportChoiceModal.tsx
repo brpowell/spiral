@@ -1,7 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
-import { describeSourceError, sourceDisplayName } from "@/lib/sourceAccess";
+import {
+  describeSourceError,
+  sourceDisplayName,
+} from "@/lib/files/sourceAccess";
 import { addSource, pickMusicFolder, setImportSource } from "@/lib/tauri";
 import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
 import { useSourcesStore } from "@/store/useSourcesStore";

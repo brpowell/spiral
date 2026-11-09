@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { toAssetUrl } from "@/lib/assetUrl";
+import { toAssetUrl } from "@/lib/art/assetUrl";
 import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
 import { useArtistImageStore } from "@/store/useArtistImageStore";
 import { usePlayerStore } from "@/store/usePlayerStore";

@@ -9,7 +9,7 @@ import { Switch } from "@/components/common/Switch/Switch";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { SearchField } from "@/components/SearchField/SearchField";
 import { IconArtists } from "@/components/icons";
-import { albumsForArtist, type ArtistBrowseMode } from "@/lib/artists";
+import { albumsForArtist, type ArtistBrowseMode } from "@/lib/artists/artists";
 import { createFuzzyMatcher } from "@/lib/fuzzySearch";
 import { t } from "@/lib/i18n";
 import { useArtistEditMenu } from "@/hooks/useArtistEditMenu";

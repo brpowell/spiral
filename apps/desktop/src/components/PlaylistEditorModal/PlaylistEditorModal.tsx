@@ -10,14 +10,17 @@ import { useEditorDiscardPrompt } from "@/hooks/useEditorDiscardPrompt";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useResetOnOpen } from "@/hooks/useResetOnOpen";
 import { t } from "@/lib/i18n";
-import { cropsEqual, type ImageCrop } from "@/lib/imageCrop";
-import { resolvePlaylistDesignFields } from "@/lib/playlistArt";
+import { cropsEqual, type ImageCrop } from "@/lib/art/imageCrop";
+import { resolvePlaylistDesignFields } from "@/lib/playlists/playlistArt";
 import {
   DEFAULT_PLAYLIST_COVER_GRADIENT_END,
   defaultPlaylistDesignCover,
   randomPlaylistCoverColors,
-} from "@/lib/playlistCoverPresets";
-import { getPlaylistById, resolvePlaylistTracks } from "@/lib/playlists";
+} from "@/lib/playlists/playlistCoverPresets";
+import {
+  getPlaylistById,
+  resolvePlaylistTracks,
+} from "@/lib/playlists/playlists";
 import { pickImageFile, storeCroppedPlaylistArt } from "@/lib/tauri";
 import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";

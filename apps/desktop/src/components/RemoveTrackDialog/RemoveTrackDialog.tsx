@@ -1,7 +1,7 @@
 import { useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
-import { canDeleteFromDisk } from "@/lib/sourceAccess";
+import { canDeleteFromDisk } from "@/lib/files/sourceAccess";
 import type { Track } from "@/types/track";
 import { Button } from "@/components/common/Button/Button";
 import {

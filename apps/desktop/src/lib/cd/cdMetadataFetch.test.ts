@@ -23,7 +23,7 @@ vi.mock("./cdArt", () => ({
   ensureCdHeroArtValid: ensureCdHeroArtValidMock,
 }));
 
-vi.mock("@/lib/albumArtFetch", () => ({
+vi.mock("@/lib/albums/albumArtFetch", () => ({
   resolveAlbumArtPath: resolveAlbumArtPathMock,
   fetchAlbumArtPreferringRelease: fetchAlbumArtPreferringReleaseMock,
 }));

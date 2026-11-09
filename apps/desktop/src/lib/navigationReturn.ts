@@ -1,7 +1,7 @@
 import { mergeRemoteMetadataIntoDisc } from "./cd/cdMetadata";
 import { cdSidebarDiscLabel } from "./cd/cdTracks";
 import { t } from "./i18n";
-import { getPlaylistById } from "./playlists";
+import { getPlaylistById } from "./playlists/playlists";
 import { useCdStore } from "@/store/useCdStore";
 import type { Artist } from "@/types/artist";
 import type { Playlist } from "@/types/playlist";

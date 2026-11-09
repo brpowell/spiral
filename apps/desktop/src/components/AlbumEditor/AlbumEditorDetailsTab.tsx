@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import {
   albumMixedFieldPlaceholder,
   type AlbumEditorForm,
-} from "@/lib/albumMetadata";
+} from "@/lib/albums/albumMetadata";
 import type { Track } from "@/types/track";
 import { AutocompleteInput } from "@/components/common/AutocompleteInput/AutocompleteInput";
 import { FormField } from "@/components/common/Field/Field";

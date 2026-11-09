@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { t } from "./i18n";
-import { convertTracksSettleOptions } from "./convertTracks";
-import { formatImportSummary } from "./import";
+import { convertTracksSettleOptions } from "./files/convertTracks";
+import { formatImportSummary } from "./import/import";
 import { formatLyricsFetchPeerTitle } from "./lyrics/lyricsFetchToastSettle";
 import { resolveSkinTooltip } from "./skin/skinTooltips";
 import { queueAddedPayload } from "./toast/toastPayloads";

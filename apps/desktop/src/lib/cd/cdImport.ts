@@ -3,7 +3,7 @@ import {
   albumImportMetadata,
   findMatchingLibraryAlbum,
   groupTracksIntoAlbums,
-} from "@/lib/albums";
+} from "@/lib/albums/albums";
 import { resolveCdSharedArtPath } from "./cdArt";
 import { isCdImportCancelRequested } from "./cdImportGuard";
 import { errorMessageFromUnknown } from "./cdPlaybackFailure";
@@ -14,18 +14,18 @@ import {
   resolveImportDuplicates,
   type ImportResult,
   type ParsedImportEntry,
-} from "@/lib/import";
+} from "@/lib/import/import";
 import {
   flushImportActivationQueue,
   queueImportedTrackActivation,
   queuePendingImportRemoval,
   resetImportActivationQueue,
-} from "@/lib/importActivationQueue";
+} from "@/lib/import/importActivationQueue";
 import {
   allocPendingTrackId,
   pendingTrackFromInput,
   resetPendingTrackIds,
-} from "@/lib/pendingImportTrack";
+} from "@/lib/import/pendingImportTrack";
 import { logActivity } from "@/lib/activityLog";
 import { yieldForInteraction } from "@/lib/scheduling";
 import { cleanupCdImportTemp, ripCdTrack } from "@/lib/tauri";

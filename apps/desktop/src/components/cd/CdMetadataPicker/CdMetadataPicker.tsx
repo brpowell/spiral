@@ -3,7 +3,7 @@ import { discMetadataToEntityHit } from "@/lib/cd/cdMetadata";
 import {
   musicBrainzHitFacts,
   musicBrainzHitTitle,
-} from "@/lib/musicBrainzEntityDisplay";
+} from "@/lib/musicbrainz/musicBrainzEntityDisplay";
 import { useCdStore } from "@/store/useCdStore";
 import { useOnboardingStore } from "@/store/useOnboardingStore";
 import { Badge } from "@/components/common/Badge/Badge";

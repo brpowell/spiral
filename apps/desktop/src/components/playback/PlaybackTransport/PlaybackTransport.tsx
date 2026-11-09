@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { buildPlaybackOrder } from "@/lib/playback/playbackOrder";
 import { getManualNextId } from "@/lib/playback/playbackQueue";
 import { getNextSkippingKnownUnplayable } from "@/lib/playback/playbackSkip";
-import { isTrackImporting } from "@/lib/pendingImportTrack";
+import { isTrackImporting } from "@/lib/import/pendingImportTrack";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { TransportButtons } from "./TransportButtons";
 

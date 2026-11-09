@@ -1,8 +1,8 @@
 import { Fragment, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { revealInFileManagerLabel } from "@/lib/fileManager";
-import { useShortenHomePath } from "@/lib/homePath";
-import { sourceDisplayName } from "@/lib/sourceAccess";
+import { revealInFileManagerLabel } from "@/lib/files/fileManager";
+import { useShortenHomePath } from "@/lib/files/homePath";
+import { sourceDisplayName } from "@/lib/files/sourceAccess";
 import type { Source } from "@/types/source";
 import {
   ContextMenuItem,

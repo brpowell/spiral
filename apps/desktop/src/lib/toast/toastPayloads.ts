@@ -1,7 +1,7 @@
 import { t, type TranslationKey } from "@/lib/i18n";
-import { isMissingFileErrorDetail } from "@/lib/missingFileTrack";
+import { isMissingFileErrorDetail } from "@/lib/tracks/missingFileTrack";
 import { lyricsAmbiguousSettleOptions } from "@/lib/lyrics/lyricsFetchToastSettle";
-import { describeSourceError } from "@/lib/sourceAccess";
+import { describeSourceError } from "@/lib/files/sourceAccess";
 import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
 import type { ReconcileSummary } from "@/types/source";
 import type {

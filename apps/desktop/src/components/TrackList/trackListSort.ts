@@ -2,7 +2,7 @@ import type { Track } from "@/types/track";
 import { compareLocalized } from "@/lib/appLocale";
 import { createFuzzyMatcher } from "@/lib/fuzzySearch";
 import { lyricsFormatSortRank } from "@/lib/lyrics/lyrics";
-import { sourceSortRank } from "@/lib/sourceAccess";
+import { sourceSortRank } from "@/lib/files/sourceAccess";
 import type { TrackListSortDir, TrackListSortField } from "./types";
 
 export function compareTracks(

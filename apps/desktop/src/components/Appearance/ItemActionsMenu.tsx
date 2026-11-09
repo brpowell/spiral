@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { updateItemMetadataWithRefresh } from "@/lib/items/itemActions";
-import { revealInFileManagerLabel } from "@/lib/fileManager";
+import { revealInFileManagerLabel } from "@/lib/files/fileManager";
 import { listItems, revealItemFolder } from "@/lib/tauri";
 import type { ItemSummary, ItemType } from "@/types/item";
 import { isEditablePackZone, type PackZone } from "@/types/pack";

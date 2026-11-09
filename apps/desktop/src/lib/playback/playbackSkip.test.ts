@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/artPath", () => ({
+vi.mock("@/lib/art/artPath", () => ({
   fileExists: vi.fn().mockResolvedValue(true),
 }));
 
-import { fileExists } from "@/lib/artPath";
+import { fileExists } from "@/lib/art/artPath";
 import { cdTrackListId } from "@/lib/cd/cdTracks";
 import {
   getNextSkippingKnownUnplayable,

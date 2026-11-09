@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 import {
   GENERIC_ORGANIZE_PATH_SAMPLE,
   trackToOrganizePathSample,
-} from "@/lib/organizePathFormat";
-import { organizeInBackground } from "@/lib/organizeSource";
+} from "@/lib/files/organizePathFormat";
+import { organizeInBackground } from "@/lib/files/organizeSource";
 import {
   relocateSource,
   setSourceOrganize,

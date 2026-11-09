@@ -1,10 +1,10 @@
-import { parseOptionalInt } from "@/lib/albumMetadata";
+import { parseOptionalInt } from "@/lib/albums/albumMetadata";
 import type { DiscMetadataOverride, DiscTrackOverride } from "@/types/cd";
 import type { MusicBrainzTrackSlot } from "@/types/musicbrainz";
-import type { TrackEditorForm } from "@/lib/trackMetadataForm";
+import type { TrackEditorForm } from "@/lib/tracks/trackMetadataForm";
 import type { Track } from "@/types/track";
 import { cdTrackNumberFromListId } from "./cdTracks";
-import { matchRecordingMbid } from "@/lib/musicBrainzReleaseRecordings";
+import { matchRecordingMbid } from "@/lib/musicbrainz/musicBrainzReleaseRecordings";
 
 /** Build a disc override patch from track editor form values for the given CD rows. */
 export function discOverridePatchFromTrackForm(

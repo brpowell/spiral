@@ -5,7 +5,7 @@ import {
   getPlaylistById,
   resolvePlaylistTracks,
   sortedPlaylists,
-} from "@/lib/playlists";
+} from "@/lib/playlists/playlists";
 import type { Playlist } from "@/types/playlist";
 import type { Track } from "@/types/track";
 

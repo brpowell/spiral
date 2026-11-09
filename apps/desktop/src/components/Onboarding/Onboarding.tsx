@@ -16,7 +16,7 @@ import {
   useOnboardingStore,
   type OnboardingStepId,
 } from "@/store/useOnboardingStore";
-import { describeSourceError } from "@/lib/sourceAccess";
+import { describeSourceError } from "@/lib/files/sourceAccess";
 import { useSourcesStore } from "@/store/useSourcesStore";
 import { Button } from "@/components/common/Button/Button";
 import { FadingScroller } from "./FadingScroller";

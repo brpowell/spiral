@@ -1,4 +1,7 @@
-import { normalizeArtistName, parseArtistField } from "@/lib/artistNames";
+import {
+  normalizeArtistName,
+  parseArtistField,
+} from "@/lib/artists/artistNames";
 
 /**
  * One performer credited on {@link VizFrameTrack}.

@@ -1,9 +1,9 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo } from "react";
-import { isTrackImporting } from "@/lib/pendingImportTrack";
-import { applyArtistImages } from "@/lib/artistArt";
-import { groupTracksIntoAlbums } from "@/lib/albums";
-import { groupTracksIntoArtists } from "@/lib/artists";
+import { isTrackImporting } from "@/lib/import/pendingImportTrack";
+import { applyArtistImages } from "@/lib/artists/artistArt";
+import { groupTracksIntoAlbums } from "@/lib/albums/albums";
+import { groupTracksIntoArtists } from "@/lib/artists/artists";
 import { viewTransition } from "@/lib/motion";
 import { useArtistImageStore } from "@/store/useArtistImageStore";
 import { useNavigationStore } from "@/store/useNavigationStore";

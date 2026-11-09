@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { describeSourceError } from "@/lib/sourceAccess";
+import { describeSourceError } from "@/lib/files/sourceAccess";
 import { useTranslation } from "react-i18next";
 import { useArtFileDrop } from "@/hooks/useArtFileDrop";
 import { useAssetUrl } from "@/hooks/useAssetUrl";
@@ -11,12 +11,12 @@ import {
   bulkSaveLabel,
   useCancellableBulkSave,
 } from "@/hooks/useCancellableBulkSave";
-import { parseArtistField } from "@/lib/artistNames";
-import { collectArtistNameSuggestions } from "@/lib/artistNameSuggestions";
+import { parseArtistField } from "@/lib/artists/artistNames";
+import { collectArtistNameSuggestions } from "@/lib/artists/artistNameSuggestions";
 import {
   collectGenreSuggestions,
   collectAlbumSuggestions,
-} from "@/lib/trackFieldSuggestions";
+} from "@/lib/tracks/trackFieldSuggestions";
 import { parseTrackMetadata } from "@/lib/metadata";
 import {
   buildTrackMetadataFromForm,
@@ -30,13 +30,13 @@ import {
   tracksToForm,
   type TrackEditorForm,
   type TrackEditorFormField,
-} from "@/lib/trackMetadataForm";
+} from "@/lib/tracks/trackMetadataForm";
 import {
   discoverTrackFileMissing,
   isMissingFileError,
   missingFileErrorDetail,
   withTrackMissingFile,
-} from "@/lib/missingFileTrack";
+} from "@/lib/tracks/missingFileTrack";
 import {
   LYRICS_FETCH_NOT_FOUND,
   createLyricsFetchFeedback,
@@ -51,14 +51,14 @@ import {
 import {
   showBulkTrackMetadataSaveToast,
   showTagWriteSavedToast,
-} from "@/lib/trackMetadataToast";
+} from "@/lib/tracks/trackMetadataToast";
 import { useTagWriteConfirmStore } from "@/store/useTagWriteConfirmStore";
-import { fetchCoverArtCandidates } from "@/lib/albumArtFetch";
-import { refreshArtDisplay } from "@/lib/artDisplayCache";
+import { fetchCoverArtCandidates } from "@/lib/albums/albumArtFetch";
+import { refreshArtDisplay } from "@/lib/art/artDisplayCache";
 import {
   preloadCoverArtThumbs,
   previewSrcForFetchedCover,
-} from "@/lib/coverArtThumbs";
+} from "@/lib/art/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
@@ -72,8 +72,8 @@ import {
 import {
   rematchRecordingFromCachedRelease,
   deriveRecordingFromCachedRelease,
-} from "@/lib/musicBrainzReleaseRecordings";
-import { albumKey } from "@/lib/albums";
+} from "@/lib/musicbrainz/musicBrainzReleaseRecordings";
+import { albumKey } from "@/lib/albums/albums";
 import { usePlayerStore, type TrackEditorTab } from "@/store/usePlayerStore";
 import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
 import type { CoverArtCandidate } from "@/types/coverArt";
@@ -100,7 +100,7 @@ import { EntityArt } from "@/components/EntityArt/EntityArt";
 import { AlbumArtPicker } from "@/components/AlbumEditor/AlbumArtPicker";
 import { AlbumEditorArtTab } from "@/components/AlbumEditor/AlbumEditorArtTab";
 import { ImageCropModal } from "@/components/common/ImageCropModal/ImageCropModal";
-import type { ImageCrop } from "@/lib/imageCrop";
+import type { ImageCrop } from "@/lib/art/imageCrop";
 import { MusicBrainzEditorTab } from "@/components/MusicBrainzEditorTab/MusicBrainzEditorTab";
 import { TrackEditorDetailsTab } from "./TrackEditorDetailsTab";
 import { TrackEditorFileTab } from "./TrackEditorFileTab";
