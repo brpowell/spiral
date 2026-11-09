@@ -4,7 +4,7 @@ import { usePlayerStore } from "@/store/usePlayerStore";
 import { TransportPreview } from "./TransportPreview";
 
 const playTransportCue = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/transportCues", () => ({ playTransportCue }));
+vi.mock("@/lib/playback/transportCues", () => ({ playTransportCue }));
 
 describe("TransportPreview", () => {
   beforeEach(() => {

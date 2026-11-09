@@ -9,14 +9,14 @@ import { applyEqBandSliderGain } from "@/lib/equalizer/eqBandInput";
 import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
 import { resolveThumbAssetFile, skinAssetFileUrl } from "@/lib/skin/skinAssets";
 import { skinDragRegionNoneProps } from "@/lib/skin/skinDragRegion";
-import { wmpTiledTrackStyle } from "@/lib/wmpTiledTrack";
+import { wmpTiledTrackStyle } from "@/lib/skin/wmpTiledTrack";
 import {
   pointInThumb,
   wmpCrossAxisOffset,
   wmpHorizontalPointerToRatio,
   wmpHorizontalThumbLeft,
   wmpSliderFillSpan,
-} from "@/lib/wmpBitmapSliderThumb";
+} from "@/lib/skin/wmpBitmapSliderThumb";
 import {
   evaluateSkinBind,
   useSkinBindState,

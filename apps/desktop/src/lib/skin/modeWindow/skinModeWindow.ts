@@ -21,9 +21,9 @@ import {
   readPersistedSkinModeState,
   DEFAULT_SKIN_MODE_ALWAYS_ON_TOP,
 } from "./skinModeWindowState";
-import { PLAYER_REQUEST_STATE_EVENT } from "@/lib/playerStoreBridge";
+import { PLAYER_REQUEST_STATE_EVENT } from "@/lib/playback/playerStoreBridge";
 import { setSkinModeAlwaysOnTopSnapshot } from "./skinModeAlwaysOnTop";
-import { setSkinModeSessionActive } from "@/lib/listenSession";
+import { setSkinModeSessionActive } from "@/lib/playback/listenSession";
 import { isTauri } from "@/lib/windowRole";
 
 export { DEFAULT_SKIN_MODE_ALWAYS_ON_TOP } from "./skinModeWindowState";

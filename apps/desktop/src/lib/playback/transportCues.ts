@@ -1,6 +1,6 @@
 import { SOUND_CUES, type SoundCue } from "@/types/soundPack";
-import { resolveCueUrl } from "./packs/packSounds";
-import { playOneShot } from "./sfxPlayer";
+import { resolveCueUrl } from "@/lib/packs/packSounds";
+import { playOneShot } from "@/lib/sfxPlayer";
 
 /** Play uses its own cue. Pause and the other controls share one. */
 export type TransportCue = "play" | "control";

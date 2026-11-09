@@ -1,4 +1,4 @@
-import type { CrossfadeVisualState } from "./playback";
+import type { CrossfadeVisualState } from "@/lib/playback";
 
 type CrossfadeVisualListener = (state: CrossfadeVisualState | null) => void;
 

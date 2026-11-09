@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { notifyCrossfadeVisual } from "@/lib/crossfadeVisualClock";
-import { notifyLivePosition } from "@/lib/livePosition";
+import { notifyCrossfadeVisual } from "@/lib/playback/crossfadeVisualClock";
+import { notifyLivePosition } from "@/lib/playback/livePosition";
 import {
   pinPlaybackPosition,
   resolvePlaybackDisplaySeconds,
@@ -26,7 +26,7 @@ import { isCdImportBlockingPlayback } from "@/lib/cd/cdImportGuard";
 import {
   showQueueAddedToast,
   showQueueAddedToastForTracks,
-} from "@/lib/queueToast";
+} from "@/lib/playback/queueToast";
 import { seekRatioToPositionSeconds } from "@/lib/playback/playbackSeek";
 import {
   parseRepeatMode,
@@ -40,7 +40,7 @@ import {
   resumeListenAccumulation,
   type ListenCompletion,
   type ListenEventPayload,
-} from "@/lib/listenSession";
+} from "@/lib/playback/listenSession";
 import { usePlaybackSettingsStore } from "./usePlaybackSettingsStore";
 import {
   getLibrary,

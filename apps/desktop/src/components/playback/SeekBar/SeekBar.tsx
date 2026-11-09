@@ -9,7 +9,7 @@ import { Slider } from "@/components/common/Slider/Slider";
 import * as audio from "@/lib/playback";
 import { subscribePlaybackClock } from "@/lib/playback/playbackClock";
 import { resolvePlaybackDisplaySeconds } from "@/lib/playback/playbackClockPin";
-import { createPlayheadGlide } from "@/lib/playheadGlide";
+import { createPlayheadGlide } from "@/lib/playback/playheadGlide";
 import { formatRemainingTime, formatTime } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { findPlaybackTrack } from "@/lib/playback/playbackTrack";

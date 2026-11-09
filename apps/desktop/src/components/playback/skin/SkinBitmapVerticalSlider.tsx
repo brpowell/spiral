@@ -8,14 +8,14 @@ import {
 import { applyEqBandSliderGain } from "@/lib/equalizer/eqBandInput";
 import { resolveThumbAssetFile, skinAssetFileUrl } from "@/lib/skin/skinAssets";
 import { skinDragRegionNoneProps } from "@/lib/skin/skinDragRegion";
-import { wmpTiledTrackStyle } from "@/lib/wmpTiledTrack";
+import { wmpTiledTrackStyle } from "@/lib/skin/wmpTiledTrack";
 import {
   pointInThumb,
   wmpCrossAxisOffset,
   wmpSliderFillSpan,
   wmpVerticalPointerToRatio,
   wmpVerticalThumbTop,
-} from "@/lib/wmpBitmapSliderThumb";
+} from "@/lib/skin/wmpBitmapSliderThumb";
 import { useSkinBindState, useSkinControlEnabled } from "@/lib/skin/skinBinds";
 import { resolveSkinTooltip } from "@/lib/skin/skinTooltips";
 import { useEqualizerStore } from "@/store/useEqualizerStore";

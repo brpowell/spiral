@@ -1,4 +1,4 @@
-import { queueAddedPayload } from "./toast/toastPayloads";
+import { queueAddedPayload } from "@/lib/toast/toastPayloads";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import type { Track } from "@/types/track";
 

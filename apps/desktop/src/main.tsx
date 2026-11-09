@@ -10,7 +10,7 @@ import { ActivityLogsApp } from "./windows/ActivityLogsApp";
 import { AppearanceApp } from "./windows/AppearanceApp";
 import { EqualizerApp } from "./windows/EqualizerApp";
 import { SkinModeApp } from "./windows/SkinModeApp";
-import { initPlayerStoreBridge } from "./lib/playerStoreBridge";
+import { initPlayerStoreBridge } from "./lib/playback/playerStoreBridge";
 import { initSkinBridge } from "./lib/skin/skinBridge";
 import { initThemeBridge } from "./lib/theme/themeBridge";
 import { initVisualizerBridge } from "./lib/visualizer/visualizerBridge";

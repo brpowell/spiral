@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { playTransportCue } from "@/lib/transportCues";
+import { playTransportCue } from "@/lib/playback/transportCues";
 import type { RepeatMode } from "@/types/track";
 import { Button } from "@/components/common/Button/Button";
 import {

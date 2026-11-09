@@ -17,7 +17,7 @@ import {
   getDefaultPublisherId,
   saveDefaultPublisherId,
 } from "@/lib/tauri";
-import { stopPlaybackForLibraryRelocate } from "@/lib/libraryRelocatePlayback";
+import { stopPlaybackForLibraryRelocate } from "@/lib/playback/libraryRelocatePlayback";
 import { isPublisherId } from "@/lib/items/itemIds";
 import { useArtistImageStore } from "@/store/useArtistImageStore";
 import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";

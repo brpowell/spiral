@@ -1,5 +1,5 @@
 import type { LoadedSkinPack } from "@/types/skin";
-import { scopeSkinStylesheet } from "@/lib/scopeSkinStylesheet";
+import { scopeSkinStylesheet } from "./scopeSkinStylesheet";
 import { skinStylesheetUrl } from "./skinStylesheet";
 
 const scopedCssCache = new Map<string, string>();

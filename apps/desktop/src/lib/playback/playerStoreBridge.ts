@@ -1,19 +1,19 @@
 import { emit, listen } from "@tauri-apps/api/event";
 import type { RepeatMode, Track } from "@/types/track";
 import type { PlaybackState } from "@/types/track";
-import * as audio from "./playback";
+import * as audio from "@/lib/playback";
 import { setLivePositionPublisher } from "./livePosition";
 import {
   seekPositionMatchesRatio,
   seekRatioToPositionSeconds,
-} from "./playback/playbackSeek";
+} from "./playbackSeek";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import {
   pickPlaybackSettingsSnapshot,
   usePlaybackSettingsStore,
 } from "@/store/usePlaybackSettingsStore";
-import type { WindowRole } from "./windowRole";
-import { pickAndImportLibraryPaths } from "./libraryImport";
+import type { WindowRole } from "@/lib/windowRole";
+import { pickAndImportLibraryPaths } from "@/lib/libraryImport";
 
 export const PLAYER_STATE_EVENT = "player://state";
 export const PLAYER_ACTION_EVENT = "player://action";

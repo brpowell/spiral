@@ -3,13 +3,8 @@ import { scopeSkinStylesheet, skinScopeSelector } from "./scopeSkinStylesheet";
 
 describe("scopeSkinStylesheet", () => {
   it("prefixes simple selectors", () => {
-    const scoped = scopeSkinStylesheet(
-      ".skin-text { color: red; }",
-      "t3",
-    );
-    expect(scoped).toContain(
-      `${skinScopeSelector("t3")} .skin-text`,
-    );
+    const scoped = scopeSkinStylesheet(".skin-text { color: red; }", "t3");
+    expect(scoped).toContain(`${skinScopeSelector("t3")} .skin-text`);
     expect(scoped).toContain("color: red");
   });
 
