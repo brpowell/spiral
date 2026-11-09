@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { SidebarItem } from "./SidebarItem/SidebarItem";
 import { Button } from "@/components/common/Button/Button";
-import { ImportIndicator } from "@/components/ImportIndicator/ImportIndicator";
+import { ImportIndicator } from "@/components/import/ImportIndicator/ImportIndicator";
 import { IconDisc, IconEject } from "@/components/icons";
 import { useCdDriveMenu } from "@/hooks/useCdDriveMenu";
 import { mergeRemoteMetadataIntoDisc } from "@/lib/cd/cdMetadata";

@@ -1,6 +1,6 @@
 import { CustomWindowFrame } from "@/components/WindowChrome/CustomWindowFrame";
 import { LyricsReviewQueue } from "@/components/LyricsReviewQueue/LyricsReviewQueue";
-import { ToastLabShell } from "@/components/ToastLab/ToastLabShell";
+import { ToastLabShell } from "@/components/labs/ToastLab/ToastLabShell";
 import { WhatsNewModal } from "@/components/WhatsNewModal/WhatsNewModal";
 import "./ToastLabApp.css";
 

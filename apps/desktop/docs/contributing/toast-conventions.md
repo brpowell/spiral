@@ -114,7 +114,7 @@ Nothing-to-do cases (e.g. “No tracks missing lyrics”) are plain info toasts 
 
 ## Toast Lab (§9)
 
-Every real production toast scenario must be registered in Toast Lab (`src/components/ToastLab/toastLabScenarios.ts`) for visual auditing.
+Every real production toast scenario must be registered in Toast Lab (`src/components/labs/ToastLab/toastLabScenarios.ts`) for visual auditing.
 
 - Add a scenario when introducing or changing a production toast (success, failure, partial, cancel, progress→settle).
 - Prefer calling the same payload / `settleAs` helpers production uses (`toastPayloads.ts`, settle option builders) — do not hand-roll divergent lab-only copy.

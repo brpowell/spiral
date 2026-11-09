@@ -28,7 +28,11 @@
 .import-indicator__clock {
   width: var(--track-row-indicator-width);
   height: var(--track-row-indicator-width);
-  color: color-mix(in srgb, var(--color-accent) 55%, var(--color-text-secondary));
+  color: color-mix(
+    in srgb,
+    var(--color-accent) 55%,
+    var(--color-text-secondary)
+  );
 }
 
 .import-indicator__page {

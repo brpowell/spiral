@@ -1,5 +1,5 @@
 import { CustomWindowFrame } from "@/components/WindowChrome/CustomWindowFrame";
-import { SoundLabShell } from "@/components/SoundLab/SoundLabShell";
+import { SoundLabShell } from "@/components/labs/SoundLab/SoundLabShell";
 import "./SoundLabApp.css";
 
 export function SoundLabApp() {

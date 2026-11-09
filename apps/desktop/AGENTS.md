@@ -21,6 +21,8 @@ Spiral-specific UI goes in `src/components/<FeatureName>/` (e.g. `TrackEditor/`,
 - Heuristic: if removing Spiral's music/library domain would make the component meaningless, it does not belong in `common/`.
 - "Shared between two editors" is not a reason for `common/`; use a sibling feature folder.
 
+Folder casing tells you what a folder is: a PascalCase folder is one component (`TrackEditor/`), and a lowercase folder groups related components (`common/`, `layout/`, `playback/`, `cd/`, `import/`, `labs/`). Put a new component in an existing group when it fits.
+
 ## No per-skin engine hacks
 
 The skin runtime (`src/lib/skin/`, `src/components/playback/skin/`), the WMS importer, and the `spk-format` schemas are a general engine. A bug in one pack is a missing pattern in the engine or missing data on the presentation, not an `if` for that pack.
