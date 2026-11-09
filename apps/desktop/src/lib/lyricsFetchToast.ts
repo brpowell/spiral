@@ -1,4 +1,7 @@
-import { peekLyricsFetchCache } from "./tauri";
+import { peekLyricsFetchCache, searchLyricsCandidates } from "./tauri";
+import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
+import { t } from "./i18n";
+import type { LyricsSearchCandidate } from "../types/lyrics";
 import { enqueueLyricsFetch } from "./lyricsFetchQueue";
 import type { LyricsFetchParams } from "./lyricsFetchRunner";
 import {
@@ -72,5 +75,33 @@ export function runLyricsFetchInBackground(
   enqueueLyricsFetch(trackId, displayTitle, params, {
     priority: "manual",
     respectMissCache: options?.respectMissCache,
+  });
+}
+
+/**
+ * "Choose from available options": search LRCLIB for every match behind a
+ * progress toast. Resolves with the candidates (the toast then dismisses
+ * silently; the caller shows the picker or a not-found notice) and rejects
+ * when the search fails, which settles the toast as an error.
+ */
+export function searchLyricsOptionsInBackground(
+  trackId: number,
+  displayTitle: string,
+  params: LyricsFetchParams,
+): Promise<LyricsSearchCandidate[]> {
+  return new Promise((resolve, reject) => {
+    useBackgroundTasksStore.getState().runInBackground({
+      key: `lyrics-options-${trackId}`,
+      label: t("toasts:lyrics.searchingFor", { title: displayTitle }),
+      run: async (ctx) => {
+        try {
+          resolve(await searchLyricsCandidates(params));
+          ctx.dismissSilently();
+        } catch (err) {
+          reject(err);
+          throw err;
+        }
+      },
+    });
   });
 }

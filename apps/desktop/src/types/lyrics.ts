@@ -1,8 +1,5 @@
 export type LyricsFormat =
-  | "plain"
-  | "line_synced"
-  | "word_synced"
-  | "instrumental";
+  "plain" | "line_synced" | "word_synced" | "instrumental";
 export type LyricsSource = "manual" | "embedded" | "sidecar" | "lrclib" | null;
 
 export interface LyricsWord {
@@ -44,7 +41,7 @@ export interface LyricsSearchCandidate {
 }
 
 export type LyricsFetchOutcome =
-  | { status: "found"; lyrics: TrackLyricsInput }
+  | { status: "found"; lyrics: TrackLyricsInput; lrclibId?: number }
   | { status: "not_found" }
   | { status: "instrumental" }
   | { status: "ambiguous"; candidates: LyricsSearchCandidate[] };

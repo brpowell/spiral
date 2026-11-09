@@ -34,6 +34,8 @@ struct CachedLyricsEntry {
     kind: CacheKind,
     #[serde(skip_serializing_if = "Option::is_none")]
     lyrics: Option<TrackLyricsInput>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    lrclib_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -50,7 +52,7 @@ pub enum CachedLyricsLookup {
     NotCached,
     Miss,
     Instrumental,
-    Hit(TrackLyricsInput),
+    Hit(TrackLyricsInput, Option<i64>),
 }
 
 pub fn cache_fingerprint(artist: &str, title: &str, duration_secs: u32) -> String {
@@ -154,7 +156,7 @@ pub fn get_cached_lookup(app: &AppHandle, fingerprint: &str) -> Result<CachedLyr
     match entry.kind {
         CacheKind::Hit => {
             if let Some(lyrics) = entry.lyrics.clone() {
-                Ok(CachedLyricsLookup::Hit(lyrics))
+                Ok(CachedLyricsLookup::Hit(lyrics, entry.lrclib_id))
             } else {
                 Ok(CachedLyricsLookup::NotCached)
             }
@@ -169,6 +171,7 @@ pub fn store_cached_hit(
     app: &AppHandle,
     fingerprint: String,
     lyrics: TrackLyricsInput,
+    lrclib_id: Option<i64>,
 ) -> Result<(), String> {
     with_cache_mut(app, |cache| {
         cache.lookups.insert(
@@ -177,6 +180,7 @@ pub fn store_cached_hit(
                 fetched_at_ms: now_ms(),
                 kind: CacheKind::Hit,
                 lyrics: Some(lyrics),
+                lrclib_id,
             },
         );
         Ok(())
@@ -191,6 +195,7 @@ pub fn store_cached_miss(app: &AppHandle, fingerprint: String) -> Result<(), Str
                 fetched_at_ms: now_ms(),
                 kind: CacheKind::Miss,
                 lyrics: None,
+                lrclib_id: None,
             },
         );
         Ok(())
@@ -205,6 +210,7 @@ pub fn store_cached_instrumental(app: &AppHandle, fingerprint: String) -> Result
                 fetched_at_ms: now_ms(),
                 kind: CacheKind::Instrumental,
                 lyrics: None,
+                lrclib_id: None,
             },
         );
         Ok(())
@@ -219,6 +225,7 @@ pub fn store_cached_error(app: &AppHandle, fingerprint: String) -> Result<(), St
                 fetched_at_ms: now_ms(),
                 kind: CacheKind::Error,
                 lyrics: None,
+                lrclib_id: None,
             },
         );
         Ok(())
@@ -249,6 +256,7 @@ mod tests {
             fetched_at_ms: now_ms(),
             kind: CacheKind::Miss,
             lyrics: None,
+            lrclib_id: None,
         };
         assert!(is_entry_valid(&entry, SystemTime::now()));
         let expired_at = entry_fetched_at(&entry) + MISS_TTL + Duration::from_secs(1);
@@ -261,6 +269,7 @@ mod tests {
             fetched_at_ms: now_ms(),
             kind: CacheKind::Miss,
             lyrics: None,
+            lrclib_id: None,
         };
         let after_error_ttl = entry_fetched_at(&entry) + ERROR_TTL + Duration::from_secs(1);
         assert!(is_entry_valid(&entry, after_error_ttl));

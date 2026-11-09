@@ -191,6 +191,9 @@ pub enum LyricsFetchCachePeek {
 pub enum LyricsFetchOutcome {
     Found {
         lyrics: TrackLyricsInput,
+        /// LRCLIB id of the matched record, when known.
+        #[serde(rename = "lrclibId", default, skip_serializing_if = "Option::is_none")]
+        lrclib_id: Option<i64>,
     },
     NotFound,
     /// LRCLIB reports this recording as instrumental.

@@ -56,6 +56,8 @@ fn ensure_not_cancelled() -> Result<(), String> {
 #[serde(rename_all = "camelCase")]
 struct LrclibResponse {
     #[serde(default)]
+    id: Option<i64>,
+    #[serde(default)]
     plain_lyrics: Option<String>,
     #[serde(default)]
     synced_lyrics: Option<String>,
@@ -87,7 +89,7 @@ struct LrclibErrorResponse {
 
 #[derive(Debug, Clone, PartialEq)]
 enum LrclibGetResult {
-    Found(TrackLyricsInput),
+    Found(TrackLyricsInput, Option<i64>),
     Instrumental,
     NotFound,
 }
@@ -229,6 +231,7 @@ fn outcome_from_search_candidates(candidates: Vec<LyricsSearchCandidate>) -> Lyr
             let candidate = candidates.into_iter().next().expect("one candidate");
             LyricsFetchOutcome::Found {
                 lyrics: candidate.lyrics,
+                lrclib_id: Some(candidate.id),
             }
         }
         _ => LyricsFetchOutcome::Ambiguous { candidates },
@@ -318,6 +321,77 @@ fn fetch_lrclib_search_outcome(
     Ok(outcome_from_search_candidates(candidates))
 }
 
+/// Every plausible LRCLIB search match for a track, best first, so the user can
+/// pick one. Unlike [`fetch_lrclib_uncached`] it never auto-resolves a single hit.
+pub fn search_lyrics_candidates(
+    artist: &str,
+    album_artist: &str,
+    title: &str,
+    album: &str,
+    duration_seconds: Option<f64>,
+) -> Result<Vec<LyricsSearchCandidate>, String> {
+    let artist = artist.trim();
+    let title = title.trim();
+    if artist.is_empty() || title.is_empty() {
+        let message = "Artist and title are required to fetch lyrics".to_string();
+        log_fetch_error(None, &message, None);
+        return Err(message);
+    }
+    let duration_secs = duration_secs_from_seconds(duration_seconds);
+    if duration_secs == 0 {
+        let message = "Track duration is required to fetch lyrics from LRCLIB".to_string();
+        log_fetch_error(None, &message, None);
+        return Err(message);
+    }
+
+    let (query_artist, query_album_artist, query_title, query_album) =
+        normalize_lrclib_query_fields(artist, album_artist.trim(), title, album.trim());
+    let search_artist = preferred_search_artist(&query_artist, &query_album_artist);
+
+    let mut titles = vec![query_title.clone()];
+    if let Some(fallback) = strip_trailing_parenthetical(&query_title) {
+        titles.push(fallback);
+    }
+
+    let mut last_err = None;
+    for (index, search_title) in titles.iter().enumerate() {
+        ensure_not_cancelled()?;
+        let search_url = lrclib_search_url(&search_artist, search_title);
+        activity_log::log(
+            LogLevel::Info,
+            "lyrics",
+            "Searching LRCLIB for lyric options",
+            Some(serde_json::json!({
+                "strategy": if index == 0 { "search_options" } else { "search_options_without_parenthetical" },
+                "artist": search_artist,
+                "title": search_title,
+                "durationSecs": duration_secs,
+                "url": search_url,
+            })),
+        );
+        match fetch_lrclib_search(&search_url) {
+            Ok(hits) => {
+                let candidates = rank_search_candidates(
+                    hits,
+                    search_title,
+                    &query_artist,
+                    &query_album,
+                    duration_secs,
+                );
+                if !candidates.is_empty() {
+                    return Ok(candidates);
+                }
+            }
+            Err(err) => last_err = Some(err),
+        }
+    }
+
+    match last_err {
+        Some(err) => Err(err),
+        None => Ok(Vec::new()),
+    }
+}
+
 fn is_various_artists(artist: &str) -> bool {
     matches!(
         normalize_for_match(artist).as_str(),
@@ -378,6 +452,7 @@ fn lrclib_response_to_input(response: &LrclibResponse) -> Option<TrackLyricsInpu
 
 fn search_hit_to_candidate(hit: &LrclibSearchHit) -> Option<LyricsSearchCandidate> {
     let lyrics = lrclib_response_to_input(&LrclibResponse {
+        id: Some(hit.id),
         plain_lyrics: hit.plain_lyrics.clone(),
         synced_lyrics: hit.synced_lyrics.clone(),
         instrumental: hit.instrumental,
@@ -662,7 +737,7 @@ fn parse_lrclib_get_response(
     );
 
     Ok(match lyrics {
-        Some(lyrics) => LrclibGetResult::Found(lyrics),
+        Some(lyrics) => LrclibGetResult::Found(lyrics, payload.id),
         None => LrclibGetResult::NotFound,
     })
 }
@@ -751,8 +826,8 @@ fn fetch_lrclib_uncached(
     );
 
     match fetch_lrclib_get(&track_get_url, &query_title)? {
-        LrclibGetResult::Found(lyrics) => {
-            return Ok(LyricsFetchOutcome::Found { lyrics });
+        LrclibGetResult::Found(lyrics, lrclib_id) => {
+            return Ok(LyricsFetchOutcome::Found { lyrics, lrclib_id });
         }
         LrclibGetResult::Instrumental => {
             return Ok(LyricsFetchOutcome::Instrumental);
@@ -784,8 +859,8 @@ fn fetch_lrclib_uncached(
         );
 
         match fetch_lrclib_get(&album_get_url, &query_title)? {
-            LrclibGetResult::Found(lyrics) => {
-                return Ok(LyricsFetchOutcome::Found { lyrics });
+            LrclibGetResult::Found(lyrics, lrclib_id) => {
+                return Ok(LyricsFetchOutcome::Found { lyrics, lrclib_id });
             }
             LrclibGetResult::Instrumental => {
                 return Ok(LyricsFetchOutcome::Instrumental);
@@ -847,7 +922,7 @@ pub fn fetch_lyrics_lrclib_cached(
     };
 
     match cached {
-        CachedLyricsLookup::Hit(lyrics) => {
+        CachedLyricsLookup::Hit(lyrics, lrclib_id) => {
             activity_log::log(
                 LogLevel::Info,
                 "lyrics",
@@ -858,7 +933,7 @@ pub fn fetch_lyrics_lrclib_cached(
                     "durationSecs": duration_secs,
                 })),
             );
-            return Ok(LyricsFetchOutcome::Found { lyrics });
+            return Ok(LyricsFetchOutcome::Found { lyrics, lrclib_id });
         }
         CachedLyricsLookup::Instrumental if respect_miss_cache => {
             return Ok(LyricsFetchOutcome::Instrumental);
@@ -872,9 +947,9 @@ pub fn fetch_lyrics_lrclib_cached(
     }
 
     match fetch_lrclib_uncached(&artist, &album_artist, &title, &album, duration_secs) {
-        Ok(LyricsFetchOutcome::Found { lyrics }) => {
-            lyrics_fetch_cache::store_cached_hit(app, fingerprint, lyrics.clone())?;
-            Ok(LyricsFetchOutcome::Found { lyrics })
+        Ok(LyricsFetchOutcome::Found { lyrics, lrclib_id }) => {
+            lyrics_fetch_cache::store_cached_hit(app, fingerprint, lyrics.clone(), lrclib_id)?;
+            Ok(LyricsFetchOutcome::Found { lyrics, lrclib_id })
         }
         Ok(LyricsFetchOutcome::NotFound) => {
             lyrics_fetch_cache::store_cached_miss(app, fingerprint)?;
@@ -913,7 +988,7 @@ pub fn peek_lyrics_fetch_cache(
     let fingerprint = cache_fingerprint(&artist, &title, duration_secs);
     match lyrics_fetch_cache::get_cached_lookup(app, &fingerprint)? {
         CachedLyricsLookup::Miss => Ok(LyricsFetchCachePeek::Miss),
-        CachedLyricsLookup::Hit(_) => Ok(LyricsFetchCachePeek::Hit),
+        CachedLyricsLookup::Hit(..) => Ok(LyricsFetchCachePeek::Hit),
         CachedLyricsLookup::Instrumental => Ok(LyricsFetchCachePeek::Instrumental),
         CachedLyricsLookup::NotCached => Ok(LyricsFetchCachePeek::NotCached),
     }
@@ -929,6 +1004,7 @@ mod tests {
 
     fn sample_response() -> LrclibResponse {
         LrclibResponse {
+            id: None,
             plain_lyrics: Some("Line one\nLine two".to_string()),
             synced_lyrics: None,
             instrumental: false,
@@ -973,6 +1049,7 @@ mod tests {
     #[test]
     fn lrclib_response_prefers_synced_lyrics() {
         let input = lrclib_response_to_input(&LrclibResponse {
+            id: None,
             plain_lyrics: Some("Plain only".to_string()),
             synced_lyrics: Some("[00:05.00] Synced line\n".to_string()),
             instrumental: false,
@@ -996,6 +1073,7 @@ mod tests {
     #[test]
     fn lrclib_response_returns_none_for_instrumental() {
         assert!(lrclib_response_to_input(&LrclibResponse {
+            id: None,
             plain_lyrics: None,
             synced_lyrics: None,
             instrumental: true,

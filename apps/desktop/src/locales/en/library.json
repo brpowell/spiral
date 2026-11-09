@@ -43,6 +43,7 @@
       "title": "Match this disc",
       "description": "Choose the release that fits best.",
       "skip": "Skip for now",
+      "applied": "Downloaded before",
       "keepCurrent": "Keep current release",
       "current": "Current"
     }
@@ -202,6 +203,8 @@
     },
     "lyrics": {
       "fetch": "Fetch lyrics",
+      "fetchAuto": "Search automatically",
+      "fetchChoose": "Choose from available options",
       "fetching": "Fetching…",
       "instrumental": "Instrumental",
       "instrumentalEmpty": "This track is marked as having no lyrics. Auto-fetch will skip it.",
@@ -375,7 +378,8 @@
       "queueProgress": "Track {{current}} of {{total}}",
       "yourTrack": "Your track",
       "results": "Results",
-      "skip": "Skip for now"
+      "skip": "Skip for now",
+      "applied": "Downloaded before"
     }
   },
   "sources": {

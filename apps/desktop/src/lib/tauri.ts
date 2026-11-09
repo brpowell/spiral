@@ -261,6 +261,7 @@ function normalizeLyricsFetchOutcome(
       lyrics: normalizeTrackLyricsInput(
         (raw.lyrics as Record<string, unknown> | undefined) ?? {},
       ),
+      lrclibId: typeof raw.lrclibId === "number" ? raw.lrclibId : undefined,
     };
   }
   if (status === "ambiguous") {
@@ -333,6 +334,37 @@ export async function fetchLyricsLrclib(
     respectMissCache: options?.respectMissCache ?? false,
   });
   return normalizeLyricsFetchOutcome(raw);
+}
+
+export async function searchLyricsCandidates(params: {
+  artist: string;
+  albumArtist?: string;
+  title: string;
+  album: string;
+  durationSeconds?: number | null;
+}): Promise<LyricsSearchCandidate[]> {
+  const raw = await invoke<Record<string, unknown>[]>(
+    "search_lyrics_candidates",
+    {
+      artist: params.artist,
+      albumArtist: params.albumArtist ?? "",
+      title: params.title,
+      album: params.album,
+      durationSeconds: params.durationSeconds ?? null,
+    },
+  );
+  return raw.map((candidate) => normalizeLyricsSearchCandidate(candidate));
+}
+
+export async function recordLyricsAttempt(
+  trackId: number,
+  lrclibId: number,
+): Promise<void> {
+  await invoke("record_lyrics_attempt", { trackId, lrclibId });
+}
+
+export async function listLyricsAttempts(trackId: number): Promise<number[]> {
+  return invoke<number[]>("list_lyrics_attempts", { trackId });
 }
 
 export async function cancelLyricsFetch(): Promise<void> {

@@ -14,7 +14,9 @@ import { Badge } from "../common/Badge/Badge";
 import { EmptyState } from "../common/EmptyState/EmptyState";
 import { Switch } from "../common/Switch/Switch";
 import { syncTextareaAutoSize, Textarea } from "../common/Textarea/Textarea";
-import { IconMicrophone } from "../icons";
+import { ContextMenuItem } from "../ContextMenu/ContextMenu";
+import { MenuButton } from "../MenuButton/MenuButton";
+import { IconMicrophone, IconSearch, IconSetList } from "../icons";
 import "./TrackEditorLyricsTab.css";
 
 export type TrackEditorLyricsTabProps = {
@@ -27,7 +29,10 @@ export type TrackEditorLyricsTabProps = {
   instrumentalMixed?: boolean;
   fetchingLyrics: boolean;
   fetchFeedback: LyricsFetchFeedback | null;
+  /** "Search automatically": fetch the best match and apply it. */
   onFetchLyrics: () => void;
+  /** "Choose from available options": list matches for the user to pick. */
+  onChooseLyrics: () => void;
   onInstrumentalChange: (instrumental: boolean) => void;
   onChange: (update: {
     text: string;
@@ -47,6 +52,7 @@ export function TrackEditorLyricsTab({
   fetchingLyrics,
   fetchFeedback,
   onFetchLyrics,
+  onChooseLyrics,
   onInstrumentalChange,
   onChange,
 }: TrackEditorLyricsTabProps) {
@@ -148,26 +154,46 @@ export function TrackEditorLyricsTab({
     <div className="track-editor-lyrics-tab">
       <div className="track-editor-lyrics-tab__toolbar">
         {!bulk ? (
-          <Button
-            size="sm"
-            variant="secondary"
-            className="track-editor-lyrics-tab__fetch-btn"
-            onClick={onFetchLyrics}
-            disabled={fetchingLyrics || instrumental}
-            aria-busy={fetchingLyrics}
-          >
-            {fetchingLyrics ? (
-              <>
-                <span
-                  className="track-editor-lyrics-tab__spinner"
-                  aria-hidden
-                />
-                {t("editor.lyrics.fetching")}
-              </>
-            ) : (
-              t("editor.lyrics.fetch")
-            )}
-          </Button>
+          fetchingLyrics ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="track-editor-lyrics-tab__fetch-btn"
+              disabled
+              aria-busy
+            >
+              <span className="track-editor-lyrics-tab__spinner" aria-hidden />
+              {t("editor.lyrics.fetching")}
+            </Button>
+          ) : (
+            <MenuButton
+              ariaLabel={t("editor.lyrics.fetch")}
+              label={t("editor.lyrics.fetch")}
+              triggerPlacement="below-start"
+              disabled={instrumental}
+            >
+              {(close) => (
+                <>
+                  <ContextMenuItem
+                    icon={<IconSearch />}
+                    label={t("editor.lyrics.fetchAuto")}
+                    onClick={() => {
+                      close();
+                      onFetchLyrics();
+                    }}
+                  />
+                  <ContextMenuItem
+                    icon={<IconSetList />}
+                    label={t("editor.lyrics.fetchChoose")}
+                    onClick={() => {
+                      close();
+                      onChooseLyrics();
+                    }}
+                  />
+                </>
+              )}
+            </MenuButton>
+          )
         ) : null}
         <Switch
           checked={instrumental}

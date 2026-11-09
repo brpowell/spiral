@@ -57,6 +57,7 @@
   "lyrics": {
     "fetching": "Fetching lyrics…",
     "fetchingFor": "Fetching lyrics for {{title}}",
+    "searchingFor": "Searching lyrics for {{title}}",
     "fetchedFor": "Lyrics fetched for {{title}}",
     "ambiguousFor": "Multiple lyrics found for {{title}}",
     "retryDetail": "Still working, trying another approach…",

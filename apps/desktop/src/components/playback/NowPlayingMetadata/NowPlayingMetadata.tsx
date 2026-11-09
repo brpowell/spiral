@@ -198,6 +198,7 @@ export function NowPlayingMetadata({ className }: NowPlayingMetadataProps) {
         plainText: candidate.lyrics.plainText,
         lines: candidate.lyrics.lines,
         format: candidate.lyrics.format,
+        lrclibId: candidate.id,
       });
       if (result.status === "ok") return;
       if (result.status === "missing_file") {
@@ -442,6 +443,7 @@ export function NowPlayingMetadata({ className }: NowPlayingMetadataProps) {
         open={showLyricsCandidatePicker}
         candidates={lyricsCandidates}
         libraryTrack={lyricsLibraryTrack}
+        trackId={displayTrack?.id}
         onSelect={handleSelectLyricsCandidate}
         onClose={handleDismissLyricsCandidates}
       />

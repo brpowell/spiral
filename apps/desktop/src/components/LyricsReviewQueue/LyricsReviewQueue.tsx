@@ -71,6 +71,7 @@ export function LyricsReviewQueue() {
           plainText: candidate.lyrics.plainText,
           lines: candidate.lyrics.lines,
           format: candidate.lyrics.format,
+          lrclibId: candidate.id,
         });
         if (result.status === "missing_file") {
           useLyricsFetchStore.getState().applyOutcome(trackId, {
@@ -107,6 +108,7 @@ export function LyricsReviewQueue() {
       open={open}
       candidates={candidates}
       libraryTrack={libraryTrack}
+      trackId={trackId}
       queuePosition={
         reviewQueueTrackIds.length > 1
           ? {

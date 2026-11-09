@@ -860,6 +860,22 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     },
   },
   {
+    id: "lyrics-options-search",
+    group: "Lyrics",
+    buttonLabel: "Search options → picker",
+    source: "lyricsFetchToast.ts",
+    fire: ({ runInBackground, sleep }) => {
+      void runInBackground({
+        key: "lyrics-options-toast-lab",
+        label: t("toasts:lyrics.searchingFor", { title: "Song" }),
+        run: async (ctx) => {
+          await sleep(900);
+          ctx.dismissSilently();
+        },
+      });
+    },
+  },
+  {
     id: "lyrics-solo-ambiguous",
     group: "Lyrics",
     buttonLabel: "Solo · ambiguous",
