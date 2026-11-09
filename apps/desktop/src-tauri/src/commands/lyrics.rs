@@ -3,8 +3,8 @@ use crate::db;
 use crate::lyrics_fetch;
 use crate::lyrics_normalize;
 use crate::models::{
-    LyricsFetchCachePeek, LyricsFetchOutcome, LyricsFormat, LyricsSource, Track, TrackLyricsInput,
-    TrackLyricsRecord,
+    LyricsFetchCachePeek, LyricsFetchOutcome, LyricsFormat, LyricsSearchCandidate, LyricsSource,
+    Track, TrackLyricsInput, TrackLyricsRecord,
 };
 use crate::settings;
 use std::path::{Path, PathBuf};
@@ -104,6 +104,44 @@ pub async fn fetch_lyrics_lrclib(
             album,
             duration_seconds,
             respect_miss_cache,
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn record_lyrics_attempt(
+    state: State<'_, DbState>,
+    track_id: i64,
+    lrclib_id: i64,
+) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    db::record_lyrics_attempt(&conn, track_id, lrclib_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_lyrics_attempts(state: State<'_, DbState>, track_id: i64) -> Result<Vec<i64>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    db::list_lyrics_attempts(&conn, track_id).map_err(|e| e.to_string())
+}
+
+/// List LRCLIB search matches so the user can choose one.
+#[tauri::command]
+pub async fn search_lyrics_candidates(
+    artist: String,
+    album_artist: String,
+    title: String,
+    album: String,
+    duration_seconds: Option<f64>,
+) -> Result<Vec<LyricsSearchCandidate>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        lyrics_fetch::search_lyrics_candidates(
+            &artist,
+            &album_artist,
+            &title,
+            &album,
+            duration_seconds,
         )
     })
     .await

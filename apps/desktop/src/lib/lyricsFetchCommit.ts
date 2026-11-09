@@ -4,7 +4,11 @@ import {
   withTrackMissingFile,
 } from "./missingFileTrack";
 import { buildTrackLyricsInputFromEditor } from "./lyrics";
-import { markTrackInstrumental, saveTrackLyrics } from "./tauri";
+import {
+  markTrackInstrumental,
+  recordLyricsAttempt,
+  saveTrackLyrics,
+} from "./tauri";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { LyricsFormat, LyricsLine } from "../types/lyrics";
 import type { Track } from "../types/track";
@@ -20,6 +24,8 @@ export async function commitFetchedLyricsForTrack(
     plainText: string;
     lines: LyricsLine[];
     format: LyricsFormat;
+    /** LRCLIB id of a result the user picked, remembered as already tried. */
+    lrclibId?: number;
   },
 ): Promise<CommitFetchedLyricsResult> {
   if (await discoverTrackFileMissing(track)) {
@@ -39,6 +45,10 @@ export async function commitFetchedLyricsForTrack(
     const updated = await saveTrackLyrics(track.id, lyrics);
     usePlayerStore.getState().updateTrackInLibrary(updated);
     usePlayerStore.getState().notifyTrackLyricsUpdated(track.id);
+    if (input.lrclibId != null) {
+      // Best effort: the lyrics are saved either way.
+      void recordLyricsAttempt(track.id, input.lrclibId).catch(() => {});
+    }
     return { status: "ok" };
   } catch (err) {
     if (isMissingFileError(err)) {

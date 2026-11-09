@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { LyricsSearchCandidate } from "../../types/lyrics";
 import { formatLyricsFormatLabel } from "../../lib/lyrics";
@@ -8,6 +9,8 @@ import {
   lyricsCandidateLabel,
   type LyricsLibraryTrackRef,
 } from "../../lib/lyricsFetch";
+import { listLyricsAttempts } from "../../lib/tauri";
+import { IconDownload } from "../icons";
 import { Badge } from "../common/Badge/Badge";
 import { ChoiceList, ChoiceOption } from "../common/ChoiceOption/ChoiceOption";
 import { Separator } from "../common/Separator/Separator";
@@ -26,6 +29,8 @@ export type LyricsCandidatePickerProps = {
   open: boolean;
   candidates: LyricsSearchCandidate[];
   libraryTrack?: LyricsLibraryTrackRef | null;
+  /** Library track these results are for; results applied to it before are marked. */
+  trackId?: number | null;
   onSelect: (candidate: LyricsSearchCandidate) => void;
   /** Backdrop / Escape / X — leave remaining work intact when used from a queue. */
   onClose: () => void;
@@ -81,12 +86,35 @@ export function LyricsCandidatePicker({
   open,
   candidates,
   libraryTrack,
+  trackId,
   onSelect,
   onClose,
   onSkip,
   queuePosition,
 }: LyricsCandidatePickerProps) {
   const { t } = useTranslation("library");
+  const [appliedIds, setAppliedIds] = useState<ReadonlySet<number>>(
+    () => new Set(),
+  );
+
+  useEffect(() => {
+    if (!open || trackId == null) {
+      setAppliedIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    listLyricsAttempts(trackId)
+      .then((ids) => {
+        if (!cancelled) setAppliedIds(new Set(ids));
+      })
+      .catch(() => {
+        if (!cancelled) setAppliedIds(new Set());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, trackId]);
+
   const showQueueProgress = queuePosition != null && queuePosition.total > 1;
 
   return (
@@ -143,7 +171,19 @@ export function LyricsCandidatePicker({
                     details={lyricsCandidateDetails(candidate)}
                     meta={
                       <>
-                        {candidateFormatBadge(candidate)}
+                        <span className="lyrics-candidate-picker__badges">
+                          {appliedIds.has(candidate.id) ? (
+                            <span
+                              className="lyrics-candidate-picker__applied"
+                              title={t("lyrics.candidatePicker.applied")}
+                              aria-label={t("lyrics.candidatePicker.applied")}
+                              role="img"
+                            >
+                              <IconDownload aria-hidden />
+                            </span>
+                          ) : null}
+                          {candidateFormatBadge(candidate)}
+                        </span>
                         {lyricsCandidateDurationMeta(
                           candidate,
                           libraryTrack?.durationSeconds,

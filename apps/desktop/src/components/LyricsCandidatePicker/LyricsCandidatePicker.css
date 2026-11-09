@@ -20,8 +20,16 @@
   padding-top: 0;
 }
 
+.modal-header--fade + .lyrics-candidate-picker__body {
+  padding-top: var(--modal-fade-padding);
+}
+
 .lyrics-candidate-picker__body.modal-body:has(+ .modal-footer) {
   padding-bottom: 0;
+}
+
+.lyrics-candidate-picker__body.modal-body:has(+ .modal-footer--fade) {
+  padding-bottom: var(--modal-fade-padding);
 }
 
 .lyrics-candidate-picker__layout {
@@ -109,4 +117,21 @@
   padding: var(--modal-fade-padding) calc(0.5rem + var(--scrollbar-size))
     var(--modal-fade-padding) 0;
   overflow-y: auto;
+}
+
+.lyrics-candidate-picker__badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lyrics-candidate-picker__applied {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+
+.lyrics-candidate-picker__applied svg {
+  width: 1.1rem;
+  height: 1.1rem;
 }

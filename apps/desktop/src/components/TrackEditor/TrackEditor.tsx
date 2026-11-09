@@ -40,11 +40,14 @@ import {
 import {
   LYRICS_FETCH_NOT_FOUND,
   createLyricsFetchFeedback,
+  lyricsFetchFailureFeedback,
   type LyricsFetchFeedback,
   type LyricsLibraryTrackRef,
 } from "../../lib/lyricsFetch";
-import { runLyricsFetchInBackground } from "../../lib/lyricsFetchToast";
-import { commitFetchedLyricsForTrack } from "../../lib/lyricsFetchCommit";
+import {
+  runLyricsFetchInBackground,
+  searchLyricsOptionsInBackground,
+} from "../../lib/lyricsFetchToast";
 import {
   showBulkTrackMetadataSaveToast,
   showTagWriteSavedToast,
@@ -61,6 +64,7 @@ import {
   cacheArtFromUrl,
   getTrackLyrics,
   pickImageFile,
+  recordLyricsAttempt,
   setTrackRating,
   warmMusicBrainzEntity,
   writeTrackMetadata,
@@ -267,7 +271,12 @@ export function TrackEditor() {
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [lyricsFetchFeedback, setLyricsFetchFeedback] =
     useState<LyricsFetchFeedback | null>(null);
-  const [committingLyrics, setCommittingLyrics] = useState(false);
+  const [searchingLyricsOptions, setSearchingLyricsOptions] = useState(false);
+  // True while the picker shows results the user asked for with "Choose from
+  // available options", so backing out is not reported as "not found".
+  const lyricsPickedManuallyRef = useRef(false);
+  // LRCLIB id of a picked result that Save has not written yet.
+  const pendingLyricsAttemptIdRef = useRef<number | null>(null);
   const [lyricsCandidates, setLyricsCandidates] = useState<
     LyricsSearchCandidate[]
   >([]);
@@ -328,10 +337,12 @@ export function TrackEditor() {
     setDiscardPrompt(false);
     finish();
 
+    pendingLyricsAttemptIdRef.current = null;
     if (!isBulk && referenceTrack) {
       const pending = useLyricsFetchStore
         .getState()
         .takePending(referenceTrack.id);
+      lyricsPickedManuallyRef.current = false;
       setLyricsFetchFeedback(pending?.feedback ?? null);
       setLyricsCandidates(pending?.candidates ?? []);
     } else {
@@ -458,6 +469,7 @@ export function TrackEditor() {
       const next = state.pendingByTrackId[referenceTrack.id];
       const previous = prev.pendingByTrackId[referenceTrack.id];
       if (next && next !== previous) {
+        lyricsPickedManuallyRef.current = false;
         setLyricsFetchFeedback(next.feedback);
         setLyricsCandidates(next.candidates);
       }
@@ -591,43 +603,6 @@ export function TrackEditor() {
     [originalForm],
   );
 
-  const commitFetchedLyrics = useCallback(
-    async (input: {
-      plainText: string;
-      lines: LyricsLine[];
-      format: LyricsFormat;
-    }) => {
-      if (!referenceTrack || !originalForm) return;
-
-      const lyricsState = {
-        lyrics: input.plainText,
-        lyricsSyncedLines: input.format === "line_synced" ? input.lines : null,
-        lyricsSource: "lrclib" as const,
-        lyricsInstrumental: false,
-      };
-
-      setForm((prev) => (prev ? { ...prev, ...lyricsState } : prev));
-
-      const result = await commitFetchedLyricsForTrack(referenceTrack, input);
-      if (result.status === "ok") {
-        setOriginalForm((prev) => (prev ? { ...prev, ...lyricsState } : prev));
-        setSaveError(null);
-        return;
-      }
-
-      if (result.status === "missing_file") {
-        setSaveError(missingFileErrorDetail(referenceTrack));
-        return;
-      }
-
-      setSaveError(result.message);
-      setLyricsFetchFeedback(
-        createLyricsFetchFeedback(t("library:editor.lyrics.commitFailed")),
-      );
-    },
-    [originalForm, referenceTrack, t],
-  );
-
   const handleFetchLyrics = useCallback(async () => {
     if (!referenceTrack || lyricsFetchPending) return;
 
@@ -666,30 +641,95 @@ export function TrackEditor() {
     });
   }, [lyricsFetchPending, form, referenceTrack, t]);
 
+  const handleChooseLyrics = useCallback(async () => {
+    if (!referenceTrack || lyricsFetchPending || searchingLyricsOptions) return;
+
+    setLyricsFetchFeedback(null);
+    setSaveError(null);
+
+    const artist = form?.artist.trim() || referenceTrack.artist?.trim() || "";
+    const albumArtist =
+      form?.albumArtist.trim() || referenceTrack.albumArtist?.trim() || "";
+    const title = form?.title.trim() || referenceTrack.title.trim();
+    const album = form?.album.trim() || referenceTrack.album?.trim() || "";
+
+    if (!artist || !title) {
+      setLyricsFetchFeedback(
+        createLyricsFetchFeedback(
+          t("library:editor.lyrics.artistTitleRequired"),
+        ),
+      );
+      return;
+    }
+
+    if (!referenceTrack.durationSeconds) {
+      setLyricsFetchFeedback(
+        createLyricsFetchFeedback(t("library:editor.lyrics.durationRequired")),
+      );
+      return;
+    }
+
+    setSearchingLyricsOptions(true);
+    try {
+      const candidates = await searchLyricsOptionsInBackground(
+        referenceTrack.id,
+        title,
+        {
+          artist,
+          albumArtist,
+          title,
+          album,
+          durationSeconds: referenceTrack.durationSeconds,
+        },
+      );
+      if (candidates.length === 0) {
+        setLyricsFetchFeedback(LYRICS_FETCH_NOT_FOUND);
+        return;
+      }
+      lyricsPickedManuallyRef.current = true;
+      setLyricsCandidates(candidates);
+    } catch (err) {
+      setLyricsFetchFeedback(lyricsFetchFailureFeedback(err));
+    } finally {
+      setSearchingLyricsOptions(false);
+    }
+  }, [lyricsFetchPending, searchingLyricsOptions, form, referenceTrack, t]);
+
+  // Picking a result only stages it in the form; it is written on Save.
   const handleSelectLyricsCandidate = useCallback(
-    async (candidate: LyricsSearchCandidate) => {
+    (candidate: LyricsSearchCandidate) => {
+      lyricsPickedManuallyRef.current = false;
       setLyricsCandidates([]);
       setLyricsFetchFeedback(null);
-      setCommittingLyrics(true);
-      try {
-        await commitFetchedLyrics({
-          plainText: candidate.lyrics.plainText,
-          lines: candidate.lyrics.lines,
-          format: candidate.lyrics.format,
-        });
-        if (referenceTrack) {
-          useLyricsFetchStore.getState().clearPending(referenceTrack.id);
-        }
-      } finally {
-        setCommittingLyrics(false);
+      setSaveError(null);
+      pendingLyricsAttemptIdRef.current = candidate.id;
+      setForm((prev) => {
+        if (!prev || !originalForm) return prev;
+        const next = {
+          ...prev,
+          lyrics: candidate.lyrics.plainText,
+          lyricsSyncedLines:
+            candidate.lyrics.format === "line_synced"
+              ? candidate.lyrics.lines
+              : null,
+          lyricsSource: "lrclib" as const,
+          lyricsInstrumental: false,
+        };
+        return next;
+      });
+      if (referenceTrack) {
+        useLyricsFetchStore.getState().clearPending(referenceTrack.id);
       }
     },
-    [commitFetchedLyrics, referenceTrack],
+    [originalForm, referenceTrack],
   );
 
   const handleDismissLyricsCandidates = useCallback(() => {
     setLyricsCandidates([]);
-    setLyricsFetchFeedback(LYRICS_FETCH_NOT_FOUND);
+    if (!lyricsPickedManuallyRef.current) {
+      setLyricsFetchFeedback(LYRICS_FETCH_NOT_FOUND);
+    }
+    lyricsPickedManuallyRef.current = false;
     if (referenceTrack) {
       useLyricsFetchStore.getState().clearPending(referenceTrack.id);
     }
@@ -965,7 +1005,14 @@ export function TrackEditor() {
           );
           if (metadata.lyricsChanged) {
             notifyTrackLyricsUpdated(referenceTrack.id);
+            const attemptId = pendingLyricsAttemptIdRef.current;
+            if (attemptId != null && form.lyricsSource === "lrclib") {
+              void recordLyricsAttempt(referenceTrack.id, attemptId).catch(
+                () => {},
+              );
+            }
           }
+          pendingLyricsAttemptIdRef.current = null;
         }
         if (ratingDirty) {
           const rating = await setTrackRating(referenceTrack.id, form.rating);
@@ -1239,10 +1286,12 @@ export function TrackEditor() {
                           bulk={isBulk}
                           instrumentalMixed={isLyricsInstrumentalMixed(tracks)}
                           fetchingLyrics={
-                            !isBulk && (lyricsFetchPending || committingLyrics)
+                            !isBulk &&
+                            (lyricsFetchPending || searchingLyricsOptions)
                           }
                           fetchFeedback={isBulk ? null : lyricsFetchFeedback}
                           onFetchLyrics={() => void handleFetchLyrics()}
+                          onChooseLyrics={() => void handleChooseLyrics()}
                           onInstrumentalChange={setLyricsInstrumental}
                           onChange={setLyrics}
                         />
@@ -1338,9 +1387,10 @@ export function TrackEditor() {
           />
 
           <LyricsCandidatePicker
-            open={lyricsCandidates.length > 1}
+            open={lyricsCandidates.length > 0}
             candidates={lyricsCandidates}
             libraryTrack={lyricsLibraryTrack}
+            trackId={referenceTrack?.id}
             onSelect={handleSelectLyricsCandidate}
             onClose={handleDismissLyricsCandidates}
           />

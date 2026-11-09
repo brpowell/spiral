@@ -48,6 +48,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "library_sources",
         up: library_sources,
     },
+    Migration {
+        version: 4,
+        name: "track_lyrics_attempts",
+        up: track_lyrics_attempts,
+    },
 ];
 
 fn latest_version() -> i64 {
@@ -525,6 +530,19 @@ fn artist_images_single_key(conn: &Connection) -> Result<(), rusqlite::Error> {
 /// The Spiral folder comes from the per-connection `temp.spiral_folder` table
 /// that `db::open` fills in before migrating. When it isn't known (an
 /// in-memory database) no track can be placed, so every track is deleted.
+/// Remember which LRCLIB results were applied to a track, so the picker can
+/// mark options the user has already tried.
+fn track_lyrics_attempts(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute_batch(
+        "CREATE TABLE track_lyrics_attempts (
+            track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+            lrclib_id INTEGER NOT NULL,
+            applied_at TEXT NOT NULL,
+            PRIMARY KEY (track_id, lrclib_id)
+        );",
+    )
+}
+
 fn library_sources(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.execute_batch(
         "CREATE TABLE sources (
@@ -969,11 +987,16 @@ mod tests {
             // A migration that intentionally changes row counts must adjust
             // this assertion for the versions it affects. v3 adds the `Tracks`
             // source and drops referenced tracks with their rows.
-            let expected = if from < 3 {
+            let mut expected = if from < 3 {
                 after_v3(&conn, before)
             } else {
                 before
             };
+            // v4 adds an empty table.
+            if from < 4 {
+                expected.push(("track_lyrics_attempts".to_string(), 0));
+                expected.sort();
+            }
 
             run(&conn, None).unwrap_or_else(|e| panic!("{name}: upgrade failed: {e}"));
 
@@ -1300,6 +1323,29 @@ mod tests {
         check_foreign_keys(&conn).unwrap();
         drop(conn);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn lyrics_attempts_table_cascades_with_tracks() {
+        let conn = mem();
+        run(&conn, None).unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        conn.execute_batch(
+            "INSERT INTO sources (id, name, root_path, created_at)
+               VALUES (1, 'Tracks', '/library/Tracks', '2024-01-01T00:00:00Z');
+             INSERT INTO tracks (id, title, source_id, rel_path, date_added)
+               VALUES (1, 'A', 1, 'a.mp3', '2024-01-01T00:00:00Z');
+             INSERT INTO track_lyrics_attempts (track_id, lrclib_id, applied_at)
+               VALUES (1, 42, '2024-01-01T00:00:00Z');
+             DELETE FROM tracks WHERE id = 1;",
+        )
+        .unwrap();
+        let n: i64 = conn
+            .query_row("SELECT COUNT(*) FROM track_lyrics_attempts", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(n, 0);
     }
 
     #[test]

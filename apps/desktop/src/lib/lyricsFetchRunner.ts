@@ -110,6 +110,7 @@ async function handleFoundLyrics(
     plainText: result.lyrics.plainText,
     lines: result.lyrics.lines,
     format: result.lyrics.format,
+    lrclibId: result.lrclibId,
   });
 
   if (commit.status === "ok") {

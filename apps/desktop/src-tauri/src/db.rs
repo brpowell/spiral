@@ -1131,6 +1131,30 @@ pub fn upsert_track_lyrics(
     Ok(())
 }
 
+/// Note that an LRCLIB result was applied to a track. Re-applying keeps the
+/// first-applied time.
+pub fn record_lyrics_attempt(
+    conn: &Connection,
+    track_id: i64,
+    lrclib_id: i64,
+) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "INSERT OR IGNORE INTO track_lyrics_attempts (track_id, lrclib_id, applied_at)
+         VALUES (?1, ?2, ?3)",
+        params![track_id, lrclib_id, chrono::Utc::now().to_rfc3339()],
+    )?;
+    Ok(())
+}
+
+/// LRCLIB ids already applied to a track.
+pub fn list_lyrics_attempts(conn: &Connection, track_id: i64) -> Result<Vec<i64>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT lrclib_id FROM track_lyrics_attempts WHERE track_id = ?1 ORDER BY applied_at",
+    )?;
+    let rows = stmt.query_map(params![track_id], |r| r.get(0))?;
+    rows.collect()
+}
+
 pub fn delete_track_lyrics(conn: &Connection, track_id: i64) -> Result<(), rusqlite::Error> {
     conn.execute(
         "DELETE FROM track_lyrics WHERE track_id = ?1",
