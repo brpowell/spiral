@@ -1,21 +1,21 @@
 import { useCallback, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { AppearanceShell } from "./components/Appearance/AppearanceShell";
-import { BackgroundTasksIndicator } from "./components/BackgroundTasks/BackgroundTasksIndicator";
-import { CustomWindowFrame } from "./components/WindowChrome/CustomWindowFrame";
-import { useAppearanceWindowClose } from "./hooks/useAppearanceWindowClose";
+import { AppearanceShell } from "@/components/Appearance/AppearanceShell";
+import { BackgroundTasksIndicator } from "@/components/BackgroundTasks/BackgroundTasksIndicator";
+import { CustomWindowFrame } from "@/components/WindowChrome/CustomWindowFrame";
+import { useAppearanceWindowClose } from "@/hooks/useAppearanceWindowClose";
 import {
   ITEM_UPDATES_CHANGED_EVENT,
   RELOAD_LINKED_PACKS_EVENT,
-} from "./lib/appearanceWindow";
-import { t } from "./lib/i18n";
-import { refreshPackContributionStores } from "./lib/packs/refreshPackStores";
-import { useItemUpdatesStore } from "./store/useItemUpdatesStore";
-import { useSkinStore } from "./store/useSkinStore";
-import { useSoundPackStore } from "./store/useSoundPackStore";
-import { useThemeStore } from "./store/useThemeStore";
-import { useVisualizerStore } from "./store/useVisualizerStore";
-import type { ItemUpdate } from "./types/itemRegistry";
+} from "@/lib/appearanceWindow";
+import { t } from "@/lib/i18n";
+import { refreshPackContributionStores } from "@/lib/packs/refreshPackStores";
+import { useItemUpdatesStore } from "@/store/useItemUpdatesStore";
+import { useSkinStore } from "@/store/useSkinStore";
+import { useSoundPackStore } from "@/store/useSoundPackStore";
+import { useThemeStore } from "@/store/useThemeStore";
+import { useVisualizerStore } from "@/store/useVisualizerStore";
+import type { ItemUpdate } from "@/types/itemRegistry";
 import "./AppearanceApp.css";
 
 export function AppearanceApp() {

@@ -1,25 +1,25 @@
-import { SkinLayoutRenderer } from "./components/playback/skin/SkinLayoutRenderer";
-import { SkinStylesheet } from "./components/playback/skin/SkinStylesheet";
+import { SkinLayoutRenderer } from "@/components/playback/skin/SkinLayoutRenderer";
+import { SkinStylesheet } from "@/components/playback/skin/SkinStylesheet";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
-import { useSkinAuxWindowPersistence } from "./hooks/useSkinAuxWindowPersistence";
-import { useSkinAuxViewStateReset } from "./hooks/useSkinAuxViewStateReset";
-import { useSkinModeContextMenu } from "./hooks/useSkinModeContextMenu";
-import { useSkinModeWindowPersistence } from "./hooks/useSkinModeWindowPersistence";
+import { useSkinAuxWindowPersistence } from "@/hooks/useSkinAuxWindowPersistence";
+import { useSkinAuxViewStateReset } from "@/hooks/useSkinAuxViewStateReset";
+import { useSkinModeContextMenu } from "@/hooks/useSkinModeContextMenu";
+import { useSkinModeWindowPersistence } from "@/hooks/useSkinModeWindowPersistence";
 import {
   applyPackWindowLayout,
   applySwitchViewWindowLayout,
   resolveViewWindowChrome,
-} from "./lib/skin/modeWindow/skinModeWindowChrome";
-import { applySkinAuxViewWindowLayout } from "./lib/skin/auxWindow/skinAuxWindow";
-import { startSkinClickThrough } from "./lib/skin/skinClickThrough";
-import { isViewStateMotionActive } from "./lib/skin/skinViewStateEvents";
-import { getSkinViewStateApi } from "./lib/skin/skinViewStateContext";
-import { startSkinDragRegions } from "./lib/skin/skinDragRegion";
-import { preloadSkinViewAssets } from "./lib/skin/skinViewAssetPreload";
-import { listSwitchableViewIds } from "./lib/skin/skinWindowPresentation";
-import { usePlaylistStore } from "./store/usePlaylistStore";
-import { useSkinStore } from "./store/useSkinStore";
-import { isSkinAuxWindow } from "./lib/windowRole";
+} from "@/lib/skin/modeWindow/skinModeWindowChrome";
+import { applySkinAuxViewWindowLayout } from "@/lib/skin/auxWindow/skinAuxWindow";
+import { startSkinClickThrough } from "@/lib/skin/skinClickThrough";
+import { isViewStateMotionActive } from "@/lib/skin/skinViewStateEvents";
+import { getSkinViewStateApi } from "@/lib/skin/skinViewStateContext";
+import { startSkinDragRegions } from "@/lib/skin/skinDragRegion";
+import { preloadSkinViewAssets } from "@/lib/skin/skinViewAssetPreload";
+import { listSwitchableViewIds } from "@/lib/skin/skinWindowPresentation";
+import { usePlaylistStore } from "@/store/usePlaylistStore";
+import { useSkinStore } from "@/store/useSkinStore";
+import { isSkinAuxWindow } from "@/lib/windowRole";
 import "./SkinModeApp.css";
 
 export function SkinModeApp() {

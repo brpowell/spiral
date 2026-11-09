@@ -1,5 +1,5 @@
-import { CustomWindowFrame } from "./components/WindowChrome/CustomWindowFrame";
-import { IconLabShell } from "./components/IconLab/IconLabShell";
+import { CustomWindowFrame } from "@/components/WindowChrome/CustomWindowFrame";
+import { IconLabShell } from "@/components/IconLab/IconLabShell";
 import "./IconLabApp.css";
 
 export function IconLabApp() {

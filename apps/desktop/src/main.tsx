@@ -5,11 +5,11 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { I18nextProvider } from "react-i18next";
 import { WINDOW_READY_EVENT } from "./lib/appWindows";
 import App from "./App";
-import { AboutApp } from "./AboutApp";
-import { ActivityLogsApp } from "./ActivityLogsApp";
-import { AppearanceApp } from "./AppearanceApp";
-import { EqualizerApp } from "./EqualizerApp";
-import { SkinModeApp } from "./SkinModeApp";
+import { AboutApp } from "./windows/AboutApp";
+import { ActivityLogsApp } from "./windows/ActivityLogsApp";
+import { AppearanceApp } from "./windows/AppearanceApp";
+import { EqualizerApp } from "./windows/EqualizerApp";
+import { SkinModeApp } from "./windows/SkinModeApp";
 import { initPlayerStoreBridge } from "./lib/playerStoreBridge";
 import { initSkinBridge } from "./lib/skin/skinBridge";
 import { initThemeBridge } from "./lib/theme/themeBridge";
@@ -30,7 +30,7 @@ import { showOnboardingSplash } from "./lib/onboardingSplash";
 import { bootstrapVisualizer } from "./lib/visualizer/visualizerBootstrap";
 import { bootstrapEqualizer } from "./lib/equalizer/equalizerBootstrap";
 import { bootstrapPlaybackSettings } from "./lib/playback/playbackSettingsBootstrap";
-import { ToastLabApp } from "./ToastLabApp";
+import { ToastLabApp } from "./windows/ToastLabApp";
 import { initCrashHandlers, installCrashDevConsole } from "./lib/crashReport";
 import { installToastDevConsole } from "./lib/toast/toastDevConsole";
 import { installDevUserTimingGuard } from "./lib/devUserTimingGuard";
@@ -136,7 +136,7 @@ async function start() {
   if (import.meta.env.DEV && isSoundLabWindow()) {
     await bootstrapTheme();
     await initThemeBridge(role);
-    const { SoundLabApp } = await import("./SoundLabApp");
+    const { SoundLabApp } = await import("./windows/SoundLabApp");
     renderRoot(<SoundLabApp />);
     return;
   }
@@ -144,7 +144,7 @@ async function start() {
   if (import.meta.env.DEV && isIconLabWindow()) {
     await bootstrapTheme();
     await initThemeBridge(role);
-    const { IconLabApp } = await import("./IconLabApp");
+    const { IconLabApp } = await import("./windows/IconLabApp");
     renderRoot(<IconLabApp />);
     return;
   }

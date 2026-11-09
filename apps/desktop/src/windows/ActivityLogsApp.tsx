@@ -1,10 +1,10 @@
 import { useEffect } from "react";
-import { BackgroundTasksIndicator } from "./components/BackgroundTasks/BackgroundTasksIndicator";
-import { ActivityLogsPanel } from "./components/ActivityLogs/ActivityLogsPanel";
-import { CustomWindowFrame } from "./components/WindowChrome/CustomWindowFrame";
-import { useActivityLogsWindowClose } from "./hooks/useActivityLogsWindowClose";
-import { initActivityLogBridge } from "./lib/activityLogBridge";
-import { t } from "./lib/i18n";
+import { BackgroundTasksIndicator } from "@/components/BackgroundTasks/BackgroundTasksIndicator";
+import { ActivityLogsPanel } from "@/components/ActivityLogs/ActivityLogsPanel";
+import { CustomWindowFrame } from "@/components/WindowChrome/CustomWindowFrame";
+import { useActivityLogsWindowClose } from "@/hooks/useActivityLogsWindowClose";
+import { initActivityLogBridge } from "@/lib/activityLogBridge";
+import { t } from "@/lib/i18n";
 import "./ActivityLogsApp.css";
 
 export function ActivityLogsApp() {
