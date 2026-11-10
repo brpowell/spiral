@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Track } from "@/types/track";
-import { groupTracksIntoGenres } from "./genres";
+import { getGenreByKey, groupTracksIntoGenres } from "./genres";
 
 const track = (id: number, genre: string | null) => ({ id, genre }) as Track;
 
@@ -22,5 +22,13 @@ describe("groupTracksIntoGenres", () => {
     expect(
       groupTracksIntoGenres([track(1, null), track(2, "  "), track(3, "")]),
     ).toEqual([]);
+  });
+});
+
+describe("getGenreByKey", () => {
+  it("finds a genre by its key", () => {
+    const genres = groupTracksIntoGenres([track(1, "Rock"), track(2, "Jazz")]);
+    expect(getGenreByKey(genres, "jazz")?.name).toBe("Jazz");
+    expect(getGenreByKey(genres, "folk")).toBeUndefined();
   });
 });

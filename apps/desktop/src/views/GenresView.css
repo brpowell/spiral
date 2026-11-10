@@ -13,6 +13,10 @@
 }
 
 .genre-card {
+  width: 100%;
+  border: none;
+  text-align: left;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;

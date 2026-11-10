@@ -6,23 +6,23 @@ import { BrowseGridBody } from "@/components/BrowseView/BrowseGridBody";
 import { LibraryEmptyState } from "@/components/LibraryEmptyState/LibraryEmptyState";
 import { SearchField } from "@/components/SearchField/SearchField";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { groupTracksIntoGenres, type Genre } from "@/lib/genres/genres";
+import type { Genre } from "@/lib/genres/genres";
 import { createFuzzyMatcher } from "@/lib/ui/fuzzySearch";
-import type { Track } from "@/types/track";
+import { useNavigationStore } from "@/store/useNavigationStore";
 import "./GenresView.css";
 
 interface GenresViewProps {
-  tracks: Track[];
+  genres: Genre[];
 }
 
 const genreSearch = createFuzzyMatcher<Genre>((g) => [g.name]);
 
-export function GenresView({ tracks }: GenresViewProps) {
+export function GenresView({ genres }: GenresViewProps) {
   const { t } = useTranslation("library");
   const [search, setSearch] = useState("");
   const deferredSearch = useDebouncedValue(search, 150);
 
-  const genres = useMemo(() => groupTracksIntoGenres(tracks), [tracks]);
+  const openGenre = useNavigationStore((s) => s.openGenre);
   const filtered = useMemo(
     () => genreSearch.rank(genres, deferredSearch),
     [genres, deferredSearch],
@@ -58,11 +58,17 @@ export function GenresView({ tracks }: GenresViewProps) {
         ) : (
           <ul className="genres-view__grid">
             {filtered.map((genre) => (
-              <li key={genre.key} className="genre-card">
-                <span className="genre-card__name">{genre.name}</span>
-                <span className="genre-card__meta">
-                  {t("counts.tracks", { count: genre.tracks.length })}
-                </span>
+              <li key={genre.key}>
+                <button
+                  type="button"
+                  className="genre-card"
+                  onClick={() => openGenre(genre.key, genre.name)}
+                >
+                  <span className="genre-card__name">{genre.name}</span>
+                  <span className="genre-card__meta">
+                    {t("counts.tracks", { count: genre.tracks.length })}
+                  </span>
+                </button>
               </li>
             ))}
           </ul>

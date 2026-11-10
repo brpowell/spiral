@@ -11,6 +11,7 @@ export type DetailReturnContext =
   | { kind: "sidebar"; view: NavView }
   | { kind: "album"; albumKey: string; title: string }
   | { kind: "artist"; artistKey: string }
+  | { kind: "genre"; genreKey: string; title: string }
   | { kind: "playlist"; playlistId: number; title: string }
   | { kind: "cd"; driveId: string; title: string };
 
@@ -26,6 +27,10 @@ export interface NavigationSnapshot {
   view: NavView;
   albumKey: string | null;
   artistKey: string | null;
+  /** Optional so callers that predate genres need not supply it. */
+  genreKey?: string | null;
+  /** Display name for `genreKey`, used for back labels. */
+  genreTitle?: string | null;
   playlistId: number | null;
   cdDriveId: string | null;
 }
@@ -47,6 +52,8 @@ export function detailReturnLabel(
       const artist = artists.find((a) => a.key === ctx.artistKey);
       return artist?.name ?? t("library:entity.artist");
     }
+    case "genre":
+      return ctx.title;
     case "sidebar":
       return sidebarViewLabel(ctx.view);
   }
@@ -106,6 +113,13 @@ export function captureReturnContext(
   if (state.artistKey != null) {
     return { kind: "artist", artistKey: state.artistKey };
   }
+  if (state.genreKey != null) {
+    return {
+      kind: "genre",
+      genreKey: state.genreKey,
+      title: state.genreTitle ?? t("library:entity.genre"),
+    };
+  }
   return { kind: "sidebar", view: state.view };
 }
 
@@ -142,6 +156,16 @@ export function stateAfterCloseAlbum(
       return {
         ...base,
         artistKey: ctx.artistKey,
+      };
+    case "genre":
+      return {
+        ...base,
+        genreKey: ctx.genreKey,
+        genreTitle: ctx.title,
+        albumKey: null,
+        artistKey: null,
+        playlistId: null,
+        cdDriveId: null,
       };
     case "sidebar":
       return {
@@ -183,6 +207,16 @@ export function stateAfterCloseCd(
       return {
         ...base,
         artistKey: ctx.artistKey,
+      };
+    case "genre":
+      return {
+        ...base,
+        genreKey: ctx.genreKey,
+        genreTitle: ctx.title,
+        albumKey: null,
+        artistKey: null,
+        playlistId: null,
+        cdDriveId: null,
       };
     case "sidebar":
       return {
@@ -229,6 +263,16 @@ export function stateAfterCloseArtist(
         ...base,
         artistKey: ctx.artistKey,
         albumKey: null,
+        playlistId: null,
+        cdDriveId: null,
+      };
+    case "genre":
+      return {
+        ...base,
+        genreKey: ctx.genreKey,
+        genreTitle: ctx.title,
+        albumKey: null,
+        artistKey: null,
         playlistId: null,
         cdDriveId: null,
       };

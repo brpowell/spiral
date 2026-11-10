@@ -20,6 +20,8 @@ interface NavigationState {
   view: NavView;
   albumKey: string | null;
   artistKey: string | null;
+  genreKey: string | null;
+  genreTitle: string | null;
   artistBrowseMode: ArtistBrowseMode;
   playlistId: number | null;
   cdDriveId: string | null;
@@ -33,6 +35,8 @@ interface NavigationState {
   closeAlbum: () => void;
   openArtist: (key: string) => void;
   closeArtist: () => void;
+  openGenre: (key: string, title: string) => void;
+  closeGenre: () => void;
   openPlaylist: (id: number) => void;
   closePlaylist: () => void;
   openCdDrive: (id: string) => void;
@@ -47,6 +51,8 @@ export const useNavigationStore = create<NavigationState>((set) => ({
   view: "library",
   albumKey: null,
   artistKey: null,
+  genreKey: null,
+  genreTitle: null,
   artistBrowseMode: loadArtistBrowseMode(),
   playlistId: null,
   cdDriveId: null,
@@ -60,6 +66,8 @@ export const useNavigationStore = create<NavigationState>((set) => ({
       view,
       albumKey: null,
       artistKey: null,
+      genreKey: null,
+      genreTitle: null,
       playlistId: null,
       cdDriveId: null,
       albumReturnContext: null,
@@ -78,6 +86,8 @@ export const useNavigationStore = create<NavigationState>((set) => ({
       albumKey,
       playlistId: null,
       artistKey: null,
+      genreKey: null,
+      genreTitle: null,
       cdDriveId: null,
       albumReturnContext: captureReturnContext(state, playlistsForCapture()),
     })),
@@ -94,6 +104,8 @@ export const useNavigationStore = create<NavigationState>((set) => ({
     set((state) => ({
       artistKey,
       albumKey: null,
+      genreKey: null,
+      genreTitle: null,
       playlistId: null,
       cdDriveId: null,
       artistReturnContext: captureReturnContext(state, playlistsForCapture()),
@@ -107,11 +119,27 @@ export const useNavigationStore = create<NavigationState>((set) => ({
       artistReturnContext: null,
     })),
 
+  openGenre: (genreKey, genreTitle) =>
+    set({
+      genreKey,
+      genreTitle,
+      albumKey: null,
+      artistKey: null,
+      playlistId: null,
+      cdDriveId: null,
+      albumReturnContext: null,
+      artistReturnContext: null,
+    }),
+
+  closeGenre: () => set({ genreKey: null, genreTitle: null }),
+
   openPlaylist: (playlistId) =>
     set((state) => ({
       playlistId,
       albumKey: null,
       artistKey: null,
+      genreKey: null,
+      genreTitle: null,
       cdDriveId: null,
       albumReturnContext: null,
       artistReturnContext: null,
@@ -126,6 +154,8 @@ export const useNavigationStore = create<NavigationState>((set) => ({
       cdDriveId,
       albumKey: null,
       artistKey: null,
+      genreKey: null,
+      genreTitle: null,
       playlistId: null,
       cdReturnContext: { kind: "sidebar", view: state.view },
     })),
