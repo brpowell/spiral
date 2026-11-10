@@ -97,8 +97,22 @@ function contentSignature(panel: HTMLElement): string {
   if (tabList instanceof HTMLElement) parts.push(tabList.offsetHeight);
 
   const active = panel.querySelector(".tabs__panel:not([hidden])");
-  if (active instanceof HTMLElement)
+  if (active instanceof HTMLElement) {
     parts.push(Math.round(contentBoxHeight(active)));
+  }
+
+  // Body content outside the tab panels (an inline alert, a save error) also
+  // sizes the panel. Without tabs the whole body is such content. The tab
+  // stage itself is skipped: it stretches with the panel, so its height would
+  // feed back into the signature.
+  const body = panel.querySelector(".modal-body");
+  if (body instanceof HTMLElement) {
+    for (const child of body.children) {
+      if (!(child instanceof HTMLElement)) continue;
+      if (active && child.contains(active)) continue;
+      parts.push(child.offsetHeight, child.querySelectorAll("*").length + 1);
+    }
+  }
 
   for (const tab of panel.querySelectorAll(".tabs__panel")) {
     parts.push(tab.querySelectorAll("*").length);
