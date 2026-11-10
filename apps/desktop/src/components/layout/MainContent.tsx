@@ -13,6 +13,7 @@ import { AlbumsView } from "@/views/AlbumsView";
 import { ArtistDetailView } from "@/views/ArtistDetailView";
 import { ArtistsView } from "@/views/ArtistsView";
 import { PlaylistDetailView } from "@/views/PlaylistDetailView";
+import { GenresView } from "@/views/GenresView";
 import { CdDetailView } from "@/views/CdDetailView";
 import { TracksView } from "@/views/TracksView";
 import "./MainContent.css";
@@ -131,6 +132,14 @@ export function MainContent() {
               albums={albums}
               browseMode={artistBrowseMode}
             />
+          </motion.div>
+        ) : view === "genres" ? (
+          <motion.div
+            key={contentKey}
+            className="main-content__view main-content__view--contained"
+            {...viewTransition}
+          >
+            <GenresView tracks={liveLibrary} />
           </motion.div>
         ) : (
           <motion.div
