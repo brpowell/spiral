@@ -41,3 +41,29 @@ export function groupTracksIntoGenres(tracks: Track[]): Genre[] {
 export function getGenreByKey(genres: Genre[], key: string): Genre | undefined {
   return genres.find((genre) => genre.key === key);
 }
+
+/** The genre name as it will be written to files: trimmed, or null when blank. */
+export function normalizeGenreName(name: string): string | null {
+  const trimmed = name.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+/** True when saving `name` would change at least one track's genre tag. */
+export function genreRenameNeeded(genre: Genre, name: string): boolean {
+  const next = normalizeGenreName(name) ?? "";
+  return genre.tracks.some((track) => (track.genre?.trim() ?? "") !== next);
+}
+
+/**
+ * The other genre that `name` would merge this one into, if any. Matching is
+ * case-insensitive, like grouping; the genre's own key never counts.
+ */
+export function findMergeTarget(
+  genres: Genre[],
+  ownKey: string,
+  name: string,
+): Genre | undefined {
+  const key = normalizeGenreName(name)?.toLowerCase();
+  if (!key || key === ownKey) return undefined;
+  return getGenreByKey(genres, key);
+}

@@ -5,6 +5,7 @@ import { BrowseViewHeader } from "@/components/BrowseView/BrowseViewHeader";
 import { BrowseGridBody } from "@/components/BrowseView/BrowseGridBody";
 import { LibraryEmptyState } from "@/components/LibraryEmptyState/LibraryEmptyState";
 import { SearchField } from "@/components/SearchField/SearchField";
+import { useGenreEditMenu } from "@/hooks/useGenreEditMenu";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import type { Genre } from "@/lib/genres/genres";
 import { createFuzzyMatcher } from "@/lib/ui/fuzzySearch";
@@ -17,12 +18,33 @@ interface GenresViewProps {
 
 const genreSearch = createFuzzyMatcher<Genre>((g) => [g.name]);
 
+function GenreCard({ genre }: { genre: Genre }) {
+  const { t } = useTranslation("library");
+  const openGenre = useNavigationStore((s) => s.openGenre);
+  const { onContextMenu, contextMenu } = useGenreEditMenu(genre);
+  return (
+    <>
+      <button
+        type="button"
+        className="genre-card"
+        onClick={() => openGenre(genre.key, genre.name)}
+        onContextMenu={onContextMenu}
+      >
+        <span className="genre-card__name">{genre.name}</span>
+        <span className="genre-card__meta">
+          {t("counts.tracks", { count: genre.tracks.length })}
+        </span>
+      </button>
+      {contextMenu}
+    </>
+  );
+}
+
 export function GenresView({ genres }: GenresViewProps) {
   const { t } = useTranslation("library");
   const [search, setSearch] = useState("");
   const deferredSearch = useDebouncedValue(search, 150);
 
-  const openGenre = useNavigationStore((s) => s.openGenre);
   const filtered = useMemo(
     () => genreSearch.rank(genres, deferredSearch),
     [genres, deferredSearch],
@@ -59,16 +81,7 @@ export function GenresView({ genres }: GenresViewProps) {
           <ul className="genres-view__grid">
             {filtered.map((genre) => (
               <li key={genre.key}>
-                <button
-                  type="button"
-                  className="genre-card"
-                  onClick={() => openGenre(genre.key, genre.name)}
-                >
-                  <span className="genre-card__name">{genre.name}</span>
-                  <span className="genre-card__meta">
-                    {t("counts.tracks", { count: genre.tracks.length })}
-                  </span>
-                </button>
+                <GenreCard genre={genre} />
               </li>
             ))}
           </ul>

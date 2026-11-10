@@ -10,7 +10,12 @@ import {
   type SortState,
 } from "@/components/TrackList/trackListSort";
 import type { TrackListSortField } from "@/components/TrackList/types";
-import { IconAddToQueue, IconBack, IconPlay } from "@/components/icons";
+import {
+  IconAddToQueue,
+  IconBack,
+  IconPencil,
+  IconPlay,
+} from "@/components/icons";
 import { albumTotalDurationSeconds } from "@/lib/albums/albums";
 import { formatDurationNatural } from "@/lib/format/format";
 import { getGenreByKey, type Genre } from "@/lib/genres/genres";
@@ -36,6 +41,7 @@ export function GenreDetailView({ genres, genreKey }: GenreDetailViewProps) {
   const selectedTrackIds = usePlayerStore((s) => s.selectedTrackIds);
   const selectTracksInList = usePlayerStore((s) => s.selectTracksInList);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
+  const openGenreEditor = usePlayerStore((s) => s.openGenreEditor);
   const updateTrackInLibrary = usePlayerStore((s) => s.updateTrackInLibrary);
   const [sort, setSort] = useState<SortState>(null);
 
@@ -99,9 +105,13 @@ export function GenreDetailView({ genres, genreKey }: GenreDetailViewProps) {
                 .join(" · ")}
             </p>
             <div className="detail-view__actions">
-              <Button variant="secondary" size="sm" onClick={handlePlayAll}>
-                <IconPlay />
-                {t("actions.playAll")}
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => openGenreEditor(genre.key)}
+              >
+                <IconPencil />
+                {t("actions.editGenre")}
               </Button>
               <MenuButton
                 ariaLabel={t("views.genres.actionsAria")}
@@ -111,14 +121,24 @@ export function GenreDetailView({ genres, genreKey }: GenreDetailViewProps) {
                 variant="secondary"
               >
                 {(close) => (
-                  <ContextMenuItem
-                    icon={<IconAddToQueue />}
-                    label={t("actions.addToQueue")}
-                    onClick={() => {
-                      close();
-                      addToQueue(trackIds);
-                    }}
-                  />
+                  <>
+                    <ContextMenuItem
+                      icon={<IconPlay />}
+                      label={t("actions.playAll")}
+                      onClick={() => {
+                        close();
+                        handlePlayAll();
+                      }}
+                    />
+                    <ContextMenuItem
+                      icon={<IconAddToQueue />}
+                      label={t("actions.addToQueue")}
+                      onClick={() => {
+                        close();
+                        addToQueue(trackIds);
+                      }}
+                    />
+                  </>
                 )}
               </MenuButton>
             </div>

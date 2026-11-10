@@ -1,3 +1,4 @@
+import { groupTracksIntoGenres } from "@/lib/genres/genres";
 import { create } from "zustand";
 import { notifyCrossfadeVisual } from "@/lib/playback/crossfadeVisualClock";
 import { notifyLivePosition } from "@/lib/playback/livePosition";
@@ -134,6 +135,7 @@ interface PlayerState {
   albumEditorAutoOpenMbSearch: boolean;
   editingArtistKey: string | null;
   editingArtistBrowseMode: ArtistBrowseMode;
+  editingGenreKey: string | null;
   /** Bumped when lyrics are saved so now-playing UI can refetch. */
   lyricsRevisionByTrackId: Record<number, number>;
 
@@ -200,6 +202,8 @@ interface PlayerState {
   clearAlbumEditorAutoOpenMbSearch: () => void;
   openArtistEditor: (artistKey: string, browseMode: ArtistBrowseMode) => void;
   closeArtistEditor: () => void;
+  openGenreEditor: (genreKey: string) => void;
+  closeGenreEditor: () => void;
   updateTrackInLibrary: (track: Track) => void;
   updateTracksInLibrary: (tracks: Track[]) => void;
   notifyTrackLyricsUpdated: (trackId: number) => void;
@@ -1210,6 +1214,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     albumEditorInitialTab: "details",
     albumEditorAutoOpenMbSearch: false,
     editingArtistKey: null,
+    editingGenreKey: null,
     editingArtistBrowseMode: "discography",
     lyricsRevisionByTrackId: {},
 
@@ -1798,6 +1803,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         trackEditorInitialTab: options?.tab ?? "details",
         editingAlbumKey: null,
         editingArtistKey: null,
+        editingGenreKey: null,
       });
     },
     closeTrackEditor: () =>
@@ -1810,6 +1816,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         editingTrackIds: [],
         trackEditorInitialTab: "details",
         editingArtistKey: null,
+        editingGenreKey: null,
       }),
     closeAlbumEditor: () =>
       set({
@@ -1826,8 +1833,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         editingTrackIds: [],
         trackEditorInitialTab: "details",
         editingAlbumKey: null,
+        editingGenreKey: null,
       }),
     closeArtistEditor: () => set({ editingArtistKey: null }),
+    openGenreEditor: (genreKey) =>
+      set({
+        editingGenreKey: genreKey,
+        editingTrackIds: [],
+        trackEditorInitialTab: "details",
+        editingAlbumKey: null,
+        editingArtistKey: null,
+      }),
+    closeGenreEditor: () => set({ editingGenreKey: null }),
     updateTrackInLibrary: (track) =>
       set((s) => ({
         library: s.library.map((t) => (t.id === track.id ? track : t)),
@@ -1884,6 +1901,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         )
           ? state.editingArtistKey
           : null;
+      const editingGenreKey =
+        state.editingGenreKey != null &&
+        groupTracksIntoGenres(library).some(
+          (g) => g.key === state.editingGenreKey,
+        )
+          ? state.editingGenreKey
+          : null;
 
       set({
         library,
@@ -1904,6 +1928,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         editingTrackIds: state.editingTrackIds.filter((id) => !removed.has(id)),
         editingAlbumKey,
         editingArtistKey,
+        editingGenreKey,
       });
     },
   };
