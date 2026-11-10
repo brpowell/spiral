@@ -12,10 +12,10 @@ export interface StageTrackRef {
 }
 
 export type StageNav =
-  | { view: "library" | "albums" | "artists" }
-  | { view: "library" | "albums" | "artists"; albumKey: string }
-  | { view: "library" | "albums" | "artists"; artistKey: string }
-  | { view: "library" | "albums" | "artists"; playlist: string };
+  | { view: "library" | "albums" | "artists" | "genres" }
+  | { view: "library" | "albums" | "artists" | "genres"; albumKey: string }
+  | { view: "library" | "albums" | "artists" | "genres"; artistKey: string }
+  | { view: "library" | "albums" | "artists" | "genres"; playlist: string };
 
 export interface StagePlayback {
   track: StageTrackRef | null;

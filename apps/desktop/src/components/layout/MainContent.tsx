@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { isTrackImporting } from "@/lib/import/pendingImportTrack";
 import { applyArtistImages } from "@/lib/artists/artistArt";
 import { groupTracksIntoAlbums } from "@/lib/albums/albums";
+import { groupTracksIntoGenres } from "@/lib/genres/genres";
 import { groupTracksIntoArtists } from "@/lib/artists/artists";
 import { viewTransition } from "@/lib/ui/motion";
 import { useArtistImageStore } from "@/store/useArtistImageStore";
@@ -13,6 +14,7 @@ import { AlbumsView } from "@/views/AlbumsView";
 import { ArtistDetailView } from "@/views/ArtistDetailView";
 import { ArtistsView } from "@/views/ArtistsView";
 import { PlaylistDetailView } from "@/views/PlaylistDetailView";
+import { GenreDetailView } from "@/views/GenreDetailView";
 import { GenresView } from "@/views/GenresView";
 import { CdDetailView } from "@/views/CdDetailView";
 import { TracksView } from "@/views/TracksView";
@@ -25,6 +27,7 @@ export function MainContent() {
   const albumKey = useNavigationStore((s) => s.albumKey);
   const artistKey = useNavigationStore((s) => s.artistKey);
   const artistBrowseMode = useNavigationStore((s) => s.artistBrowseMode);
+  const genreKey = useNavigationStore((s) => s.genreKey);
   const playlistId = useNavigationStore((s) => s.playlistId);
   const cdDriveId = useNavigationStore((s) => s.cdDriveId);
 
@@ -34,6 +37,10 @@ export function MainContent() {
   );
   const albums = useMemo(
     () => groupTracksIntoAlbums(liveLibrary),
+    [liveLibrary],
+  );
+  const genres = useMemo(
+    () => groupTracksIntoGenres(liveLibrary),
     [liveLibrary],
   );
   const artists = useMemo(() => {
@@ -54,7 +61,9 @@ export function MainContent() {
           ? `album-${albumKey}`
           : artistKey != null
             ? `artist-${artistKey}`
-            : view;
+            : view === "genres" && genreKey != null
+              ? `genre-${genreKey}`
+              : view;
 
   return (
     <main className="main-content">
@@ -133,13 +142,21 @@ export function MainContent() {
               browseMode={artistBrowseMode}
             />
           </motion.div>
+        ) : view === "genres" && genreKey != null ? (
+          <motion.div
+            key={contentKey}
+            className="main-content__view main-content__view--contained"
+            {...viewTransition}
+          >
+            <GenreDetailView genres={genres} genreKey={genreKey} />
+          </motion.div>
         ) : view === "genres" ? (
           <motion.div
             key={contentKey}
             className="main-content__view main-content__view--contained"
             {...viewTransition}
           >
-            <GenresView tracks={liveLibrary} />
+            <GenresView genres={genres} />
           </motion.div>
         ) : (
           <motion.div

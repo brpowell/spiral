@@ -37,3 +37,7 @@ export function groupTracksIntoGenres(tracks: Track[]): Genre[] {
     a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
   );
 }
+
+export function getGenreByKey(genres: Genre[], key: string): Genre | undefined {
+  return genres.find((genre) => genre.key === key);
+}

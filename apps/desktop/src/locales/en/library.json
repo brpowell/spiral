@@ -272,7 +272,8 @@
       "searchPlaceholder": "Search genres…",
       "searchAria": "Search genres",
       "emptySearch": "No genres match your search.",
-      "emptyLibrary": "No genres yet. Add a genre to your tracks to see them here."
+      "notFound": "Genre not found.",
+      "actionsAria": "Genre actions"
     },
     "playlists": {
       "title": "Playlists",
@@ -289,6 +290,7 @@
     "album": "Album",
     "artist": "Artist",
     "playlist": "Playlist",
+    "genre": "Genre",
     "disc": "Disc {{number}}"
   },
   "counts": {

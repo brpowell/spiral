@@ -302,6 +302,84 @@ describe("stateAfterCloseArtist", () => {
   });
 });
 
+describe("genre navigation", () => {
+  it("captures the open genre when opening an album from it", () => {
+    expect(
+      captureReturnContext(
+        {
+          view: "genres",
+          genreKey: "rock",
+          genreTitle: "Rock",
+          albumKey: null,
+          artistKey: null,
+          playlistId: null,
+          cdDriveId: null,
+        },
+        [],
+      ),
+    ).toEqual({ kind: "genre", genreKey: "rock", title: "Rock" });
+  });
+
+  it("labels a genre return with the genre name", () => {
+    expect(
+      detailReturnLabel(
+        { kind: "genre", genreKey: "rock", title: "Rock" },
+        artists,
+      ),
+    ).toBe("Rock");
+  });
+
+  it("labels a Genres sidebar return as Genres", () => {
+    expect(
+      detailReturnLabel({ kind: "sidebar", view: "genres" }, artists),
+    ).toBe("Genres");
+  });
+
+  it("restores the genre detail after closing an album opened from it", () => {
+    expect(
+      stateAfterCloseAlbum({ kind: "genre", genreKey: "rock", title: "Rock" }),
+    ).toMatchObject({ albumKey: null, genreKey: "rock", genreTitle: "Rock" });
+  });
+
+  it("restores the genre detail after closing an artist opened from it", () => {
+    expect(
+      stateAfterCloseArtist({ kind: "genre", genreKey: "rock", title: "Rock" }),
+    ).toMatchObject({ artistKey: null, genreKey: "rock", genreTitle: "Rock" });
+  });
+
+  it("clears the genre when another detail view opens", () => {
+    useNavigationStore.getState().openGenre("rock", "Rock");
+    useNavigationStore.getState().openAlbum(ALBUM_KEY);
+    expect(useNavigationStore.getState().genreKey).toBeNull();
+    expect(useNavigationStore.getState().albumReturnContext).toEqual({
+      kind: "genre",
+      genreKey: "rock",
+      title: "Rock",
+    });
+  });
+
+  it("returns to the genre detail when the album closes", () => {
+    useNavigationStore.setState({ view: "genres" });
+    useNavigationStore.getState().openGenre("rock", "Rock");
+    useNavigationStore.getState().openAlbum(ALBUM_KEY);
+    useNavigationStore.getState().closeAlbum();
+    const nav = useNavigationStore.getState();
+    expect([nav.view, nav.genreKey, nav.albumKey]).toEqual([
+      "genres",
+      "rock",
+      null,
+    ]);
+  });
+
+  it("closeGenre returns to the Genres list", () => {
+    useNavigationStore.setState({ view: "genres" });
+    useNavigationStore.getState().openGenre("rock", "Rock");
+    useNavigationStore.getState().closeGenre();
+    const nav = useNavigationStore.getState();
+    expect([nav.view, nav.genreKey]).toEqual(["genres", null]);
+  });
+});
+
 describe("stateAfterClosePlaylist", () => {
   it("restores library view after closing playlist opened from track list", () => {
     expect(
