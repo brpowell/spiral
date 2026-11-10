@@ -3,7 +3,7 @@ import {
   ContextMenu,
   ContextMenuItem,
 } from "@/components/ContextMenu/ContextMenu";
-import { IconAddToQueue, IconPencil } from "@/components/icons";
+import { IconAddToQueue, IconPencil, IconPlay } from "@/components/icons";
 import { t } from "@/lib/i18n/i18n";
 import type { Genre } from "@/lib/genres/genres";
 import { usePlayerStore } from "@/store/usePlayerStore";
@@ -12,6 +12,7 @@ import { useContextMenu } from "./useContextMenu";
 export function useGenreEditMenu(genre: Genre) {
   const openGenreEditor = usePlayerStore((s) => s.openGenreEditor);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
+  const playTracks = usePlayerStore((s) => s.playTracks);
 
   const trackIds = useMemo(
     () => genre.tracks.map((track) => track.id),
@@ -37,6 +38,16 @@ export function useGenreEditMenu(genre: Genre) {
           openGenreEditor(genre.key);
         }}
       />
+      {trackCount > 0 ? (
+        <ContextMenuItem
+          icon={<IconPlay />}
+          label={t("library:actions.playAll")}
+          onClick={() => {
+            closeMenu();
+            void playTracks(trackIds, trackIds[0]);
+          }}
+        />
+      ) : null}
       {trackCount > 0 ? (
         <ContextMenuItem
           icon={<IconAddToQueue />}
