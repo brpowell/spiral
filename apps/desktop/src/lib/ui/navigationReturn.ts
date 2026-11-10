@@ -60,6 +60,8 @@ function sidebarViewLabel(view: NavView): string {
       return t("library:views.albums.title");
     case "artists":
       return t("library:views.artists.title");
+    case "genres":
+      return t("library:views.genres.title");
   }
 }
 

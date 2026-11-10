@@ -80,6 +80,7 @@ import {
   Volume2,
   VolumeX,
   X,
+  Tags,
 } from "lucide-react";
 import type { LucideProps } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
@@ -119,6 +120,7 @@ export const IconTracks = Music;
 export const IconImage = Image;
 export const IconAlbums = DiscAlbum;
 export const IconArtists = UserRound;
+export const IconGenres = Tags;
 export const IconDisc = Disc;
 export const IconEject = Eject;
 export const IconPlaylists = ListMusic;

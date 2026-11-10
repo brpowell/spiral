@@ -18,6 +18,7 @@ import {
 import {
   IconAlbums,
   IconArtists,
+  IconGenres,
   IconTracks,
   IconPlaylistAdd,
 } from "@/components/icons";
@@ -42,7 +43,11 @@ const PLAYLIST_SORT_SENSORS = [
 
 const NAV_ITEMS: {
   view: NavView;
-  labelKey: "views.tracks.title" | "views.albums.title" | "views.artists.title";
+  labelKey:
+    | "views.tracks.title"
+    | "views.albums.title"
+    | "views.artists.title"
+    | "views.genres.title";
   icon: ReactNode;
   enabled: boolean;
 }[] = [
@@ -62,6 +67,12 @@ const NAV_ITEMS: {
     view: "artists",
     labelKey: "views.artists.title",
     icon: <IconArtists />,
+    enabled: true,
+  },
+  {
+    view: "genres",
+    labelKey: "views.genres.title",
+    icon: <IconGenres />,
     enabled: true,
   },
 ];

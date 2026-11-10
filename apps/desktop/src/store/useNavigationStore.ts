@@ -14,7 +14,7 @@ import {
 } from "@/lib/ui/navigationReturn";
 import { usePlaylistStore } from "./usePlaylistStore";
 
-export type NavView = "albums" | "library" | "artists";
+export type NavView = "albums" | "library" | "artists" | "genres";
 
 interface NavigationState {
   view: NavView;
