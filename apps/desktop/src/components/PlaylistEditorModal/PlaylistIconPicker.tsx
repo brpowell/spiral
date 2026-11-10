@@ -67,7 +67,7 @@ export function PlaylistIconPicker({
         <PopoverTrigger
           id={triggerId}
           variant="secondary"
-          className="playlist-editor__swatch playlist-icon-picker__trigger"
+          className="cover-design__swatch playlist-icon-picker__trigger"
           title={currentLabel}
           aria-label={t("library:editor.playlist.iconValue", {
             name: currentLabel,
