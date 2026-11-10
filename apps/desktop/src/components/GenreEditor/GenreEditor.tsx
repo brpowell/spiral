@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
+import { CoverDesignFields } from "@/components/CoverDesign/CoverDesignFields";
+import { PlaylistDesignedArt } from "@/components/PlaylistArt/PlaylistDesignedArt";
 import { EditorDiscardOverlay } from "@/components/EditorDiscardOverlay/EditorDiscardOverlay";
 import { EditorSaveButton } from "@/components/EditorSaveButton/EditorSaveButton";
+import { Button } from "@/components/common/Button/Button";
 import { FormField } from "@/components/common/Field/Field";
+import { Tab, TabList, TabPanel, Tabs } from "@/components/common/Tabs/Tabs";
 import {
   Modal,
   ModalBody,
@@ -21,9 +25,16 @@ import {
   useCancellableBulkSave,
 } from "@/hooks/useCancellableBulkSave";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useResetOnOpen } from "@/hooks/useResetOnOpen";
 import { describeSourceError } from "@/lib/files/sourceAccess";
+import {
+  defaultDesignForGenre,
+  genreDesignsEqual,
+  type GenreDesign,
+} from "@/lib/genres/genreDesign";
 import { buildTrackGenreMetadata } from "@/lib/genres/genreMetadata";
 import {
+  type Genre,
   findMergeTarget,
   genreRenameNeeded,
   getGenreByKey,
@@ -33,13 +44,23 @@ import {
 import { collectGenreSuggestions } from "@/lib/tracks/trackFieldSuggestions";
 import { writeTrackMetadata } from "@/lib/tauri";
 import { showTagWriteSavedToast } from "@/lib/tracks/trackMetadataToast";
+import {
+  useGenreDesign,
+  useGenreDesignStore,
+} from "@/store/useGenreDesignStore";
 import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { useTagWriteConfirmStore } from "@/store/useTagWriteConfirmStore";
 import type { Track } from "@/types/track";
 import "@/components/TrackEditor/TrackEditor.css";
+import "./GenreEditor.css";
 
-/** Rename a genre by rewriting the genre tag on every track that carries it. */
+type GenreEditorTab = "details" | "art";
+
+/**
+ * Edit a genre: rename it by rewriting the genre tag on every track that
+ * carries it, and optionally give it a designed look.
+ */
 export function GenreEditor() {
   const { t } = useTranslation(["library", "common"]);
   const editingGenreKey = usePlayerStore((s) => s.editingGenreKey);
@@ -68,6 +89,9 @@ export function GenreEditor() {
   const mergeTarget = genre
     ? findMergeTarget(allGenres, genre.key, name)
     : undefined;
+  const [activeTab, setActiveTab] = useState<GenreEditorTab>("details");
+  const [design, setDesign] = useState<GenreDesign | null>(null);
+  const originalDesign = useGenreDesign(editingGenreKey ?? "");
   const [saveError, setSaveError] = useState<string | null>(null);
   const {
     saving,
@@ -82,20 +106,30 @@ export function GenreEditor() {
 
   const isOpen = editingGenreKey != null && genre != null;
   useFocusTrap(dialogRef, isOpen);
+  useResetOnOpen(isOpen, "details", activeTab, setActiveTab);
 
   // Reset only when switching genres, so a library refresh cannot wipe an edit.
   useEffect(() => {
     setName(genre?.name ?? "");
+    setDesign(
+      genre
+        ? (useGenreDesignStore.getState().designs[genre.key] ??
+            defaultDesignForGenre(genre.key))
+        : null,
+    );
     setSaveError(null);
     setDiscardPrompt(false);
     finish();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- key-gated form reset
   }, [genre?.key]);
 
+  const nameChanged = genre != null && genreRenameNeeded(genre, name);
+  const designChanged =
+    design != null && !genreDesignsEqual(design, originalDesign);
   const hasChanges =
     genre != null &&
     normalizeGenreName(name) != null &&
-    genreRenameNeeded(genre, name);
+    (nameChanged || designChanged);
 
   const {
     discardPrompt,
@@ -114,19 +148,19 @@ export function GenreEditor() {
     t,
   });
 
-  const handleSave = async () => {
-    const nextName = normalizeGenreName(name);
-    if (!genre || !nextName || !hasChanges) return;
-
-    const targets = genre.tracks.filter(
+  /** Write the new name to every track that differs. False if it didn't finish. */
+  const writeGenreTags = async (
+    source: Genre,
+    nextName: string,
+  ): Promise<boolean> => {
+    const targets = source.tracks.filter(
       (track) => (track.genre?.trim() ?? "") !== nextName,
     );
     const confirmed = await useTagWriteConfirmStore
       .getState()
       .confirmTagWrite("genre", targets.length);
-    if (!confirmed) return;
+    if (!confirmed) return false;
 
-    const oldKey = genre.key;
     const updated: Track[] = [];
     const errors: string[] = [];
     let cancelled = false;
@@ -163,7 +197,7 @@ export function GenreEditor() {
             total: targets.length,
           }),
         );
-        return;
+        return false;
       }
       if (errors.length > 0) {
         setSaveError(
@@ -175,22 +209,45 @@ export function GenreEditor() {
                 error: errors[0],
               }),
         );
-        return;
+        return false;
       }
 
       showTagWriteSavedToast(updated.length);
-
-      // Keep the detail view on the renamed genre instead of bouncing to the list.
-      const nav = useNavigationStore.getState();
-      if (nav.genreKey === oldKey) {
-        nav.openGenre(nextName.toLowerCase(), nextName);
-      }
-      closeGenreEditor();
+      return true;
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : String(err));
+      return false;
     } finally {
       finish();
     }
+  };
+
+  const handleSave = async () => {
+    const nextName = normalizeGenreName(name);
+    if (!genre || !nextName || !hasChanges) return;
+
+    const oldKey = genre.key;
+    const newKey = nextName.toLowerCase();
+
+    if (nameChanged && !(await writeGenreTags(genre, nextName))) return;
+
+    // The look follows the genre across a rename or merge, then any edit to it.
+    // Only a design that differs from the genre's generated one is kept.
+    const designs = useGenreDesignStore.getState();
+    designs.renameKey(oldKey, newKey);
+    if (designChanged) {
+      designs.setDesign(
+        newKey,
+        genreDesignsEqual(design, defaultDesignForGenre(newKey))
+          ? null
+          : design,
+      );
+    }
+
+    // Keep the detail view on the renamed genre instead of bouncing to the list.
+    const nav = useNavigationStore.getState();
+    if (nav.genreKey === oldKey) nav.openGenre(newKey, nextName);
+    closeGenreEditor();
   };
 
   const saveLabel = bulkSaveLabel(saving, saveProgress, t);
@@ -208,7 +265,7 @@ export function GenreEditor() {
     >
       {isOpen && (
         <>
-          <div className="track-editor-modal__content">
+          <div className="track-editor-modal__content track-editor-modal__content--tabbed">
             <div
               className="track-editor-modal__main"
               inert={discardPrompt || saving || undefined}
@@ -221,40 +278,99 @@ export function GenreEditor() {
                 </ModalHeaderMain>
               </ModalHeader>
 
-              <ModalBody>
-                <div className="track-editor__fields">
-                  <FormField label={t("library:editor.fields.genre")}>
-                    <AutocompleteInput
-                      value={name}
-                      suggestions={suggestions}
-                      autoFocus
-                      onChange={(e) => setName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          void handleSave();
-                        }
-                      }}
-                    />
-                  </FormField>
-                  {mergeTarget ? (
-                    <Alert variant="warning" icon={<IconWarning />}>
-                      <Trans
-                        i18nKey="editor.genreMergeWarning"
-                        ns="library"
-                        count={genre.tracks.length}
-                        values={{ name: mergeTarget.name }}
-                        components={{ strong: <strong /> }}
-                      />
-                    </Alert>
-                  ) : null}
-                </div>
-                {saveError && (
-                  <p className="track-editor__error" role="alert">
-                    {saveError}
-                  </p>
-                )}
-              </ModalBody>
+              <Tabs
+                value={activeTab}
+                onChange={(tab) => setActiveTab(tab as GenreEditorTab)}
+                className="track-editor__tabs"
+                variant="underline"
+              >
+                <TabList
+                  fade
+                  aria-label={t("library:editor.genreTabsAria")}
+                  className="track-editor__tab-bar"
+                >
+                  <Tab value="details">{t("library:editor.tabDetails")}</Tab>
+                  <Tab value="art">{t("library:editor.tabArt")}</Tab>
+                </TabList>
+
+                <ModalBody className="track-editor__tab-body">
+                  <div className="track-editor__tab-stage">
+                    <TabPanel
+                      value="details"
+                      className="track-editor__tab-panel"
+                    >
+                      <div className="track-editor__fields">
+                        <FormField label={t("library:editor.fields.genre")}>
+                          <AutocompleteInput
+                            value={name}
+                            suggestions={suggestions}
+                            autoFocus
+                            onChange={(e) => setName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                void handleSave();
+                              }
+                            }}
+                          />
+                        </FormField>
+                        {mergeTarget ? (
+                          <Alert variant="warning" icon={<IconWarning />}>
+                            <Trans
+                              i18nKey="editor.genreMergeWarning"
+                              ns="library"
+                              count={genre.tracks.length}
+                              values={{ name: mergeTarget.name }}
+                              components={{ strong: <strong /> }}
+                            />
+                          </Alert>
+                        ) : null}
+                      </div>
+                    </TabPanel>
+
+                    <TabPanel value="art" className="track-editor__tab-panel">
+                      {design ? (
+                        <div className="genre-editor__design">
+                          <PlaylistDesignedArt
+                            coverBackground={design.background}
+                            coverBackgroundEnd={design.backgroundEnd}
+                            coverIcon={design.icon}
+                            className="genre-editor__preview"
+                            alt={genre.name}
+                          />
+                          <div className="genre-editor__controls">
+                            <CoverDesignFields
+                              background={design.background}
+                              backgroundEnd={design.backgroundEnd}
+                              icon={design.icon}
+                              onChange={setDesign}
+                            />
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              disabled={genreDesignsEqual(
+                                design,
+                                defaultDesignForGenre(genre.key),
+                              )}
+                              onClick={() =>
+                                setDesign(defaultDesignForGenre(genre.key))
+                              }
+                            >
+                              {t("library:editor.genre.resetLook")}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </TabPanel>
+                  </div>
+
+                  {saveError && (
+                    <p className="track-editor__error" role="alert">
+                      {saveError}
+                    </p>
+                  )}
+                </ModalBody>
+              </Tabs>
             </div>
 
             <ModalFooter

@@ -18,9 +18,11 @@ import {
 } from "@/components/icons";
 import { albumTotalDurationSeconds } from "@/lib/albums/albums";
 import { formatDurationNatural } from "@/lib/format/format";
+import { PlaylistDesignedArt } from "@/components/PlaylistArt/PlaylistDesignedArt";
 import { getGenreByKey, type Genre } from "@/lib/genres/genres";
 import { confirmAndApplyTrackRatings } from "@/lib/tracks/applyTrackRating";
 import type { CanonicalRating } from "@/lib/tracks/trackRating";
+import { useGenreDesign } from "@/store/useGenreDesignStore";
 import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { Track } from "@/types/track";
@@ -43,6 +45,7 @@ export function GenreDetailView({ genres, genreKey }: GenreDetailViewProps) {
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const openGenreEditor = usePlayerStore((s) => s.openGenreEditor);
   const updateTrackInLibrary = usePlayerStore((s) => s.updateTrackInLibrary);
+  const design = useGenreDesign(genreKey);
   const [sort, setSort] = useState<SortState>(null);
 
   const genre = getGenreByKey(genres, genreKey);
@@ -95,52 +98,61 @@ export function GenreDetailView({ genres, genreKey }: GenreDetailViewProps) {
           </div>
 
           <section className="genre-detail__hero">
-            <h1 className="genre-detail__title">{genre.name}</h1>
-            <p className="genre-detail__stats">
-              {[
-                t("counts.tracks", { count: tracks.length }),
-                formatDurationNatural(albumTotalDurationSeconds(tracks)),
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-            <div className="detail-view__actions">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => openGenreEditor(genre.key)}
-              >
-                <IconPencil />
-                {t("actions.editGenre")}
-              </Button>
-              <MenuButton
-                ariaLabel={t("views.genres.actionsAria")}
-                layoutDeps={[tracks.length]}
-                size="sm"
-                triggerPlacement="below-start"
-                variant="secondary"
-              >
-                {(close) => (
-                  <>
-                    <ContextMenuItem
-                      icon={<IconPlay />}
-                      label={t("actions.playAll")}
-                      onClick={() => {
-                        close();
-                        handlePlayAll();
-                      }}
-                    />
-                    <ContextMenuItem
-                      icon={<IconAddToQueue />}
-                      label={t("actions.addToQueue")}
-                      onClick={() => {
-                        close();
-                        addToQueue(trackIds);
-                      }}
-                    />
-                  </>
-                )}
-              </MenuButton>
+            <PlaylistDesignedArt
+              coverBackground={design.background}
+              coverBackgroundEnd={design.backgroundEnd}
+              coverIcon={design.icon}
+              className="genre-detail__art"
+              alt={genre.name}
+            />
+            <div className="genre-detail__meta">
+              <h1 className="genre-detail__title">{genre.name}</h1>
+              <p className="genre-detail__stats">
+                {[
+                  t("counts.tracks", { count: tracks.length }),
+                  formatDurationNatural(albumTotalDurationSeconds(tracks)),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              <div className="detail-view__actions">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => openGenreEditor(genre.key)}
+                >
+                  <IconPencil />
+                  {t("actions.editGenre")}
+                </Button>
+                <MenuButton
+                  ariaLabel={t("views.genres.actionsAria")}
+                  layoutDeps={[tracks.length]}
+                  size="sm"
+                  triggerPlacement="below-start"
+                  variant="secondary"
+                >
+                  {(close) => (
+                    <>
+                      <ContextMenuItem
+                        icon={<IconPlay />}
+                        label={t("actions.playAll")}
+                        onClick={() => {
+                          close();
+                          handlePlayAll();
+                        }}
+                      />
+                      <ContextMenuItem
+                        icon={<IconAddToQueue />}
+                        label={t("actions.addToQueue")}
+                        onClick={() => {
+                          close();
+                          addToQueue(trackIds);
+                        }}
+                      />
+                    </>
+                  )}
+                </MenuButton>
+              </div>
             </div>
           </section>
         </div>

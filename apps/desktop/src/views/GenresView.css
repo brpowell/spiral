@@ -12,24 +12,32 @@
   list-style: none;
 }
 
+/* The genre's design is the inline background; its icon is a faint watermark. */
 .genre-card {
-  width: 100%;
-  border: none;
-  text-align: left;
-  cursor: pointer;
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  padding: 1rem;
-  border-radius: 0.75rem;
-  background: var(--color-surface, rgb(255 255 255 / 0.05));
+  width: 100%;
   min-width: 0;
+  padding: 1rem;
+  border: none;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  text-align: left;
+  color: #fff;
+  cursor: pointer;
+}
+
+.genre-card__name,
+.genre-card__meta {
+  position: relative;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
 }
 
 .genre-card__name {
   font-size: 0.95rem;
   font-weight: var(--weight-medium);
-  color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -37,5 +45,20 @@
 
 .genre-card__meta {
   font-size: 0.8rem;
-  color: var(--color-text-secondary);
+  opacity: 0.8;
+}
+
+.genre-card__icon {
+  position: absolute;
+  right: -0.4rem;
+  bottom: -0.6rem;
+  display: flex;
+  color: #fff;
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+.genre-card__icon svg {
+  width: 4.5rem;
+  height: 4.5rem;
 }

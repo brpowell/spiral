@@ -76,6 +76,7 @@
     "discardArtist": "Unsaved edits to this artist will be lost.",
     "genreMergeWarning_one": "{{count}} track from this genre will be merged into <strong>{{name}}</strong>",
     "genreMergeWarning_other": "{{count}} tracks from this genre will be merged into <strong>{{name}}</strong>",
+    "genreTabsAria": "Genre editor sections",
     "discardGenre": "Unsaved edits to this genre will be lost.",
     "discardPlaylist": "Unsaved edits to this playlist will be lost.",
     "editTracks": "Edit {{count}} tracks",
@@ -107,6 +108,9 @@
     "fileLocation": "Location",
     "fileMissing": "File not found at this location",
     "filePathAria": "Track file path",
+    "genre": {
+      "resetLook": "Reset to default look"
+    },
     "fields": {
       "title": "Title",
       "artist": "Artist",

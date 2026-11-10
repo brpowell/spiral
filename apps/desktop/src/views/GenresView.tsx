@@ -5,6 +5,9 @@ import { BrowseViewHeader } from "@/components/BrowseView/BrowseViewHeader";
 import { BrowseGridBody } from "@/components/BrowseView/BrowseGridBody";
 import { LibraryEmptyState } from "@/components/LibraryEmptyState/LibraryEmptyState";
 import { SearchField } from "@/components/SearchField/SearchField";
+import { genreDesignStyle } from "@/lib/genres/genreDesign";
+import { SpiralIcon } from "@/lib/iconLibrary";
+import { useGenreDesign } from "@/store/useGenreDesignStore";
 import { useGenreEditMenu } from "@/hooks/useGenreEditMenu";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import type { Genre } from "@/lib/genres/genres";
@@ -22,14 +25,19 @@ function GenreCard({ genre }: { genre: Genre }) {
   const { t } = useTranslation("library");
   const openGenre = useNavigationStore((s) => s.openGenre);
   const { onContextMenu, contextMenu } = useGenreEditMenu(genre);
+  const design = useGenreDesign(genre.key);
   return (
     <>
       <button
         type="button"
         className="genre-card"
+        style={genreDesignStyle(design)}
         onClick={() => openGenre(genre.key, genre.name)}
         onContextMenu={onContextMenu}
       >
+        <span className="genre-card__icon" aria-hidden>
+          <SpiralIcon id={design.icon} />
+        </span>
         <span className="genre-card__name">{genre.name}</span>
         <span className="genre-card__meta">
           {t("counts.tracks", { count: genre.tracks.length })}

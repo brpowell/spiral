@@ -50,7 +50,11 @@ function hexToHue(hex: string | null | undefined): number | null {
 }
 
 /** HSL (s and l in 0–1) to `#rrggbb`. Lightness stays low enough for a white icon. */
-function hslToHex(hue: number, saturation: number, lightness: number): string {
+export function hslToHex(
+  hue: number,
+  saturation: number,
+  lightness: number,
+): string {
   const a = saturation * Math.min(lightness, 1 - lightness);
   const channel = (n: number) => {
     const k = (n + hue / 30) % 12;

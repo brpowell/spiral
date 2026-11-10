@@ -1,0 +1,17 @@
+.genre-editor__design {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+}
+
+.genre-editor__preview {
+  width: 7.5rem;
+  flex-shrink: 0;
+}
+
+.genre-editor__controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.15rem;
+}
