@@ -5,12 +5,13 @@
  * expect (e.g. an album edit writing every track on the album, or a one-click star
  * rating that quietly rewrites a file).
  */
-export type TagWriteContext = "track" | "album" | "artist" | "rating";
+export type TagWriteContext = "track" | "album" | "artist" | "genre" | "rating";
 
 export const TAG_WRITE_CONTEXTS: readonly TagWriteContext[] = [
   "track",
   "album",
   "artist",
+  "genre",
   "rating",
 ];
 
@@ -19,7 +20,13 @@ export type TagWriteDismissals = Record<TagWriteContext, boolean>;
 const STORAGE_KEY = "spiral:tagWriteConfirmDismissed";
 
 export function emptyTagWriteDismissals(): TagWriteDismissals {
-  return { track: false, album: false, artist: false, rating: false };
+  return {
+    track: false,
+    album: false,
+    artist: false,
+    genre: false,
+    rating: false,
+  };
 }
 
 export function loadTagWriteDismissals(): TagWriteDismissals {

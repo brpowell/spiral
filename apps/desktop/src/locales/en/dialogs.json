@@ -72,6 +72,7 @@
       "track_other": "New details will be saved to all selected track files.",
       "album": "Changing album-level details affects all related track files.",
       "artist": "Changing artist-level details affects all related track files.",
+      "genre": "Renaming a genre affects all tracks tagged with it.",
       "rating_one": "The rating will be saved to the track file.",
       "rating_other": "The rating will be saved to all selected track files."
     },
@@ -79,6 +80,7 @@
       "track": "Don't ask again when editing tracks",
       "album": "Don't ask again when editing an album",
       "artist": "Don't ask again when editing an artist",
+      "genre": "Don't ask again when renaming a genre",
       "rating": "Don't ask again when rating tracks"
     },
     "native": {
