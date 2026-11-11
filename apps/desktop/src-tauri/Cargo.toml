@@ -93,7 +93,6 @@ objc2 = { version = "0.6", features = ["exception"] }
 objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSOpenPanel", "NSWorkspace", "NSImage", "NSImageRep", "NSBitmapImageRep", "NSWindow", "NSResponder"] }
 objc2-foundation = { version = "0.3", features = ["NSArray", "block2", "NSData", "NSDictionary", "NSNotification", "NSOperation", "NSString", "NSURL"] }
 objc2-web-kit = { version = "0.3", default-features = false, features = ["WKWebViewConfiguration", "WKWebView", "WKContentWorld", "WKFrameInfo", "WKSnapshotConfiguration", "block2", "objc2-app-kit"] }
-tauri-plugin-global-shortcut = "2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.61", features = [

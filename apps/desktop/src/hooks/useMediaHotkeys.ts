@@ -3,7 +3,6 @@ import { listen } from "@tauri-apps/api/event";
 import { findPlaybackTrack } from "@/lib/playback/playbackTrack";
 import { usePlayerStore } from "@/store/usePlayerStore";
 
-const HOLD_MS = 400;
 const SCRUB_INTERVAL_MS = 200;
 const SCRUB_DELTA_SECONDS = 3;
 
@@ -28,67 +27,30 @@ function shouldIgnoreKeyboardShortcut(target: EventTarget | null): boolean {
   return false;
 }
 
-function createScrubHandler(
+function createScrubber(
   direction: ScrubDirection,
-  onTap: () => void,
   seekRelative: (deltaSeconds: number) => void,
 ) {
-  let gestureActive = false;
-  let holdTimer: ReturnType<typeof setTimeout> | null = null;
   let scrubInterval: ReturnType<typeof setInterval> | null = null;
-  let isScrubbing = false;
   const delta =
     direction === "forward" ? SCRUB_DELTA_SECONDS : -SCRUB_DELTA_SECONDS;
 
-  const stopScrubbing = () => {
+  const end = () => {
     if (scrubInterval) {
       clearInterval(scrubInterval);
       scrubInterval = null;
     }
-    isScrubbing = false;
-  };
-
-  const clear = () => {
-    gestureActive = false;
-    if (holdTimer) {
-      clearTimeout(holdTimer);
-      holdTimer = null;
-    }
-    stopScrubbing();
   };
 
   return {
-    onPress: () => {
-      // macOS media keys repeat Press while held; ignore duplicates.
-      if (gestureActive) return;
-      gestureActive = true;
-
-      holdTimer = setTimeout(() => {
-        holdTimer = null;
-        isScrubbing = true;
-        seekRelative(delta);
-        scrubInterval = setInterval(
-          () => seekRelative(delta),
-          SCRUB_INTERVAL_MS,
-        );
-      }, HOLD_MS);
+    // macOS only sends begin-seeking for a held key; a tap arrives as the
+    // plain next/previous command.
+    begin: () => {
+      if (scrubInterval) return;
+      seekRelative(delta);
+      scrubInterval = setInterval(() => seekRelative(delta), SCRUB_INTERVAL_MS);
     },
-    onRelease: () => {
-      if (!gestureActive) return;
-      gestureActive = false;
-
-      if (isScrubbing) {
-        stopScrubbing();
-        return;
-      }
-
-      if (holdTimer) {
-        clearTimeout(holdTimer);
-        holdTimer = null;
-        onTap();
-      }
-    },
-    clear,
+    end,
   };
 }
 
@@ -105,12 +67,12 @@ export function useMediaHotkeys(): void {
     let cancelled = false;
     const cleanups: Array<() => void> = [];
 
-    const scrubForward = createScrubHandler("forward", nextTrack, seekRelative);
-    const scrubBack = createScrubHandler("back", previousTrack, seekRelative);
+    const scrubForward = createScrubber("forward", seekRelative);
+    const scrubBack = createScrubber("back", seekRelative);
 
     const scrubHandlers: Record<
       ScrubDirection,
-      ReturnType<typeof createScrubHandler>
+      ReturnType<typeof createScrubber>
     > = {
       forward: scrubForward,
       back: scrubBack,
@@ -138,11 +100,11 @@ export function useMediaHotkeys(): void {
       listen<number>("media-seek-delta", (event) => {
         seekRelative(event.payload);
       }),
-      listen<MediaScrubPayload>("media-scrub-press", (event) => {
-        scrubHandlers[event.payload.direction].onPress();
+      listen<MediaScrubPayload>("media-scrub-begin", (event) => {
+        scrubHandlers[event.payload.direction].begin();
       }),
-      listen<MediaScrubPayload>("media-scrub-release", (event) => {
-        scrubHandlers[event.payload.direction].onRelease();
+      listen<MediaScrubPayload>("media-scrub-end", (event) => {
+        scrubHandlers[event.payload.direction].end();
       }),
     ]).then((unlisteners) => {
       if (cancelled) {
@@ -165,8 +127,8 @@ export function useMediaHotkeys(): void {
     window.addEventListener("keydown", onKeyDown);
     return () => {
       cancelled = true;
-      scrubForward.clear();
-      scrubBack.clear();
+      scrubForward.end();
+      scrubBack.end();
       cleanups.forEach((unlisten) => unlisten());
       window.removeEventListener("keydown", onKeyDown);
     };
