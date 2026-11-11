@@ -5,7 +5,7 @@ each distinct license text once, with the packages that use it and their
 copyright notices. The same information is shown in the app under
 About Spiral -> Licenses.
 
-Generated: 2026-11-09T17:24:00.067Z
+Generated: 2026-11-11T16:15:03.335Z
 
 Source code
 -----------
@@ -220,7 +220,7 @@ whatwg-url@5.0.0 — MIT
 zustand@5.0.13 — MIT
 zwitch@2.0.4 — MIT
 
-=== Cargo (658) ===
+=== Cargo (651) ===
 
 adler2@2.0.1 — 0BSD OR MIT OR Apache-2.0
 ahash@0.8.12 — MIT OR Apache-2.0
@@ -389,7 +389,6 @@ gdkwayland-sys@0.18.2 — MIT
 gdkx11@0.18.2 — MIT
 gdkx11-sys@0.18.2 — MIT
 generic-array@0.14.7 — MIT
-gethostname@1.1.0 — Apache-2.0
 getrandom@0.2.17 — MIT OR Apache-2.0
 getrandom@0.3.4 — MIT OR Apache-2.0
 getrandom@0.4.3 — MIT OR Apache-2.0
@@ -400,7 +399,6 @@ glib@0.18.5 — MIT
 glib-macros@0.18.5 — MIT
 glib-sys@0.18.1 — MIT
 glob@0.3.4 — MIT OR Apache-2.0
-global-hotkey@0.8.0 — Apache-2.0 OR MIT
 gobject-sys@0.18.0 — MIT
 gtk@0.18.2 — MIT
 gtk-sys@0.18.2 — MIT
@@ -464,7 +462,6 @@ jobserver@0.1.35 — MIT OR Apache-2.0
 js-sys@0.3.104 — MIT OR Apache-2.0
 json-patch@4.2.0 — MIT/Apache-2.0
 jsonptr@0.7.1 — MIT OR Apache-2.0
-keyboard-types@0.7.0 — MIT OR Apache-2.0
 keyboard-types@0.8.3 — MIT OR Apache-2.0
 kqueue@1.2.1 — MIT
 kqueue-sys@1.1.2 — MIT
@@ -689,7 +686,6 @@ tauri-plugin@2.7.2 — Apache-2.0 OR MIT
 tauri-plugin-deep-link@2.4.10 — Apache-2.0 OR MIT
 tauri-plugin-dialog@2.7.3 — Apache-2.0 OR MIT
 tauri-plugin-fs@2.5.2 — Apache-2.0 OR MIT
-tauri-plugin-global-shortcut@2.3.2 — Apache-2.0 OR MIT
 tauri-plugin-opener@2.5.5 — Apache-2.0 OR MIT
 tauri-plugin-process@2.3.1 — Apache-2.0 OR MIT
 tauri-plugin-single-instance@2.4.4 — Apache-2.0 OR MIT
@@ -853,10 +849,7 @@ writeable@0.6.4 — Unicode-3.0
 wry@0.57.1 — Apache-2.0 OR MIT
 x11@2.21.0 — MIT
 x11-dl@2.21.0 — MIT
-x11rb@0.13.2 — MIT OR Apache-2.0
-x11rb-protocol@0.13.2 — MIT OR Apache-2.0
 xattr@1.6.1 — MIT OR Apache-2.0
-xkeysym@0.2.1 — MIT OR Apache-2.0 OR Zlib
 yoke@0.8.3 — Unicode-3.0
 yoke-derive@0.8.2 — Unicode-3.0
 zbus@5.19.0 — MIT
@@ -885,7 +878,7 @@ License texts
 -------------
 
 ==============================================================================
-MIT License — used by 769 packages
+MIT License — used by 763 packages
 ==============================================================================
 
 adler2@2.0.1 (cargo)
@@ -1225,8 +1218,6 @@ glib-sys@0.18.1 (cargo)
     Authors (from package metadata): The gtk-rs Project Developers
 glob@0.3.4 (cargo)
     Copyright (c) 2014 The Rust Project Developers
-global-hotkey@0.8.0 (cargo)
-    Copyright (c) 2022-2022 Tauri Programme within The Commons Conservancy
 gobject-sys@0.18.0 (cargo)
     Authors (from package metadata): The gtk-rs Project Developers
 gtk@0.18.2 (cargo)
@@ -1331,8 +1322,6 @@ json-patch@4.2.0 (cargo)
     Copyright (c) 2017 Ivan Dubrov
 jsonptr@0.7.1 (cargo)
     Copyright (c) 2022 Chance Dinkins
-keyboard-types@0.7.0 (cargo)
-    Copyright (c) 2017 Pyfisch
 keyboard-types@0.8.3 (cargo)
     Copyright (c) 2017 Pyfisch
 kqueue@1.2.1 (cargo)
@@ -1733,8 +1722,6 @@ tauri-plugin-dialog@2.7.3 (cargo)
     Copyright (c) 2017 - Present Tauri Apps Contributors
 tauri-plugin-fs@2.5.2 (cargo)
     Copyright (c) 2017 - Present Tauri Apps Contributors
-tauri-plugin-global-shortcut@2.3.2 (cargo)
-    Copyright (c) 2017 - Present Tauri Apps Contributors
 tauri-plugin-opener@2.5.5 (cargo)
     Copyright (c) 2017 - Present Tauri Apps Contributors
 tauri-plugin-process@2.3.1 (cargo)
@@ -2054,14 +2041,8 @@ x11@2.21.0 (cargo)
     Authors (from package metadata): daggerbot, Erle Pereira, AltF02
 x11-dl@2.21.0 (cargo)
     Authors (from package metadata): daggerbot, Erle Pereira, AltF02
-x11rb@0.13.2 (cargo)
-    Copyright 2019 x11rb Contributers
-x11rb-protocol@0.13.2 (cargo)
-    Copyright 2019 x11rb Contributers
 xattr@1.6.1 (cargo)
     Copyright (c) 2015 Steven Allen
-xkeysym@0.2.1 (cargo)
-    Copyright (c) 2022-2023 John Nunley
 zbus@5.19.0 (cargo)
     Copyright (c) 2024 Zeeshan Ali Khan & zbus contributors
 zbus_macros@5.19.0 (cargo)
@@ -2490,7 +2471,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
-Apache License 2.0 — used by 396 packages
+Apache License 2.0 — used by 389 packages
 ==============================================================================
 
 adler2@2.0.1 (cargo)
@@ -2722,8 +2703,6 @@ futures-util@0.3.34 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) 2016 Alex Crichton
     Copyright (c) 2017 The Tokio Authors
-gethostname@1.1.0 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
 getrandom@0.2.17 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 getrandom@0.3.4 (cargo)
@@ -2733,8 +2712,6 @@ getrandom@0.4.3 (cargo)
 gif@0.14.2 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 glob@0.3.4 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
-global-hotkey@0.8.0 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 hash32@0.3.1 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
@@ -2807,8 +2784,6 @@ json-patch@4.2.0 (cargo)
 jsonptr@0.7.1 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2024 Chance Dinkins
-keyboard-types@0.7.0 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
 keyboard-types@0.8.3 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 lazy_static@1.5.0 (cargo)
@@ -3065,8 +3040,6 @@ tauri-plugin-deep-link@2.4.10 (cargo)
 tauri-plugin-dialog@2.7.3 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 tauri-plugin-fs@2.5.2 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
-tauri-plugin-global-shortcut@2.3.2 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 tauri-plugin-opener@2.5.5 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
@@ -3373,15 +3346,8 @@ wit-bindgen@0.57.1 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 wry@0.57.1 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
-x11rb@0.13.2 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
-x11rb-protocol@0.13.2 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
 xattr@1.6.1 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
-xkeysym@0.2.1 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
-    Copyright 2022-2023 John Nunley
 zerocopy@0.8.56 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2023 The Fuchsia Authors
@@ -4107,7 +4073,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 
 ==============================================================================
-zlib License — used by 12 packages
+zlib License — used by 11 packages
 ==============================================================================
 
 bytemuck@1.25.2 (cargo)
@@ -4132,8 +4098,6 @@ tinyvec@1.12.0 (cargo)
     Copyright (c) 2019 Daniel "Lokathor" Gee.
 tinyvec_macros@0.1.1 (cargo)
     (C) 2020 Tomasz "Soveu" Marx
-xkeysym@0.2.1 (cargo)
-    Copyright (c) 2022-2023 John Nunley
 zlib-rs@0.6.7 (cargo)
     (C) 2024 Trifecta Tech Foundation
 zune-core@0.5.3 (cargo)
