@@ -120,6 +120,13 @@ pub fn set_ignore_cursor_events(window: &WebviewWindow, ignore: bool) -> Result<
     }
     #[cfg(not(target_os = "macos"))]
     {
+        // GTK only creates the native window when it is first shown, and tao
+        // unwraps it when enabling click-through, aborting the app. Refuse
+        // instead; the frontend rolls back and retries on its next poll.
+        #[cfg(target_os = "linux")]
+        if !window.is_visible().map_err(|e| e.to_string())? {
+            return Err("skin window is not mapped yet".into());
+        }
         window
             .set_ignore_cursor_events(ignore)
             .map_err(|e| e.to_string())

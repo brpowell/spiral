@@ -1,9 +1,36 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   clientPointInViewport,
+  createIgnoreCursorState,
   decidePolledPassThrough,
 } from "./skinClickThrough";
 import { isViewStateMotionActive } from "./skinViewStateEvents";
+
+describe("createIgnoreCursorState", () => {
+  it("skips a native call when the flag is unchanged", async () => {
+    const apply = vi.fn(() => Promise.resolve());
+    const state = createIgnoreCursorState(apply);
+    state.set(true);
+    state.set(true);
+    await Promise.resolve();
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(state.ignoring).toBe(true);
+  });
+
+  it("rolls back after a refused call so the next poll retries", async () => {
+    const apply = vi
+      .fn<(ignore: boolean) => Promise<void>>()
+      .mockRejectedValueOnce(new Error("skin window is not mapped yet"))
+      .mockResolvedValue(undefined);
+    const state = createIgnoreCursorState(apply);
+    state.set(true);
+    await vi.waitFor(() => expect(state.ignoring).toBe(false));
+    state.set(true);
+    await Promise.resolve();
+    expect(apply).toHaveBeenCalledTimes(2);
+    expect(state.ignoring).toBe(true);
+  });
+});
 
 describe("clientPointInViewport", () => {
   const viewport = { width: 760, height: 394 };
