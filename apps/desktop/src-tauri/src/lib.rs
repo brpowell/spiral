@@ -32,6 +32,8 @@ mod itunes_smpb;
 mod library_organize;
 mod library_paths;
 mod library_relocate;
+#[cfg(target_os = "linux")]
+mod linux_webkit_env;
 mod lyrics_fetch;
 mod lyrics_fetch_cache;
 mod lyrics_lrc;
@@ -112,6 +114,8 @@ fn load_dev_dotenv() {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    linux_webkit_env::apply();
     load_dev_dotenv();
 
     // Must be registered first on Windows/Linux: a second launch is forwarded to
