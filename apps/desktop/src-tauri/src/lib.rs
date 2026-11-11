@@ -43,9 +43,9 @@ mod macos_library_picker;
 mod mbid;
 mod mbid_tags;
 #[cfg(desktop)]
-mod media_session;
+mod media_seek_commands;
 #[cfg(desktop)]
-mod media_shortcuts;
+mod media_session;
 mod metadata_backup;
 pub mod metadata_reader;
 mod metadata_writer;
@@ -165,12 +165,10 @@ pub fn run() {
             commands::organize::init(app.handle());
 
             #[cfg(desktop)]
-            if let Err(err) = media_shortcuts::register(app.handle()) {
-                eprintln!("failed to register media shortcuts: {err}");
-            }
+            media_session::init(app.handle());
 
             #[cfg(desktop)]
-            media_session::init(app.handle());
+            media_seek_commands::register(app.handle());
 
             accessibility_warmup::install();
 
