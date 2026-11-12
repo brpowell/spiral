@@ -3,13 +3,13 @@ use crate::audio_formats::filter_library_import_paths;
 use crate::db;
 use crate::file_scan::scan_folder_paths;
 use crate::path_scope;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 use tauri::{AppHandle, Manager};
 
 /// In scope, or a library track's file.
-fn is_known_path(app: &AppHandle, path: &str) -> bool {
-    if path_scope::is_allowed(app, Path::new(path)) {
+fn is_known_path(app: &AppHandle, path: &Path) -> bool {
+    if path_scope::is_allowed(app, path) {
         return true;
     }
     let Some(state) = app.try_state::<DbState>() else {
@@ -18,14 +18,21 @@ fn is_known_path(app: &AppHandle, path: &str) -> bool {
     let Ok(conn) = state.0.lock() else {
         return false;
     };
-    db::has_track_file_path(&conn, path).unwrap_or(false)
+    db::has_track_file_path(&conn, &path.to_string_lossy()).unwrap_or(false)
 }
 
-fn ensure_known_path(app: &AppHandle, path: &str) -> Result<(), String> {
-    if is_known_path(app, path) {
-        Ok(())
+/// The resolved path to use for the actual file operation, when `path` is in
+/// scope or is a library track's file. `path` may be a network-location URI;
+/// it only resolves to a local path here if it matches one the OS already
+/// reported via a drop or a pick (see [`path_scope::resolved_network_uri`]),
+/// never by resolving a fresh one from a string a command merely receives.
+fn ensure_known_path(app: &AppHandle, path: &str) -> Result<PathBuf, String> {
+    let resolved =
+        path_scope::resolved_network_uri(app, path).unwrap_or_else(|| PathBuf::from(path));
+    if is_known_path(app, &resolved) {
+        Ok(resolved)
     } else {
-        Err(path_scope::outside_scope_error(Path::new(path)))
+        Err(path_scope::outside_scope_error(&resolved))
     }
 }
 
@@ -57,30 +64,51 @@ pub fn pick_audio_files(app: AppHandle) -> Result<Vec<String>, String> {
     }
 }
 
+/// Walking the folder can be slow over a network source; keep it off the main thread.
 #[tauri::command]
-pub fn scan_folder(app: AppHandle, folder_path: String) -> Result<Vec<String>, String> {
-    path_scope::ensure_allowed(&app, &folder_path)?;
-    scan_folder_paths(&folder_path)
+pub async fn scan_folder(app: AppHandle, folder_path: String) -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let folder_path = path_scope::ensure_allowed(&app, &folder_path)?;
+        scan_folder_paths(&folder_path.to_string_lossy())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn file_exists(app: AppHandle, path: String) -> bool {
-    is_known_path(&app, &path) && Path::new(&path).is_file()
+pub async fn file_exists(app: AppHandle, path: String) -> bool {
+    tauri::async_runtime::spawn_blocking(move || {
+        let path =
+            path_scope::resolved_network_uri(&app, &path).unwrap_or_else(|| PathBuf::from(&path));
+        is_known_path(&app, &path) && path.is_file()
+    })
+    .await
+    .unwrap_or(false)
 }
 
-/// File size in bytes.
+/// File size in bytes. Stat-ing and resolving the path can be slow over a
+/// network source; keep it off the main thread.
 #[tauri::command]
-pub fn get_file_size(app: AppHandle, path: String) -> Result<u64, String> {
-    ensure_known_path(&app, &path)?;
-    let meta = std::fs::metadata(&path).map_err(|e| format!("Cannot stat file: {e}"))?;
-    Ok(meta.len())
+pub async fn get_file_size(app: AppHandle, path: String) -> Result<u64, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = ensure_known_path(&app, &path)?;
+        let meta = std::fs::metadata(&path).map_err(|e| format!("Cannot stat file: {e}"))?;
+        Ok(meta.len())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
-/// Total size of all files under a directory (does not follow symlinks).
+/// Total size of all files under a directory (does not follow symlinks). Can
+/// be slow over a network source; keep it off the main thread.
 #[tauri::command]
-pub fn get_directory_size(app: AppHandle, path: String) -> Result<u64, String> {
-    path_scope::ensure_allowed(&app, &path)?;
-    directory_size_bytes(Path::new(&path))
+pub async fn get_directory_size(app: AppHandle, path: String) -> Result<u64, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = path_scope::ensure_allowed(&app, &path)?;
+        directory_size_bytes(&path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 fn directory_size_bytes(root: &Path) -> Result<u64, String> {
@@ -104,18 +132,23 @@ fn directory_size_bytes(root: &Path) -> Result<u64, String> {
     Ok(total)
 }
 
-/// File modification time in milliseconds since UNIX epoch (for asset URL cache busting).
+/// File modification time in milliseconds since UNIX epoch (for asset URL
+/// cache busting). Can be slow over a network source; keep it off the main thread.
 #[tauri::command]
-pub fn get_file_modified_ms(app: AppHandle, path: String) -> Result<u64, String> {
-    path_scope::ensure_allowed(&app, &path)?;
-    let meta = std::fs::metadata(&path).map_err(|e| format!("Cannot stat file: {e}"))?;
-    let modified = meta
-        .modified()
-        .map_err(|e| format!("Cannot read modification time: {e}"))?;
-    modified
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .map_err(|e| format!("Invalid modification time: {e}"))
+pub async fn get_file_modified_ms(app: AppHandle, path: String) -> Result<u64, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = path_scope::ensure_allowed(&app, &path)?;
+        let meta = std::fs::metadata(&path).map_err(|e| format!("Cannot stat file: {e}"))?;
+        let modified = meta
+            .modified()
+            .map_err(|e| format!("Cannot read modification time: {e}"))?;
+        modified
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .map_err(|e| format!("Invalid modification time: {e}"))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

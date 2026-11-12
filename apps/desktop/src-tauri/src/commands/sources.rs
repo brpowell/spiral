@@ -153,19 +153,26 @@ pub fn list_sources(state: State<DbState>) -> Result<Vec<Source>, String> {
 
 /// Add a folder the user picked as a source. It is indexed in the
 /// background; `library://tracks-changed` fires as its tracks land.
+///
+/// Checking the path can be slow over a network source; keep it off the main thread.
 #[tauri::command]
-pub fn add_source(
+pub async fn add_source(
     app: AppHandle,
-    state: State<DbState>,
     root_path: String,
     name: Option<String>,
 ) -> Result<Source, String> {
-    path_scope::ensure_allowed(&app, &root_path)?;
-    let roots = LibraryRoots::from_settings(&settings::resolved_library_settings(&app));
-    let source = {
+    let task_app = app.clone();
+    let source = tauri::async_runtime::spawn_blocking(move || {
+        let root_path = path_scope::ensure_allowed(&task_app, &root_path)?
+            .to_string_lossy()
+            .into_owned();
+        let roots = LibraryRoots::from_settings(&settings::resolved_library_settings(&task_app));
+        let state = task_app.state::<DbState>();
         let conn = state.0.lock().map_err(|e| e.to_string())?;
-        sources::add_source(&conn, &roots, &root_path, name.as_deref())?
-    };
+        sources::add_source(&conn, &roots, &root_path, name.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
     if let Some(root) = &source.root_path {
         path_scope::allow_dir(&app, Path::new(root));
     }
@@ -211,10 +218,12 @@ pub async fn relocate_source(
     source_id: i64,
     new_root_path: String,
 ) -> Result<Source, String> {
-    path_scope::ensure_allowed(&app, &new_root_path)?;
     let ctx = scan_context(&app)?;
     let task_app = app.clone();
     let source = tauri::async_runtime::spawn_blocking(move || {
+        let new_root_path = path_scope::ensure_allowed(&task_app, &new_root_path)?
+            .to_string_lossy()
+            .into_owned();
         let state = task_app.state::<DbState>();
         source_scan::relocate_source(&state.0, &ctx, source_id, &new_root_path)
     })

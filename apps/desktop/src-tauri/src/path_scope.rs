@@ -13,7 +13,7 @@
 
 use crate::packs;
 use crate::settings;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 use std::sync::RwLock;
 use tauri::{AppHandle, Manager};
@@ -29,6 +29,13 @@ struct ScopeSet {
     dirs: Vec<PathBuf>,
     files: HashSet<PathBuf>,
     temp_dir: Option<PathBuf>,
+    /// A network-location URI (e.g. `smb://…`), by the local path it resolved
+    /// to when the OS actually handed it to [`allow_user_paths`] as a drop or
+    /// a pick. Resolving one can mount a share over the network (see
+    /// [`crate::network_uri`]), so that only ever happens for a URI the OS
+    /// itself reported — never for an arbitrary string a command receives
+    /// from the webview, which only looks itself up here.
+    resolved_network_uris: HashMap<String, PathBuf>,
 }
 
 impl ScopeSet {
@@ -194,13 +201,34 @@ pub fn allow_file(app: &AppHandle, file: &Path) {
 
 /// Add paths the user chose in a picker or dropped on a window. Folders are
 /// added whole, since their files are imported next.
+///
+/// A dropped path may be a network-location URI (e.g. `smb://…`) a Linux file
+/// manager handed over instead of a real filesystem path; see
+/// [`crate::network_uri`]. Resolving one can mount a share over the network,
+/// so that only happens here, for a path the OS itself just reported via a
+/// drop or a native picker — never for a string a command receives from the
+/// webview, which looks up [`resolved_network_uri`] instead of resolving
+/// fresh. Without this, any webview code could make the app connect to an
+/// arbitrary attacker-chosen host by passing e.g. `smb://evil.example/x` as a
+/// plain command argument, before any scope check ran.
 pub fn allow_user_paths<P: AsRef<Path>>(app: &AppHandle, paths: &[P]) {
     for path in paths {
-        let path = path.as_ref();
-        if path.is_dir() {
-            allow_dir(app, path);
+        let raw = path.as_ref().to_string_lossy().into_owned();
+        let resolved = crate::network_uri::resolve_dropped_path(&raw);
+        if let Some(scope) = app.try_state::<PathScope>() {
+            if resolved.as_path() != Path::new(&raw) {
+                scope
+                    .0
+                    .write()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .resolved_network_uris
+                    .insert(raw, resolved.clone());
+            }
+        }
+        if resolved.is_dir() {
+            allow_dir(app, &resolved);
         } else {
-            allow_file(app, path);
+            allow_file(app, &resolved);
         }
     }
 }
@@ -215,9 +243,29 @@ pub fn is_allowed(app: &AppHandle, path: &Path) -> bool {
     })
 }
 
-/// `Err` unless `path` is in scope. For commands that take a path from the webview.
+/// The local path `raw` resolved to when the OS reported it as a drop or a
+/// pick (see [`allow_user_paths`]), if it ever did. A pure lookup — it never
+/// resolves anything itself, so a network-location URI a command merely
+/// receives as an argument (rather than one the OS actually handed over)
+/// can't reach here and trigger a fresh network mount.
+pub fn resolved_network_uri(app: &AppHandle, raw: &str) -> Option<PathBuf> {
+    app.try_state::<PathScope>()?
+        .0
+        .read()
+        .unwrap_or_else(|e| e.into_inner())
+        .resolved_network_uris
+        .get(raw)
+        .cloned()
+}
+
+/// `Err` unless `path` is in scope; the resolved path to use for the actual
+/// file operation when it is. `path` may be a network-location URI, resolved
+/// to a local path only if it matches one already resolved by
+/// [`allow_user_paths`] (see [`resolved_network_uri`]); otherwise it is
+/// treated as a literal (non-network) path, same as before that resolution
+/// existed. For commands that take a path from the webview.
 pub fn ensure_allowed(app: &AppHandle, path: &str) -> Result<PathBuf, String> {
-    let path = PathBuf::from(path);
+    let path = resolved_network_uri(app, path).unwrap_or_else(|| PathBuf::from(path));
     if is_allowed(app, &path) {
         Ok(path)
     } else {
@@ -309,6 +357,29 @@ mod tests {
         assert!(!set.contains(&root.join("library/link.jpg")));
 
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn resolved_network_uris_only_answers_for_what_was_recorded() {
+        let mut set = ScopeSet::default();
+        set.resolved_network_uris.insert(
+            "smb://nas.local/share/track.mp3".to_string(),
+            PathBuf::from("/run/user/1000/gvfs/smb-share:server=nas.local,share=share/track.mp3"),
+        );
+
+        // What allow_user_paths actually recorded resolves.
+        assert_eq!(
+            set.resolved_network_uris
+                .get("smb://nas.local/share/track.mp3")
+                .cloned(),
+            Some(PathBuf::from(
+                "/run/user/1000/gvfs/smb-share:server=nas.local,share=share/track.mp3"
+            ))
+        );
+        // A URI no drop or pick ever reported — e.g. one a command argument
+        // merely claims — has nothing to resolve to, so it can't trigger a
+        // fresh network mount the way allow_user_paths's own resolution can.
+        assert_eq!(set.resolved_network_uris.get("smb://evil.example/x"), None);
     }
 
     #[test]

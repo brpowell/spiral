@@ -122,6 +122,10 @@ gtk = "0.18"
 javascriptcore-rs = { version = "1.1", optional = true }
 # PNG encoding for agent-bridge screenshots (same major version webkit2gtk uses).
 cairo-rs = { version = "0.18", features = ["png"], optional = true }
+# Asks kio-fuse for a local path to a KIO (smb://, sftp://, …) URL on KDE; same
+# major version already pulled in transitively by tauri's Linux plugins. Default
+# features include blocking-api, used here instead of pulling in an async runtime.
+zbus = "5"
 
 [target.'cfg(any(windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }

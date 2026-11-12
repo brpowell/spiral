@@ -40,7 +40,9 @@ pub fn store_cropped_playlist_art(
     source_path: String,
     crop: crate::image_crop::ImageCrop,
 ) -> Result<String, String> {
-    crate::path_scope::ensure_allowed(&app, &source_path)?;
+    let source_path = crate::path_scope::ensure_allowed(&app, &source_path)?
+        .to_string_lossy()
+        .into_owned();
     let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
     crate::artwork_write::store_cropped_playlist_art(
         &library_root,

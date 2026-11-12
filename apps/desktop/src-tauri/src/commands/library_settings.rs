@@ -7,7 +7,7 @@ use crate::rating_sync::RatingSync;
 use crate::settings::{self, LibrarySettingsPatch, LibrarySettingsResponse};
 use crate::sources::{self, LibraryRoots};
 use std::path::Path;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 #[tauri::command]
 pub fn get_library_settings(app: AppHandle) -> Result<LibrarySettingsResponse, String> {
@@ -29,22 +29,30 @@ pub fn save_library_settings(
 /// organized the way that source is. A file already inside a source's folder
 /// is added where it is. Returns the path to save. Fails with
 /// [`sources::NO_SOURCE`] when there is no source to copy into.
+/// Checking the path, reading its tags and copying it can all be slow over a
+/// network source; keep it off the main thread.
 #[tauri::command]
-pub fn prepare_import_file(
+pub async fn prepare_import_file(
     app: AppHandle,
-    state: State<'_, DbState>,
     source_path: String,
     source_id: Option<i64>,
 ) -> Result<String, String> {
-    path_scope::ensure_allowed(&app, &source_path)?;
-    let resolved = settings::resolved_library_settings(&app);
-    prepare_import(
-        &state,
-        &LibraryRoots::from_settings(&resolved),
-        &source_path,
-        source_id,
-        resolved.lyrics_sidecar_sync_enabled,
-    )
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<DbState>();
+        let source_path = path_scope::ensure_allowed(&app, &source_path)?
+            .to_string_lossy()
+            .into_owned();
+        let resolved = settings::resolved_library_settings(&app);
+        prepare_import(
+            &state,
+            &LibraryRoots::from_settings(&resolved),
+            &source_path,
+            source_id,
+            resolved.lyrics_sidecar_sync_enabled,
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 fn prepare_import(

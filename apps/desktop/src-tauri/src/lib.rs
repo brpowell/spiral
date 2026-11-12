@@ -64,6 +64,7 @@ mod musicbrainz_disc;
 mod musicbrainz_entity;
 mod musicbrainz_http;
 mod native_audio;
+mod network_uri;
 #[cfg(test)]
 mod ogg_opus_tests;
 mod packs;
