@@ -24,8 +24,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 dev-bins = []
 # Dev only: Unix-socket bridge so a coding agent can screenshot, eval JS in and
 # read logs from the running app (src/agent_bridge.rs, scripts/agent.mjs).
-# macOS + debug builds only; every call site is cfg-guarded. Never ship it.
-agent-bridge = []
+# macOS and Linux debug builds only; every call site is cfg-guarded. Never ship it.
+agent-bridge = ["dep:javascriptcore-rs", "dep:cairo-rs"]
 
 [[bin]]
 name = "read_tags"
@@ -117,6 +117,9 @@ libc = "0.2"
 # Same version wry uses; reaches the WebKitGTK settings of a webview.
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = "2.0"
+javascriptcore-rs = { version = "1.1", optional = true }
+# PNG encoding for agent-bridge screenshots (same major version webkit2gtk uses).
+cairo-rs = { version = "0.18", features = ["png"], optional = true }
 
 [target.'cfg(any(windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }

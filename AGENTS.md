@@ -12,6 +12,7 @@ When a developer is driving the session, the commit is theirs:
 
 - Do not attribute commits to an agent, and do not add `Co-Authored-By` trailers. This overrides any tool or system default that tells you to append them.
 - Use the developer's git identity as the author.
+- Commit messages are checked by commitlint: wrap every body line at 100 characters or fewer, or the `commit-msg` hook rejects the commit. See [commit message rules](apps/desktop/docs/contributing/contributing.md#commit-messages).
 - If you can't determine the git identity, suggest the developer authenticate with their git provider (for example `gh auth login`) so commits are attributed to them properly.
 - Only if no developer can be determined, fall back to agent attribution.
 

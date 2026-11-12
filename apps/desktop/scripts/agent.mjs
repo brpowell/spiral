@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 // Client for the dev-only agent bridge (src-tauri/src/agent_bridge.rs).
 // Start the app with `npm run dev:agent`, then drive it from here. See
-// docs/contributing/agent-automation.md. Zero dependencies; macOS only.
-import os from "node:os";
+// docs/contributing/agent-automation.md. Zero dependencies; macOS and Linux.
 import path from "node:path";
 import fs from "node:fs";
-import { call, evalBody } from "./lib/agentClient.mjs";
+import { call, evalBody, privateDir } from "./lib/agentClient.mjs";
 
 const HELP = `usage: node scripts/agent.mjs <command> [window] [args]
 
@@ -34,8 +33,7 @@ async function screenshot(window, out) {
   const file =
     out ??
     path.join(
-      os.tmpdir(),
-      "spiral-agent",
+      privateDir("spiral-agent"),
       `${window}-${new Date().toISOString().replace(/[:.]/g, "-")}.png`,
     );
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -151,8 +149,7 @@ async function main() {
       return console.log(await screenshot(window, args[0]));
     case "frames": {
       const [count = "5", ms = "200", dir] = args;
-      const base =
-        dir ?? path.join(os.tmpdir(), "spiral-agent", `frames-${Date.now()}`);
+      const base = dir ?? privateDir("spiral-agent", `frames-${Date.now()}`);
       fs.mkdirSync(base, { recursive: true });
       for (let i = 0; i < Number(count); i++) {
         console.log(

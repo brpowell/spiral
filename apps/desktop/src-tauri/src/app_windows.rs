@@ -251,7 +251,11 @@ pub async fn create_skin_aux_window(
         if let (Some(max_width), Some(max_height)) = (max_width, max_height) {
             builder = builder.max_inner_size(max_width, max_height);
         }
-        #[cfg(all(feature = "agent-bridge", debug_assertions, target_os = "macos"))]
+        #[cfg(all(
+            feature = "agent-bridge",
+            debug_assertions,
+            any(target_os = "macos", target_os = "linux")
+        ))]
         {
             builder = builder.initialization_script(crate::agent_bridge::INIT_SCRIPT);
         }
@@ -359,7 +363,11 @@ fn create_window(app: &AppHandle, label: &str) -> Result<(), String> {
             .background_throttling(tauri::utils::config::BackgroundThrottlingPolicy::Disabled);
     }
 
-    #[cfg(all(feature = "agent-bridge", debug_assertions, target_os = "macos"))]
+    #[cfg(all(
+        feature = "agent-bridge",
+        debug_assertions,
+        any(target_os = "macos", target_os = "linux")
+    ))]
     {
         builder = builder.initialization_script(crate::agent_bridge::INIT_SCRIPT);
     }
