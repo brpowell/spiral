@@ -114,6 +114,10 @@ windows = { version = "0.61", features = [
 libc = "0.2"
 
 # Forward second-instance argv (file association opens) into the running app.
+# Same version wry uses; reaches the WebKitGTK settings of a webview.
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = "2.0"
+
 [target.'cfg(any(windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 

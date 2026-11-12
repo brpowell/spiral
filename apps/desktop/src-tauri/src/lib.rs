@@ -33,6 +33,8 @@ mod library_organize;
 mod library_paths;
 mod library_relocate;
 #[cfg(target_os = "linux")]
+mod linux_webgl_workers;
+#[cfg(target_os = "linux")]
 mod linux_webkit_env;
 mod lyrics_fetch;
 mod lyrics_fetch_cache;
@@ -134,6 +136,11 @@ pub fn run() {
 
     let app = builder
         .on_page_load(|webview, payload| {
+            #[cfg(target_os = "linux")]
+            if matches!(payload.event(), tauri::webview::PageLoadEvent::Started) {
+                linux_webgl_workers::enable(webview);
+            }
+
             // The webview owns playback state, so a reload would orphan any
             // running native audio. Stop it so a reload behaves like a restart.
             if webview.label() == "main"
