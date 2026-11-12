@@ -12,9 +12,7 @@ export function SectionedList({
   children: ReactNode;
   className?: string;
 }) {
-  return (
-    <div className={cx("sectioned-list", className)}>{children}</div>
-  );
+  return <div className={cx("sectioned-list", className)}>{children}</div>;
 }
 
 export function SectionedListGroup({

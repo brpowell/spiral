@@ -37,9 +37,7 @@ const candidates = [
 const binary = candidates.find((candidate) => existsSync(candidate));
 
 console.log("\nProfiling binary (keep traces on this machine):");
-console.log(
-  `  ${binary ?? path.join(root, "../../target/release/Spiral")}`,
-);
+console.log(`  ${binary ?? path.join(root, "../../target/release/Spiral")}`);
 console.log("\nExample:");
 console.log(`  samply record ${binary ?? "target/release/Spiral"}`);
 console.log("\nPlaybook: docs/contributing/profiling.md");

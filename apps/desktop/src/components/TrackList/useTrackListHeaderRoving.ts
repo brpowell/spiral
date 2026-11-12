@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 
 interface UseTrackListHeaderRovingOptions {
   scrollContainerRef?: RefObject<HTMLElement | null>;
@@ -86,11 +92,7 @@ export function useTrackListHeaderRoving(
   );
 
   const onHeaderKeyDown = useCallback(
-    (
-      e: React.KeyboardEvent,
-      index: number,
-      onActivate?: () => void,
-    ) => {
+    (e: React.KeyboardEvent, index: number, onActivate?: () => void) => {
       switch (e.key) {
         case "ArrowRight":
           e.preventDefault();

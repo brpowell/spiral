@@ -145,7 +145,11 @@
 }
 
 .equalizer-shell__grid-line--zero {
-  background: color-mix(in srgb, var(--color-text-secondary) 55%, var(--color-border));
+  background: color-mix(
+    in srgb,
+    var(--color-text-secondary) 55%,
+    var(--color-border)
+  );
 }
 
 .equalizer-shell__band {

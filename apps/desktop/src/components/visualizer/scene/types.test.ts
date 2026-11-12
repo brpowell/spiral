@@ -12,11 +12,13 @@ describe("resolveLayout", () => {
   });
 
   it("maps normalized rects to pixels", () => {
-    expect(resolveLayout({ x: 0.1, y: 0.2, w: 0.5, h: 0.3 }, 100, 200)).toEqual({
-      x: 10,
-      y: 40,
-      w: 50,
-      h: 60,
-    });
+    expect(resolveLayout({ x: 0.1, y: 0.2, w: 0.5, h: 0.3 }, 100, 200)).toEqual(
+      {
+        x: 10,
+        y: 40,
+        w: 50,
+        h: 60,
+      },
+    );
   });
 });

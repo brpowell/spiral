@@ -92,7 +92,10 @@ function isRowCellControl(
   rowEl: HTMLElement,
 ): boolean {
   if (!(target instanceof HTMLElement)) return false;
-  return target.closest(`[${TRACK_LIST_CELL_CONTROL}]`) != null && rowEl.contains(target);
+  return (
+    target.closest(`[${TRACK_LIST_CELL_CONTROL}]`) != null &&
+    rowEl.contains(target)
+  );
 }
 
 function getListTabbables(listRoot: HTMLElement): HTMLElement[] {
@@ -103,7 +106,10 @@ function focusBeforeRows(listRoot: HTMLElement, rowEl: HTMLElement): void {
   const listTabbables = getListTabbables(listRoot);
   const rowIndex = listTabbables.indexOf(rowEl);
   if (rowIndex > 0) {
-    listTabbables[rowIndex - 1].focus({ preventScroll: true, focusVisible: true });
+    listTabbables[rowIndex - 1].focus({
+      preventScroll: true,
+      focusVisible: true,
+    });
     return;
   }
   if (listTabbables.length > 0) {
@@ -122,7 +128,10 @@ function focusAdjacentInList(
   if (currentIndex !== -1) {
     const nextIndex = currentIndex + direction;
     if (nextIndex >= 0 && nextIndex < listTabbables.length) {
-      listTabbables[nextIndex].focus({ preventScroll: true, focusVisible: true });
+      listTabbables[nextIndex].focus({
+        preventScroll: true,
+        focusVisible: true,
+      });
       return;
     }
   }
@@ -143,10 +152,7 @@ function focusAdjacentInList(
   });
 }
 
-function focusCellControl(
-  controls: HTMLElement[],
-  index: number,
-): void {
+function focusCellControl(controls: HTMLElement[], index: number): void {
   controls[index]?.focus({ preventScroll: true, focusVisible: true });
 }
 

@@ -20,11 +20,13 @@ export function useInputAnchoredMenu({
   closeOnScroll = false,
   layoutDeps = [],
 }: UseInputAnchoredMenuOptions) {
-  const { open, anchor, position, menuRef, openAt, closeMenu } = useContextMenu({
-    dismissExcludeRefs: [containerRef],
-    closeOnScroll,
-    layoutDeps,
-  });
+  const { open, anchor, position, menuRef, openAt, closeMenu } = useContextMenu(
+    {
+      dismissExcludeRefs: [containerRef],
+      closeOnScroll,
+      layoutDeps,
+    },
+  );
   const [menuWidth, setMenuWidth] = useState<number | null>(null);
 
   const syncAnchor = useCallback(() => {
@@ -40,12 +42,7 @@ export function useInputAnchoredMenu({
 
   useEffect(() => {
     const input = inputRef.current;
-    if (
-      !input ||
-      disabled ||
-      document.activeElement !== input ||
-      !shouldOpen
-    ) {
+    if (!input || disabled || document.activeElement !== input || !shouldOpen) {
       closeMenu();
       setMenuWidth(null);
       return;

@@ -30,7 +30,12 @@ function sliderFillPercent(
   const v = Number(value ?? 0);
   const lo = Number(min ?? 0);
   const hi = Number(max ?? 1);
-  if (!Number.isFinite(v) || !Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) {
+  if (
+    !Number.isFinite(v) ||
+    !Number.isFinite(lo) ||
+    !Number.isFinite(hi) ||
+    hi <= lo
+  ) {
     return "0%";
   }
   const pct = Math.min(100, Math.max(0, ((v - lo) / (hi - lo)) * 100));

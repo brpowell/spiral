@@ -87,7 +87,10 @@ if (keyPath) {
     process.exit(1);
   }
   args.push("-f", keyPath);
-} else if (!env.TAURI_SIGNING_PRIVATE_KEY && !env.TAURI_SIGNING_PRIVATE_KEY_PATH) {
+} else if (
+  !env.TAURI_SIGNING_PRIVATE_KEY &&
+  !env.TAURI_SIGNING_PRIVATE_KEY_PATH
+) {
   console.error(
     "No private key: set TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PATH, or --key-path",
   );

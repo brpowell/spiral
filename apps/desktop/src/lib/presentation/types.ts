@@ -23,9 +23,7 @@ export type DriveBinding =
       value?: number;
     };
 
-export type PresentationEventName =
-  | "track.changed"
-  | "player.playbackState";
+export type PresentationEventName = "track.changed" | "player.playbackState";
 
 export interface PresentationTrigger {
   on: PresentationEventName | string;
@@ -33,10 +31,6 @@ export interface PresentationTrigger {
 }
 
 export type TransformDriveKey =
-  | "opacity"
-  | "scale"
-  | "translateX"
-  | "translateY"
-  | "rotation";
+  "opacity" | "scale" | "translateX" | "translateY" | "rotation";
 
 export type LayerDriveMap = Partial<Record<TransformDriveKey, DriveBinding>>;
