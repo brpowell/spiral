@@ -36,7 +36,9 @@ pub fn prepare_import_file(
     source_path: String,
     source_id: Option<i64>,
 ) -> Result<String, String> {
-    path_scope::ensure_allowed(&app, &source_path)?;
+    let source_path = path_scope::ensure_allowed(&app, &source_path)?
+        .to_string_lossy()
+        .into_owned();
     let resolved = settings::resolved_library_settings(&app);
     prepare_import(
         &state,

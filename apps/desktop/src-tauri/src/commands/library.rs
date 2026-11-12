@@ -622,7 +622,9 @@ pub fn replace_track_from_import(
     source_path: String,
     track: TrackInput,
 ) -> Result<Track, String> {
-    crate::path_scope::ensure_allowed(&app, &source_path)?;
+    let source_path = crate::path_scope::ensure_allowed(&app, &source_path)?
+        .to_string_lossy()
+        .into_owned();
     let resolved = settings::resolved_library_settings(&app);
     replace_track_file(
         &state.0,

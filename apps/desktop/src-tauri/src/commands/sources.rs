@@ -160,7 +160,9 @@ pub fn add_source(
     root_path: String,
     name: Option<String>,
 ) -> Result<Source, String> {
-    path_scope::ensure_allowed(&app, &root_path)?;
+    let root_path = path_scope::ensure_allowed(&app, &root_path)?
+        .to_string_lossy()
+        .into_owned();
     let roots = LibraryRoots::from_settings(&settings::resolved_library_settings(&app));
     let source = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -211,7 +213,9 @@ pub async fn relocate_source(
     source_id: i64,
     new_root_path: String,
 ) -> Result<Source, String> {
-    path_scope::ensure_allowed(&app, &new_root_path)?;
+    let new_root_path = path_scope::ensure_allowed(&app, &new_root_path)?
+        .to_string_lossy()
+        .into_owned();
     let ctx = scan_context(&app)?;
     let task_app = app.clone();
     let source = tauri::async_runtime::spawn_blocking(move || {

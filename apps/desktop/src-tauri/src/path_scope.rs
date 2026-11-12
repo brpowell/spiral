@@ -194,13 +194,16 @@ pub fn allow_file(app: &AppHandle, file: &Path) {
 
 /// Add paths the user chose in a picker or dropped on a window. Folders are
 /// added whole, since their files are imported next.
+///
+/// A dropped path may be a network-location URI (e.g. `smb://…`) a Linux file
+/// manager handed over instead of a real filesystem path; see [`crate::gvfs_uri`].
 pub fn allow_user_paths<P: AsRef<Path>>(app: &AppHandle, paths: &[P]) {
     for path in paths {
-        let path = path.as_ref();
+        let path = crate::gvfs_uri::resolve_dropped_path(&path.as_ref().to_string_lossy());
         if path.is_dir() {
-            allow_dir(app, path);
+            allow_dir(app, &path);
         } else {
-            allow_file(app, path);
+            allow_file(app, &path);
         }
     }
 }
@@ -215,9 +218,12 @@ pub fn is_allowed(app: &AppHandle, path: &Path) -> bool {
     })
 }
 
-/// `Err` unless `path` is in scope. For commands that take a path from the webview.
+/// `Err` unless `path` is in scope; the resolved path to use for the actual
+/// file operation when it is, since `path` may be a network-location URI the
+/// webview handed over instead of a real filesystem path (see [`crate::gvfs_uri`]).
+/// For commands that take a path from the webview.
 pub fn ensure_allowed(app: &AppHandle, path: &str) -> Result<PathBuf, String> {
-    let path = PathBuf::from(path);
+    let path = crate::gvfs_uri::resolve_dropped_path(path);
     if is_allowed(app, &path) {
         Ok(path)
     } else {

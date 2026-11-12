@@ -30,6 +30,7 @@ mod file_plan;
 mod file_playback;
 mod file_scan;
 mod fs_move;
+mod gvfs_uri;
 mod image_crop;
 mod import_files;
 mod itunes_smpb;

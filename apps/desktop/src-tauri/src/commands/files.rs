@@ -3,13 +3,13 @@ use crate::audio_formats::filter_library_import_paths;
 use crate::db;
 use crate::file_scan::scan_folder_paths;
 use crate::path_scope;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 use tauri::{AppHandle, Manager};
 
 /// In scope, or a library track's file.
-fn is_known_path(app: &AppHandle, path: &str) -> bool {
-    if path_scope::is_allowed(app, Path::new(path)) {
+fn is_known_path(app: &AppHandle, path: &Path) -> bool {
+    if path_scope::is_allowed(app, path) {
         return true;
     }
     let Some(state) = app.try_state::<DbState>() else {
@@ -18,14 +18,19 @@ fn is_known_path(app: &AppHandle, path: &str) -> bool {
     let Ok(conn) = state.0.lock() else {
         return false;
     };
-    db::has_track_file_path(&conn, path).unwrap_or(false)
+    db::has_track_file_path(&conn, &path.to_string_lossy()).unwrap_or(false)
 }
 
-fn ensure_known_path(app: &AppHandle, path: &str) -> Result<(), String> {
-    if is_known_path(app, path) {
-        Ok(())
+/// The resolved path to use for the actual file operation, when `path` is in
+/// scope or is a library track's file. `path` may be a network-location URI
+/// the webview handed over instead of a real filesystem path (see
+/// [`crate::gvfs_uri`]).
+fn ensure_known_path(app: &AppHandle, path: &str) -> Result<PathBuf, String> {
+    let resolved = crate::gvfs_uri::resolve_dropped_path(path);
+    if is_known_path(app, &resolved) {
+        Ok(resolved)
     } else {
-        Err(path_scope::outside_scope_error(Path::new(path)))
+        Err(path_scope::outside_scope_error(&resolved))
     }
 }
 
@@ -59,19 +64,20 @@ pub fn pick_audio_files(app: AppHandle) -> Result<Vec<String>, String> {
 
 #[tauri::command]
 pub fn scan_folder(app: AppHandle, folder_path: String) -> Result<Vec<String>, String> {
-    path_scope::ensure_allowed(&app, &folder_path)?;
-    scan_folder_paths(&folder_path)
+    let folder_path = path_scope::ensure_allowed(&app, &folder_path)?;
+    scan_folder_paths(&folder_path.to_string_lossy())
 }
 
 #[tauri::command]
 pub fn file_exists(app: AppHandle, path: String) -> bool {
-    is_known_path(&app, &path) && Path::new(&path).is_file()
+    let path = crate::gvfs_uri::resolve_dropped_path(&path);
+    is_known_path(&app, &path) && path.is_file()
 }
 
 /// File size in bytes.
 #[tauri::command]
 pub fn get_file_size(app: AppHandle, path: String) -> Result<u64, String> {
-    ensure_known_path(&app, &path)?;
+    let path = ensure_known_path(&app, &path)?;
     let meta = std::fs::metadata(&path).map_err(|e| format!("Cannot stat file: {e}"))?;
     Ok(meta.len())
 }
@@ -79,8 +85,8 @@ pub fn get_file_size(app: AppHandle, path: String) -> Result<u64, String> {
 /// Total size of all files under a directory (does not follow symlinks).
 #[tauri::command]
 pub fn get_directory_size(app: AppHandle, path: String) -> Result<u64, String> {
-    path_scope::ensure_allowed(&app, &path)?;
-    directory_size_bytes(Path::new(&path))
+    let path = path_scope::ensure_allowed(&app, &path)?;
+    directory_size_bytes(&path)
 }
 
 fn directory_size_bytes(root: &Path) -> Result<u64, String> {
@@ -107,7 +113,7 @@ fn directory_size_bytes(root: &Path) -> Result<u64, String> {
 /// File modification time in milliseconds since UNIX epoch (for asset URL cache busting).
 #[tauri::command]
 pub fn get_file_modified_ms(app: AppHandle, path: String) -> Result<u64, String> {
-    path_scope::ensure_allowed(&app, &path)?;
+    let path = path_scope::ensure_allowed(&app, &path)?;
     let meta = std::fs::metadata(&path).map_err(|e| format!("Cannot stat file: {e}"))?;
     let modified = meta
         .modified()

@@ -28,6 +28,9 @@ const ART_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(10);
 pub async fn parse_track_metadata(app: AppHandle, file_path: String) -> Result<TrackInput, String> {
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let file_path = crate::gvfs_uri::resolve_dropped_path(&file_path)
+            .to_string_lossy()
+            .into_owned();
         let app_data = app_data_dir(&app)?;
         let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
         let lyrics_sidecar_enabled = settings::lyrics_sidecar_sync_enabled(&app);
@@ -66,7 +69,9 @@ pub async fn cache_art_from_file(
     crop: Option<crate::image_crop::ImageCrop>,
     max_edge: Option<u32>,
 ) -> Result<String, String> {
-    path_scope::ensure_allowed(&app, &source_path)?;
+    let source_path = path_scope::ensure_allowed(&app, &source_path)?
+        .to_string_lossy()
+        .into_owned();
     // Decoding and baking a crop is slow; keep it off the main thread.
     tauri::async_runtime::spawn_blocking(move || {
         let bytes =
@@ -156,9 +161,9 @@ pub async fn measure_art_sizes(
     crop: crate::image_crop::ImageCrop,
     max_edges: Vec<Option<u32>>,
 ) -> Result<MeasuredArtSizes, String> {
-    path_scope::ensure_allowed(&app, &source_path)?;
+    let source_path = path_scope::ensure_allowed(&app, &source_path)?;
     tauri::async_runtime::spawn_blocking(move || {
-        let (source, source_bytes) = decoded_source_for_measure(Path::new(&source_path))?;
+        let (source, source_bytes) = decoded_source_for_measure(&source_path)?;
         let output_bytes = crate::image_crop::measure_decoded_sizes(&source, crop, &max_edges)?;
         Ok(MeasuredArtSizes {
             source_bytes,
