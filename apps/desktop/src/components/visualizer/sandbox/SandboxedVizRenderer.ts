@@ -34,6 +34,7 @@ import {
   type VizRenderSize,
 } from "./resourceBudgets";
 import { assertVizRendererSourceAllowed } from "./vizSourceGuard";
+import { queueWebglInit, webglInitNeedsQueue } from "./webglInitQueue";
 
 type SandboxedVizRendererStatus = "loading" | "ready" | "terminated";
 
@@ -242,7 +243,11 @@ export class SandboxedVizRenderer {
       opts.engine === "webgl" ? WEBGL_INIT_BUDGET_MS : INIT_BUDGET_MS;
     let initTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    try {
+    const runInit = async (): Promise<void> => {
+      // May have waited in the WebGL queue; don't start a disposed sandbox.
+      if (host.disposed || signal?.aborted) {
+        throw new Error("sandbox init aborted");
+      }
       const initMsg: HostToWorkerMessage = {
         type: "init",
         layerLabel,
@@ -255,6 +260,7 @@ export class SandboxedVizRenderer {
       };
       worker.postMessage(initMsg, [offscreen]);
 
+      // The budget starts once init is sent, not while queued.
       await Promise.race([
         host.readyPromise,
         new Promise<never>((_, reject) => {
@@ -263,6 +269,14 @@ export class SandboxedVizRenderer {
           }, initBudgetMs);
         }),
       ]);
+    };
+
+    try {
+      if (opts.engine === "webgl" && webglInitNeedsQueue()) {
+        await queueWebglInit(runInit);
+      } else {
+        await runInit();
+      }
       if (host.disposed || signal?.aborted) {
         throw new Error("sandbox init aborted");
       }
