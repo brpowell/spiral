@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AppMenuHandlers } from "@/lib/windows/appMenu";
 import { useOnboardingStore } from "@/store/useOnboardingStore";
@@ -47,15 +47,22 @@ describe("WindowTitleBar", () => {
     useOnboardingStore.setState({ open: false });
   });
 
-  it("disables what onboarding blocks, and keeps the rest", () => {
+  it("hides the menus during onboarding but keeps the drag region", () => {
     useOnboardingStore.setState({ open: true });
-    render(<WindowTitleBar title="Spiral" handlers={handlers} />);
+    const { container } = render(
+      <WindowTitleBar title="Spiral" handlers={handlers} />,
+    );
 
-    fireEvent.click(screen.getByRole("button", { name: "View" }));
-    expect(screen.getByRole("menuitem", { name: "Equalizer" })).toBeDisabled();
+    expect(screen.queryByRole("navigation")).toBeNull();
+    expect(screen.queryByRole("button", { name: "File" })).toBeNull();
+    expect(container.querySelector(".window-titlebar__title")).toBeNull();
     expect(
-      screen.getByRole("menuitem", { name: "Activity Logs" }),
-    ).toBeEnabled();
+      container.querySelector('[data-tauri-drag-region="deep"]'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+
+    act(() => useOnboardingStore.setState({ open: false }));
+    expect(screen.getByRole("button", { name: "File" })).toBeInTheDocument();
   });
 
   it("omits logo text when the app menu is present", () => {
