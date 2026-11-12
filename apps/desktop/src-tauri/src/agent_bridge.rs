@@ -1,6 +1,7 @@
 //! Dev-only agent bridge: lets a coding agent drive the running app.
 //!
-//! A private Unix socket (`$TMPDIR/spiral-agent.sock`, mode 0600) speaks one
+//! A private Unix socket (`$XDG_RUNTIME_DIR/spiral-agent.sock`, else
+//! `$TMPDIR/spiral-agent.sock`; mode 0600) speaks one
 //! JSON object per line. `scripts/agent.mjs` is the client. Commands:
 //!
 //! * `windows`                      — list window labels + visibility
@@ -43,7 +44,18 @@ pub const INIT_SCRIPT: &str = include_str!("agent_bridge.js");
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(15);
 
 pub fn socket_path() -> PathBuf {
-    std::env::temp_dir().join("spiral-agent.sock")
+    runtime_dir(std::env::var_os("XDG_RUNTIME_DIR")).join("spiral-agent.sock")
+}
+
+/// Per-user folder for the socket: `$XDG_RUNTIME_DIR` (private, 0700) on Linux,
+/// else the temp dir (already per user on macOS). Keeps the socket out of a
+/// shared `/tmp` where another user could plant one first. Must match
+/// `runtimeDir` in scripts/lib/agentClient.mjs.
+fn runtime_dir(xdg_runtime_dir: Option<std::ffi::OsString>) -> PathBuf {
+    xdg_runtime_dir
+        .filter(|dir| !dir.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir)
 }
 
 pub fn start(app: AppHandle) {
@@ -180,4 +192,23 @@ fn wrap_body(user: &str) -> String {
          return JSON.stringify(__r === undefined ? null : __r); }} \
          catch (e) {{ return JSON.stringify({{ __agentError: String((e && e.stack) || e) }}); }}"
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn runtime_dir_prefers_xdg_runtime_dir() {
+        assert_eq!(
+            runtime_dir(Some("/run/user/1000".into())),
+            PathBuf::from("/run/user/1000")
+        );
+    }
+
+    #[test]
+    fn runtime_dir_falls_back_to_temp_dir() {
+        assert_eq!(runtime_dir(None), std::env::temp_dir());
+        assert_eq!(runtime_dir(Some("".into())), std::env::temp_dir());
+    }
 }

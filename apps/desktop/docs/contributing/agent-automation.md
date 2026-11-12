@@ -23,8 +23,11 @@ staged states for marketing shots, see [marketing-stage.md](marketing-stage.md).
 ## How it works
 
 `src-tauri/src/agent_bridge.rs` listens on a private Unix socket
-(`$TMPDIR/spiral-agent.sock`, mode 0600, one JSON object per line).
-`scripts/agent.mjs` is the client. Eval uses `WKWebView.callAsyncJavaScript`
+(`spiral-agent.sock`, mode 0600, one JSON object per line) in
+`$XDG_RUNTIME_DIR` when it is set (per-user on Linux), else `$TMPDIR`
+(per-user on macOS). Screenshots land in `spiral-agent/` in the same folder.
+`scripts/agent.mjs` is the client; it refuses a socket or screenshot folder
+owned by another user, which only matters if it falls back to a shared `/tmp`. Eval uses `WKWebView.callAsyncJavaScript`
 (promises are awaited); screenshots use `WKWebView.takeSnapshot`, so no Screen
 Recording permission is needed. On Linux, eval uses WebKitGTK's
 `evaluate_javascript` (the body runs in the page and the bridge polls for its
