@@ -62,31 +62,50 @@ pub fn pick_audio_files(app: AppHandle) -> Result<Vec<String>, String> {
     }
 }
 
+/// Walking the folder can be slow over a network source; keep it off the main thread.
 #[tauri::command]
-pub fn scan_folder(app: AppHandle, folder_path: String) -> Result<Vec<String>, String> {
-    let folder_path = path_scope::ensure_allowed(&app, &folder_path)?;
-    scan_folder_paths(&folder_path.to_string_lossy())
+pub async fn scan_folder(app: AppHandle, folder_path: String) -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let folder_path = path_scope::ensure_allowed(&app, &folder_path)?;
+        scan_folder_paths(&folder_path.to_string_lossy())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn file_exists(app: AppHandle, path: String) -> bool {
-    let path = crate::network_uri::resolve_dropped_path(&path);
-    is_known_path(&app, &path) && path.is_file()
+pub async fn file_exists(app: AppHandle, path: String) -> bool {
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = crate::network_uri::resolve_dropped_path(&path);
+        is_known_path(&app, &path) && path.is_file()
+    })
+    .await
+    .unwrap_or(false)
 }
 
-/// File size in bytes.
+/// File size in bytes. Stat-ing and resolving the path can be slow over a
+/// network source; keep it off the main thread.
 #[tauri::command]
-pub fn get_file_size(app: AppHandle, path: String) -> Result<u64, String> {
-    let path = ensure_known_path(&app, &path)?;
-    let meta = std::fs::metadata(&path).map_err(|e| format!("Cannot stat file: {e}"))?;
-    Ok(meta.len())
+pub async fn get_file_size(app: AppHandle, path: String) -> Result<u64, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = ensure_known_path(&app, &path)?;
+        let meta = std::fs::metadata(&path).map_err(|e| format!("Cannot stat file: {e}"))?;
+        Ok(meta.len())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
-/// Total size of all files under a directory (does not follow symlinks).
+/// Total size of all files under a directory (does not follow symlinks). Can
+/// be slow over a network source; keep it off the main thread.
 #[tauri::command]
-pub fn get_directory_size(app: AppHandle, path: String) -> Result<u64, String> {
-    let path = path_scope::ensure_allowed(&app, &path)?;
-    directory_size_bytes(&path)
+pub async fn get_directory_size(app: AppHandle, path: String) -> Result<u64, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = path_scope::ensure_allowed(&app, &path)?;
+        directory_size_bytes(&path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 fn directory_size_bytes(root: &Path) -> Result<u64, String> {
@@ -110,18 +129,23 @@ fn directory_size_bytes(root: &Path) -> Result<u64, String> {
     Ok(total)
 }
 
-/// File modification time in milliseconds since UNIX epoch (for asset URL cache busting).
+/// File modification time in milliseconds since UNIX epoch (for asset URL
+/// cache busting). Can be slow over a network source; keep it off the main thread.
 #[tauri::command]
-pub fn get_file_modified_ms(app: AppHandle, path: String) -> Result<u64, String> {
-    let path = path_scope::ensure_allowed(&app, &path)?;
-    let meta = std::fs::metadata(&path).map_err(|e| format!("Cannot stat file: {e}"))?;
-    let modified = meta
-        .modified()
-        .map_err(|e| format!("Cannot read modification time: {e}"))?;
-    modified
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .map_err(|e| format!("Invalid modification time: {e}"))
+pub async fn get_file_modified_ms(app: AppHandle, path: String) -> Result<u64, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = path_scope::ensure_allowed(&app, &path)?;
+        let meta = std::fs::metadata(&path).map_err(|e| format!("Cannot stat file: {e}"))?;
+        let modified = meta
+            .modified()
+            .map_err(|e| format!("Cannot read modification time: {e}"))?;
+        modified
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .map_err(|e| format!("Invalid modification time: {e}"))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

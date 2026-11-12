@@ -614,29 +614,36 @@ fn adopt_replacement(
 /// playlists and history). A file already in a source is used where it is;
 /// one from elsewhere is copied into the track's own source. The superseded
 /// file goes to the Trash.
+///
+/// Checking the path and copying it can be slow over a network source; keep
+/// it off the main thread.
 #[tauri::command]
-pub fn replace_track_from_import(
+pub async fn replace_track_from_import(
     app: AppHandle,
-    state: State<DbState>,
     track_id: i64,
     source_path: String,
     track: TrackInput,
 ) -> Result<Track, String> {
-    let source_path = crate::path_scope::ensure_allowed(&app, &source_path)?
-        .to_string_lossy()
-        .into_owned();
-    let resolved = settings::resolved_library_settings(&app);
-    replace_track_file(
-        &state.0,
-        &LibraryRoots::from_settings(&resolved),
-        track_id,
-        Path::new(&source_path),
-        &track,
-        settings::lyrics_sidecar_sync_enabled(&app),
-        app.path().app_data_dir().ok().as_deref(),
-    )?;
-    let conn = state.0.lock().map_err(|e| e.to_string())?;
-    track_for_ui(&conn, Path::new(&resolved.library_root), track_id)
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<DbState>();
+        let source_path = crate::path_scope::ensure_allowed(&app, &source_path)?
+            .to_string_lossy()
+            .into_owned();
+        let resolved = settings::resolved_library_settings(&app);
+        replace_track_file(
+            &state.0,
+            &LibraryRoots::from_settings(&resolved),
+            track_id,
+            Path::new(&source_path),
+            &track,
+            settings::lyrics_sidecar_sync_enabled(&app),
+            app.path().app_data_dir().ok().as_deref(),
+        )?;
+        let conn = state.0.lock().map_err(|e| e.to_string())?;
+        track_for_ui(&conn, Path::new(&resolved.library_root), track_id)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// [`replace_track_from_import`] without the app: `app_data` holds the art
