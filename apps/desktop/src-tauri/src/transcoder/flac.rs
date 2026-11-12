@@ -37,7 +37,7 @@ pub fn encode_pcm_to_flac(pcm: &PcmStream, dest: &Path) -> Result<(), String> {
     }
 
     let channels = pcm.channels as usize;
-    if pcm.samples.len() % channels != 0 {
+    if !pcm.samples.len().is_multiple_of(channels) {
         return Err(format!(
             "PCM sample count {} is not divisible by channel count {channels}",
             pcm.samples.len()
@@ -87,7 +87,7 @@ fn prepare_samples_and_block_size(
     if frame_count < MIN_FLAC_BLOCK_SIZE {
         // FLAC requires at least 16 samples per frame; pad with silence.
         let pad_frames = MIN_FLAC_BLOCK_SIZE - frame_count;
-        samples.extend(std::iter::repeat(0i32).take(pad_frames * channels));
+        samples.extend(std::iter::repeat_n(0i32, pad_frames * channels));
         return (samples, MIN_FLAC_BLOCK_SIZE);
     }
 
@@ -98,7 +98,7 @@ fn prepare_samples_and_block_size(
             // frame full-sized so Symphonia can probe the bitstream.
             let padded_frames = frame_count.div_ceil(block_size) * block_size;
             let pad_frames = padded_frames - frame_count;
-            samples.extend(std::iter::repeat(0i32).take(pad_frames * channels));
+            samples.extend(std::iter::repeat_n(0i32, pad_frames * channels));
             (samples, block_size)
         }
     }
@@ -112,7 +112,7 @@ enum BlockSizeChoice {
 
 fn choose_block_size(frame_count: usize) -> BlockSizeChoice {
     for &bs in PREFERRED_BLOCK_SIZES {
-        if frame_count >= bs && frame_count % bs == 0 {
+        if frame_count >= bs && frame_count.is_multiple_of(bs) {
             return BlockSizeChoice::Exact(bs);
         }
     }
@@ -123,7 +123,7 @@ fn choose_block_size(frame_count: usize) -> BlockSizeChoice {
 
     let upper = MAX_FLACENC_BLOCK_SIZE.min(frame_count);
     for bs in (MIN_FLAC_BLOCK_SIZE..=upper).rev() {
-        if frame_count % bs == 0 {
+        if frame_count.is_multiple_of(bs) {
             return BlockSizeChoice::Exact(bs);
         }
     }

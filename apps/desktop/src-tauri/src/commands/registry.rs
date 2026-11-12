@@ -131,6 +131,7 @@ pub fn installed_item_version(
 /// Rejects an already-installed version and items whose `minAppVersion` exceeds the running
 /// app before any download starts. The archive's own manifest must match the requested
 /// identity, and it replaces the installed version (one version of an item at a time).
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn install_item_from_registry(
     app: AppHandle,

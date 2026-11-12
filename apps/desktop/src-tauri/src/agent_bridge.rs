@@ -7,13 +7,13 @@
 //! * `windows`                      — list window labels + visibility
 //! * `show {window}`                — show + focus a (possibly hidden) window
 //! * `eval {window, body}`          — run an async JS function body in the page
-//!                                    world; the returned value comes back as JSON
+//!   world; the returned value comes back as JSON
 //! * `shot {window}`                — PNG snapshot of the webview (base64)
 //! * `geometry {window}`            — inner size, outer position, scale factor
 //! * `set_geometry {window, width?, height?, x?, y?}`
-//!                                  — resize (inner, logical points) / move
+//!   — resize (inner, logical points) / move
 //! * `capture {window, out}`        — native window capture (frame + shadow, 2x)
-//!                                  written to the absolute path `out`
+//!   written to the absolute path `out`
 //!
 //! Compiled only with `--features agent-bridge` in a debug build on macOS or
 //! Linux (WKWebView / WebKitGTK; `capture` is macOS-only); the

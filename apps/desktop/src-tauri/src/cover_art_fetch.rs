@@ -888,7 +888,7 @@ mod tests {
 
     #[test]
     fn sorts_by_canonical_rank_then_file_size() {
-        let mut items = vec![
+        let mut items = [
             CoverArtCandidate {
                 url: "b".into(),
                 thumbnail_url: None,

@@ -40,7 +40,7 @@ pub fn encode_pcm_with_metadata(
 
     encode_pcm_to_profile(pcm, dest, profile_id)?;
 
-    metadata_writer::write_track_metadata(dest, metadata).map_err(|err| err.to_message())
+    metadata_writer::write_track_metadata(dest, metadata).map_err(|err| err.into_message())
 }
 
 pub(crate) fn encode_pcm_to_profile(

@@ -55,7 +55,7 @@ enum Backend {
     Opus {
         format: Box<dyn FormatReader>,
         track_id: u32,
-        decoder: OpusDecoder,
+        decoder: Box<OpusDecoder>,
         channels: usize,
         sample_rate: u32,
         pending: VecDeque<f32>,
@@ -100,7 +100,7 @@ impl StreamingDecoder {
 
         let pcm = crate::transcoder::read_pcm_from_wav(path)
             .map_err(|err| format!("Failed to open {label}: {err}"))?;
-        let channels = (pcm.channels as usize).max(1).min(2);
+        let channels = (pcm.channels as usize).clamp(1, 2);
         let sample_rate = pcm.sample_rate;
         if sample_rate == 0 {
             return Err(format!("Missing sample rate in {label}"));
@@ -192,8 +192,10 @@ impl StreamingDecoder {
                 .min(2);
 
             // opus-decoder output rate; Opus packets decode to 48 kHz PCM.
-            let decoder = OpusDecoder::new(48_000, channels)
-                .map_err(|err| format!("Failed to init Opus decoder for {label}: {err}"))?;
+            let decoder = Box::new(
+                OpusDecoder::new(48_000, channels)
+                    .map_err(|err| format!("Failed to init Opus decoder for {label}: {err}"))?,
+            );
 
             Backend::Opus {
                 format,
@@ -393,7 +395,7 @@ impl StreamingDecoder {
                 packets_seen,
                 ..
             } => {
-                *decoder = OpusDecoder::new(sample_rate, channels)
+                **decoder = OpusDecoder::new(sample_rate, channels)
                     .map_err(|err| format!("Failed to reset Opus decoder: {err}"))?;
                 *packets_seen = 0;
             }
@@ -600,7 +602,7 @@ fn output_channels_for_track(
         .map(|layout| layout.count())
         .filter(|count| *count > 0)
         .unwrap_or(2);
-    Ok(count.min(2).max(1))
+    Ok(count.clamp(1, 2))
 }
 
 fn append_decoded(

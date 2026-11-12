@@ -698,6 +698,7 @@ fn apply_vis_map(plan: &mut BehaviorPlan, vis_map: HashMap<String, BTreeSet<Stri
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn wire_satellites(
     plan: &mut BehaviorPlan,
     bodies: &HashMap<String, FnBody>,
@@ -1238,7 +1239,7 @@ fn find_moveto(body: &str) -> Vec<MoveCap> {
             search_from = abs + 7;
             continue;
         }
-        if let Some(args) = slice_parens(&body, paren_at) {
+        if let Some(args) = slice_parens(body, paren_at) {
             out.push(MoveCap {
                 target,
                 args: args.clone(),

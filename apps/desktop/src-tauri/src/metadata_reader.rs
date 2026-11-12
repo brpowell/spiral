@@ -245,7 +245,7 @@ fn read_mp4_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
     tags.total_tracks = tag.total_tracks().map(|n| n as i32);
     tags.disc_number = tag.disc_number().map(|n| n as i32);
     tags.total_discs = tag.total_discs().map(|n| n as i32);
-    tags.year = tag.year().and_then(|value| parse_year(value));
+    tags.year = tag.year().and_then(parse_year);
     tags.genre = tag.genre().map(|s| s.to_string());
     tags.rating = rating_tags::read_m4a_rating(&tag);
     tags.apply_mbids(mbid_tags::read_mp4_mbids(&tag));

@@ -19,13 +19,13 @@ static ID_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 thread_local! {
     static THREAD_CONTEXT: std::cell::RefCell<ActivityLogContext> =
-        std::cell::RefCell::new(ActivityLogContext {
+        const { std::cell::RefCell::new(ActivityLogContext {
             drive_id: None,
             disc_id: None,
             release_mbid: None,
             artist: None,
             album: None,
-        });
+        }) };
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

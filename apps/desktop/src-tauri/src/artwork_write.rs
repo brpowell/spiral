@@ -126,6 +126,7 @@ pub fn write_album_front(
     Ok(dest.to_string_lossy().into_owned())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn write_track_override_art(
     library_root: &Path,
     album_artist: Option<&str>,

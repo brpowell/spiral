@@ -65,6 +65,7 @@ pub fn compute_disc_id(tracks: &[(u32, f64)]) -> String {
 
 /// MusicBrainz / libdiscid disc IDs use only the first session.
 /// When session numbers are unknown, the input list is kept as-is.
+#[cfg(any(target_os = "macos", test))]
 pub fn keep_first_session(tracks: &[(u32, f64, Option<u32>)]) -> Vec<(u32, f64)> {
     let first_session = tracks.iter().filter_map(|(_, _, session)| *session).min();
     let Some(first_session) = first_session else {

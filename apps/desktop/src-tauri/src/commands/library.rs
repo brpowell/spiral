@@ -738,7 +738,7 @@ pub(crate) fn project_lyrics_to_file(
         Err(metadata_writer::MetadataWriteError::UnsupportedFormat(msg)) => {
             eprintln!("replace lyrics projection skipped: {msg}");
         }
-        Err(err) => return Err(err.to_message()),
+        Err(err) => return Err(err.into_message()),
     }
 
     if sidecar_enabled {
@@ -827,7 +827,7 @@ fn convert_track_impl(
     let state = app.state::<DbState>();
 
     let profile = encoding_profiles::profile_from_id(profile_id)?;
-    let resolved = settings::resolved_library_settings(&app);
+    let resolved = settings::resolved_library_settings(app);
 
     // The converted file goes into the track's own source, organized the way
     // that source is.
@@ -890,9 +890,8 @@ fn convert_track_impl(
         dest_path,
         resolved.lyrics_sidecar_sync_enabled,
     )
-    .map_err(|err| {
+    .inspect_err(|_err| {
         let _ = fs::remove_file(&temp_path);
-        err
     })?;
     if let Some(parent) = temp_path.parent() {
         library_organize::prune_empty_dirs(parent, target_root);

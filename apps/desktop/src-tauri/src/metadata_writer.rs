@@ -22,7 +22,7 @@ pub enum MetadataWriteError {
 }
 
 impl MetadataWriteError {
-    pub fn to_message(self) -> String {
+    pub fn into_message(self) -> String {
         match self {
             Self::UnsupportedFormat(msg) => msg,
             Self::ReadOnly(msg) => msg,
@@ -229,7 +229,7 @@ fn apply_id3_metadata(
         tag.set_total_discs(n as u32);
     }
     if let Some(year) = metadata.year {
-        tag.set_year(year as i32);
+        tag.set_year(year);
     }
     if let Some(genre) = &metadata.genre {
         tag.set_genre(genre.clone());
@@ -540,10 +540,10 @@ mod tests {
         write_mp3(&audio, &metadata).expect("write mp3 metadata");
 
         let tag = Tag::read_from_path(&audio).expect("re-read after write");
-        assert_eq!(tag.title().as_deref(), Some("Tagged Title"));
-        assert_eq!(tag.artist().as_deref(), Some("Tagged Artist"));
-        assert_eq!(tag.album().as_deref(), Some("Tagged Album"));
-        assert_eq!(tag.genre().as_deref(), Some("Rock"));
+        assert_eq!(tag.title(), Some("Tagged Title"));
+        assert_eq!(tag.artist(), Some("Tagged Artist"));
+        assert_eq!(tag.album(), Some("Tagged Album"));
+        assert_eq!(tag.genre(), Some("Rock"));
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -577,7 +577,7 @@ mod tests {
         write_mp3(&audio, &metadata).expect("write mp3 metadata");
 
         let tag = Tag::read_from_path(&audio).expect("re-read after write");
-        assert_eq!(tag.artist().as_deref(), Some("Alice; Bob"));
+        assert_eq!(tag.artist(), Some("Alice; Bob"));
         assert_eq!(
             tag.get("TPE2")
                 .and_then(|f| f.content().text())
@@ -662,8 +662,8 @@ mod tests {
         write_track_metadata(&audio, &metadata).expect("write mp4 metadata");
 
         let tag = Mp4Tag::read_from_path(&audio).expect("re-read after write");
-        assert_eq!(tag.title().as_deref(), Some("MP4 Title"));
-        assert_eq!(tag.artist().as_deref(), Some("MP4 Artist"));
+        assert_eq!(tag.title(), Some("MP4 Title"));
+        assert_eq!(tag.artist(), Some("MP4 Artist"));
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -696,7 +696,7 @@ mod tests {
         write_m4a(&audio, &metadata).expect("write m4a metadata");
 
         let tag = Mp4Tag::read_from_path(&audio).expect("re-read after write");
-        assert_eq!(tag.artist().as_deref(), Some("Alice; Bob"));
+        assert_eq!(tag.artist(), Some("Alice; Bob"));
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -762,8 +762,8 @@ mod tests {
         write_m4a(&audio, &metadata).expect("write m4a metadata");
 
         let tag = Mp4Tag::read_from_path(&audio).expect("re-read after write");
-        assert_eq!(tag.title().as_deref(), Some("Test Track"));
-        assert_eq!(tag.artist().as_deref(), Some("Test Artist"));
+        assert_eq!(tag.title(), Some("Test Track"));
+        assert_eq!(tag.artist(), Some("Test Artist"));
         assert!(tag.artwork().is_some());
 
         let backup = audio.with_extension("m4a.bak");
@@ -823,7 +823,7 @@ mod tests {
 
         write_m4a(&audio, &metadata).expect("write text-only metadata");
         let tag = Mp4Tag::read_from_path(&audio).expect("re-read");
-        assert_eq!(tag.title().as_deref(), Some("Only Title"));
+        assert_eq!(tag.title(), Some("Only Title"));
         assert!(tag.artwork().is_none());
 
         // Text-only update should not balloon the file with cover data.
@@ -866,10 +866,10 @@ mod tests {
         write_wav(&audio, &metadata).expect("write wav metadata");
 
         let tag = Tag::read_from_path(&audio).expect("re-read after write");
-        assert_eq!(tag.title().as_deref(), Some("Tagged Title"));
-        assert_eq!(tag.artist().as_deref(), Some("Tagged Artist"));
-        assert_eq!(tag.album().as_deref(), Some("Tagged Album"));
-        assert_eq!(tag.genre().as_deref(), Some("Rock"));
+        assert_eq!(tag.title(), Some("Tagged Title"));
+        assert_eq!(tag.artist(), Some("Tagged Artist"));
+        assert_eq!(tag.album(), Some("Tagged Album"));
+        assert_eq!(tag.genre(), Some("Rock"));
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -935,7 +935,7 @@ mod tests {
         write_wav(&audio, &metadata).expect("write wav art");
 
         let tag = Tag::read_from_path(&audio).expect("re-read after write");
-        assert_eq!(tag.title().as_deref(), Some("Art Track"));
+        assert_eq!(tag.title(), Some("Art Track"));
         assert!(tag.pictures().next().is_some());
 
         let _ = fs::remove_dir_all(&dir);
@@ -1122,14 +1122,14 @@ mod tests {
         write_lyrics_projection(&audio, Some(&projected)).expect("project lyrics");
 
         let tag = Tag::read_from_path(&audio).expect("re-read mp3");
-        assert_eq!(tag.title().as_deref(), Some("Keep Title"));
-        assert_eq!(tag.artist().as_deref(), Some("Keep Artist"));
+        assert_eq!(tag.title(), Some("Keep Title"));
+        assert_eq!(tag.artist(), Some("Keep Artist"));
         let raw = crate::lyrics_tags::read_lyrics_from_id3(&tag).expect("projected lyrics");
         assert_eq!(raw.text, "Library lyrics");
 
         write_lyrics_projection(&audio, None).expect("clear projected lyrics");
         let tag = Tag::read_from_path(&audio).expect("re-read cleared");
-        assert_eq!(tag.title().as_deref(), Some("Keep Title"));
+        assert_eq!(tag.title(), Some("Keep Title"));
         assert!(crate::lyrics_tags::read_lyrics_from_id3(&tag).is_none());
 
         let _ = fs::remove_dir_all(&dir);

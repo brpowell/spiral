@@ -292,23 +292,6 @@ pub fn fetch_entity_with_store(
     Ok(lookup_from_entity_json(kind, &response))
 }
 
-/// Fetch from MusicBrainz, upsert into Library.db, return parsed lookup.
-#[cfg(test)]
-pub fn fetch_entity(
-    conn: &Connection,
-    kind: MusicBrainzEntityKind,
-    mbid: String,
-) -> Result<Option<MusicBrainzEntityLookup>, String> {
-    fetch_entity_with_store(kind, mbid, |response| {
-        let mbid = response
-            .get("id")
-            .and_then(|id| id.as_str())
-            .and_then(|id| parse_uuid_mbid(Some(id)))
-            .ok_or_else(|| "MusicBrainz response missing entity id".to_string())?;
-        store_entity_document(conn, kind, &mbid, response)
-    })
-}
-
 fn fetch_entity_json(
     kind: MusicBrainzEntityKind,
     mbid: &str,

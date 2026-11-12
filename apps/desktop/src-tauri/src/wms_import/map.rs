@@ -383,7 +383,10 @@ pub fn map_tooltip(node: &WmsNode) -> Option<String> {
         .cloned()
 }
 
-pub fn map_style(node: &WmsNode) -> (Option<Map<String, Value>>, Vec<(String, String)>) {
+/// Mapped style properties, plus the `(attribute, value)` pairs that had no mapping.
+type MappedStyle = (Option<Map<String, Value>>, Vec<(String, String)>);
+
+pub fn map_style(node: &WmsNode) -> MappedStyle {
     let mut style = Map::new();
     let mut unmapped = Vec::new();
     if let Some(size) = node.attrs.get("fontsize") {
@@ -409,7 +412,7 @@ pub fn map_style(node: &WmsNode) -> (Option<Map<String, Value>>, Vec<(String, St
         }
     }
     if let Some(bg) = node.attrs.get("backgroundcolor") {
-        if bg.to_ascii_lowercase() != "none" {
+        if !bg.eq_ignore_ascii_case("none") {
             style.insert("backgroundColor".into(), json!(bg));
         }
     }

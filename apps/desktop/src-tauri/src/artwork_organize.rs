@@ -12,6 +12,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Rename `Artwork/albums/{old…}` → `{new…}` and rewrite relative `tracks.art_path` prefixes.
+#[allow(clippy::too_many_arguments)]
 pub fn rename_album_artwork_dir(
     conn: &Connection,
     library_root: &Path,
@@ -59,6 +60,7 @@ pub fn rename_album_artwork_dir(
 
 /// After a single track's album identity changes: move shared dir when this was the last
 /// track on the old album; otherwise move only that track's override file.
+#[allow(clippy::too_many_arguments)]
 pub fn reconcile_track_album_artwork(
     conn: &Connection,
     library_root: &Path,
@@ -430,13 +432,12 @@ fn prune_parent_album_dirs(library_root: &Path, removed_album_dir: &Path) {
     if ensure_inside_album_artwork(library_root, artist_dir).is_err() {
         return;
     }
-    if artist_dir.is_dir() {
-        if fs::read_dir(artist_dir)
+    if artist_dir.is_dir()
+        && fs::read_dir(artist_dir)
             .map(|mut d| d.next().is_none())
             .unwrap_or(false)
-        {
-            let _ = fs::remove_dir(artist_dir);
-        }
+    {
+        let _ = fs::remove_dir(artist_dir);
     }
 }
 

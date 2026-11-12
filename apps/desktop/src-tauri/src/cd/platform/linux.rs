@@ -477,15 +477,11 @@ pub fn probe_disc_presence_try(drive_id: &str) -> Option<Result<bool, String>> {
         return Some(Ok(cached));
     }
 
-    let has_disc = match try_with_drive_lock(|| {
-        probe_presence_unlocked(&drive_id).map(|present| {
+    let has_disc = try_with_drive_lock(|| {
+        probe_presence_unlocked(&drive_id).inspect(|&present| {
             update_status_cache(&drive_id, Some(present), None);
-            present
         })
-    }) {
-        Some(result) => result,
-        None => return None,
-    };
+    })?;
     Some(has_disc)
 }
 

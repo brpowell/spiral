@@ -13,7 +13,6 @@ use std::path::Path;
 /// - else → treat as 0–100 percent: `round(value / 100 * 255)`
 ///
 /// Malformed or out-of-range values return `None` (unrated).
-
 const POPM_USER: &str = "Spiral";
 
 const ITUNES_RATING: FreeformIdentStatic = FreeformIdent::new_static(APPLE_ITUNES_MEAN, "rating");
@@ -69,7 +68,7 @@ pub fn read_mp3_rating(tag: &Tag) -> Option<u8> {
 pub fn read_flac_rating(tag: &FlacTag) -> Option<u8> {
     tag.get_vorbis("RATING")
         .and_then(|mut values| values.next())
-        .and_then(|value| parse_rating_string(value))
+        .and_then(parse_rating_string)
 }
 
 pub fn read_vorbis_rating(tag: &lofty::tag::Tag) -> Option<u8> {
@@ -298,7 +297,7 @@ mod tests {
         write_mp3_rating(&audio, 0).unwrap();
 
         let tag = Tag::read_from_path(&audio).expect("re-read");
-        assert_eq!(tag.title().as_deref(), Some("Keep Title"));
+        assert_eq!(tag.title(), Some("Keep Title"));
         assert!(tag
             .frames()
             .all(|frame| frame.content().popularimeter().is_none()));

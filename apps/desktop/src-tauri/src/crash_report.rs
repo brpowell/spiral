@@ -274,7 +274,7 @@ pub fn list_reports(
         });
     }
 
-    summaries.sort_by(|left, right| right.timestamp_ms.cmp(&left.timestamp_ms));
+    summaries.sort_by_key(|summary| std::cmp::Reverse(summary.timestamp_ms));
     Ok(summaries)
 }
 

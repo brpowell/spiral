@@ -655,9 +655,7 @@ fn commons_category_from_url(url: &str) -> Option<String> {
         return None;
     }
     let title = segs.next()?;
-    if stripped_prefix_ignore_ascii(title, "Category:").is_none() {
-        return None;
-    }
+    stripped_prefix_ignore_ascii(title, "Category:")?;
     normalize_commons_category(title)
 }
 
@@ -784,20 +782,17 @@ fn entity_by_id<'a>(root: &'a Value, qid: &str) -> Option<&'a Value> {
 
 fn entity_is_preferred_artist(entity: &Value) -> bool {
     let p31 = claim_item_ids(entity, "P31");
-    if p31.iter().any(|id| {
-        MUSICAL_GROUP_TYPES
-            .iter()
-            .any(|known| *known == id.as_str())
-    }) {
+    if p31
+        .iter()
+        .any(|id| MUSICAL_GROUP_TYPES.contains(&id.as_str()))
+    {
         return true;
     }
     if p31.iter().any(|id| id == "Q5") {
         let occupations = claim_item_ids(entity, "P106");
-        return occupations.iter().any(|id| {
-            MUSICIAN_OCCUPATIONS
-                .iter()
-                .any(|known| *known == id.as_str())
-        });
+        return occupations
+            .iter()
+            .any(|id| MUSICIAN_OCCUPATIONS.contains(&id.as_str()));
     }
     false
 }

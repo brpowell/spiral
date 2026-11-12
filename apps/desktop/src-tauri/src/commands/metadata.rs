@@ -487,7 +487,7 @@ fn write_track_file(
     organize: Option<(&Path, &str)>,
     move_lyrics_sidecar: bool,
 ) -> Result<Option<PathBuf>, String> {
-    metadata_writer::write_track_metadata(path, metadata).map_err(|e| e.to_message())?;
+    metadata_writer::write_track_metadata(path, metadata).map_err(|e| e.into_message())?;
     let Some((root, format)) = organize else {
         return Ok(None);
     };
@@ -650,6 +650,7 @@ pub fn write_track_metadata(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub fn rename_album_artwork(
     app: AppHandle,
