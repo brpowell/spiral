@@ -39,8 +39,8 @@ describe("resolveDrive", () => {
   });
 
   it("returns static value from structured binding", () => {
-    expect(resolveDrive({ drive: "audio.bassEnergy", value: 0.42 }, context)).toBe(
-      0.42,
-    );
+    expect(
+      resolveDrive({ drive: "audio.bassEnergy", value: 0.42 }, context),
+    ).toBe(0.42);
   });
 });

@@ -8,9 +8,7 @@ interface BrowseViewProps {
 
 export function BrowseView({ className = "", children }: BrowseViewProps) {
   return (
-    <div
-      className={["browse-view", className].filter(Boolean).join(" ")}
-    >
+    <div className={["browse-view", className].filter(Boolean).join(" ")}>
       {children}
     </div>
   );

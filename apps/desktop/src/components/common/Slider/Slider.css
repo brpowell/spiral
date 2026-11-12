@@ -31,7 +31,9 @@
   border: none;
   border-radius: 50%;
   background: var(--color-text-primary);
-  transition: transform 0.1s ease, background 0.1s ease;
+  transition:
+    transform 0.1s ease,
+    background 0.1s ease;
 }
 
 .slider:hover::-webkit-slider-thumb,

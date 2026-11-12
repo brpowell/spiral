@@ -24,16 +24,16 @@ export function useTrackListColumnReorder({
       const target = document.elementFromPoint(clientX, clientY);
       const cell = target?.closest("[data-track-list-col]");
       if (!cell) return null;
-      return cell.getAttribute("data-track-list-col") as TrackListColumnId | null;
+      return cell.getAttribute(
+        "data-track-list-col",
+      ) as TrackListColumnId | null;
     },
     [],
   );
 
   const isValidDropTarget = useCallback(
     (columnId: TrackListColumnId | null): columnId is TrackListColumnId =>
-      columnId != null &&
-      columnId !== indexColumn &&
-      columnId !== "check",
+      columnId != null && columnId !== indexColumn && columnId !== "check",
     [indexColumn],
   );
 
