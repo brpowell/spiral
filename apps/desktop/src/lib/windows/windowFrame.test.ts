@@ -60,6 +60,14 @@ describe("windowFrame", () => {
     expect(unlistenMock).not.toHaveBeenCalled();
   });
 
+  it("stops listening when the backend call fails", async () => {
+    invokeMock.mockRejectedValue(new Error("no window"));
+    await expect(installWindowFrame(root)).rejects.toThrow("no window");
+
+    expect(root.dataset.windowFrame).toBeUndefined();
+    expect(unlistenMock).toHaveBeenCalled();
+  });
+
   it("stops listening when the window has no frame", async () => {
     invokeMock.mockResolvedValue({ enabled: false, rounded: false });
     await installWindowFrame(root);

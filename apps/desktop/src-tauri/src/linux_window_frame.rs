@@ -87,34 +87,41 @@ fn rounded_for(state: WindowState) -> bool {
     )
 }
 
-fn install_css(window: &gtk::ApplicationWindow) {
+/// Installs the stylesheet once per process. False if it can't be loaded:
+/// without it the empty titlebar would take the theme's full title bar style.
+fn install_css(screen: &gtk::gdk::Screen) -> bool {
     thread_local! {
-        static INSTALLED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+        static INSTALLED: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
     }
-    if INSTALLED.with(|done| done.replace(true)) {
-        return;
+    if let Some(installed) = INSTALLED.with(|cell| cell.get()) {
+        return installed;
     }
-    let Some(screen) = GtkWindowExt::screen(window) else {
-        INSTALLED.with(|done| done.set(false));
-        return;
-    };
     let provider = gtk::CssProvider::new();
-    if let Err(err) = provider.load_from_data(CSS.as_bytes()) {
-        eprintln!("window frame css: {err}");
-        return;
-    }
-    // USER beats tao's APPLICATION-priority `background_color` provider.
-    gtk::StyleContext::add_provider_for_screen(
-        &screen,
-        &provider,
-        gtk::STYLE_PROVIDER_PRIORITY_USER,
-    );
+    let installed = match provider.load_from_data(CSS.as_bytes()) {
+        Ok(()) => {
+            // USER beats tao's APPLICATION-priority `background_color` provider.
+            gtk::StyleContext::add_provider_for_screen(
+                screen,
+                &provider,
+                gtk::STYLE_PROVIDER_PRIORITY_USER,
+            );
+            true
+        }
+        Err(err) => {
+            eprintln!("window frame css: {err}");
+            false
+        }
+    };
+    INSTALLED.with(|cell| cell.set(Some(installed)));
+    installed
 }
 
 /// Give `window` the GTK frame. Idempotent. Must run on the main thread and,
 /// the first time, before the window is first shown: GTK only accepts a
 /// titlebar before it creates the native window. A window that is already
-/// realized without one keeps the plain undecorated look.
+/// realized, a screen without a compositor (GTK can't draw a transparent
+/// shadow there, so the frame would be an opaque band), or a stylesheet that
+/// fails to load all keep the plain undecorated look.
 pub fn apply<R: Runtime>(window: &WebviewWindow<R>) -> WindowFrame {
     let Ok(gtk_window) = window.gtk_window() else {
         return WindowFrame::NONE;
@@ -123,12 +130,13 @@ pub fn apply<R: Runtime>(window: &WebviewWindow<R>) -> WindowFrame {
     if style.has_class(FRAME_CLASS) {
         return current(&gtk_window);
     }
-    if gtk_window.is_realized() {
+    let composited = GtkWindowExt::screen(&gtk_window).filter(|screen| screen.is_composited());
+    let styled = composited.as_ref().is_some_and(install_css);
+    if gtk_window.is_realized() || !styled {
         gtk_window.set_decorated(false);
         return WindowFrame::NONE;
     }
 
-    install_css(&gtk_window);
     style.add_class(FRAME_CLASS);
     // On Wayland tao has already set an EventBox titlebar; replace it so X11
     // and Wayland end up the same. A Box draws nothing and takes no input.

@@ -38,7 +38,11 @@ export async function installWindowFrame(
       setWindowFrameAttribute(root, { enabled: true, rounded: event.payload });
     },
   );
-  const frame = await invoke<WindowFrame>("window_frame");
-  setWindowFrameAttribute(root, frame);
-  if (!frame.enabled) unlisten();
+  let frame: WindowFrame | undefined;
+  try {
+    frame = await invoke<WindowFrame>("window_frame");
+    setWindowFrameAttribute(root, frame);
+  } finally {
+    if (!frame?.enabled) unlisten();
+  }
 }
