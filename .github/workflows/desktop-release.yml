@@ -85,8 +85,11 @@ jobs:
           # windows-aarch64 is a native Windows 11 ARM runner. .cargo/config.toml
           # carries the MSVC ARM64 flags fdk-aac-sys needs.
           #
-          # Linux uses ubuntu-22.04: older glibc baseline than -latest (Tauri
-          # Linux guidance). AppImage is the updater payload; deb and rpm are
+          # Linux uses ubuntu-24.04, pinned rather than -latest. 22.04 stopped
+          # receiving WebKitGTK updates at 2.50, which the AppImage bundles;
+          # 24.04 tracks current WebKitGTK (smoother GPU rendering, security
+          # fixes). Cost: glibc 2.39 baseline, so the AppImage no longer runs on
+          # Ubuntu 22.04, Debian 12 or RHEL 9. AppImage is the updater payload; deb and rpm are
           # browser-download installers (the rpm bundler is pure Rust, so no
           # rpmbuild is needed). Native runners, not cross-compile: WebKit and
           # AppImage tooling are host-arch.
@@ -94,8 +97,8 @@ jobs:
             {"label":"macos-universal","platform":"macos-latest","args":"--target universal-apple-darwin --bundles app,dmg","rust_targets":"aarch64-apple-darwin,x86_64-apple-darwin"},
             {"label":"windows-x64","platform":"windows-latest","args":"--bundles nsis","rust_targets":""},
             {"label":"windows-aarch64","platform":"windows-11-arm","args":"--target aarch64-pc-windows-msvc --bundles nsis","rust_targets":"aarch64-pc-windows-msvc"},
-            {"label":"linux-x64","platform":"ubuntu-22.04","args":"--bundles appimage,deb,rpm","rust_targets":""},
-            {"label":"linux-aarch64","platform":"ubuntu-22.04-arm","args":"--bundles appimage,deb,rpm","rust_targets":""}
+            {"label":"linux-x64","platform":"ubuntu-24.04","args":"--bundles appimage,deb,rpm","rust_targets":""},
+            {"label":"linux-aarch64","platform":"ubuntu-24.04-arm","args":"--bundles appimage,deb,rpm","rust_targets":""}
           ]'
           matrix=$(jq -c --arg p "$SELECTED" \
             '{include: [.[] | select($p == "all" or (.label | startswith($p)))]}' <<<"$all")
@@ -159,10 +162,10 @@ jobs:
             librsvg2-dev \
             libasound2-dev \
             patchelf \
-            libfuse2 \
+            libfuse2t64 \
             xdg-utils
           # xdg-utils: the AppImage bundler copies /usr/bin/xdg-open into the
-          # image; the ubuntu-22.04-arm runner image does not ship it.
+          # image; the ubuntu-24.04-arm runner image does not ship it.
           # AppImage tooling (linuxdeploy) needs FUSE or extract-and-run on
           # runners without /dev/fuse. Prefer a disk-backed TMPDIR so
           # extract-and-run does not fill a small /tmp tmpfs.

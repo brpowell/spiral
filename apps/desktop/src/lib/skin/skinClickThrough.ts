@@ -65,6 +65,36 @@ export function decidePolledPassThrough(args: {
   return args.overContent ? "interactive" : "ignore";
 }
 
+export interface IgnoreCursorState {
+  readonly ignoring: boolean;
+  set(next: boolean, force?: boolean): void;
+}
+
+/**
+ * Tracks the OS ignore-cursor flag and skips redundant native calls. A failed
+ * call leaves the OS flag unchanged (Linux refuses while the window is not yet
+ * mapped), so the cached value rolls back and the next poll retries instead of
+ * believing the flag is already set.
+ */
+export function createIgnoreCursorState(
+  apply: (ignore: boolean) => Promise<void>,
+): IgnoreCursorState {
+  let ignoring = false;
+  return {
+    get ignoring() {
+      return ignoring;
+    },
+    set(next, force = false) {
+      if (!force && next === ignoring) return;
+      const previous = ignoring;
+      ignoring = next;
+      void apply(next).catch(() => {
+        if (ignoring === next) ignoring = previous;
+      });
+    },
+  };
+}
+
 function getSkinCursorClientPosition(): Promise<{
   x: number;
   y: number;
@@ -76,7 +106,7 @@ function getSkinCursorClientPosition(): Promise<{
 export function startSkinClickThrough(
   options: SkinClickThroughOptions = {},
 ): () => void {
-  let ignoring = false;
+  const ignore = createIgnoreCursorState(setSkinClickThroughIgnore);
   let disposed = false;
   let pollTimer: number | null = null;
   let activePointers = 0;
@@ -87,11 +117,7 @@ export function startSkinClickThrough(
     pollTimer = null;
   };
 
-  const setIgnore = (next: boolean, force = false) => {
-    if (!force && next === ignoring) return;
-    ignoring = next;
-    void setSkinClickThroughIgnore(next).catch(() => {});
-  };
+  const setIgnore = (next: boolean, force = false) => ignore.set(next, force);
 
   const shouldStayInteractive = () =>
     activePointers > 0 || options.shouldSuspend?.() === true;
@@ -159,7 +185,7 @@ export function startSkinClickThrough(
   };
 
   const onPointerMove = (event: PointerEvent) => {
-    if (ignoring) return;
+    if (ignore.ignoring) return;
     syncPassThrough(event.clientX, event.clientY, event.buttons);
   };
 
@@ -171,7 +197,7 @@ export function startSkinClickThrough(
   };
 
   const onWindowFocus = () => {
-    if (ignoring) setIgnore(true, true);
+    if (ignore.ignoring) setIgnore(true, true);
   };
 
   window.addEventListener("pointerdown", onDown, true);
@@ -195,6 +221,6 @@ export function startSkinClickThrough(
     window.removeEventListener("pointermove", onPointerMove, true);
     window.removeEventListener("focus", onWindowFocus);
     stopPolling();
-    if (ignoring) void setSkinClickThroughIgnore(false).catch(() => {});
+    if (ignore.ignoring) void setSkinClickThroughIgnore(false).catch(() => {});
   };
 }
