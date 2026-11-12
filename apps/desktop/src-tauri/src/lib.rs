@@ -1,6 +1,10 @@
 mod accessibility_warmup;
 mod activity_log;
-#[cfg(all(feature = "agent-bridge", debug_assertions, target_os = "macos"))]
+#[cfg(all(
+    feature = "agent-bridge",
+    debug_assertions,
+    any(target_os = "macos", target_os = "linux")
+))]
 mod agent_bridge;
 mod app_windows;
 mod art_cache;
@@ -162,7 +166,11 @@ pub fn run() {
             #[cfg(debug_assertions)]
             app.add_capability(include_str!("../capabilities-dev/dev-labs.json"))?;
 
-            #[cfg(all(feature = "agent-bridge", debug_assertions, target_os = "macos"))]
+            #[cfg(all(
+                feature = "agent-bridge",
+                debug_assertions,
+                any(target_os = "macos", target_os = "linux")
+            ))]
             agent_bridge::start(app.handle().clone());
 
             app_windows::create_startup_windows(app.handle())

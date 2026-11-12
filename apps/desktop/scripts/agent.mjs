@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Client for the dev-only agent bridge (src-tauri/src/agent_bridge.rs).
 // Start the app with `npm run dev:agent`, then drive it from here. See
-// docs/contributing/agent-automation.md. Zero dependencies; macOS only.
+// docs/contributing/agent-automation.md. Zero dependencies; macOS and Linux.
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";

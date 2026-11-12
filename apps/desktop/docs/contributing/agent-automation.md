@@ -5,7 +5,7 @@ type, read console logs, call Tauri commands — to validate a change in the rea
 app instead of guessing.
 
 ```bash
-npm run dev:agent                      # tauri dev + the bridge (macOS, debug only)
+npm run dev:agent                      # tauri dev + the bridge (macOS or Linux, debug only)
 node scripts/agent.mjs windows         # list windows
 node scripts/agent.mjs shot main       # PNG screenshot, prints the path
 node scripts/agent.mjs snapshot main   # visible interactive elements + selectors
@@ -26,12 +26,27 @@ staged states for marketing shots, see [marketing-stage.md](marketing-stage.md).
 (`$TMPDIR/spiral-agent.sock`, mode 0600, one JSON object per line).
 `scripts/agent.mjs` is the client. Eval uses `WKWebView.callAsyncJavaScript`
 (promises are awaited); screenshots use `WKWebView.takeSnapshot`, so no Screen
-Recording permission is needed. `src/agent_bridge.js` is injected into windows
+Recording permission is needed. On Linux, eval uses WebKitGTK's
+`evaluate_javascript` (the body runs in the page and the bridge polls for its
+result, so promises are awaited too) and screenshots use
+`webkit_web_view_snapshot`, which needs no permission. The native window
+`capture` command (frame + shadow) is macOS-only. `src/agent_bridge.js` is injected into windows
 Spiral creates to buffer console output.
 
 ## Safety
 
 The module only compiles with `--features agent-bridge` **and** a debug build
-**and** macOS; every call site carries that same `cfg`. Never pass the feature
+**and** macOS or Linux; every call site carries that same `cfg`. Never pass the feature
 to `tauri build`. Windows opened from the frontend (the toast and sound labs)
 don't get the log buffer; eval and screenshots still work.
+
+## Linux
+
+On an immutable distro, build in the container that has the WebKitGTK headers,
+then run the binary where the GPU is, with Vite serving the frontend:
+
+```bash
+npm run dev                          # Vite, on the host
+cargo build --features agent-bridge  # in src-tauri, inside the dev container
+../../target/debug/Spiral            # on the host
+```
