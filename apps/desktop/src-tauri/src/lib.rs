@@ -173,8 +173,7 @@ pub fn run() {
             ))]
             agent_bridge::start(app.handle().clone());
 
-            app_windows::create_startup_windows(app.handle())
-                .map_err(|err| std::io::Error::other(err))?;
+            app_windows::create_startup_windows(app.handle()).map_err(std::io::Error::other)?;
 
             let db_path = library_paths::ensure_library_for_app(app.handle())
                 .expect("failed to init library");

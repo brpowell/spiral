@@ -35,7 +35,7 @@ pub fn encode_pcm_to_aac_m4a(
     if pcm.samples.is_empty() {
         return Err("AAC encoding requires audio samples".into());
     }
-    if pcm.samples.len() % pcm.channels as usize != 0 {
+    if !pcm.samples.len().is_multiple_of(pcm.channels as usize) {
         return Err(format!(
             "PCM sample count {} is not divisible by channel count {}",
             pcm.samples.len(),

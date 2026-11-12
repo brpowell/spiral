@@ -105,7 +105,7 @@ pub fn read_pcm_from_wav(path: &Path) -> Result<PcmStream, String> {
 
     let bytes = &data[data_offset..data_offset + data_size];
     let mut samples = Vec::with_capacity(bytes.len() / 2);
-    for chunk in bytes.chunks_exact(2) {
+    for chunk in bytes.as_chunks::<2>().0 {
         samples.push(i16::from_le_bytes([chunk[0], chunk[1]]));
     }
 
@@ -143,26 +143,26 @@ pub fn write_pcm_to_wav(pcm: &PcmStream, path: &Path) -> Result<(), String> {
     let mut file =
         File::create(path).map_err(|err| format!("Failed to create {}: {err}", path.display()))?;
     let map_write = |err| format!("Failed to write {}: {err}", path.display());
-    file.write_all(b"RIFF").map_err(&map_write)?;
+    file.write_all(b"RIFF").map_err(map_write)?;
     file.write_all(&(36u32 + data.len() as u32).to_le_bytes())
-        .map_err(&map_write)?;
-    file.write_all(b"WAVE").map_err(&map_write)?;
-    file.write_all(b"fmt ").map_err(&map_write)?;
-    file.write_all(&16u32.to_le_bytes()).map_err(&map_write)?;
+        .map_err(map_write)?;
+    file.write_all(b"WAVE").map_err(map_write)?;
+    file.write_all(b"fmt ").map_err(map_write)?;
+    file.write_all(&16u32.to_le_bytes()).map_err(map_write)?;
     file.write_all(&WAVE_FORMAT_PCM.to_le_bytes())
-        .map_err(&map_write)?;
+        .map_err(map_write)?;
     file.write_all(&pcm.channels.to_le_bytes())
-        .map_err(&map_write)?;
+        .map_err(map_write)?;
     file.write_all(&pcm.sample_rate.to_le_bytes())
-        .map_err(&map_write)?;
+        .map_err(map_write)?;
     file.write_all(&byte_rate.to_le_bytes())
-        .map_err(&map_write)?;
+        .map_err(map_write)?;
     file.write_all(&(block_align as u16).to_le_bytes())
-        .map_err(&map_write)?;
-    file.write_all(&16u16.to_le_bytes()).map_err(&map_write)?;
-    file.write_all(b"data").map_err(&map_write)?;
+        .map_err(map_write)?;
+    file.write_all(&16u16.to_le_bytes()).map_err(map_write)?;
+    file.write_all(b"data").map_err(map_write)?;
     file.write_all(&(data.len() as u32).to_le_bytes())
-        .map_err(&map_write)?;
+        .map_err(map_write)?;
     file.write_all(&data).map_err(map_write)?;
 
     Ok(())

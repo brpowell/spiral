@@ -289,6 +289,7 @@ fn prune_album_dir_except(
 }
 
 /// When importing a single track into an album that may already have art.
+#[allow(clippy::too_many_arguments)]
 pub fn assign_track_art_on_import(
     library_root: &Path,
     album_artist: Option<&str>,

@@ -54,7 +54,7 @@ fn parse_timestamp_ms(inner: &str) -> Option<i64> {
 
     let frac_ms = match frac_str {
         None => 0,
-        Some(f) if f.is_empty() => 0,
+        Some("") => 0,
         Some(f) if f.len() == 1 => f.parse::<i64>().ok()? * 100,
         Some(f) if f.len() == 2 => f.parse::<i64>().ok()? * 10,
         Some(f) => f[..f.len().min(3)].parse::<i64>().ok()?,

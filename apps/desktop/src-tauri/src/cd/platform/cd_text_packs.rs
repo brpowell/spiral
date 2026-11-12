@@ -40,7 +40,7 @@ pub fn parse_cd_text_response(raw: &[u8]) -> ParsedCdText {
 
 /// Parse a contiguous sequence of 18-byte CD-Text packs (no TOC header).
 fn parse_cd_text_packs(packs: &[u8]) -> ParsedCdText {
-    if packs.is_empty() || packs.len() % PACK_LEN != 0 {
+    if packs.is_empty() || !packs.len().is_multiple_of(PACK_LEN) {
         return ParsedCdText::default();
     }
 
@@ -51,7 +51,7 @@ fn parse_cd_text_packs(packs: &[u8]) -> ParsedCdText {
     let mut tab_buffer: Vec<u8> = Vec::new();
     let mut prev_type: Option<u8> = None;
 
-    for chunk in packs.chunks_exact(PACK_LEN) {
+    for chunk in packs.as_chunks::<PACK_LEN>().0 {
         let pack_type = chunk[0];
         let track = chunk[1] & 0x7f;
         let bncp = chunk[3];

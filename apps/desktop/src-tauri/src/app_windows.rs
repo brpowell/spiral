@@ -214,6 +214,7 @@ const SKIN_HELPER_PROCESS_NAME: &str = "Spiral Skin Helper";
 /// Create a skin aux webview. The process name has to be set before the
 /// webview exists. Async for the same Windows WebView2 reason as
 /// [`ensure_app_window`].
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn create_skin_aux_window(
     app: AppHandle,

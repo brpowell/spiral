@@ -65,6 +65,7 @@ pub fn get_playlists(app: AppHandle, state: State<DbState>) -> Result<Vec<Playli
     Ok(playlists)
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub fn create_playlist(
     app: AppHandle,
@@ -96,6 +97,7 @@ pub fn create_playlist(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub fn update_playlist(
     app: AppHandle,

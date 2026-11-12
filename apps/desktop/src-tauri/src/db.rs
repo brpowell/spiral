@@ -745,6 +745,7 @@ pub fn get_all_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::E
     Ok(playlists)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_playlist(
     conn: &Connection,
     title: &str,
@@ -785,6 +786,7 @@ pub fn create_playlist(
     Ok(conn.last_insert_rowid())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn update_playlist(
     conn: &Connection,
     id: i64,

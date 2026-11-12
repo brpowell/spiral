@@ -58,7 +58,9 @@ pub trait StreamFactory: Send + 'static {
 enum Ctl {
     /// A deck wants to be heard; build the stream now rather than at the next tick.
     Ensure,
+    #[cfg(any(target_os = "macos", test))]
     WillSleep,
+    #[cfg(any(target_os = "macos", test))]
     DidWake,
     StreamError {
         generation: u64,
@@ -231,10 +233,12 @@ impl AudioOutput {
         let _ = self.ctl.send(Ctl::Ensure);
     }
 
+    #[cfg(any(target_os = "macos", test))]
     pub fn notify_will_sleep(&self) {
         let _ = self.ctl.send(Ctl::WillSleep);
     }
 
+    #[cfg(any(target_os = "macos", test))]
     pub fn notify_did_wake(&self) {
         let _ = self.ctl.send(Ctl::DidWake);
     }
@@ -287,6 +291,7 @@ impl OutputThread {
         loop {
             match self.rx.recv_timeout(TICK) {
                 Ok(Ctl::Ensure) | Err(RecvTimeoutError::Timeout) => {}
+                #[cfg(any(target_os = "macos", test))]
                 Ok(Ctl::WillSleep) => {
                     self.sleeping = true;
                     if self.stream.take().is_some() {
@@ -295,6 +300,7 @@ impl OutputThread {
                         log_info("system will sleep".into());
                     }
                 }
+                #[cfg(any(target_os = "macos", test))]
                 Ok(Ctl::DidWake) => {
                     self.sleeping = false;
                     // Whatever the device did while we slept, start from a clean bind.

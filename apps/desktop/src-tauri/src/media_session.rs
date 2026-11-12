@@ -261,6 +261,7 @@ fn platform_cover_url(path: &str) -> Option<String> {
 }
 
 /// `file://` URL with every byte outside the URL path set percent-encoded.
+#[cfg(any(target_os = "macos", test))]
 fn encode_file_url(path: &str) -> String {
     let mut url = String::from("file://");
     for byte in path.bytes() {
@@ -296,7 +297,7 @@ fn macos_image_at_url_loads(file_url: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{cover_url_for_art_path, encode_file_url};
+    use super::encode_file_url;
 
     #[test]
     fn artwork_url_escapes_hash_spaces_and_apostrophes() {

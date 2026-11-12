@@ -83,22 +83,30 @@ pub fn parse_wav(bytes: &[u8]) -> Result<SfxClip, String> {
     let samples: Vec<f32> = match (tag, bits) {
         (1, 8) => data.iter().map(|b| (*b as f32 - 128.0) / 128.0).collect(),
         (1, 16) => data
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|c| i16::from_le_bytes([c[0], c[1]]) as f32 / 32768.0)
             .collect(),
         (1, 24) => data
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .map(|c| {
                 let value = i32::from_le_bytes([0, c[0], c[1], c[2]]) >> 8;
                 value as f32 / 8_388_608.0
             })
             .collect(),
         (1, 32) => data
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .map(|c| i32::from_le_bytes([c[0], c[1], c[2], c[3]]) as f32 / 2_147_483_648.0)
             .collect(),
         (3, 32) => data
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
             .collect(),
         _ => return Err(format!("unsupported WAVE format (tag {tag}, {bits}-bit)")),
@@ -119,8 +127,9 @@ pub fn parse_wav(bytes: &[u8]) -> Result<SfxClip, String> {
 /// Decoded clips by key (the clip's URL). Windows share this table, so the key
 /// must identify the sound itself; a per-window counter would let one window's
 /// clip replace another's.
-static CLIPS: LazyLock<Mutex<HashMap<String, (u64, Arc<SfxClip>)>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+type ClipTable = HashMap<String, (u64, Arc<SfxClip>)>;
+
+static CLIPS: LazyLock<Mutex<ClipTable>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
 pub fn store_clip(key: &str, bytes: &[u8]) -> Result<(), String> {

@@ -74,7 +74,7 @@ pub fn dither_frame(img: &RgbaImage, palette: &SharedPalette) -> Vec<u8> {
     let n = (w * h) as usize;
     let mut error_buf = vec![[0f32; 3]; n];
     let mut indices = vec![0u8; n];
-    let opaque_count = palette.opaque_count.max(1).min(255);
+    let opaque_count = palette.opaque_count.clamp(1, 255);
     let transparent_index = palette.transparent_index;
 
     for y in 0..h {

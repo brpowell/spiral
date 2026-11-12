@@ -250,9 +250,7 @@ fn clean_formatted_stem(stem: &str) -> String {
         s = s[2..].trim_start().to_string();
     }
     while s.ends_with(" -") || s.ends_with(" - ") {
-        s = s
-            .trim_end_matches(|c: char| c == ' ' || c == '-')
-            .to_string();
+        s = s.trim_end_matches([' ', '-']).to_string();
     }
     sanitize_filename(&s)
 }

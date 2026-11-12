@@ -676,7 +676,7 @@ fn lower_button(node: &WmsNode, deps: &mut LowerDeps<'_>, ids: &mut IdGen) -> Op
         }
     }
     let Some(assets) = interactive_assets(node, deps, "buttons") else {
-        if node.attrs.get("image").is_none() {
+        if !node.attrs.contains_key("image") {
             deps.report
                 .add(ReportKind::Info, "button has no image", Some(&id), None);
         }
@@ -727,7 +727,7 @@ fn lower_button_group(node: &WmsNode, deps: &mut LowerDeps<'_>, ids: &mut IdGen)
         register_image(map_name, AssetRole::Map, deps, Some("buttons"), Some(&id))
     });
     let (Some(assets), Some(position_map)) = (assets, position_map) else {
-        if node.attrs.get("image").is_none() && node.attrs.get("mappingimage").is_none() {
+        if !node.attrs.contains_key("image") && !node.attrs.contains_key("mappingimage") {
             deps.report.add(
                 ReportKind::Info,
                 "buttongroup missing image or mappingImage",
@@ -854,10 +854,10 @@ fn lower_slider(node: &WmsNode, deps: &mut LowerDeps<'_>, ids: &mut IdGen) -> Op
             .map(String::as_str),
     );
     let Some(presentation) = slider_presentation(node, deps, &bounds, direction) else {
-        if node.attrs.get("image").is_none()
-            && node.attrs.get("thumbimage").is_none()
-            && node.attrs.get("backgroundimage").is_none()
-            && node.attrs.get("foregroundimage").is_none()
+        if !node.attrs.contains_key("image")
+            && !node.attrs.contains_key("thumbimage")
+            && !node.attrs.contains_key("backgroundimage")
+            && !node.attrs.contains_key("foregroundimage")
         {
             deps.report.add(
                 ReportKind::Info,
@@ -2112,13 +2112,8 @@ fn inset_stretch_tiles_from_corner_caps(tiles: &mut [Value]) {
                         return None;
                     }
                     let h = cap.h?;
-                    let same_side = match (stretch_x, cap.x) {
-                        (Some(a), Some(b)) if a == b => true,
-                        _ => match (stretch_right, cap.right) {
-                            (Some(a), Some(b)) if a == b => true,
-                            _ => false,
-                        },
-                    };
+                    let same_side = matches!((stretch_x, cap.x), (Some(a), Some(b)) if a == b)
+                        || matches!((stretch_right, cap.right), (Some(a), Some(b)) if a == b);
                     same_side.then_some(h)
                 });
                 if let Some(h) = cap_h {
@@ -3324,7 +3319,7 @@ function AdjustAudio() {
         let size_map: HashMap<&str, (u32, u32)> = sizes.iter().copied().collect();
         let mut size_of = |name: &str| size_map.get(name).copied();
         let mut resolve = |name: &str| {
-            if missing.iter().any(|m| *m == name) {
+            if missing.contains(&name) {
                 None
             } else {
                 Some(PathBuf::from(format!("/tmp/{name}")))

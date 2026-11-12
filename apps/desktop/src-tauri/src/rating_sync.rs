@@ -99,7 +99,7 @@ fn run_file_write(
         Ok(()) => {}
         Err(MetadataWriteError::UnsupportedFormat(_)) => {}
         Err(err) => {
-            let message = err.to_message();
+            let message = err.into_message();
             activity_log::log(
                 LogLevel::Warn,
                 "library",

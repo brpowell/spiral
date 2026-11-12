@@ -146,11 +146,7 @@ fn lrclib_search_url(artist: &str, title: &str) -> String {
 }
 
 fn collapse_whitespace(value: &str) -> String {
-    value
-        .trim()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+    value.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn strip_apostrophes(value: &str) -> String {
@@ -631,7 +627,7 @@ fn send_lrclib_request_with_retry(
             activity_log::log(
                 LogLevel::Warn,
                 "lyrics",
-                &format!("LRCLIB {operation} timed out, retrying once"),
+                format!("LRCLIB {operation} timed out, retrying once"),
                 Some(serde_json::json!({
                     "url": url,
                     "timeoutSecs": timeout.as_secs(),
