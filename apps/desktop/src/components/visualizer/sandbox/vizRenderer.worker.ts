@@ -302,6 +302,23 @@ function handleFrame(
   post({ type: "rendered", seq: msg.seq, bitmap }, [bitmap]);
 }
 
+/**
+ * Free the GL context now instead of whenever the terminated worker is
+ * collected. WebKit caps live WebGL contexts, so contexts left behind by
+ * finished previews make later ones fail to create.
+ */
+function releaseWebglContext(): void {
+  // A deliberate release is not a crash; don't report it to the host.
+  canvas?.removeEventListener("webglcontextlost", handleContextLost);
+  try {
+    // Returns the pack's existing context; the other type returns null.
+    const gl = canvas?.getContext("webgl2") ?? canvas?.getContext("webgl");
+    gl?.getExtension("WEBGL_lose_context")?.loseContext();
+  } catch {
+    // ignore
+  }
+}
+
 function handleDispose(): void {
   try {
     canvas2dInstance?.dispose?.();
@@ -313,6 +330,7 @@ function handleDispose(): void {
   } catch {
     // ignore
   }
+  if (engine === "webgl") releaseWebglContext();
   canvas2dInstance = null;
   webglInstance = null;
   ctx2d = null;
