@@ -10,7 +10,9 @@ const MIRROR = false;
 const GLOW = 0;
 const ORIENTATION = "horizontal";
 
-const IDLE_SPEED = 0.00032;
+// Phase per second (0.00032 per frame at 60 fps). Time-based so the idle wave
+// keeps its speed when the frame rate varies with viewport size.
+const IDLE_SPEED_PER_SECOND = 0.0192;
 const IDLE_WAVE_FREQ = 180;
 const IDLE_WAVE_SPREAD = 0.22;
 const IDLE_WAVE_AMP = 0.22;
@@ -385,7 +387,7 @@ export function create() {
 
       const reducedMotion = frame.flags.reducedMotion === true;
       const amount = stepPresence(playing, dt, reducedMotion);
-      idlePhase += IDLE_SPEED;
+      idlePhase += IDLE_SPEED_PER_SECOND * (dt / 1000);
       const levels = new Array(columns);
       for (let i = 0; i < columns; i++) {
         const idle = idleWaveValue(idlePhase, i, columns);
