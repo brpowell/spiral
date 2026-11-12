@@ -40,6 +40,8 @@ mod library_relocate;
 mod linux_webgl_workers;
 #[cfg(target_os = "linux")]
 mod linux_webkit_env;
+#[cfg(target_os = "linux")]
+mod linux_window_frame;
 mod lyrics_fetch;
 mod lyrics_fetch_cache;
 mod lyrics_lrc;
@@ -217,6 +219,7 @@ pub fn run() {
             commands::app::quit_app,
             app_windows::ensure_app_window,
             app_windows::release_app_window,
+            app_windows::window_frame,
             app_windows::create_skin_aux_window,
             commands::files::pick_audio_files,
             commands::files::pick_library_paths,

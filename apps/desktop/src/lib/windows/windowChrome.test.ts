@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+const installWindowFrameMock = vi.fn();
+
+vi.mock("./windowFrame", () => ({
+  installWindowFrame: () => installWindowFrameMock(),
+}));
+
 import {
+  applyCustomWindowChrome,
   getDesktopPlatform,
   usesCustomWindowChrome,
   usesMacOverlayChrome,
@@ -8,6 +16,41 @@ import {
 describe("windowChrome", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    installWindowFrameMock.mockReset();
+  });
+
+  it("keeps the GTK frame on Linux and clips only from the window itself", async () => {
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (X11; Linux x86_64)",
+    });
+    const target = {
+      setDecorations: vi.fn(),
+      setShadow: vi.fn(),
+      setTitleBarStyle: vi.fn(),
+    };
+
+    await applyCustomWindowChrome(target);
+    expect(installWindowFrameMock).not.toHaveBeenCalled();
+    expect(target.setDecorations).not.toHaveBeenCalled();
+
+    await applyCustomWindowChrome();
+    expect(installWindowFrameMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops decorations and keeps the shadow on Windows", async () => {
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    });
+    const target = {
+      setDecorations: vi.fn().mockResolvedValue(undefined),
+      setShadow: vi.fn().mockResolvedValue(undefined),
+      setTitleBarStyle: vi.fn(),
+    };
+
+    await applyCustomWindowChrome(target);
+    expect(target.setDecorations).toHaveBeenCalledWith(false);
+    expect(target.setShadow).toHaveBeenCalledWith(true);
+    expect(installWindowFrameMock).not.toHaveBeenCalled();
   });
 
   it("treats Windows as custom chrome", () => {

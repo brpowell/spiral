@@ -1,4 +1,5 @@
 import { getCurrentWindow, type Window } from "@tauri-apps/api/window";
+import { installWindowFrame } from "./windowFrame";
 
 export type DesktopPlatform = "macos" | "windows" | "linux" | "unknown";
 
@@ -33,10 +34,11 @@ export function usesMacOverlayChrome(): boolean {
 
 /**
  * Apply the platform window chrome.
- * Windows/Linux drop native decorations. macOS uses an overlay title bar so
- * the webview paints the theme under the traffic lights.
- * On Linux, call after the window is visible — GTK often ignores decoration
- * changes while still hidden.
+ * Windows drops native decorations and keeps the DWM shadow. macOS uses an
+ * overlay title bar so the webview paints the theme under the traffic lights.
+ * Linux keeps GTK's frame (shadow, rounded corners, outer resize border) with
+ * an empty titlebar; the backend sets it up, so only a window's own call
+ * (no `target`) does anything, which is to clip the page to the frame.
  */
 export async function applyCustomWindowChrome(
   target?: WindowChromeTarget,
@@ -46,6 +48,10 @@ export async function applyCustomWindowChrome(
     return;
   }
   try {
+    if (platform === "linux") {
+      if (!target) await installWindowFrame();
+      return;
+    }
     const window = target ?? getCurrentWindow();
     if (platform === "macos") {
       await window.setDecorations(true);

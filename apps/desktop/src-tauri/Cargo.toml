@@ -117,6 +117,8 @@ libc = "0.2"
 # Same version wry uses; reaches the WebKitGTK settings of a webview.
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = "2.0"
+# Window frame (shadow, rounded corners); same version tao and wry use.
+gtk = "0.18"
 javascriptcore-rs = { version = "1.1", optional = true }
 # PNG encoding for agent-bridge screenshots (same major version webkit2gtk uses).
 cairo-rs = { version = "0.18", features = ["png"], optional = true }
