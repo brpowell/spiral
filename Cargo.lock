@@ -18,6 +18,7 @@ dependencies = [
  "fdk-aac",
  "flacenc",
  "gif",
+ "gtk",
  "hex",
  "id3",
  "image",

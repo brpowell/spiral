@@ -5,6 +5,27 @@
   min-height: 0;
 }
 
+/*
+ * Linux: GTK draws the shadow and rounded frame around a transparent webview
+ * (linux_window_frame.rs, windowFrame.ts). Clip the page to the same radius.
+ * The transparent `background-image` keeps <html> from inheriting <body>'s
+ * fill, which would paint the whole canvas square and outside the clip.
+ * clip-path (not overflow) so fixed overlays and modals are clipped too.
+ */
+html[data-window-frame] {
+  --window-frame-radius: 10px;
+  background: transparent linear-gradient(transparent, transparent);
+}
+
+html[data-window-frame] body {
+  height: 100vh;
+  background: var(--fill-page);
+}
+
+html[data-window-frame="rounded"] body {
+  clip-path: inset(0 round var(--window-frame-radius));
+}
+
 .custom-window-frame__body {
   flex: 1;
   min-height: 0;

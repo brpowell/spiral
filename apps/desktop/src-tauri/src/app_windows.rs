@@ -153,6 +153,48 @@ const WINDOWS: &[WindowSpec] = &[
     },
 ];
 
+/// Whether the native frame around a custom-chrome window has rounded
+/// corners the page should clip to. Only Linux draws one; elsewhere the OS
+/// handles corners (Windows 11, macOS) and this stays off.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowFrame {
+    /// The native frame is on and the page should clip to it.
+    pub enabled: bool,
+    /// Corners are rounded right now (not maximized, tiled or fullscreen).
+    pub rounded: bool,
+}
+
+impl WindowFrame {
+    pub const NONE: Self = Self {
+        enabled: false,
+        rounded: false,
+    };
+}
+
+/// Frame state for the calling window, turning the Linux frame on if this
+/// window doesn't have it yet. Async with a main-thread hop: GTK objects must
+/// stay on the main thread.
+#[tauri::command]
+pub async fn window_frame(window: tauri::WebviewWindow) -> Result<WindowFrame, String> {
+    #[cfg(target_os = "linux")]
+    {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let target = window.clone();
+        window
+            .run_on_main_thread(move || {
+                let _ = tx.send(crate::linux_window_frame::apply(&target));
+            })
+            .map_err(|err| err.to_string())?;
+        rx.recv().map_err(|err| err.to_string())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = window;
+        Ok(WindowFrame::NONE)
+    }
+}
+
 #[derive(Serialize)]
 pub struct EnsureAppWindowResult {
     created: bool,
@@ -392,6 +434,16 @@ fn create_window(app: &AppHandle, label: &str) -> Result<(), String> {
     let window = builder
         .build()
         .map_err(|err| format!("create `{}`: {err}", spec.label))?;
+
+    // Before the first show, so GTK still takes the empty titlebar.
+    #[cfg(target_os = "linux")]
+    if spec.custom_chrome {
+        let target = window.clone();
+        app.run_on_main_thread(move || {
+            crate::linux_window_frame::apply(&target);
+        })
+        .map_err(|err| err.to_string())?;
+    }
 
     // Safety net: if the frontend never reaches first paint, don't leave the
     // app invisible.
