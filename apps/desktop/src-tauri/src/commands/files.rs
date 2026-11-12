@@ -22,11 +22,13 @@ fn is_known_path(app: &AppHandle, path: &Path) -> bool {
 }
 
 /// The resolved path to use for the actual file operation, when `path` is in
-/// scope or is a library track's file. `path` may be a network-location URI
-/// the webview handed over instead of a real filesystem path (see
-/// [`crate::network_uri`]).
+/// scope or is a library track's file. `path` may be a network-location URI;
+/// it only resolves to a local path here if it matches one the OS already
+/// reported via a drop or a pick (see [`path_scope::resolved_network_uri`]),
+/// never by resolving a fresh one from a string a command merely receives.
 fn ensure_known_path(app: &AppHandle, path: &str) -> Result<PathBuf, String> {
-    let resolved = crate::network_uri::resolve_dropped_path(path);
+    let resolved =
+        path_scope::resolved_network_uri(app, path).unwrap_or_else(|| PathBuf::from(path));
     if is_known_path(app, &resolved) {
         Ok(resolved)
     } else {
@@ -76,7 +78,8 @@ pub async fn scan_folder(app: AppHandle, folder_path: String) -> Result<Vec<Stri
 #[tauri::command]
 pub async fn file_exists(app: AppHandle, path: String) -> bool {
     tauri::async_runtime::spawn_blocking(move || {
-        let path = crate::network_uri::resolve_dropped_path(&path);
+        let path =
+            path_scope::resolved_network_uri(&app, &path).unwrap_or_else(|| PathBuf::from(&path));
         is_known_path(&app, &path) && path.is_file()
     })
     .await

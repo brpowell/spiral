@@ -28,9 +28,9 @@ const ART_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(10);
 pub async fn parse_track_metadata(app: AppHandle, file_path: String) -> Result<TrackInput, String> {
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let file_path = crate::network_uri::resolve_dropped_path(&file_path)
-            .to_string_lossy()
-            .into_owned();
+        let file_path = path_scope::resolved_network_uri(&app, &file_path)
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or(file_path);
         let app_data = app_data_dir(&app)?;
         let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
         let lyrics_sidecar_enabled = settings::lyrics_sidecar_sync_enabled(&app);
