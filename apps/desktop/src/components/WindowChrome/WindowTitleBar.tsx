@@ -50,7 +50,10 @@ function runEditCommand(
 export interface WindowTitleBarProps {
   /** Shown in the title bar when menus are hidden (aux windows). Defaults to the app name. */
   title?: string;
-  /** When set, Spiral / File / Edit / View menus are shown (main library window). */
+  /**
+   * When set, Spiral / File / Edit / View menus are shown (main library window).
+   * They are hidden while onboarding is open; the bar stays a drag region.
+   */
   handlers?: AppMenuHandlers;
   /** Hide maximize when the window is fixed-size (e.g. Equalizer). */
   showMaximize?: boolean;
@@ -61,7 +64,11 @@ export function WindowTitleBar({
   handlers,
   showMaximize = true,
 }: WindowTitleBarProps) {
-  const showMenus = handlers != null;
+  const hasMenus = handlers != null;
+  // macOS greys out its native menu during onboarding (see `setupAppMenu`);
+  // this bar is ours, so it hides the menus and stays a drag region.
+  const onboarding = useOnboardingStore((s) => s.open);
+  const showMenus = hasMenus && !onboarding;
   const [maximized, setMaximized] = useState(false);
   const [activeMenu, setActiveMenu] = useState<AppMenuBarId | null>(null);
   const [reloadLinkedEnabled, setReloadLinkedEnabled] = useState(false);
@@ -100,7 +107,7 @@ export function WindowTitleBar({
   }, []);
 
   useEffect(() => {
-    if (!showMenus) return;
+    if (!hasMenus) return;
     void linkedPacksAvailable().then(setReloadLinkedEnabled);
     const unlisten = listen(LINKED_PACKS_CHANGED_EVENT, () => {
       void linkedPacksAvailable().then(setReloadLinkedEnabled);
@@ -108,11 +115,17 @@ export function WindowTitleBar({
     return () => {
       void unlisten.then((fn) => fn());
     };
-  }, [showMenus]);
+  }, [hasMenus]);
 
   useEffect(() => {
     if (!open) setActiveMenu(null);
   }, [open]);
+
+  useEffect(() => {
+    if (showMenus) return;
+    closeMenu();
+    setActiveMenu(null);
+  }, [showMenus, closeMenu]);
 
   const openMenu = (id: AppMenuBarId, el: HTMLElement, keyboard?: boolean) => {
     setActiveMenu(id);
@@ -140,9 +153,6 @@ export function WindowTitleBar({
     void getCurrentWindow().toggleMaximize();
   };
 
-  // Mirrors the native menu: see `setupAppMenu`.
-  const onboarding = useOnboardingStore((s) => s.open);
-
   const run = (action: () => void) => () => {
     closeMenu();
     setActiveMenu(null);
@@ -164,7 +174,6 @@ export function WindowTitleBar({
         <ContextMenuSeparator />
         <ContextMenuItem
           label={t("menus:app.preferences")}
-          disabled={onboarding}
           onClick={run(handlers.openPreferences)}
         />
         <ContextMenuSeparator />
@@ -179,23 +188,19 @@ export function WindowTitleBar({
       <>
         <ContextMenuItem
           label={t("menus:file.addToLibrary")}
-          disabled={onboarding}
           onClick={run(handlers.addToLibrary)}
         />
         <ContextMenuItem
           label={t("menus:file.newPlaylist")}
-          disabled={onboarding}
           onClick={run(handlers.newPlaylist)}
         />
         <ContextMenuSeparator />
         <ContextMenuItem
           label={t("menus:file.refreshLibraryMetadata")}
-          disabled={onboarding}
           onClick={run(handlers.refreshLibraryMetadata)}
         />
         <ContextMenuItem
           label={t("menus:file.fetchMissingLyrics")}
-          disabled={onboarding}
           onClick={run(handlers.fetchMissingLyrics)}
         />
       </>
@@ -235,23 +240,20 @@ export function WindowTitleBar({
       <>
         <ContextMenuItem
           label={t("menus:view.skinMode")}
-          disabled={onboarding}
           onClick={run(handlers.openSkinMode)}
         />
         <ContextMenuItem
           label={t("menus:view.studio")}
-          disabled={onboarding}
           onClick={run(handlers.openAppearance)}
         />
         <ContextMenuItem
           label={t("menus:view.reloadLinkedPacks")}
-          disabled={onboarding || !reloadLinkedEnabled}
+          disabled={!reloadLinkedEnabled}
           onClick={run(handlers.reloadLinkedPacks)}
         />
         <ContextMenuSeparator />
         <ContextMenuItem
           label={t("menus:view.equalizer")}
-          disabled={onboarding}
           onClick={run(handlers.openEqualizer)}
         />
         <ContextMenuItem
@@ -329,7 +331,7 @@ export function WindowTitleBar({
         data-tauri-drag-region="deep"
         onDoubleClick={onDragDoubleClick}
       >
-        {showMenus ? null : (
+        {hasMenus ? null : (
           <span className="window-titlebar__title">{title}</span>
         )}
 
