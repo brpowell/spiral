@@ -28,7 +28,7 @@ const ART_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(10);
 pub async fn parse_track_metadata(app: AppHandle, file_path: String) -> Result<TrackInput, String> {
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let file_path = crate::gvfs_uri::resolve_dropped_path(&file_path)
+        let file_path = crate::network_uri::resolve_dropped_path(&file_path)
             .to_string_lossy()
             .into_owned();
         let app_data = app_data_dir(&app)?;

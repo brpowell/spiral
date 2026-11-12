@@ -24,9 +24,9 @@ fn is_known_path(app: &AppHandle, path: &Path) -> bool {
 /// The resolved path to use for the actual file operation, when `path` is in
 /// scope or is a library track's file. `path` may be a network-location URI
 /// the webview handed over instead of a real filesystem path (see
-/// [`crate::gvfs_uri`]).
+/// [`crate::network_uri`]).
 fn ensure_known_path(app: &AppHandle, path: &str) -> Result<PathBuf, String> {
-    let resolved = crate::gvfs_uri::resolve_dropped_path(path);
+    let resolved = crate::network_uri::resolve_dropped_path(path);
     if is_known_path(app, &resolved) {
         Ok(resolved)
     } else {
@@ -70,7 +70,7 @@ pub fn scan_folder(app: AppHandle, folder_path: String) -> Result<Vec<String>, S
 
 #[tauri::command]
 pub fn file_exists(app: AppHandle, path: String) -> bool {
-    let path = crate::gvfs_uri::resolve_dropped_path(&path);
+    let path = crate::network_uri::resolve_dropped_path(&path);
     is_known_path(&app, &path) && path.is_file()
 }
 

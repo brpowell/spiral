@@ -60,6 +60,7 @@ dependencies = [
  "walkdir",
  "webkit2gtk",
  "windows 0.61.3",
+ "zbus",
  "zip",
 ]
 
