@@ -17,6 +17,7 @@ import {
   type OnboardingStepId,
 } from "@/store/useOnboardingStore";
 import { describeSourceError } from "@/lib/files/sourceAccess";
+import { cubicBezierEasing } from "@/lib/ui/motion";
 import { useSourcesStore } from "@/store/useSourcesStore";
 import { Button } from "@/components/common/Button/Button";
 import { FadingScroller } from "./FadingScroller";
@@ -41,6 +42,10 @@ export const ONBOARDING_DOCK_MS = 800;
 export const ONBOARDING_FINISH_COUNTDOWN_S = 15;
 /** Matches the `.onboarding` opacity transition. */
 export const ONBOARDING_FADE_MS = 600;
+
+// Same curve as the `onboarding-panel-in` CSS animation. Evaluated by hand
+// (see the dock effect below) instead of handed to `Element.animate()`.
+const dockEase = cubicBezierEasing(0.22, 1, 0.36, 1);
 
 /**
  * `split`: text left, controls right, on the same fixed grid for every such
@@ -162,28 +167,44 @@ function OnboardingOverlay() {
   // FLIP the logo from the centred intro position into its docked corner:
   // the class change moved it (First → Last), so play it back from the old
   // rect with transforms only, which keeps it smooth and the SVG crisp.
+  // Driven by hand frame-by-frame (not `Element.animate()`/a CSS transition)
+  // because WebKit's TextureMapper compositor — WebKitGTK/WPE, i.e. Linux —
+  // has shipped versions that play a declarative cubic-bezier animation on
+  // an accelerated `transform` back linearly instead of eased.
   useLayoutEffect(() => {
     if (!docked) return;
     const el = logoRef.current;
     const first = introRectRef.current;
-    if (!el || !first || typeof el.animate !== "function") return;
+    if (!el || !first) return;
     const last = el.getBoundingClientRect();
     if (last.width === 0) return;
     const reduced = window.matchMedia?.(
       "(prefers-reduced-motion: reduce)",
     ).matches;
     if (reduced) return;
-    const from = `translate(${first.left - last.left}px, ${first.top - last.top}px) scale(${first.width / last.width})`;
-    el.animate(
-      [
-        { transformOrigin: "top left", transform: from },
-        { transformOrigin: "top left", transform: "none" },
-      ],
-      {
-        duration: ONBOARDING_DOCK_MS,
-        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-      },
-    );
+    const dx = first.left - last.left;
+    const dy = first.top - last.top;
+    const fromScale = first.width / last.width;
+    el.style.transformOrigin = "top left";
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / ONBOARDING_DOCK_MS);
+      if (t >= 1) {
+        el.style.transform = "";
+        el.style.transformOrigin = "";
+        return;
+      }
+      const eased = dockEase(t);
+      const scale = fromScale + (1 - fromScale) * eased;
+      el.style.transform = `translate(${dx * (1 - eased)}px, ${dy * (1 - eased)}px) scale(${scale})`;
+      frame = requestAnimationFrame(tick);
+    };
+    let frame = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(frame);
+      el.style.transform = "";
+      el.style.transformOrigin = "";
+    };
   }, [docked]);
 
   useEffect(() => {
