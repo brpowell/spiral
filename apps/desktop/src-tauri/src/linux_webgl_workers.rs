@@ -111,9 +111,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn webkitgtk_has_the_feature() {
+        let api = feature_api().expect("WebKitGTK >= 2.42 feature API");
+        assert_eq!(with_feature(api, |_| ()), Some(()), "AllowWebGLInWorkers");
+    }
+
+    #[test]
     fn enables_webgl_in_workers_on_settings() {
-        // The C constructor, not `Settings::new()`, which demands GTK be
-        // initialized on the main thread; WebKitSettings itself does not.
+        // A WebKitSettings reads GTK font settings, which abort without a
+        // display (headless CI). The feature lookup above still runs there.
+        if std::env::var_os("WAYLAND_DISPLAY").is_none() && std::env::var_os("DISPLAY").is_none() {
+            eprintln!("skipped: no display for WebKitSettings");
+            return;
+        }
+        // The C constructor, not `Settings::new()`, which also demands GTK be
+        // initialized on the test thread.
         // SAFETY: returns a new owned WebKitSettings*, released at the end.
         let ptr: *mut c_void = unsafe { webkit2gtk::ffi::webkit_settings_new() }.cast();
         let api = feature_api().expect("WebKitGTK >= 2.42 feature API");
