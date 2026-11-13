@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.1.0](https://github.com/brpowell/spiral/compare/desktop-v1.0.0...desktop-v1.1.0) (2026-11-12)
+
+
+### Features
+
+* **desktop:** choose lyrics from a list and remember applied results ([#146](https://github.com/brpowell/spiral/issues/146)) ([c55fa5c](https://github.com/brpowell/spiral/commit/c55fa5c8b6e248c9578a57b4bcb28d977181e733))
+* **desktop:** give Linux windows a shadow, rounded corners and wider resize edges ([#156](https://github.com/brpowell/spiral/issues/156)) ([51c56dc](https://github.com/brpowell/spiral/commit/51c56dc5532a3b9b19d44a1a4522bac1e65900a0))
+* **desktop:** support Linux in the dev agent bridge ([#153](https://github.com/brpowell/spiral/issues/153)) ([8fbab7f](https://github.com/brpowell/spiral/commit/8fbab7fe872de59f33ff5e962a2aea8f73e9ce16))
+
+
+### Bug Fixes
+
+* **desktop:** clear clippy warnings in the Rust backend ([#157](https://github.com/brpowell/spiral/issues/157)) ([4e6010b](https://github.com/brpowell/spiral/commit/4e6010bd3a95458acb26008ab72a5920a5de3f95))
+* **desktop:** ease the onboarding logo dock animation on Linux ([#158](https://github.com/brpowell/spiral/issues/158)) ([8c34a27](https://github.com/brpowell/spiral/commit/8c34a27ef27e78386923bb08ff04cd9fc110c94d))
+* **desktop:** hide the custom menu bar during onboarding ([#154](https://github.com/brpowell/spiral/issues/154)) ([8b80043](https://github.com/brpowell/spiral/commit/8b80043cd23dd22d35f65c7ce583ec54207c49c7))
+* **desktop:** keep visualizer idle animation speed steady at any size ([#151](https://github.com/brpowell/spiral/issues/151)) ([d0c0544](https://github.com/brpowell/spiral/commit/d0c054474ca61cca39bb59d57916ef964c034a73))
+* **desktop:** render WebGL visualizers on Linux ([#152](https://github.com/brpowell/spiral/issues/152)) ([30a277a](https://github.com/brpowell/spiral/commit/30a277a288dd7774a27d12f5e49179dbb9a44de9))
+* **desktop:** resolve network-share URIs on import (Linux, GVFS + KIO) ([#159](https://github.com/brpowell/spiral/issues/159)) ([fdf3cc2](https://github.com/brpowell/spiral/commit/fdf3cc27936120f03e3e0b96a8ffb002ba9e120a))
+* **desktop:** smooth rendering on Linux with NVIDIA under Wayland ([#150](https://github.com/brpowell/spiral/issues/150)) ([0034197](https://github.com/brpowell/spiral/commit/0034197c7d1c812ebff5e76053f3b582ada7405d))
+* **desktop:** stop asking for Accessibility access on launch ([#149](https://github.com/brpowell/spiral/issues/149)) ([3015cfb](https://github.com/brpowell/spiral/commit/3015cfb64789d0c86ea717b41bf410b9b4e19f9f))
+* **desktop:** stop WebGL visualizer previews crashing on Linux ([#155](https://github.com/brpowell/spiral/issues/155)) ([7b171e2](https://github.com/brpowell/spiral/commit/7b171e250571b85531c6a9b0159caa6f8f81ca20))
+
 ## [1.0.0](https://github.com/brpowell/spiral/compare/desktop-v0.4.0...desktop-v1.0.0) (2026-11-07)
 
 
