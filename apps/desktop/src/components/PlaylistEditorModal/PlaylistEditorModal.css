@@ -8,89 +8,6 @@
   resize: none;
 }
 
-.playlist-editor__art {
-  display: grid;
-  grid-template-columns: 10rem minmax(0, 1fr);
-  gap: 1.5rem;
-  align-items: start;
-}
-
-.playlist-editor__art-preview {
-  position: sticky;
-  top: 0;
-}
-
-.playlist-editor__art-preview .playlist-art--editor {
-  width: 10rem;
-  height: 10rem;
-  border-radius: var(--radius-md);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-bg) 35%, transparent);
-}
-
-.playlist-editor__art-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 1.15rem;
-  min-width: 0;
-}
-
-/* Keep every art option laid out so the tab stays as tall as the tallest one. */
-.playlist-editor__option-stage {
-  display: grid;
-}
-
-.playlist-editor__option-stage > * {
-  grid-area: 1 / 1;
-  align-self: start;
-}
-
-.playlist-editor__option-stage > [inert] {
-  visibility: hidden;
-}
-
-.playlist-editor__style-cards.radio-group {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.65rem;
-  width: 100%;
-}
-
-.playlist-editor__style-card.radio-group-item--button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.65rem 0.45rem;
-  min-width: 0;
-  height: auto;
-  border-radius: var(--radius-md);
-}
-
-.playlist-editor__style-thumb {
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.playlist-editor__style-thumb .playlist-art,
-.playlist-art--style-card {
-  width: 100%;
-  height: 100%;
-  border-radius: var(--radius-sm);
-}
-
-.playlist-editor__style-label {
-  font-size: 0.8rem;
-  line-height: 1.2;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
 .playlist-editor__hint {
   margin: 0;
   font-size: 0.8125rem;
@@ -109,17 +26,4 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 0.5rem;
-}
-
-@media (max-width: 560px) {
-  .playlist-editor__art {
-    grid-template-columns: 1fr;
-    gap: 1.15rem;
-  }
-
-  .playlist-editor__art-preview {
-    position: static;
-    display: flex;
-    justify-content: center;
-  }
 }

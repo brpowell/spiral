@@ -15,6 +15,7 @@ import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";
 import type { Playlist, PlaylistImageMode } from "@/types/playlist";
+import { CoverArtLayout } from "@/components/CoverDesign/CoverArtLayout";
 import { CoverDesignFields } from "@/components/CoverDesign/CoverDesignFields";
 import { EditorDiscardOverlay } from "@/components/EditorDiscardOverlay/EditorDiscardOverlay";
 import { EditorSaveButton } from "@/components/EditorSaveButton/EditorSaveButton";
@@ -25,10 +26,6 @@ import { Alert } from "@/components/common/Alert/Alert";
 import { Button } from "@/components/common/Button/Button";
 import { FormField } from "@/components/common/Field/Field";
 import { ImageCropModal } from "@/components/common/ImageCropModal/ImageCropModal";
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "@/components/common/RadioGroup/RadioGroup";
 import {
   Modal,
   ModalBody,
@@ -543,138 +540,107 @@ export function PlaylistEditorModal() {
                       </TabPanel>
 
                       <TabPanel value="art" className="track-editor__tab-panel">
-                        <div className="playlist-editor__art">
-                          <div className="playlist-editor__art-preview">
+                        <CoverArtLayout
+                          name="playlist-image-mode"
+                          ariaLabel={t(
+                            "library:editor.playlist.coverSourceAria",
+                          )}
+                          value={imageMode}
+                          onChange={handleSelectMode}
+                          preview={
                             <PlaylistArt
                               playlist={previewPlaylist}
                               tracks={tracks}
-                              className="playlist-art--editor"
                               imageCrop={
                                 showLiveCrop ? customImageCrop : undefined
                               }
                             />
-                          </div>
+                          }
+                          options={[
+                            {
+                              value: "design",
+                              label: t("library:editor.playlist.design"),
+                              thumb: (
+                                <PlaylistDesignedArt
+                                  coverBackground={coverBackground}
+                                  coverBackgroundEnd={coverBackgroundEnd}
+                                  coverIcon={coverIcon}
+                                  className="playlist-art--style-card"
+                                />
+                              ),
+                            },
+                            {
+                              value: "generated",
+                              label: t("library:editor.playlist.fromTracks"),
+                              thumb: (
+                                <PlaylistGeneratedArt
+                                  tracks={tracks}
+                                  className="playlist-art--style-card"
+                                />
+                              ),
+                            },
+                            {
+                              value: "custom",
+                              label: t("library:editor.playlist.image"),
+                              thumb: (
+                                <PlaylistArt
+                                  playlist={{
+                                    ...previewPlaylist,
+                                    imageMode: "custom",
+                                    customImagePath: showLiveCrop
+                                      ? customImageSourcePath
+                                      : pendingCustomPath,
+                                  }}
+                                  className="playlist-art--style-card"
+                                  imageCrop={
+                                    showLiveCrop ? customImageCrop : undefined
+                                  }
+                                />
+                              ),
+                            },
+                          ]}
+                        >
+                          <Alert
+                            variant="info"
+                            inert={imageMode !== "generated"}
+                          >
+                            {t("library:editor.playlist.fromTracksHint")}
+                          </Alert>
 
-                          <div className="playlist-editor__art-controls">
-                            <RadioGroup
-                              name="playlist-image-mode"
-                              value={imageMode}
-                              onChange={handleSelectMode}
-                              variant="button"
-                              orientation="horizontal"
-                              aria-label={t(
-                                "library:editor.playlist.coverSourceAria",
-                              )}
-                              className="playlist-editor__style-cards"
-                            >
-                              <RadioGroupItem
-                                value="design"
-                                className="playlist-editor__style-card"
-                              >
-                                <span
-                                  className="playlist-editor__style-thumb"
-                                  aria-hidden
-                                >
-                                  <PlaylistDesignedArt
-                                    coverBackground={coverBackground}
-                                    coverBackgroundEnd={coverBackgroundEnd}
-                                    coverIcon={coverIcon}
-                                    className="playlist-art--style-card"
-                                  />
-                                </span>
-                                <span className="playlist-editor__style-label">
-                                  {t("library:editor.playlist.design")}
-                                </span>
-                              </RadioGroupItem>
-                              <RadioGroupItem
-                                value="generated"
-                                className="playlist-editor__style-card"
-                              >
-                                <span
-                                  className="playlist-editor__style-thumb"
-                                  aria-hidden
-                                >
-                                  <PlaylistGeneratedArt
-                                    tracks={tracks}
-                                    className="playlist-art--style-card"
-                                  />
-                                </span>
-                                <span className="playlist-editor__style-label">
-                                  {t("library:editor.playlist.fromTracks")}
-                                </span>
-                              </RadioGroupItem>
-                              <RadioGroupItem
-                                value="custom"
-                                className="playlist-editor__style-card"
-                              >
-                                <span
-                                  className="playlist-editor__style-thumb"
-                                  aria-hidden
-                                >
-                                  <PlaylistArt
-                                    playlist={{
-                                      ...previewPlaylist,
-                                      imageMode: "custom",
-                                      customImagePath: showLiveCrop
-                                        ? customImageSourcePath
-                                        : pendingCustomPath,
-                                    }}
-                                    className="playlist-art--style-card"
-                                    imageCrop={
-                                      showLiveCrop ? customImageCrop : undefined
-                                    }
-                                  />
-                                </span>
-                                <span className="playlist-editor__style-label">
-                                  {t("library:editor.playlist.image")}
-                                </span>
-                              </RadioGroupItem>
-                            </RadioGroup>
+                          <CoverDesignFields
+                            inert={imageMode !== "design"}
+                            background={coverBackground}
+                            backgroundEnd={coverBackgroundEnd}
+                            icon={coverIcon}
+                            onChange={(design) => {
+                              setCoverBackground(design.background);
+                              setCoverBackgroundEnd(design.backgroundEnd);
+                              setCoverIcon(design.icon);
+                            }}
+                          />
 
-                            <div className="playlist-editor__option-stage">
-                              <Alert
-                                variant="info"
-                                inert={imageMode !== "generated"}
+                          <div
+                            className="playlist-editor__image-actions"
+                            inert={imageMode !== "custom"}
+                          >
+                            <div className="playlist-editor__image-buttons">
+                              <Button
+                                size="sm"
+                                onClick={() => void handlePickImage()}
                               >
-                                {t("library:editor.playlist.fromTracksHint")}
-                              </Alert>
-
-                              <CoverDesignFields
-                                inert={imageMode !== "design"}
-                                background={coverBackground}
-                                backgroundEnd={coverBackgroundEnd}
-                                icon={coverIcon}
-                                onChange={(design) => {
-                                  setCoverBackground(design.background);
-                                  setCoverBackgroundEnd(design.backgroundEnd);
-                                  setCoverIcon(design.icon);
-                                }}
-                              />
-
-                              <div
-                                className="playlist-editor__image-actions"
-                                inert={imageMode !== "custom"}
-                              >
-                                <div className="playlist-editor__image-buttons">
-                                  <Button
-                                    size="sm"
-                                    onClick={() => void handlePickImage()}
-                                  >
-                                    {t("library:editor.playlist.chooseImage")}
-                                  </Button>
-                                  {hasCustomImage ? (
-                                    <Button size="sm" onClick={handleEditImage}>
-                                      {t("library:editor.editImage")}
-                                    </Button>
-                                  ) : null}
-                                </div>
-                                <p className="playlist-editor__hint">
-                                  {t("library:editor.playlist.chooseImageHint")}
-                                </p>
-                              </div>
+                                {t("library:editor.playlist.chooseImage")}
+                              </Button>
+                              {hasCustomImage ? (
+                                <Button size="sm" onClick={handleEditImage}>
+                                  {t("library:editor.editImage")}
+                                </Button>
+                              ) : null}
                             </div>
+                            <p className="playlist-editor__hint">
+                              {t("library:editor.playlist.chooseImageHint")}
+                            </p>
                           </div>
-                        </div>
+                        </CoverArtLayout>
                       </TabPanel>
                     </div>
                   </ModalBody>
