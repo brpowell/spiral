@@ -189,6 +189,7 @@ const POPULARITY_COL: TrackListColumnDef = {
   sortable: true,
   resizable: true,
   hideable: true,
+  align: "center",
   secondary: true,
 };
 
@@ -328,7 +329,7 @@ export const DEFAULT_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> =
     discNumber: 44,
     dateAdded: 128,
     playCount: 56,
-    popularity: 120,
+    popularity: 112,
     lastPlayedAt: 128,
     rating: 120,
     codec: 72,
@@ -351,7 +352,7 @@ export const MIN_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> = {
   discNumber: 36,
   dateAdded: 96,
   playCount: 44,
-  popularity: 76,
+  popularity: 104,
   lastPlayedAt: 96,
   rating: 96,
   codec: 56,

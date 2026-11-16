@@ -40,10 +40,7 @@ import { TrackItemTitle } from "@/components/TrackItemTitle/TrackItemTitle";
 import { TrackRating } from "@/components/TrackRating/TrackRating";
 import { TrackRowMenu } from "@/components/TrackRowMenu/TrackRowMenu";
 import { CdTrackRowMenu } from "@/components/cd/CdTrackRowMenu/CdTrackRowMenu";
-import {
-  PopularityGlyph,
-  type PopularityGlyphVariant,
-} from "./PopularityGlyph";
+import { PopularityGlyph } from "./PopularityGlyph";
 import type { TrackListColumnDef, TrackListColumnId } from "./types";
 import type { Track } from "@/types/track";
 import type { CanonicalRating } from "@/lib/tracks/trackRating";
@@ -111,12 +108,6 @@ function TrackSourceCell({ sourceId }: { sourceId: number | undefined }) {
   return <>{source ? sourceDisplayName(source) : "—"}</>;
 }
 
-/**
- * Both glyph designs side by side while the Popularity column's look is being chosen. Cut this to
- * the winner (and drop the gap and wider default width) once it is picked.
- */
-const POPULARITY_GLYPH_VARIANTS: PopularityGlyphVariant[] = ["rings"];
-
 /** A track's popularity; subscribes itself so rows stay memoized. */
 function TrackPopularityCell({ trackId }: { trackId: number }) {
   const fraction = usePopularityFraction(POPULARITY_COLUMN_PROFILE, trackId);
@@ -126,9 +117,7 @@ function TrackPopularityCell({ trackId }: { trackId: number }) {
       : t("library:popularity.none");
   return (
     <span className="track-list__popularity" role="img" aria-label={label}>
-      {POPULARITY_GLYPH_VARIANTS.map((variant) => (
-        <PopularityGlyph key={variant} fraction={fraction} variant={variant} />
-      ))}
+      <PopularityGlyph fraction={fraction} />
     </span>
   );
 }

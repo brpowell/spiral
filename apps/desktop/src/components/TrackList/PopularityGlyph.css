@@ -1,38 +1,21 @@
 .popularity-glyph {
   display: block;
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.popularity-glyph__track {
-  stroke: var(--color-text-secondary);
-  stroke-width: 1.4;
-  opacity: 0.4;
-}
-
-.popularity-glyph__lit {
-  stroke: var(--color-accent);
-  stroke-width: 1.8;
-}
-
-/* Grooves are packed tighter than the spiral's turns, so the glyph is a little larger. */
-.popularity-glyph--rings {
   width: 26px;
   height: 26px;
+  flex-shrink: 0;
+  fill: none;
 }
 
 /* Thin enough to leave a clear gap between neighbouring grooves. */
-.popularity-glyph__ring.popularity-glyph__track,
-.popularity-glyph__ring.popularity-glyph__lit {
+.popularity-glyph__ring {
+  stroke: var(--color-text-secondary);
   stroke-width: 0.8;
+  opacity: 0.5;
 }
 
-.popularity-glyph__ring.popularity-glyph__track {
-  opacity: 0.5;
+.popularity-glyph__ring--lit {
+  stroke: var(--color-accent);
+  opacity: 1;
 }
 
 .popularity-glyph__label {
@@ -48,6 +31,5 @@
 
 .track-list__popularity {
   display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  line-height: 0;
 }
