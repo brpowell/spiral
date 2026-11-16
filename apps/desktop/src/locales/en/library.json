@@ -341,8 +341,9 @@
     "source": "Source"
   },
   "popularity": {
-    "label": "Popularity {{percent}}%",
-    "none": "Not played yet"
+    "score": "Popularity: {{score}}",
+    "none": "Not played yet",
+    "explainer": "Based only on your own private listening, with recent plays counting most. Nothing comes from the internet or other listeners."
   },
   "artistBrowse": {
     "discography": {

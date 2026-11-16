@@ -29,7 +29,10 @@
   opacity: 0.9;
 }
 
+/* Fills the cell so the tooltip shows anywhere in it, not only over the 26px glyph. */
 .track-list__popularity {
-  display: inline-flex;
+  display: flex;
+  justify-content: center;
+  width: 100%;
   line-height: 0;
 }

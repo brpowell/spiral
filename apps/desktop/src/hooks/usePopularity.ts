@@ -35,6 +35,16 @@ export function usePopularity(
   return { scores: scores ?? NO_SCORES, ready: scores !== undefined };
 }
 
+/** One track's raw popularity score (0 when it has no listening signal). */
+export function usePopularityScore(
+  profile: PopularityProfile,
+  trackId: number,
+): number {
+  return usePopularityStore(
+    (state) => state.scores[profile]?.get(trackId) ?? 0,
+  );
+}
+
 /**
  * One track's popularity as a 0..1 fraction of the profile's top score, for drawing. It selects a
  * single number, so a row re-renders only when its own value changes. Pair with `usePopularity`
