@@ -32,9 +32,12 @@
   gap: 2rem;
 }
 
+/* Same size and finish as the album and artist hero covers. */
 .genre-detail__art {
-  width: 9rem;
+  width: 220px;
   flex-shrink: 0;
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 5px rgb(0 0 0 / 0.32);
 }
 
 .genre-detail__meta {
@@ -47,5 +50,9 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
+  }
+
+  .genre-detail__art {
+    width: min(220px, 70vw);
   }
 }

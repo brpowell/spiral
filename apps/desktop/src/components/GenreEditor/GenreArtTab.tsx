@@ -51,7 +51,7 @@ export function GenreArtTab({
         ariaLabel={t("editor.genre.modeAria")}
         value={design.mode}
         onChange={(mode) => onChange({ ...design, mode })}
-        preview={<GenreCover look={look} alt={genre.name} />}
+        preview={<GenreCover look={look} alt={genre.name} label={genre.name} />}
         previewFooter={
           <Button
             variant="secondary"

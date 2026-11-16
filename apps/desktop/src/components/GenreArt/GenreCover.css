@@ -1,3 +1,29 @@
+/* The cover's own width is the unit for its label and corner art, so both
+   scale with it. */
+.genre-cover {
+  container-type: inline-size;
+}
+
+/* The genre name, top-left: kept to two lines, set wide and a little see-through
+   so it sits in the gradient rather than on top of it. It has no shadow: the
+   overflow clip that limits the lines would cut one off into a visible block. */
+.genre-cover__label {
+  position: absolute;
+  top: 6cqw;
+  left: 6cqw;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  max-width: 70cqw;
+  overflow: hidden;
+  font-size: calc(var(--genre-label-size, 11) * 1cqw);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: 0.05em;
+  color: rgb(255 255 255 / 0.78);
+  pointer-events: none;
+}
+
 /* The album cover peeks out of the bottom-right corner, like the icon watermark. */
 .genre-cover__art {
   position: absolute;
@@ -14,4 +40,9 @@
 .genre-cover__art .album-art {
   width: 100%;
   height: 100%;
+}
+
+/* Make room for the label: the centered icon sits a little lower. */
+.genre-cover--labeled .playlist-art__design-icon {
+  padding-top: 12cqw;
 }

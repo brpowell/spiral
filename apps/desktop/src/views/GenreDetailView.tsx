@@ -110,6 +110,7 @@ export function GenreDetailView({ genres, genreKey }: GenreDetailViewProps) {
               look={look}
               className="genre-detail__art"
               alt={genre.name}
+              label={genre.name}
             />
             <div className="genre-detail__meta">
               <h1 className="genre-detail__title">{genre.name}</h1>
