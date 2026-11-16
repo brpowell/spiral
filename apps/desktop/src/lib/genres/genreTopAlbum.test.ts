@@ -26,8 +26,7 @@ describe("topAlbumForGenre", () => {
       [b1.id, 10],
     ]);
     const top = topAlbumForGenre({ tracks: [a1, a2, b1] }, scores);
-    expect(top?.album.title).toBe("Beta");
-    expect(top?.basis).toBe("listening");
+    expect(top?.title).toBe("Beta");
   });
 
   it("ignores popular albums that have no artwork", () => {
@@ -37,9 +36,9 @@ describe("topAlbumForGenre", () => {
       [loud.id, 100],
       [quiet.id, 1],
     ]);
-    expect(
-      topAlbumForGenre({ tracks: [loud, quiet] }, scores)?.album.title,
-    ).toBe("Quiet");
+    expect(topAlbumForGenre({ tracks: [loud, quiet] }, scores)?.title).toBe(
+      "Quiet",
+    );
   });
 
   it("falls back to the largest album when nothing has been played", () => {
@@ -49,8 +48,7 @@ describe("topAlbumForGenre", () => {
       track("Big", "b.jpg"),
     ];
     const top = topAlbumForGenre({ tracks }, new Map());
-    expect(top?.album.title).toBe("Big");
-    expect(top?.basis).toBe("tracks");
+    expect(top?.title).toBe("Big");
   });
 
   it("is null when no album has artwork", () => {

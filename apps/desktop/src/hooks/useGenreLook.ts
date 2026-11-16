@@ -2,70 +2,45 @@ import { useMemo } from "react";
 import { useArtPalette } from "@/hooks/useArtPalette";
 import { usePopularity } from "@/hooks/usePopularity";
 import { useThemeAccent } from "@/hooks/useThemeAccent";
-import type { GenreDesign } from "@/lib/genres/genreDesign";
-import {
-  topAlbumForGenre,
-  type GenreTopAlbum,
-} from "@/lib/genres/genreTopAlbum";
+import { defaultIconForGenre } from "@/lib/genres/genreIcon";
+import { topAlbumForGenre } from "@/lib/genres/genreTopAlbum";
 import type { Genre } from "@/lib/genres/genres";
 import { POPULARITY_COLUMN_PROFILE } from "@/lib/popularity/profiles";
 import { coverGradientFromPalette, getDefaultPalette } from "@/lib/ui/palette";
 
-/** What to draw for a genre, whichever art mode it is in. */
+/** What to draw for a genre. */
 export interface GenreLook {
   start: string;
-  end: string | null;
-  /** The design icon, drawn when there is no album art. */
+  end: string;
+  /** Drawn when there is no album art. */
   icon: string;
-  /** Album art to draw in the corner ("album" mode with an album that has art). */
+  /** The most popular album's artwork, drawn in the corner. */
   artPath: string | null;
-  /** The album behind `artPath`, and why it was chosen. */
-  top: GenreTopAlbum | null;
 }
 
 /**
- * The look for a genre with the given design. In "album" mode the gradient is
- * drawn from the most popular album's artwork; with no usable album it falls
- * back to shades of the active theme's accent.
+ * The look for a genre, made from the user's library: the cover of its most
+ * popular album in the corner, with the gradient drawn from that artwork. With
+ * no album artwork it falls back to shades of the active theme's accent.
  */
-export function useGenreLook(genre: Genre, design: GenreDesign): GenreLook {
-  const albumMode = design.mode === "album";
+export function useGenreLook(genre: Genre): GenreLook {
   const accent = useThemeAccent();
-  const { scores } = usePopularity(POPULARITY_COLUMN_PROFILE, {
-    enabled: albumMode,
-  });
+  const { scores } = usePopularity(POPULARITY_COLUMN_PROFILE);
 
-  const top = useMemo(
-    () => (albumMode ? topAlbumForGenre(genre, scores) : null),
-    [albumMode, genre, scores],
-  );
-  const artPath = top?.album.artPath ?? null;
-  const artColors = useArtPalette(albumMode ? artPath : null, accent);
+  const top = useMemo(() => topAlbumForGenre(genre, scores), [genre, scores]);
+  const artPath = top?.artPath ?? null;
+  const artColors = useArtPalette(artPath, accent);
 
   const themeGradient = useMemo(
     () => coverGradientFromPalette(getDefaultPalette(accent)),
     [accent],
   );
+  const icon = useMemo(() => defaultIconForGenre(genre.key), [genre.key]);
 
   return useMemo(() => {
-    if (!albumMode) {
-      return {
-        start: design.background,
-        end: design.backgroundEnd,
-        icon: design.icon,
-        artPath: null,
-        top: null,
-      };
-    }
     const gradient = artColors
       ? coverGradientFromPalette(artColors)
       : themeGradient;
-    return {
-      start: gradient.start,
-      end: gradient.end,
-      icon: design.icon,
-      artPath,
-      top,
-    };
-  }, [albumMode, design, artColors, themeGradient, artPath, top]);
+    return { start: gradient.start, end: gradient.end, icon, artPath };
+  }, [artColors, themeGradient, icon, artPath]);
 }

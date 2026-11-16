@@ -8,12 +8,9 @@
 .cover-art__preview {
   position: sticky;
   top: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
 }
 
-.cover-art__preview-art > * {
+.cover-art__preview > * {
   width: 10rem;
   height: 10rem;
   border-radius: var(--radius-md);
@@ -92,6 +89,7 @@
 
   .cover-art__preview {
     position: static;
-    align-items: center;
+    display: flex;
+    justify-content: center;
   }
 }

@@ -23,7 +23,6 @@ import { useGenreLook } from "@/hooks/useGenreLook";
 import { getGenreByKey, type Genre } from "@/lib/genres/genres";
 import { confirmAndApplyTrackRatings } from "@/lib/tracks/applyTrackRating";
 import type { CanonicalRating } from "@/lib/tracks/trackRating";
-import { useGenreDesign } from "@/store/useGenreDesignStore";
 import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { Track } from "@/types/track";
@@ -49,11 +48,7 @@ export function GenreDetailView({ genres, genreKey }: GenreDetailViewProps) {
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const openGenreEditor = usePlayerStore((s) => s.openGenreEditor);
   const updateTrackInLibrary = usePlayerStore((s) => s.updateTrackInLibrary);
-  const design = useGenreDesign(genreKey);
-  const look = useGenreLook(
-    getGenreByKey(genres, genreKey) ?? EMPTY_GENRE,
-    design,
-  );
+  const look = useGenreLook(getGenreByKey(genres, genreKey) ?? EMPTY_GENRE);
   const [sort, setSort] = useState<SortState>(null);
 
   const genre = getGenreByKey(genres, genreKey);

@@ -9,7 +9,6 @@ import { EntityArt } from "@/components/EntityArt/EntityArt";
 import { useGenreLook } from "@/hooks/useGenreLook";
 import { playlistDesignBackgroundStyle } from "@/lib/playlists/playlistCoverPresets";
 import { SpiralIcon } from "@/lib/iconLibrary";
-import { useGenreDesign } from "@/store/useGenreDesignStore";
 import { useGenreEditMenu } from "@/hooks/useGenreEditMenu";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import type { Genre } from "@/lib/genres/genres";
@@ -27,8 +26,7 @@ function GenreCard({ genre }: { genre: Genre }) {
   const { t } = useTranslation("library");
   const openGenre = useNavigationStore((s) => s.openGenre);
   const { onContextMenu, contextMenu } = useGenreEditMenu(genre);
-  const design = useGenreDesign(genre.key);
-  const look = useGenreLook(genre, design);
+  const look = useGenreLook(genre);
   return (
     <>
       <button

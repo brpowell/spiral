@@ -15,8 +15,6 @@ export interface CoverArtOption<Mode extends string> {
 interface CoverArtLayoutProps<Mode extends string> {
   /** The live cover, drawn large beside the controls. */
   preview: ReactNode;
-  /** Shown just under the preview, such as a reset button. */
-  previewFooter?: ReactNode;
   name: string;
   ariaLabel: string;
   value: Mode;
@@ -35,7 +33,6 @@ interface CoverArtLayoutProps<Mode extends string> {
  */
 export function CoverArtLayout<Mode extends string>({
   preview,
-  previewFooter,
   name,
   ariaLabel,
   value,
@@ -45,10 +42,7 @@ export function CoverArtLayout<Mode extends string>({
 }: CoverArtLayoutProps<Mode>) {
   return (
     <div className="cover-art">
-      <div className="cover-art__preview">
-        <div className="cover-art__preview-art">{preview}</div>
-        {previewFooter}
-      </div>
+      <div className="cover-art__preview">{preview}</div>
 
       <div
         className="cover-art__controls"
