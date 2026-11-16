@@ -31,7 +31,7 @@ function GenreCard({ genre }: { genre: Genre }) {
     <>
       <button
         type="button"
-        className="genre-card"
+        className={`genre-card${look.end ? " genre-card--gradient" : ""}`}
         style={playlistDesignBackgroundStyle(look.start, look.end)}
         onClick={() => openGenre(genre.key, genre.name)}
         onContextMenu={onContextMenu}

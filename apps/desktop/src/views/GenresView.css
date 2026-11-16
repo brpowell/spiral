@@ -39,8 +39,9 @@
 }
 
 /* A soft sheen from the top-left and a shade rising from the bottom, so the
-   flat gradient feels lit. It sits under the text and artwork. */
-.genre-card::before {
+   gradient feels lit. Only gradients get it: a flat color stays flat. It sits
+   under the text and artwork. */
+.genre-card--gradient::before {
   content: "";
   position: absolute;
   inset: 0;
