@@ -26,6 +26,7 @@ export function TrackListColumnMenu({
       icon={<IconColumns />}
       size="sm"
       variant="ghost"
+      menuClassName="context-menu--scroll"
       layoutDeps={[columns.length]}
     >
       <>

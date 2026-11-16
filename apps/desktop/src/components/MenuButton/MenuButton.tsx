@@ -23,6 +23,8 @@ export interface MenuButtonProps {
   icon?: ReactNode;
   className?: string;
   triggerClassName?: string;
+  /** Extra class for the popup menu itself (e.g. `context-menu--scroll`) */
+  menuClassName?: string;
   variant?: ButtonVariant;
   size?: ButtonSize;
   disabled?: boolean;
@@ -48,6 +50,7 @@ export function MenuButton({
   icon,
   className,
   triggerClassName,
+  menuClassName,
   variant = "secondary",
   size = "sm",
   disabled = false,
@@ -118,6 +121,7 @@ export function MenuButton({
         anchor={anchor}
         position={position}
         menuRef={menuRef}
+        className={menuClassName}
         focusFirstItem={openedWithKeyboard}
       >
         {menuContent}

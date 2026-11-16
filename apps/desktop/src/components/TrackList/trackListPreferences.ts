@@ -38,6 +38,7 @@ const VALID_COLUMN_IDS = new Set<TrackListColumnId>([
   "sampleRate",
   "bitrate",
   "lyrics",
+  "source",
 ]);
 
 export function defaultTrackListPreferences(): TrackListPreferences {

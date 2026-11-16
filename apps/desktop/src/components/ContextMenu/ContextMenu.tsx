@@ -22,6 +22,36 @@ import "./ContextMenu.css";
 
 const ContextMenuOpenContext = createContext(true);
 
+/**
+ * Flags a scrollable menu so its CSS can fade the clipped edges: `data-scrollable` when the
+ * content overflows, `data-scroll-top` / `data-scroll-bottom` when more is hidden that way.
+ */
+function syncScrollFade(el: HTMLElement) {
+  const max = el.scrollHeight - el.clientHeight;
+  const scrollable = max > 1;
+  el.toggleAttribute("data-scrollable", scrollable);
+  el.toggleAttribute("data-scroll-top", scrollable && el.scrollTop > 1);
+  el.toggleAttribute(
+    "data-scroll-bottom",
+    scrollable && el.scrollTop < max - 1,
+  );
+}
+
+function useScrollFade(ref: RefObject<HTMLElement | null>, active: boolean) {
+  // Content can change without the menu resizing, so re-check after every render.
+  useLayoutEffect(() => {
+    if (active && ref.current) syncScrollFade(ref.current);
+  });
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!active || !el) return;
+    const onScroll = () => syncScrollFade(el);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [ref, active]);
+}
+
 export function ContextMenuItem({
   icon,
   label,
@@ -226,6 +256,8 @@ export function ContextMenuSubmenu({
     [openFromKeyboard],
   );
 
+  useScrollFade(resolvedPanelRef, flyoutOpen);
+
   const onFlyoutKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {
       const panel = resolvedPanelRef.current;
@@ -310,6 +342,7 @@ export function ContextMenu({
 }: ContextMenuProps) {
   const menuClass = ["context-menu", className].filter(Boolean).join(" ");
   const didFocusRef = useRef(false);
+  useScrollFade(menuRef, open && anchor != null);
 
   useLayoutEffect(() => {
     if (!open) {
