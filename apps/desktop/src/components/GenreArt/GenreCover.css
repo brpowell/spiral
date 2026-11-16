@@ -9,16 +9,19 @@
    overflow clip that limits the lines would cut one off into a visible block. */
 .genre-cover__label {
   position: absolute;
-  top: 6cqw;
+  top: 5.4cqw;
   left: 6cqw;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   max-width: 70cqw;
+  /* The clip that limits the lines would also cut descenders (g, y, p) off at
+     the last line, so leave room below the text. */
+  padding-bottom: 0.18em;
   overflow: hidden;
   font-size: calc(var(--genre-label-size, 11) * 1cqw);
-  font-weight: 600;
-  line-height: 1.08;
+  font-weight: var(--weight-strong);
+  line-height: 1.18;
   letter-spacing: 0.05em;
   color: rgb(255 255 255 / 0.78);
   pointer-events: none;

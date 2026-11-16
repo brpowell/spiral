@@ -25,6 +25,8 @@
   border-radius: 0.75rem;
   overflow: hidden;
   text-align: left;
+  /* A button does not inherit the theme's typeface or sizes on its own. */
+  font: inherit;
   color: #fff;
   cursor: pointer;
   /* Stacked shadows read as height; the inset lines catch light on the top
@@ -60,7 +62,7 @@
 }
 
 .genre-card__name {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: var(--weight-medium);
   overflow: hidden;
   text-overflow: ellipsis;
