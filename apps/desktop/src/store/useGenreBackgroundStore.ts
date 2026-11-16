@@ -11,6 +11,8 @@ interface GenreBackgroundState {
   backgrounds: GenreBackgrounds;
   /** Set a genre's background, or pass null to go back to the theme palette. */
   setBackground: (key: string, background: GenreBackground | null) => void;
+  /** Set the same background on every given genre (null: the theme gradient). */
+  setBackgrounds: (keys: string[], background: GenreBackground | null) => void;
   /** Carry a background across a rename or merge. */
   renameKey: (oldKey: string, newKey: string) => void;
 }
@@ -22,6 +24,16 @@ export const useGenreBackgroundStore = create<GenreBackgroundState>(
     setBackground: (key, background) => {
       const { [key]: _removed, ...rest } = get().backgrounds;
       const backgrounds = background ? { ...rest, [key]: background } : rest;
+      saveGenreBackgrounds(backgrounds);
+      set({ backgrounds });
+    },
+
+    setBackgrounds: (keys, background) => {
+      const backgrounds = { ...get().backgrounds };
+      for (const key of keys) {
+        if (background) backgrounds[key] = background;
+        else delete backgrounds[key];
+      }
       saveGenreBackgrounds(backgrounds);
       set({ backgrounds });
     },

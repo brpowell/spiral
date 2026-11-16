@@ -111,7 +111,8 @@
     "background": {
       "color": "Choose color",
       "theme": "Use theme palette",
-      "gradient": "Gradient"
+      "gradient": "Gradient",
+      "applyToAll": "Apply to all genres"
     },
     "fields": {
       "title": "Title",

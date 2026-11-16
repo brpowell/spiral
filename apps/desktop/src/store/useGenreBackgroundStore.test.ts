@@ -19,6 +19,17 @@ describe("useGenreBackgroundStore", () => {
     expect(useGenreBackgroundStore.getState().backgrounds).toEqual({});
   });
 
+  it("sets one background on many genres, or clears them", () => {
+    const store = useGenreBackgroundStore.getState();
+    store.setBackgrounds(["rock", "jazz"], red);
+    expect(useGenreBackgroundStore.getState().backgrounds).toEqual({
+      rock: red,
+      jazz: red,
+    });
+    store.setBackgrounds(["rock", "jazz"], null);
+    expect(useGenreBackgroundStore.getState().backgrounds).toEqual({});
+  });
+
   it("carries a background across a rename", () => {
     useGenreBackgroundStore.getState().setBackground("rock", red);
     useGenreBackgroundStore.getState().renameKey("rock", "metal");

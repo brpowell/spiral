@@ -232,6 +232,34 @@ describe("GenreEditor", () => {
       ).toBe(false);
     });
 
+    it("can apply the pending background to every genre", async () => {
+      open();
+      fireEvent.click(screen.getByRole("radio", { name: "Choose color" }));
+      expect((save() as HTMLButtonElement).disabled).toBe(false);
+      fireEvent.click(
+        screen.getByRole("checkbox", { name: "Apply to all genres" }),
+      );
+      await act(async () => {
+        fireEvent.click(save());
+      });
+
+      const { backgrounds } = useGenreBackgroundStore.getState();
+      expect(Object.keys(backgrounds).sort()).toEqual([
+        "metal",
+        "pop",
+        "rap metal",
+      ]);
+      expect(backgrounds.pop).toEqual(backgrounds.metal);
+    });
+
+    it("lets applying the unchanged background to all genres be saved", () => {
+      open();
+      fireEvent.click(
+        screen.getByRole("checkbox", { name: "Apply to all genres" }),
+      );
+      expect((save() as HTMLButtonElement).disabled).toBe(false);
+    });
+
     it("saves a chosen color without rewriting any tags", async () => {
       open();
       fireEvent.click(screen.getByRole("radio", { name: "Choose color" }));

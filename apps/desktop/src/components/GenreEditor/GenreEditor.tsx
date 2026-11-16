@@ -88,6 +88,7 @@ export function GenreEditor() {
   const [backgroundDraft, setBackgroundDraft] = useState<BackgroundDraft>(
     draftFromBackground(null),
   );
+  const [applyToAll, setApplyToAll] = useState(false);
   const background = backgroundFromDraft(backgroundDraft);
   const originalBackground = useGenreBackground(editingGenreKey ?? "");
   const mergeTarget = genre
@@ -128,7 +129,7 @@ export function GenreEditor() {
   const hasChanges =
     genre != null &&
     normalizeGenreName(name) != null &&
-    (nameChanged || backgroundChanged);
+    (nameChanged || backgroundChanged || applyToAll);
 
   const {
     discardPrompt,
@@ -147,6 +148,7 @@ export function GenreEditor() {
     setLoadedKey(currentKey);
     setName(genre?.name ?? "");
     setBackgroundDraft(draftFromBackground(originalBackground));
+    setApplyToAll(false);
     setSaveError(null);
     setDiscardPrompt(false);
   }
@@ -246,7 +248,14 @@ export function GenreEditor() {
     // The color follows the genre across a rename or merge, then any change to it.
     const backgrounds = useGenreBackgroundStore.getState();
     backgrounds.renameKey(oldKey, newKey);
-    if (backgroundChanged) backgrounds.setBackground(newKey, background);
+    if (applyToAll) {
+      backgrounds.setBackgrounds(
+        [...allGenres.map((g) => g.key), newKey],
+        background,
+      );
+    } else if (backgroundChanged) {
+      backgrounds.setBackground(newKey, background);
+    }
 
     // Keep the detail view on the renamed genre instead of bouncing to the list.
     const nav = useNavigationStore.getState();
@@ -338,6 +347,8 @@ export function GenreEditor() {
                         genre={genre}
                         draft={backgroundDraft}
                         onDraftChange={setBackgroundDraft}
+                        applyToAll={applyToAll}
+                        onApplyToAllChange={setApplyToAll}
                       />
                     </TabPanel>
                   </div>

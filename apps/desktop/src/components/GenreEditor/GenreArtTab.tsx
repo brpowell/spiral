@@ -4,6 +4,7 @@ import { CoverColorFields } from "@/components/CoverDesign/CoverDesignFields";
 import { GenreCover } from "@/components/GenreArt/GenreCover";
 import { useGenreLook, type GenreLook } from "@/hooks/useGenreLook";
 import { useThemeGradient } from "@/hooks/useThemeGradient";
+import { Checkbox } from "@/components/common/Checkbox/Checkbox";
 import { Switch } from "@/components/common/Switch/Switch";
 import {
   type BackgroundDraft,
@@ -17,6 +18,9 @@ interface GenreArtTabProps {
   genre: Genre;
   draft: BackgroundDraft;
   onDraftChange: (draft: BackgroundDraft) => void;
+  /** Also give every other genre this background when saving. */
+  applyToAll: boolean;
+  onApplyToAllChange: (applyToAll: boolean) => void;
 }
 
 /**
@@ -24,7 +28,13 @@ interface GenreArtTabProps {
  * out like the playlist editor's. The preview follows the unsaved choice, and
  * each mode keeps its own settings while the other is shown.
  */
-export function GenreArtTab({ genre, draft, onDraftChange }: GenreArtTabProps) {
+export function GenreArtTab({
+  genre,
+  draft,
+  onDraftChange,
+  applyToAll,
+  onApplyToAllChange,
+}: GenreArtTabProps) {
   const { t } = useTranslation("library");
   const saved = useGenreLook(genre);
   const theme = useThemeGradient();
@@ -81,24 +91,32 @@ export function GenreArtTab({ genre, draft, onDraftChange }: GenreArtTabProps) {
         },
       ]}
     >
-      {draft.mode === "theme" ? (
-        <Switch
-          checked={draft.gradient}
-          onChange={(e) =>
-            onDraftChange({ ...draft, gradient: e.target.checked })
-          }
+      <div className="track-editor__fields">
+        {draft.mode === "theme" ? (
+          <Switch
+            checked={draft.gradient}
+            onChange={(e) =>
+              onDraftChange({ ...draft, gradient: e.target.checked })
+            }
+          >
+            {t("editor.background.gradient")}
+          </Switch>
+        ) : draft.color ? (
+          <CoverColorFields
+            background={draft.color.start}
+            backgroundEnd={draft.color.end}
+            onChange={(colors) =>
+              setColor({ start: colors.background, end: colors.backgroundEnd })
+            }
+          />
+        ) : null}
+        <Checkbox
+          checked={applyToAll}
+          onChange={(e) => onApplyToAllChange(e.target.checked)}
         >
-          {t("editor.background.gradient")}
-        </Switch>
-      ) : draft.color ? (
-        <CoverColorFields
-          background={draft.color.start}
-          backgroundEnd={draft.color.end}
-          onChange={(colors) =>
-            setColor({ start: colors.background, end: colors.backgroundEnd })
-          }
-        />
-      ) : null}
+          {t("editor.background.applyToAll")}
+        </Checkbox>
+      </div>
     </CoverArtLayout>
   );
 }
