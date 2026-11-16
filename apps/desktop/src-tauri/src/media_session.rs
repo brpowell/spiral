@@ -297,6 +297,8 @@ fn macos_image_at_url_loads(file_url: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os = "macos")]
+    use super::cover_url_for_art_path;
     use super::encode_file_url;
 
     #[test]
