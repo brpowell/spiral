@@ -293,14 +293,28 @@ pub const LISTEN_QUALIFY_SECONDS: f64 = 30.0;
 pub const LISTEN_QUALIFY_RATIO: f64 = 0.5;
 
 pub fn listen_event_qualifies(event: &ListenEventInput) -> bool {
-    if event.completion == "natural_end" {
+    listen_qualifies(
+        &event.completion,
+        event.listened_seconds,
+        event.track_duration_seconds,
+    )
+}
+
+/// The qualifying rule on its own fields, so stored events can be judged by the same rule that
+/// decided whether they bumped `play_count`.
+pub fn listen_qualifies(
+    completion: &str,
+    listened_seconds: f64,
+    track_duration_seconds: Option<f64>,
+) -> bool {
+    if completion == "natural_end" {
         return true;
     }
-    if event.listened_seconds >= LISTEN_QUALIFY_SECONDS {
+    if listened_seconds >= LISTEN_QUALIFY_SECONDS {
         return true;
     }
-    if let Some(duration) = event.track_duration_seconds {
-        if duration > 0.0 && event.listened_seconds >= duration * LISTEN_QUALIFY_RATIO {
+    if let Some(duration) = track_duration_seconds {
+        if duration > 0.0 && listened_seconds >= duration * LISTEN_QUALIFY_RATIO {
             return true;
         }
     }

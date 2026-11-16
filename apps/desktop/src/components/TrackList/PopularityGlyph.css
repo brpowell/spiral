@@ -1,0 +1,47 @@
+.popularity-glyph {
+  display: block;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  fill: none;
+}
+
+/* Thin enough to leave a clear gap between neighbouring grooves. */
+.popularity-glyph__ring {
+  stroke: var(--color-text-secondary);
+  stroke-width: 0.8;
+  opacity: 0.5;
+}
+
+.popularity-glyph__ring--lit {
+  stroke: var(--color-accent);
+  opacity: 1;
+}
+
+.popularity-glyph__label {
+  fill: var(--color-text-secondary);
+  stroke: none;
+  opacity: 0.35;
+}
+
+.popularity-glyph__label[data-lit] {
+  fill: var(--color-accent);
+  opacity: 0.9;
+}
+
+/* Fills the cell so the tooltip shows anywhere in it, not only over the 26px glyph. */
+.track-list__popularity {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  line-height: 0;
+}
+
+.popularity-tooltip__summary {
+  font-weight: 600;
+}
+
+.popularity-tooltip__explainer {
+  margin-top: 0.2rem;
+  color: var(--color-text-secondary);
+}

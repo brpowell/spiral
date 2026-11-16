@@ -4,6 +4,8 @@ import { BrowseView } from "@/components/BrowseView/BrowseView";
 import { BrowseViewHeader } from "@/components/BrowseView/BrowseViewHeader";
 import { LibraryEmptyState } from "@/components/LibraryEmptyState/LibraryEmptyState";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { usePopularity } from "@/hooks/usePopularity";
+import { POPULARITY_COLUMN_PROFILE } from "@/lib/popularity/profiles";
 import { SearchField } from "@/components/SearchField/SearchField";
 import { TrackList } from "@/components/TrackList/TrackList";
 import { TrackListSkeleton } from "@/components/TrackList/TrackListSkeleton";
@@ -59,6 +61,15 @@ export function TracksView({ tracks }: TracksViewProps) {
   const searching = deferredSearch.trim() !== "";
   const activeSort = searching ? searchSort : librarySort;
 
+  const { scores: popularityScores } = usePopularity(
+    POPULARITY_COLUMN_PROFILE,
+    {
+      enabled:
+        activeSort?.field === "popularity" ||
+        librarySort?.field === "popularity",
+    },
+  );
+
   const sortedTracks = useMemo(() => {
     const scored = scoreTracksBySearch(tracks, deferredSearch);
     if (searching && activeSort === null) {
@@ -72,10 +83,16 @@ export function TracksView({ tracks }: TracksViewProps) {
     const matched = scored.map((s) => s.item);
     return activeSort
       ? matched.sort((a, b) =>
-          compareTracks(a, b, activeSort.field, activeSort.dir),
+          compareTracks(
+            a,
+            b,
+            activeSort.field,
+            activeSort.dir,
+            popularityScores,
+          ),
         )
       : matched;
-  }, [tracks, deferredSearch, searching, activeSort]);
+  }, [tracks, deferredSearch, searching, activeSort, popularityScores]);
 
   const sortedTrackIds = useMemo(
     () => sortedTracks.map((t) => t.id),
@@ -86,11 +103,17 @@ export function TracksView({ tracks }: TracksViewProps) {
     const live = tracks.filter((t) => !isTrackImporting(t));
     if (librarySort) {
       live.sort((a, b) =>
-        compareTracks(a, b, librarySort.field, librarySort.dir),
+        compareTracks(
+          a,
+          b,
+          librarySort.field,
+          librarySort.dir,
+          popularityScores,
+        ),
       );
     }
     return live.map((t) => t.id);
-  }, [tracks, librarySort]);
+  }, [tracks, librarySort, popularityScores]);
 
   const handleSort = (field: TrackListSortField) => {
     const setSort = searching ? setSearchSort : setLibrarySort;

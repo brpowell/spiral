@@ -11,6 +11,8 @@ import { useSortable } from "@dnd-kit/react/sortable";
 import { albumKey } from "@/lib/albums/albums";
 import { groupTracksIntoArtists } from "@/lib/artists/artists";
 import { t } from "@/lib/i18n/i18n";
+import { POPULARITY_COLUMN_PROFILE } from "@/lib/popularity/profiles";
+import { usePopularity } from "@/hooks/usePopularity";
 import { HANDLE_POINTER_SENSOR } from "@/lib/ui/dndSortSensors";
 import {
   isTrackImporting,
@@ -309,6 +311,10 @@ export function TrackList({
     () => (checkMode ? [CHECK_COL, ...visibleColumns] : visibleColumns),
     [checkMode, visibleColumns],
   );
+
+  usePopularity(POPULARITY_COLUMN_PROFILE, {
+    enabled: displayColumns.some((col) => col.id === "popularity"),
+  });
 
   const navigableHeaderColumns = useMemo(
     () => displayColumns.filter((col) => col.id !== "check"),

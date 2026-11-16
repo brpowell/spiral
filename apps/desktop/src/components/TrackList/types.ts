@@ -14,6 +14,7 @@ export type TrackListColumnId =
   | "discNumber"
   | "dateAdded"
   | "playCount"
+  | "popularity"
   | "lastPlayedAt"
   | "rating"
   | "codec"
@@ -33,6 +34,7 @@ export type TrackListSortField = Extract<
   | "genre"
   | "dateAdded"
   | "playCount"
+  | "popularity"
   | "lastPlayedAt"
   | "rating"
   | "codec"
@@ -181,6 +183,16 @@ const PLAY_COUNT_COL: TrackListColumnDef = {
   secondary: true,
 };
 
+const POPULARITY_COL: TrackListColumnDef = {
+  id: "popularity",
+  label: t("library:columns.popularity"),
+  sortable: true,
+  resizable: true,
+  hideable: true,
+  align: "center",
+  secondary: true,
+};
+
 const LAST_PLAYED_COL: TrackListColumnDef = {
   id: "lastPlayedAt",
   label: t("library:columns.lastPlayed"),
@@ -260,6 +272,7 @@ const LIBRARY_COLUMNS: TrackListColumnDef[] = [
   TRACK_NUMBER_DATA_COL,
   DATE_ADDED_COL,
   PLAY_COUNT_COL,
+  POPULARITY_COL,
   LAST_PLAYED_COL,
   RATING_COL,
   CODEC_COL,
@@ -316,6 +329,7 @@ export const DEFAULT_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> =
     discNumber: 44,
     dateAdded: 128,
     playCount: 56,
+    popularity: 112,
     lastPlayedAt: 128,
     rating: 120,
     codec: 72,
@@ -338,6 +352,7 @@ export const MIN_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> = {
   discNumber: 36,
   dateAdded: 96,
   playCount: 44,
+  popularity: 104,
   lastPlayedAt: 96,
   rating: 96,
   codec: 56,
@@ -355,6 +370,7 @@ const LIBRARY_DEFAULT_HIDDEN: TrackListColumnId[] = [
   "trackNumber",
   "dateAdded",
   "playCount",
+  "popularity",
   "lastPlayedAt",
   "rating",
   "codec",

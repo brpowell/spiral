@@ -315,6 +315,8 @@ mod tests {
     #[cfg(target_os = "macos")]
     #[test]
     fn hashed_album_path_still_loads_and_garbage_does_not() {
+        use super::cover_url_for_art_path;
+
         let dir = std::env::temp_dir().join(format!("spiral-art-url-{}-#1's", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();

@@ -37,6 +37,7 @@ import { TrackItemTitle } from "@/components/TrackItemTitle/TrackItemTitle";
 import { TrackRating } from "@/components/TrackRating/TrackRating";
 import { TrackRowMenu } from "@/components/TrackRowMenu/TrackRowMenu";
 import { CdTrackRowMenu } from "@/components/cd/CdTrackRowMenu/CdTrackRowMenu";
+import { TrackPopularityCell } from "./TrackPopularityCell";
 import type { TrackListColumnDef, TrackListColumnId } from "./types";
 import type { Track } from "@/types/track";
 import type { CanonicalRating } from "@/lib/tracks/trackRating";
@@ -486,6 +487,14 @@ function TrackListRowComponent({
                 cellColumn="rating"
                 onChange={(rating) => onRatingChange(track.id, rating)}
               />
+            </span>
+          );
+        }
+
+        if (col.id === "popularity") {
+          return (
+            <span key={col.id} className={cellClassName}>
+              <TrackPopularityCell trackId={track.id} />
             </span>
           );
         }

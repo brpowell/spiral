@@ -1,3 +1,4 @@
+import type { TrackScores } from "@/lib/popularity/popularity";
 import type { Track } from "@/types/track";
 import { compareLocalized } from "@/lib/i18n/appLocale";
 import { createFuzzyMatcher } from "@/lib/ui/fuzzySearch";
@@ -10,6 +11,8 @@ export function compareTracks(
   b: Track,
   field: TrackListSortField,
   dir: TrackListSortDir,
+  /** Needed only to sort by popularity; without it every track ties. */
+  popularityScores?: TrackScores,
 ): number {
   let cmp = 0;
 
@@ -44,6 +47,13 @@ export function compareTracks(
     case "playCount":
       cmp = a.playCount - b.playCount;
       break;
+    case "popularity": {
+      cmp =
+        (popularityScores?.get(a.id) ?? 0) - (popularityScores?.get(b.id) ?? 0);
+      // Most tracks tie at zero in a young library; keep those in a stable, readable order.
+      if (cmp === 0) return compareLocalized(a.title, b.title);
+      break;
+    }
     case "lastPlayedAt": {
       const aVal = a.lastPlayedAt ?? "";
       const bVal = b.lastPlayedAt ?? "";

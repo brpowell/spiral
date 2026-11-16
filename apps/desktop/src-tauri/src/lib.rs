@@ -69,6 +69,7 @@ mod network_uri;
 mod ogg_opus_tests;
 mod packs;
 mod path_scope;
+mod popularity;
 mod rating_sync;
 mod rating_tags;
 mod session;
@@ -250,6 +251,7 @@ pub fn run() {
             commands::playlists::delete_playlist,
             commands::library::record_listen_event,
             commands::library::clear_listen_history,
+            commands::library::get_track_popularity,
             commands::library::set_track_rating,
             commands::library::remove_track,
             commands::sources::list_sources,

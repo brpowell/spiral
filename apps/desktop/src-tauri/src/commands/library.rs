@@ -13,6 +13,7 @@ use crate::models::{
     ClearListenHistoryResult, ListenEventInput, RecordListenEventResult,
     RefreshLibraryMetadataResult, Track, TrackInput, TrackLyricsInput, TrackMetadataUpdate,
 };
+use crate::popularity::{self, PopularityParams, TrackPopularity};
 use crate::rating_sync::{schedule_rating_file_write, RatingSync};
 use crate::settings;
 use crate::sources::{self, LibraryRoots};
@@ -347,6 +348,22 @@ pub fn clear_listen_history(
         eprintln!("clear_listen_history error: {e}");
         e.to_string()
     })
+}
+
+/// Time-decayed listening score per track, highest first. Tracks with no positive score are
+/// omitted. All params are optional; see `popularity::PopularityParams` for defaults.
+#[tauri::command]
+pub fn get_track_popularity(
+    state: State<DbState>,
+    params: Option<PopularityParams>,
+) -> Result<Vec<TrackPopularity>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    popularity::track_popularity(&conn, &params.unwrap_or_default(), chrono::Utc::now()).map_err(
+        |e| {
+            eprintln!("get_track_popularity error: {e}");
+            e.to_string()
+        },
+    )
 }
 
 #[tauri::command]
