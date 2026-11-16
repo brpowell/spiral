@@ -66,6 +66,7 @@ export function useTrackListHeaderMenu({
         anchor={anchor}
         position={position}
         menuRef={menuRef}
+        className="context-menu--scroll"
       >
         {showHide ? (
           <ContextMenuItem

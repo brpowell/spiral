@@ -17,9 +17,10 @@
   --context-menu-shadow: oklch(
     from var(--color-bg) 0 0 0 / calc(0.14 + (1 - l) * 0.36)
   );
-  background: oklch(
+  --context-menu-bg: oklch(
     from var(--color-surface-raised) calc(l + (1 - l) * 0.05) c h
   );
+  background: var(--context-menu-bg);
   border: 1px solid oklch(from var(--color-border) calc(l + (1 - l) * 0.1) c h);
   border-radius: var(--radius-sm);
   box-shadow:
@@ -28,6 +29,55 @@
     0 18px 48px
       oklch(from var(--context-menu-shadow) l c h / calc(alpha * 0.65)),
     inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+/*
+ * Scroll fade: a menu that overflows (flagged by ContextMenu) gets a soft fade on any edge with
+ * more content hidden behind it, so the clipped items peek out. The fades are sticky pseudo
+ * elements with zero net height, so they take no room in the item list. Sticky offsets stop
+ * inside the menu's padding, so they're pushed out by the inset to reach the true edge.
+ */
+.context-menu[data-scrollable] {
+  --context-menu-fade: 2rem;
+  /* Fully opaque stretch at the edge, so clipped items never show through the very rim. */
+  --context-menu-fade-solid: calc(var(--context-menu-inset) * 2);
+}
+
+.context-menu[data-scrollable]::before,
+.context-menu[data-scrollable]::after {
+  content: "";
+  display: block;
+  position: sticky;
+  z-index: 1;
+  height: var(--context-menu-fade);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.context-menu[data-scrollable]::before {
+  top: calc(-1 * var(--context-menu-inset));
+  margin-bottom: calc(-1 * var(--context-menu-fade));
+  background: linear-gradient(
+    to bottom,
+    var(--context-menu-bg) var(--context-menu-fade-solid),
+    transparent
+  );
+}
+
+.context-menu[data-scrollable]::after {
+  bottom: calc(-1 * var(--context-menu-inset));
+  margin-top: calc(-1 * var(--context-menu-fade));
+  background: linear-gradient(
+    to top,
+    var(--context-menu-bg) var(--context-menu-fade-solid),
+    transparent
+  );
+}
+
+.context-menu[data-scroll-top]::before,
+.context-menu[data-scroll-bottom]::after {
+  opacity: 1;
 }
 
 /* Root is focused on pointer-open for arrow-key entry; ring belongs on items only. */
@@ -171,6 +221,12 @@
   box-sizing: border-box;
   min-width: 0;
   max-height: min(24rem, calc(100vh - 1rem));
+  overflow-y: auto;
+}
+
+/* A long list of items (e.g. the track list columns menu) scrolls instead of growing taller. */
+.context-menu--scroll {
+  max-height: min(20rem, calc(100vh - 1rem));
   overflow-y: auto;
 }
 
