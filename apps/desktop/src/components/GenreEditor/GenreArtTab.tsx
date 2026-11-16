@@ -76,17 +76,17 @@ export function GenreArtTab({
       }
       options={[
         {
-          value: "color",
-          label: t("editor.background.color"),
-          thumb: (
-            <GenreCover look={colorLook} className="playlist-art--style-card" />
-          ),
-        },
-        {
           value: "theme",
           label: t("editor.background.theme"),
           thumb: (
             <GenreCover look={themeLook} className="playlist-art--style-card" />
+          ),
+        },
+        {
+          value: "color",
+          label: t("editor.background.color"),
+          thumb: (
+            <GenreCover look={colorLook} className="playlist-art--style-card" />
           ),
         },
       ]}
