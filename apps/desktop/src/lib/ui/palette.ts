@@ -178,8 +178,20 @@ function colorfulness(hsl: { s: number; l: number }): number {
   return hsl.s * (1 - Math.abs(2 * hsl.l - 1));
 }
 
-const COVER_START_LIGHTNESS = { min: 0.28, max: 0.44 } as const;
-const COVER_END_LIGHTNESS = { min: 0.14, max: 0.27 } as const;
+const COVER_START_LIGHTNESS = { min: 0.3, max: 0.44 } as const;
+const COVER_END_LIGHTNESS = { min: 0.18, max: 0.29 } as const;
+
+/**
+ * Cover colors are a tint of the artwork, not the artwork's full punch, so
+ * saturation is scaled down and capped. A vivid yellow or red still reads as
+ * itself, just quieter.
+ */
+const COVER_SATURATION_SCALE = 0.85;
+const COVER_MAX_SATURATION = 0.62;
+
+function softenSaturation(saturation: number): number {
+  return Math.min(COVER_MAX_SATURATION, saturation * COVER_SATURATION_SCALE);
+}
 
 function clampBetween(
   value: number,
@@ -190,9 +202,10 @@ function clampBetween(
 
 /**
  * Two stops for a cover background, taken from a palette. Both stay dark enough
- * for white text: the start is the palette's most colourful swatch, the end a
- * deeper shade (of a different swatch when one sits near it, else of the same
- * colour). Falls back to shades of Spiral green for an empty or unusable palette.
+ * for white text and are softened rather than full strength: the start is the
+ * palette's most colourful swatch, the end a deeper shade (of a different
+ * swatch when one sits near it, else of the same colour). Falls back to shades
+ * of Spiral green for an empty or unusable palette.
  */
 export function coverGradientFromPalette(
   colors: readonly string[],
@@ -225,13 +238,13 @@ export function coverGradientFromPalette(
   return {
     start: hexFromHsl(
       primary.h,
-      primary.s,
+      softenSaturation(primary.s),
       clampBetween(primary.l, COVER_START_LIGHTNESS),
     ),
     end: hexFromHsl(
       endBase.h,
-      endBase.s,
-      clampBetween(endBase.l * 0.55, COVER_END_LIGHTNESS),
+      softenSaturation(endBase.s),
+      clampBetween(endBase.l * 0.6, COVER_END_LIGHTNESS),
     ),
   };
 }

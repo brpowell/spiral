@@ -81,6 +81,17 @@ describe("getDefaultPalette with a theme accent", () => {
   });
 });
 
+function saturation(hex: string): number {
+  const n = Number.parseInt(hex.slice(1), 16);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max === min) return 0;
+  return (max - min) / (1 - Math.abs(max + min - 1));
+}
+
 describe("coverGradientFromPalette", () => {
   it("keeps both stops dark enough for white text", () => {
     const { start, end } = coverGradientFromPalette([
@@ -91,8 +102,14 @@ describe("coverGradientFromPalette", () => {
       "#faf0c8",
     ]);
     expect(lightness(start)).toBeLessThanOrEqual(0.45);
-    expect(lightness(end)).toBeLessThanOrEqual(0.28);
+    expect(lightness(end)).toBeLessThanOrEqual(0.3);
     expect(lightness(end)).toBeLessThan(lightness(start));
+  });
+
+  it("softens a fully saturated swatch instead of passing it through", () => {
+    const { start, end } = coverGradientFromPalette(["#ff0000", "#ff9900"]);
+    expect(saturation(start)).toBeLessThanOrEqual(0.63);
+    expect(saturation(end)).toBeLessThanOrEqual(0.63);
   });
 
   it("starts from the most colourful swatch", () => {
