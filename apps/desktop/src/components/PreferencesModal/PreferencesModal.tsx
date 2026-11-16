@@ -23,6 +23,7 @@ import { useArtistImageStore } from "@/store/useArtistImageStore";
 import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
 import { usePlaybackSettingsStore } from "@/store/usePlaybackSettingsStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
+import { usePopularityStore } from "@/store/usePopularityStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";
 import { useSourcesStore } from "@/store/useSourcesStore";
 import { useUpdaterStore } from "@/store/useUpdaterStore";
@@ -400,6 +401,7 @@ export function PreferencesModal() {
     setError(null);
     try {
       const result = await clearListenHistory({ withinHours });
+      usePopularityStore.getState().invalidate();
       if (result.resetCounters) {
         await usePlayerStore.getState().loadLibrary({ preservePlayback: true });
       }

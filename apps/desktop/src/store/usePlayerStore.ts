@@ -45,6 +45,7 @@ import {
   type ListenEventPayload,
 } from "@/lib/playback/listenSession";
 import { usePlaybackSettingsStore } from "./usePlaybackSettingsStore";
+import { usePopularityStore } from "./usePopularityStore";
 import {
   getLibrary,
   getPlaybackSession,
@@ -1098,6 +1099,8 @@ function persistListenEvent(
 
   void recordListenEvent(payload)
     .then((result) => {
+      // Skips move popularity scores too, so refresh them whether or not the listen counted.
+      usePopularityStore.getState().invalidate();
       if (!result.counted) return;
       get().updateTrackInLibrary({
         ...track,

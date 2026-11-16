@@ -1,5 +1,9 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import type {
+  PopularityParams,
+  TrackPopularityRow,
+} from "@/lib/popularity/popularity";
 import type { ItemSummary, ItemType } from "@/types/item";
 import type { SoundPackSummary } from "@/types/soundPack";
 import type {
@@ -212,6 +216,19 @@ export async function clearListenHistory(options?: {
     deletedEvents: (raw.deletedEvents ?? raw.deleted_events) as number,
     resetCounters: Boolean(raw.resetCounters ?? raw.reset_counters),
   };
+}
+
+/**
+ * Time-decayed listening score per track, highest first. Tracks with no listening signal are
+ * omitted (treat absent as 0). Omitted params use the backend defaults; pass
+ * `halfLifeDays: null` for undecayed totals. Prefer `usePopularity` for the named profiles.
+ */
+export async function getTrackPopularity(
+  params?: PopularityParams,
+): Promise<TrackPopularityRow[]> {
+  return invoke<TrackPopularityRow[]>("get_track_popularity", {
+    params: params ?? null,
+  });
 }
 
 export async function setTrackRating(

@@ -331,6 +331,7 @@
     "track": "Track",
     "dateAdded": "Date added",
     "plays": "Plays",
+    "popularity": "Popularity",
     "lastPlayed": "Last played",
     "rating": "Rating",
     "codec": "Codec",
@@ -338,6 +339,10 @@
     "bitrate": "Bitrate",
     "lyrics": "Lyrics",
     "source": "Source"
+  },
+  "popularity": {
+    "label": "Popularity {{percent}}%",
+    "none": "Not played yet"
   },
   "artistBrowse": {
     "discography": {

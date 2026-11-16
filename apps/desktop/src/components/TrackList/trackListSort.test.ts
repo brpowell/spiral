@@ -59,6 +59,48 @@ describe("compareTracks lyrics", () => {
   });
 });
 
+describe("compareTracks popularity", () => {
+  const scores = new Map([
+    [1, 5],
+    [2, 1],
+  ]);
+  const high = track({ id: 1, title: "High" });
+  const low = track({ id: 2, title: "Low" });
+  const unscoredA = track({ id: 3, title: "Alpha" });
+  const unscoredB = track({ id: 4, title: "Beta" });
+
+  it("orders by score in either direction", () => {
+    expect(compareTracks(low, high, "popularity", "asc", scores)).toBeLessThan(
+      0,
+    );
+    expect(compareTracks(high, low, "popularity", "desc", scores)).toBeLessThan(
+      0,
+    );
+  });
+
+  it("ranks tracks with no score below scored ones when descending", () => {
+    expect(
+      compareTracks(high, unscoredA, "popularity", "desc", scores),
+    ).toBeLessThan(0);
+    expect(
+      compareTracks(unscoredA, low, "popularity", "desc", scores),
+    ).toBeGreaterThan(0);
+  });
+
+  it("breaks ties by title regardless of direction", () => {
+    expect(
+      compareTracks(unscoredA, unscoredB, "popularity", "asc", scores),
+    ).toBeLessThan(0);
+    expect(
+      compareTracks(unscoredA, unscoredB, "popularity", "desc", scores),
+    ).toBeLessThan(0);
+  });
+
+  it("falls back to title order when scores are not provided", () => {
+    expect(compareTracks(high, low, "popularity", "asc")).toBeLessThan(0);
+  });
+});
+
 describe("compareTracks lastPlayedAt", () => {
   it("sorts by timestamp and keeps never-played last in both directions", () => {
     const older = track({ id: 1, lastPlayedAt: "2026-01-01T00:00:00.000Z" });

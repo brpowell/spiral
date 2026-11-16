@@ -28,6 +28,9 @@ import {
   missingFileLabel,
 } from "@/lib/tracks/missingFileTrack";
 import { sourceDisplayName } from "@/lib/files/sourceAccess";
+import { t } from "@/lib/i18n/i18n";
+import { POPULARITY_COLUMN_PROFILE } from "@/lib/popularity/profiles";
+import { usePopularityFraction } from "@/hooks/usePopularity";
 import { useSourcesStore } from "@/store/useSourcesStore";
 import { Checkbox } from "@/components/common/Checkbox/Checkbox";
 import { IconCheck, IconGrip, IconMissingFile } from "@/components/icons";
@@ -37,6 +40,10 @@ import { TrackItemTitle } from "@/components/TrackItemTitle/TrackItemTitle";
 import { TrackRating } from "@/components/TrackRating/TrackRating";
 import { TrackRowMenu } from "@/components/TrackRowMenu/TrackRowMenu";
 import { CdTrackRowMenu } from "@/components/cd/CdTrackRowMenu/CdTrackRowMenu";
+import {
+  PopularityGlyph,
+  type PopularityGlyphVariant,
+} from "./PopularityGlyph";
 import type { TrackListColumnDef, TrackListColumnId } from "./types";
 import type { Track } from "@/types/track";
 import type { CanonicalRating } from "@/lib/tracks/trackRating";
@@ -102,6 +109,28 @@ function TrackSourceCell({ sourceId }: { sourceId: number | undefined }) {
     sourceId == null ? undefined : s.sourcesById.get(sourceId),
   );
   return <>{source ? sourceDisplayName(source) : "—"}</>;
+}
+
+/**
+ * Both glyph designs side by side while the Popularity column's look is being chosen. Cut this to
+ * the winner (and drop the gap and wider default width) once it is picked.
+ */
+const POPULARITY_GLYPH_VARIANTS: PopularityGlyphVariant[] = ["rings"];
+
+/** A track's popularity; subscribes itself so rows stay memoized. */
+function TrackPopularityCell({ trackId }: { trackId: number }) {
+  const fraction = usePopularityFraction(POPULARITY_COLUMN_PROFILE, trackId);
+  const label =
+    fraction > 0
+      ? t("library:popularity.label", { percent: Math.round(fraction * 100) })
+      : t("library:popularity.none");
+  return (
+    <span className="track-list__popularity" role="img" aria-label={label}>
+      {POPULARITY_GLYPH_VARIANTS.map((variant) => (
+        <PopularityGlyph key={variant} fraction={fraction} variant={variant} />
+      ))}
+    </span>
+  );
 }
 
 interface TrackListCellLinkProps {
@@ -486,6 +515,14 @@ function TrackListRowComponent({
                 cellColumn="rating"
                 onChange={(rating) => onRatingChange(track.id, rating)}
               />
+            </span>
+          );
+        }
+
+        if (col.id === "popularity") {
+          return (
+            <span key={col.id} className={cellClassName}>
+              <TrackPopularityCell trackId={track.id} />
             </span>
           );
         }
