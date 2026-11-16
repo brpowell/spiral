@@ -16,7 +16,7 @@ describe("popularityDescription", () => {
     expect(popularityDescription(0.03).summary).toBe("Popularity: <0.1");
   });
 
-  it("states that nothing comes from the internet", () => {
-    expect(popularityDescription(5).explainer).toMatch(/internet/i);
+  it("says recent plays count most", () => {
+    expect(popularityDescription(5).explainer).toContain("recent plays");
   });
 });

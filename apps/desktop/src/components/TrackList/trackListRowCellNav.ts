@@ -5,7 +5,8 @@ const TRACK_LIST_CELL_CONTROL = "data-track-list-cell-control";
 const TRACK_LIST_CELL_COLUMN = "data-track-list-cell-column";
 const TRACK_LIST_CELL_SUB_INDEX = "data-track-list-cell-sub-index";
 
-export type CellControlColumn = "artist" | "album" | "rating" | "check";
+export type CellControlColumn =
+  "artist" | "album" | "rating" | "popularity" | "check";
 
 export interface CellControlLocation {
   column: CellControlColumn;
@@ -22,6 +23,7 @@ function getCellControlLocation(
     column !== "artist" &&
     column !== "album" &&
     column !== "rating" &&
+    column !== "popularity" &&
     column !== "check"
   ) {
     return null;

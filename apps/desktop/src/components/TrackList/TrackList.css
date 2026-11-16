@@ -256,6 +256,13 @@
     color-mix(in srgb, var(--color-accent) 45%, transparent);
 }
 
+/* Ring the glyph itself, not the whole (wider) cell the tooltip hover area spans. */
+.track-list__row .track-list__popularity:focus-visible .popularity-glyph {
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 55%, transparent);
+}
+
 .track-list__row .checkbox__input:focus,
 .track-list__row .checkbox__input:focus-visible {
   outline: 2px solid var(--focus-ring-color);

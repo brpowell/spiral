@@ -36,3 +36,12 @@
   width: 100%;
   line-height: 0;
 }
+
+.popularity-tooltip__summary {
+  font-weight: 600;
+}
+
+.popularity-tooltip__explainer {
+  margin-top: 0.2rem;
+  color: var(--color-text-secondary);
+}
