@@ -262,7 +262,8 @@
       "searchPlaceholder": "Search title or artist…",
       "searchAria": "Search albums",
       "emptySearch": "No albums match your search.",
-      "actionsAria": "Album actions"
+      "actionsAria": "Album actions",
+      "viewArtist": "View artist {{name}}"
     },
     "artists": {
       "title": "Artists",
