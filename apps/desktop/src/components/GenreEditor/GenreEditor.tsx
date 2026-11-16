@@ -84,14 +84,12 @@ export function GenreEditor() {
   const isOpen = editingGenreKey != null && genre != null;
   useFocusTrap(dialogRef, isOpen);
 
-  // Reset only when switching genres, so a library refresh cannot wipe an edit.
+  // The field is focused as it mounts, so the name has to be in it from the
+  // first render; filling it in afterwards leaves the caret at the start.
+  // Select it so the name can be retyped right away.
   useEffect(() => {
-    setName(genre?.name ?? "");
-    setSaveError(null);
-    setDiscardPrompt(false);
-    finish();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- key-gated form reset
-  }, [genre?.key]);
+    if (isOpen) dialogRef.current?.querySelector("input")?.select();
+  }, [isOpen]);
 
   const hasChanges =
     genre != null &&
@@ -105,6 +103,18 @@ export function GenreEditor() {
     handleBackdropClick,
     dismissDiscardPrompt,
   } = useEditorDiscardPrompt(hasChanges, closeGenreEditor, saving);
+
+  // Load the name when the dialog opens on a different genre, not on every
+  // library refresh, so an edit in progress is never wiped. Done while
+  // rendering (not in an effect) so the field mounts with the name in it.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const currentKey = genre?.key ?? null;
+  if (currentKey !== loadedKey) {
+    setLoadedKey(currentKey);
+    setName(genre?.name ?? "");
+    setSaveError(null);
+    setDiscardPrompt(false);
+  }
 
   const footerCancel = bulkSaveFooterProps({
     saving,
@@ -238,6 +248,7 @@ export function GenreEditor() {
                     <AutocompleteInput
                       value={name}
                       suggestions={suggestions}
+                      openOnFocus={false}
                       autoFocus
                       onChange={(e) => setName(e.target.value)}
                       onKeyDown={(e) => {
