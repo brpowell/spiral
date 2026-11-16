@@ -66,6 +66,129 @@ function CoverColorButton({
   );
 }
 
+interface CoverColorFieldsProps {
+  background: string;
+  backgroundEnd: string | null;
+  onChange: (colors: {
+    background: string;
+    backgroundEnd: string | null;
+  }) => void;
+}
+
+/**
+ * The color selector alone: a start color, an optional second color, swap and
+ * randomize. Shared by the playlist and genre editors.
+ */
+export function CoverColorFields({
+  background,
+  backgroundEnd,
+  onChange,
+}: CoverColorFieldsProps) {
+  const pickerBackground =
+    cssColorToHex(background) ?? defaultPlaylistDesignCover().coverBackground;
+  const pickerBackgroundEnd =
+    cssColorToHex(backgroundEnd ?? "") ?? DEFAULT_PLAYLIST_COVER_GRADIENT_END;
+
+  const update = (patch: {
+    background?: string;
+    backgroundEnd?: string | null;
+  }) => onChange({ background, backgroundEnd, ...patch });
+
+  return (
+    <div className="cover-design__colors">
+      <label className="cover-design__color-picker">
+        <span className="cover-design__color-picker-label">
+          {t("library:editor.playlist.colorStart")}
+        </span>
+        <CoverColorButton
+          value={pickerBackground}
+          label={t("library:editor.playlist.colorStart")}
+          onChange={(value) => update({ background: value })}
+        />
+      </label>
+      {backgroundEnd ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          iconOnly
+          className="cover-design__color-action"
+          aria-label={t("library:editor.playlist.swapColors")}
+          onClick={() =>
+            update({ background: backgroundEnd, backgroundEnd: background })
+          }
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="m16 3 4 4-4 4" />
+            <path d="M20 7H4" />
+            <path d="m8 21-4-4 4-4" />
+            <path d="M4 17h16" />
+          </svg>
+        </Button>
+      ) : null}
+      <div className="cover-design__color-picker">
+        <span className="cover-design__color-picker-label">
+          {t("library:editor.playlist.colorEnd")}
+        </span>
+        {backgroundEnd ? (
+          <span className="cover-design__color-swatch">
+            <CoverColorButton
+              value={pickerBackgroundEnd}
+              label={t("library:editor.playlist.colorEnd")}
+              onChange={(value) => update({ backgroundEnd: value })}
+            />
+            <button
+              type="button"
+              className="cover-design__color-clear"
+              aria-label={t("library:editor.playlist.clearSecondColor")}
+              onClick={() => update({ backgroundEnd: null })}
+            >
+              <IconClose />
+            </button>
+          </span>
+        ) : (
+          <Button
+            variant="secondary"
+            className="cover-design__swatch cover-design__color-add"
+            aria-label={t("library:editor.playlist.addSecondColor")}
+            onClick={() =>
+              update({ backgroundEnd: DEFAULT_PLAYLIST_COVER_GRADIENT_END })
+            }
+          >
+            +
+          </Button>
+        )}
+      </div>
+      <Button
+        variant="secondary"
+        size="sm"
+        iconOnly
+        className="cover-design__color-action"
+        aria-label={t("library:editor.playlist.randomizeColors")}
+        onClick={() => {
+          const next = randomPlaylistCoverColors(backgroundEnd != null, {
+            background,
+            backgroundEnd,
+          });
+          update({
+            background: next.coverBackground,
+            backgroundEnd: next.coverBackgroundEnd,
+          });
+        }}
+      >
+        <IconShuffle aria-hidden />
+      </Button>
+    </div>
+  );
+}
+
 interface CoverDesignFieldsProps extends CoverDesignValue {
   onChange: (design: CoverDesignValue) => void;
   inert?: boolean;
@@ -82,110 +205,18 @@ export function CoverDesignFields({
   onChange,
   inert,
 }: CoverDesignFieldsProps) {
-  const pickerBackground =
-    cssColorToHex(background) ?? defaultPlaylistDesignCover().coverBackground;
-  const pickerBackgroundEnd =
-    cssColorToHex(backgroundEnd ?? "") ?? DEFAULT_PLAYLIST_COVER_GRADIENT_END;
-
-  const update = (patch: Partial<CoverDesignValue>) =>
-    onChange({ background, backgroundEnd, icon, ...patch });
-
   return (
     <div className="cover-design" inert={inert}>
-      <div className="cover-design__colors">
-        <label className="cover-design__color-picker">
-          <span className="cover-design__color-picker-label">
-            {t("library:editor.playlist.colorStart")}
-          </span>
-          <CoverColorButton
-            value={pickerBackground}
-            label={t("library:editor.playlist.colorStart")}
-            onChange={(value) => update({ background: value })}
-          />
-        </label>
-        {backgroundEnd ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            iconOnly
-            className="cover-design__color-action"
-            aria-label={t("library:editor.playlist.swapColors")}
-            onClick={() =>
-              update({ background: backgroundEnd, backgroundEnd: background })
-            }
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="m16 3 4 4-4 4" />
-              <path d="M20 7H4" />
-              <path d="m8 21-4-4 4-4" />
-              <path d="M4 17h16" />
-            </svg>
-          </Button>
-        ) : null}
-        <div className="cover-design__color-picker">
-          <span className="cover-design__color-picker-label">
-            {t("library:editor.playlist.colorEnd")}
-          </span>
-          {backgroundEnd ? (
-            <span className="cover-design__color-swatch">
-              <CoverColorButton
-                value={pickerBackgroundEnd}
-                label={t("library:editor.playlist.colorEnd")}
-                onChange={(value) => update({ backgroundEnd: value })}
-              />
-              <button
-                type="button"
-                className="cover-design__color-clear"
-                aria-label={t("library:editor.playlist.clearSecondColor")}
-                onClick={() => update({ backgroundEnd: null })}
-              >
-                <IconClose />
-              </button>
-            </span>
-          ) : (
-            <Button
-              variant="secondary"
-              className="cover-design__swatch cover-design__color-add"
-              aria-label={t("library:editor.playlist.addSecondColor")}
-              onClick={() =>
-                update({ backgroundEnd: DEFAULT_PLAYLIST_COVER_GRADIENT_END })
-              }
-            >
-              +
-            </Button>
-          )}
-        </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          iconOnly
-          className="cover-design__color-action"
-          aria-label={t("library:editor.playlist.randomizeColors")}
-          onClick={() => {
-            const next = randomPlaylistCoverColors(backgroundEnd != null, {
-              background,
-              backgroundEnd,
-            });
-            update({
-              background: next.coverBackground,
-              backgroundEnd: next.coverBackgroundEnd,
-            });
-          }}
-        >
-          <IconShuffle aria-hidden />
-        </Button>
-      </div>
+      <CoverColorFields
+        background={background}
+        backgroundEnd={backgroundEnd}
+        onChange={(colors) => onChange({ ...colors, icon })}
+      />
       <PlaylistIconPicker
         value={icon}
-        onChange={(value) => update({ icon: value })}
+        onChange={(value) =>
+          onChange({ background, backgroundEnd, icon: value })
+        }
       />
     </div>
   );
