@@ -5,7 +5,9 @@ import { BrowseViewHeader } from "@/components/BrowseView/BrowseViewHeader";
 import { BrowseGridBody } from "@/components/BrowseView/BrowseGridBody";
 import { LibraryEmptyState } from "@/components/LibraryEmptyState/LibraryEmptyState";
 import { SearchField } from "@/components/SearchField/SearchField";
-import { genreDesignStyle } from "@/lib/genres/genreDesign";
+import { EntityArt } from "@/components/EntityArt/EntityArt";
+import { useGenreLook } from "@/hooks/useGenreLook";
+import { playlistDesignBackgroundStyle } from "@/lib/playlists/playlistCoverPresets";
 import { SpiralIcon } from "@/lib/iconLibrary";
 import { useGenreDesign } from "@/store/useGenreDesignStore";
 import { useGenreEditMenu } from "@/hooks/useGenreEditMenu";
@@ -26,18 +28,25 @@ function GenreCard({ genre }: { genre: Genre }) {
   const openGenre = useNavigationStore((s) => s.openGenre);
   const { onContextMenu, contextMenu } = useGenreEditMenu(genre);
   const design = useGenreDesign(genre.key);
+  const look = useGenreLook(genre, design);
   return (
     <>
       <button
         type="button"
         className="genre-card"
-        style={genreDesignStyle(design)}
+        style={playlistDesignBackgroundStyle(look.start, look.end)}
         onClick={() => openGenre(genre.key, genre.name)}
         onContextMenu={onContextMenu}
       >
-        <span className="genre-card__icon" aria-hidden>
-          <SpiralIcon id={design.icon} />
-        </span>
+        {look.artPath ? (
+          <span className="genre-card__art" aria-hidden>
+            <EntityArt artPath={look.artPath} variant="grid" />
+          </span>
+        ) : (
+          <span className="genre-card__icon" aria-hidden>
+            <SpiralIcon id={look.icon} />
+          </span>
+        )}
         <span className="genre-card__name">{genre.name}</span>
         <span className="genre-card__meta">
           {t("counts.tracks", { count: genre.tracks.length })}

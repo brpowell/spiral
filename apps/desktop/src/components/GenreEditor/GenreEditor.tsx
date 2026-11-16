@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { CoverDesignFields } from "@/components/CoverDesign/CoverDesignFields";
-import { PlaylistDesignedArt } from "@/components/PlaylistArt/PlaylistDesignedArt";
 import { EditorDiscardOverlay } from "@/components/EditorDiscardOverlay/EditorDiscardOverlay";
 import { EditorSaveButton } from "@/components/EditorSaveButton/EditorSaveButton";
-import { Button } from "@/components/common/Button/Button";
 import { FormField } from "@/components/common/Field/Field";
 import { Tab, TabList, TabPanel, Tabs } from "@/components/common/Tabs/Tabs";
 import {
@@ -53,6 +50,7 @@ import { usePlayerStore } from "@/store/usePlayerStore";
 import { useTagWriteConfirmStore } from "@/store/useTagWriteConfirmStore";
 import type { Track } from "@/types/track";
 import "@/components/TrackEditor/TrackEditor.css";
+import { GenreArtTab } from "./GenreArtTab";
 import "./GenreEditor.css";
 
 type GenreEditorTab = "details" | "art";
@@ -91,6 +89,7 @@ export function GenreEditor() {
     : undefined;
   const [activeTab, setActiveTab] = useState<GenreEditorTab>("details");
   const [design, setDesign] = useState<GenreDesign | null>(null);
+  const [applyToAll, setApplyToAll] = useState(false);
   const originalDesign = useGenreDesign(editingGenreKey ?? "");
   const [saveError, setSaveError] = useState<string | null>(null);
   const {
@@ -117,6 +116,7 @@ export function GenreEditor() {
             defaultDesignForGenre(genre.key))
         : null,
     );
+    setApplyToAll(false);
     setSaveError(null);
     setDiscardPrompt(false);
     finish();
@@ -129,7 +129,7 @@ export function GenreEditor() {
   const hasChanges =
     genre != null &&
     normalizeGenreName(name) != null &&
-    (nameChanged || designChanged);
+    (nameChanged || designChanged || applyToAll);
 
   const {
     discardPrompt,
@@ -235,13 +235,18 @@ export function GenreEditor() {
     // Only a design that differs from the genre's generated one is kept.
     const designs = useGenreDesignStore.getState();
     designs.renameKey(oldKey, newKey);
-    if (designChanged) {
-      designs.setDesign(
-        newKey,
-        genreDesignsEqual(design, defaultDesignForGenre(newKey))
-          ? null
-          : design,
+    const isGeneratedLook =
+      design != null &&
+      genreDesignsEqual(design, defaultDesignForGenre(newKey));
+    if (applyToAll && design) {
+      // Every genre, this one under its new name. Starting from the generated
+      // look means "reset": each genre goes back to its own.
+      const keys = new Set(
+        allGenres.map((g) => (g.key === oldKey ? newKey : g.key)),
       );
+      designs.applyToAll([...keys], isGeneratedLook ? null : design);
+    } else if (designChanged) {
+      designs.setDesign(newKey, isGeneratedLook ? null : design);
     }
 
     // Keep the detail view on the renamed genre instead of bouncing to the list.
@@ -330,36 +335,13 @@ export function GenreEditor() {
 
                     <TabPanel value="art" className="track-editor__tab-panel">
                       {design ? (
-                        <div className="genre-editor__design">
-                          <PlaylistDesignedArt
-                            coverBackground={design.background}
-                            coverBackgroundEnd={design.backgroundEnd}
-                            coverIcon={design.icon}
-                            className="genre-editor__preview"
-                            alt={genre.name}
-                          />
-                          <div className="genre-editor__controls">
-                            <CoverDesignFields
-                              background={design.background}
-                              backgroundEnd={design.backgroundEnd}
-                              icon={design.icon}
-                              onChange={setDesign}
-                            />
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              disabled={genreDesignsEqual(
-                                design,
-                                defaultDesignForGenre(genre.key),
-                              )}
-                              onClick={() =>
-                                setDesign(defaultDesignForGenre(genre.key))
-                              }
-                            >
-                              {t("library:editor.genre.resetLook")}
-                            </Button>
-                          </div>
-                        </div>
+                        <GenreArtTab
+                          genre={genre}
+                          design={design}
+                          onChange={setDesign}
+                          applyToAll={applyToAll}
+                          onApplyToAllChange={setApplyToAll}
+                        />
                       ) : null}
                     </TabPanel>
                   </div>

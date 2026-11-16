@@ -109,7 +109,18 @@
     "fileMissing": "File not found at this location",
     "filePathAria": "Track file path",
     "genre": {
-      "resetLook": "Reset to default look"
+      "resetLook": "Reset to default",
+      "applyAll": "Apply to all genres",
+      "applyAllAlbum": "Every genre will use the artwork of its own most-played album.",
+      "applyAllDesign": "Every genre will get these colors and this icon.",
+      "applyAllReset": "Every genre will go back to its own generated look.",
+      "modeAria": "Genre art style",
+      "modeDesign": "Design",
+      "modeAlbum": "Top album",
+      "albumHint": "Uses the artwork of your most-played album in this genre. Its colors tint the gradient.",
+      "albumCurrent": "Currently {{title}} by {{artist}}.",
+      "albumCurrentBySize": "No listening history in this genre yet, so it uses its largest album: {{title}} by {{artist}}.",
+      "albumNone": "No album in this genre has artwork, so the gradient uses your theme colors."
     },
     "fields": {
       "title": "Title",

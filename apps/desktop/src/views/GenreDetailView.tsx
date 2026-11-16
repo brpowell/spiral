@@ -18,7 +18,8 @@ import {
 } from "@/components/icons";
 import { albumTotalDurationSeconds } from "@/lib/albums/albums";
 import { formatDurationNatural } from "@/lib/format/format";
-import { PlaylistDesignedArt } from "@/components/PlaylistArt/PlaylistDesignedArt";
+import { GenreCover } from "@/components/GenreArt/GenreCover";
+import { useGenreLook } from "@/hooks/useGenreLook";
 import { getGenreByKey, type Genre } from "@/lib/genres/genres";
 import { confirmAndApplyTrackRatings } from "@/lib/tracks/applyTrackRating";
 import type { CanonicalRating } from "@/lib/tracks/trackRating";
@@ -28,6 +29,9 @@ import { usePlayerStore } from "@/store/usePlayerStore";
 import type { Track } from "@/types/track";
 import "./GenreDetailView.css";
 import "./DetailViewShared.css";
+
+/** Stands in while the genre is missing, so hooks can run before the early return. */
+const EMPTY_GENRE: Genre = { key: "", name: "", tracks: [] };
 
 interface GenreDetailViewProps {
   genres: Genre[];
@@ -46,6 +50,10 @@ export function GenreDetailView({ genres, genreKey }: GenreDetailViewProps) {
   const openGenreEditor = usePlayerStore((s) => s.openGenreEditor);
   const updateTrackInLibrary = usePlayerStore((s) => s.updateTrackInLibrary);
   const design = useGenreDesign(genreKey);
+  const look = useGenreLook(
+    getGenreByKey(genres, genreKey) ?? EMPTY_GENRE,
+    design,
+  );
   const [sort, setSort] = useState<SortState>(null);
 
   const genre = getGenreByKey(genres, genreKey);
@@ -98,10 +106,8 @@ export function GenreDetailView({ genres, genreKey }: GenreDetailViewProps) {
           </div>
 
           <section className="genre-detail__hero">
-            <PlaylistDesignedArt
-              coverBackground={design.background}
-              coverBackgroundEnd={design.backgroundEnd}
-              coverIcon={design.icon}
+            <GenreCover
+              look={look}
               className="genre-detail__art"
               alt={genre.name}
             />

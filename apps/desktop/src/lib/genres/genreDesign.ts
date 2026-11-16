@@ -1,11 +1,18 @@
-import {
-  hslToHex,
-  playlistDesignBackgroundStyle,
-} from "@/lib/playlists/playlistCoverPresets";
+import { hslToHex } from "@/lib/playlists/playlistCoverPresets";
 import { resolveIconId } from "@/lib/iconLibrary";
 
-/** How a genre is drawn: a solid or gradient background with an icon. */
+/**
+ * How a genre's art is made. "design" is a background and icon you pick;
+ * "album" uses the artwork of the genre's most popular album.
+ */
+export type GenreArtMode = "design" | "album";
+
+/**
+ * How a genre is drawn. The design fields stay populated in "album" mode so
+ * switching back keeps the colors and icon you had.
+ */
 export interface GenreDesign {
+  mode: GenreArtMode;
   background: string;
   backgroundEnd: string | null;
   icon: string;
@@ -51,6 +58,7 @@ export function defaultDesignForGenre(key: string): GenreDesign {
   const hue = hash % 360;
   const shift = 28 + ((hash >>> 9) % 40);
   return {
+    mode: "design",
     background: hslToHex(hue, 0.62, 0.42),
     backgroundEnd: hslToHex((hue + shift) % 360, 0.58, 0.27),
     icon: resolveIconId(
@@ -65,14 +73,11 @@ export function genreDesignsEqual(
 ): boolean {
   if (!a || !b) return !a && !b;
   return (
+    a.mode === b.mode &&
     a.background === b.background &&
     a.backgroundEnd === b.backgroundEnd &&
     a.icon === b.icon
   );
-}
-
-export function genreDesignStyle(design: GenreDesign): { background: string } {
-  return playlistDesignBackgroundStyle(design.background, design.backgroundEnd);
 }
 
 function parseDesign(value: unknown): GenreDesign | null {
@@ -82,6 +87,7 @@ function parseDesign(value: unknown): GenreDesign | null {
     return null;
   }
   return {
+    mode: raw.mode === "album" ? "album" : "design",
     background: raw.background,
     backgroundEnd:
       typeof raw.backgroundEnd === "string" && raw.backgroundEnd.trim() !== ""
@@ -128,4 +134,22 @@ export function designsAfterRename(
   if (oldKey === newKey || !(oldKey in designs)) return designs;
   const { [oldKey]: moved, ...rest } = designs;
   return newKey in rest ? rest : { ...rest, [newKey]: moved };
+}
+
+/**
+ * Designs after giving every genre in `keys` the same design, or (with null)
+ * clearing them so each falls back to its own generated look. Other genres'
+ * designs are left alone.
+ */
+export function designsAfterApplyToAll(
+  designs: GenreDesigns,
+  keys: readonly string[],
+  design: GenreDesign | null,
+): GenreDesigns {
+  const next = { ...designs };
+  for (const key of keys) {
+    if (design) next[key] = design;
+    else delete next[key];
+  }
+  return next;
 }

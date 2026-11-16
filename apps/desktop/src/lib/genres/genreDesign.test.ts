@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   defaultDesignForGenre,
+  designsAfterApplyToAll,
   designsAfterRename,
   genreDesignsEqual,
   loadGenreDesigns,
@@ -9,11 +10,13 @@ import {
 } from "./genreDesign";
 
 const red: GenreDesign = {
+  mode: "design",
   background: "#ff0000",
   backgroundEnd: null,
   icon: "note",
 };
 const blue: GenreDesign = {
+  mode: "design",
   background: "#0000ff",
   backgroundEnd: "#000044",
   icon: "note",
@@ -101,5 +104,47 @@ describe("defaultDesignForGenre", () => {
       keys.map((key) => defaultDesignForGenre(key).background),
     );
     expect(looks.size).toBeGreaterThan(keys.length - 2);
+  });
+});
+
+describe("art mode", () => {
+  it("differs by mode even when the colors match", () => {
+    expect(genreDesignsEqual(red, { ...red, mode: "album" })).toBe(false);
+  });
+
+  it("round-trips the album mode and defaults old entries to design", () => {
+    const storage = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => void storage.set(key, value),
+    });
+    storage.set(
+      "spiral:genreDesigns",
+      JSON.stringify({
+        picked: { ...red, mode: "album" },
+        legacy: { background: "#123456", icon: "note" },
+      }),
+    );
+    const loaded = loadGenreDesigns();
+    expect(loaded.picked.mode).toBe("album");
+    expect(loaded.legacy.mode).toBe("design");
+  });
+});
+
+describe("designsAfterApplyToAll", () => {
+  it("gives every listed genre the design and leaves the rest alone", () => {
+    const designs = { rock: red, other: blue };
+    const next = designsAfterApplyToAll(designs, ["rock", "jazz", "pop"], blue);
+    expect(next).toEqual({ rock: blue, jazz: blue, pop: blue, other: blue });
+    expect(designs).toEqual({ rock: red, other: blue });
+  });
+
+  it("clears the listed genres when the design is null", () => {
+    const next = designsAfterApplyToAll(
+      { rock: red, jazz: blue, other: red },
+      ["rock", "jazz", "pop"],
+      null,
+    );
+    expect(next).toEqual({ other: red });
   });
 });

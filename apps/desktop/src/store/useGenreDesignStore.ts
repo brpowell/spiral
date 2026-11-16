@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import {
   defaultDesignForGenre,
+  designsAfterApplyToAll,
   designsAfterRename,
   loadGenreDesigns,
   saveGenreDesigns,
@@ -12,6 +13,11 @@ interface GenreDesignState {
   designs: GenreDesigns;
   /** Set a genre's design, or pass null to go back to the plain look. */
   setDesign: (key: string, design: GenreDesign | null) => void;
+  /**
+   * Give every genre in `keys` this design, or pass null to send them all back
+   * to their generated look. One write, however many genres.
+   */
+  applyToAll: (keys: readonly string[], design: GenreDesign | null) => void;
   /** Carry a design across a rename or merge (see `designsAfterRename`). */
   renameKey: (oldKey: string, newKey: string) => void;
 }
@@ -22,6 +28,12 @@ export const useGenreDesignStore = create<GenreDesignState>((set, get) => ({
   setDesign: (key, design) => {
     const { [key]: _removed, ...rest } = get().designs;
     const designs = design ? { ...rest, [key]: design } : rest;
+    saveGenreDesigns(designs);
+    set({ designs });
+  },
+
+  applyToAll: (keys, design) => {
+    const designs = designsAfterApplyToAll(get().designs, keys, design);
     saveGenreDesigns(designs);
     set({ designs });
   },

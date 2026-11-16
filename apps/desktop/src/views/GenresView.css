@@ -62,3 +62,22 @@
   width: 4.5rem;
   height: 4.5rem;
 }
+
+/* An album look draws the cover itself in the corner instead of the icon. */
+.genre-card__art {
+  position: absolute;
+  right: -0.4rem;
+  bottom: -0.7rem;
+  width: 4.75rem;
+  aspect-ratio: 1;
+  transform: rotate(6deg);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.45);
+  pointer-events: none;
+}
+
+.genre-card__art .album-art {
+  width: 100%;
+  height: 100%;
+}

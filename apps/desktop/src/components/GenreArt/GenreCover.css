@@ -1,0 +1,17 @@
+/* The album cover peeks out of the bottom-right corner, like the icon watermark. */
+.genre-cover__art {
+  position: absolute;
+  right: -8%;
+  bottom: -8%;
+  width: 58%;
+  aspect-ratio: 1;
+  transform: rotate(6deg);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.45);
+}
+
+.genre-cover__art .album-art {
+  width: 100%;
+  height: 100%;
+}
