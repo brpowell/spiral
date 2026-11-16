@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { confirmAndApplyTrackRatings } from "@/lib/tracks/applyTrackRating";
 import { albumTotalDurationSeconds } from "@/lib/albums/albums";
-import { formatTime } from "@/lib/format/format";
+import { formatDurationNatural } from "@/lib/format/format";
 import {
   getPlaylistById,
   resolvePlaylistTracks,
@@ -131,7 +131,7 @@ function PlaylistDetailContent({ playlist }: { playlist: Playlist }) {
               <p className="playlist-detail__stats">
                 {[
                   t("counts.tracks", { count: tracks.length }),
-                  formatTime(totalDuration),
+                  formatDurationNatural(totalDuration),
                 ]
                   .filter(Boolean)
                   .join(" · ")}
