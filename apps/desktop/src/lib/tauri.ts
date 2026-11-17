@@ -1069,13 +1069,6 @@ export async function renameGenreSettingsKey(
   await invoke<void>("rename_genre_settings_key", { oldKey, newKey });
 }
 
-/** One-time import of backgrounds an earlier version kept in local storage. */
-export async function importGenreBackgrounds(
-  backgrounds: ReadonlyArray<readonly [string, BackgroundRecord]>,
-): Promise<void> {
-  await invoke<void>("import_genre_backgrounds", { backgrounds });
-}
-
 export async function getBuiltinThemes(): Promise<Theme[]> {
   return invoke<Theme[]>("get_builtin_themes");
 }

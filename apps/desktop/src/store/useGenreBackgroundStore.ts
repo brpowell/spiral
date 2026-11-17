@@ -1,26 +1,20 @@
 import { create } from "zustand";
 import {
   backgroundsAfterRename,
-  clearLegacyGenreBackgrounds,
   fromBackgroundRecord,
-  readLegacyGenreBackgrounds,
   toBackgroundRecord,
   type GenreBackground,
   type GenreBackgrounds,
 } from "@/lib/genres/genreBackground";
 import {
   getGenreSettings,
-  importGenreBackgrounds,
   renameGenreSettingsKey,
   setGenreBackgrounds,
 } from "@/lib/tauri";
 
 interface GenreBackgroundState {
   backgrounds: GenreBackgrounds;
-  /**
-   * Load the backgrounds from the library database. Backgrounds an earlier
-   * version kept in local storage are imported into it first, once.
-   */
+  /** Load the backgrounds from the library database. */
   load: () => Promise<void>;
   /** Set a genre's background, or pass null to go back to the theme palette. */
   setBackground: (key: string, background: GenreBackground | null) => void;
@@ -45,16 +39,6 @@ export const useGenreBackgroundStore = create<GenreBackgroundState>(
       backgrounds: {},
 
       load: async () => {
-        const legacy = Object.entries(readLegacyGenreBackgrounds()).flatMap(
-          ([key, background]) => {
-            const record = toBackgroundRecord(background);
-            return record ? [[key, record] as const] : [];
-          },
-        );
-        if (legacy.length > 0) {
-          await importGenreBackgrounds(legacy);
-          clearLegacyGenreBackgrounds();
-        }
         const backgrounds: GenreBackgrounds = {};
         for (const row of await getGenreSettings()) {
           const background = fromBackgroundRecord(row.background);

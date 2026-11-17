@@ -35,45 +35,6 @@ export function genreBackgroundsEqual(
   return a.start === b.start && a.end === b.end;
 }
 
-function parseBackground(value: unknown): GenreBackground | null {
-  if (value == null || typeof value !== "object") return null;
-  const raw = value as Record<string, unknown>;
-  if (raw.theme === "solid") return { theme: "solid" };
-  if (typeof raw.start !== "string" || !HEX.test(raw.start)) return null;
-  const end = typeof raw.end === "string" && HEX.test(raw.end) ? raw.end : null;
-  return { start: raw.start, end };
-}
-
-/** The key earlier versions kept backgrounds under, in the webview's local storage. */
-const LEGACY_STORAGE_KEY = "spiral:genreBackgrounds";
-
-/** Backgrounds saved by an earlier version in local storage, to import once. */
-export function readLegacyGenreBackgrounds(): GenreBackgrounds {
-  try {
-    const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed: unknown = JSON.parse(raw);
-    if (parsed == null || typeof parsed !== "object") return {};
-    const backgrounds: GenreBackgrounds = {};
-    for (const [key, value] of Object.entries(parsed)) {
-      const background = parseBackground(value);
-      if (background) backgrounds[key] = background;
-    }
-    return backgrounds;
-  } catch {
-    return {};
-  }
-}
-
-/** Forget the local-storage copy once it is safely in the library database. */
-export function clearLegacyGenreBackgrounds(): void {
-  try {
-    localStorage.removeItem(LEGACY_STORAGE_KEY);
-  } catch {
-    /* ignore */
-  }
-}
-
 /** A background as the backend stores it. */
 export interface BackgroundRecord {
   kind: "color" | "themeSolid";

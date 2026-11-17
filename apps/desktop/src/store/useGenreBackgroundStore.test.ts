@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GenreBackground } from "@/lib/genres/genreBackground";
 import {
   getGenreSettings,
-  importGenreBackgrounds,
   renameGenreSettingsKey,
   setGenreBackgrounds,
 } from "@/lib/tauri";
@@ -10,7 +9,6 @@ import { useGenreBackgroundStore } from "./useGenreBackgroundStore";
 
 vi.mock("@/lib/tauri", () => ({
   getGenreSettings: vi.fn(),
-  importGenreBackgrounds: vi.fn(),
   renameGenreSettingsKey: vi.fn(),
   setGenreBackgrounds: vi.fn(),
 }));
@@ -18,20 +16,12 @@ vi.mock("@/lib/tauri", () => ({
 const red: GenreBackground = { start: "#ff0000", end: null };
 const redRecord = { kind: "color", start: "#ff0000", end: null };
 
-const storage = new Map<string, string>();
-
 describe("useGenreBackgroundStore", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getGenreSettings).mockResolvedValue([]);
     vi.mocked(setGenreBackgrounds).mockResolvedValue();
     vi.mocked(renameGenreSettingsKey).mockResolvedValue();
-    vi.mocked(importGenreBackgrounds).mockResolvedValue();
-    storage.clear();
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => storage.get(key) ?? null,
-      removeItem: (key: string) => void storage.delete(key),
-    });
     useGenreBackgroundStore.setState({ backgrounds: {} });
   });
 
@@ -85,20 +75,5 @@ describe("useGenreBackgroundStore", () => {
       rock: red,
       jazz: { theme: "solid" },
     });
-    expect(importGenreBackgrounds).not.toHaveBeenCalled();
-  });
-
-  it("imports backgrounds left in local storage once, then forgets them", async () => {
-    storage.set("spiral:genreBackgrounds", JSON.stringify({ rock: red }));
-    await useGenreBackgroundStore.getState().load();
-    expect(importGenreBackgrounds).toHaveBeenCalledWith([["rock", redRecord]]);
-    expect(storage.has("spiral:genreBackgrounds")).toBe(false);
-  });
-
-  it("keeps the local copy when the import fails", async () => {
-    storage.set("spiral:genreBackgrounds", JSON.stringify({ rock: red }));
-    vi.mocked(importGenreBackgrounds).mockRejectedValue(new Error("nope"));
-    await expect(useGenreBackgroundStore.getState().load()).rejects.toThrow();
-    expect(storage.has("spiral:genreBackgrounds")).toBe(true);
   });
 });

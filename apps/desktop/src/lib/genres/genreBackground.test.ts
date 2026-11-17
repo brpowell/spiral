@@ -1,10 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   backgroundsAfterRename,
   genreBackgroundsEqual,
-  clearLegacyGenreBackgrounds,
   fromBackgroundRecord,
-  readLegacyGenreBackgrounds,
   toBackgroundRecord,
   type GenreBackground,
 } from "./genreBackground";
@@ -42,61 +40,6 @@ describe("backgroundsAfterRename", () => {
     expect(backgroundsAfterRename(backgrounds, "jazz", "blues")).toBe(
       backgrounds,
     );
-  });
-});
-
-describe("legacy local storage", () => {
-  const storage = new Map<string, string>();
-  const KEY = "spiral:genreBackgrounds";
-
-  beforeEach(() => {
-    storage.clear();
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => storage.get(key) ?? null,
-      removeItem: (key: string) => void storage.delete(key),
-    });
-  });
-
-  it("reads backgrounds an earlier version saved", () => {
-    storage.set(
-      KEY,
-      JSON.stringify({ rock: red, jazz: blue, flat: { theme: "solid" } }),
-    );
-    expect(readLegacyGenreBackgrounds()).toEqual({
-      rock: red,
-      jazz: blue,
-      flat: { theme: "solid" },
-    });
-  });
-
-  it("drops malformed entries and survives corrupt storage", () => {
-    storage.set(
-      KEY,
-      JSON.stringify({
-        ok: red,
-        notHex: { start: "red" },
-        missing: {},
-        nothing: null,
-      }),
-    );
-    expect(readLegacyGenreBackgrounds()).toEqual({ ok: red });
-
-    storage.set(KEY, "{not json");
-    expect(readLegacyGenreBackgrounds()).toEqual({});
-  });
-
-  it("treats an invalid second color as none", () => {
-    storage.set(KEY, JSON.stringify({ x: { start: "#123456", end: "nope" } }));
-    expect(readLegacyGenreBackgrounds().x).toEqual({
-      start: "#123456",
-      end: null,
-    });
-  });
-
-  it("clears the stored copy", () => {
-    storage.set(KEY, JSON.stringify({ rock: red }));
-    clearLegacyGenreBackgrounds();
-    expect(storage.has(KEY)).toBe(false);
   });
 });
 

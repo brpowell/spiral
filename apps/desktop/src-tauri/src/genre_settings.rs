@@ -189,30 +189,6 @@ pub fn rename_key(
     tx.commit()
 }
 
-/// Import backgrounds saved by an earlier version, which kept them in the webview's
-/// local storage. A genre that already has a background keeps it.
-pub fn import_backgrounds(
-    conn: &mut Connection,
-    imported: &[(String, GenreBackground)],
-) -> Result<(), String> {
-    let tx = conn.transaction().map_err(|e| e.to_string())?;
-    for (key, background) in imported {
-        let b = normalized(background)?;
-        tx.execute(
-            "INSERT INTO genre_settings (genre_key, background_kind, background_start, background_end)
-             VALUES (?1, ?2, ?3, ?4)
-             ON CONFLICT(genre_key) DO UPDATE SET
-               background_kind = excluded.background_kind,
-               background_start = excluded.background_start,
-               background_end = excluded.background_end
-             WHERE genre_settings.background_kind IS NULL",
-            params![key, b.kind.as_str(), b.start, b.end],
-        )
-        .map_err(|e| e.to_string())?;
-    }
-    tx.commit().map_err(|e| e.to_string())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -320,20 +296,5 @@ mod tests {
         set_backgrounds(&mut conn, &keys(&["rock"]), Some(&red)).unwrap();
         rename_key(&mut conn, "rock", "rock").unwrap();
         assert_eq!(background_of(&conn, "rock"), Some(red));
-    }
-
-    #[test]
-    fn import_does_not_overwrite_an_existing_background() {
-        let mut conn = conn();
-        let red = color("#ff0000", None);
-        let blue = color("#0000ff", None);
-        set_backgrounds(&mut conn, &keys(&["rock"]), Some(&red)).unwrap();
-        import_backgrounds(
-            &mut conn,
-            &[("rock".into(), blue.clone()), ("jazz".into(), blue.clone())],
-        )
-        .unwrap();
-        assert_eq!(background_of(&conn, "rock"), Some(red));
-        assert_eq!(background_of(&conn, "jazz"), Some(blue));
     }
 }

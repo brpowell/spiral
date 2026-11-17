@@ -29,13 +29,3 @@ pub fn rename_genre_settings_key(
     let mut conn = state.0.lock().map_err(|e| e.to_string())?;
     genre_settings::rename_key(&mut conn, &old_key, &new_key).map_err(|e| e.to_string())
 }
-
-/// One-time import of backgrounds an earlier version kept in local storage.
-#[tauri::command]
-pub fn import_genre_backgrounds(
-    state: State<DbState>,
-    backgrounds: Vec<(String, GenreBackground)>,
-) -> Result<(), String> {
-    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
-    genre_settings::import_backgrounds(&mut conn, &backgrounds)
-}

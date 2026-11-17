@@ -300,7 +300,6 @@ pub fn run() {
             commands::genre_settings::get_genre_settings,
             commands::genre_settings::set_genre_backgrounds,
             commands::genre_settings::rename_genre_settings_key,
-            commands::genre_settings::import_genre_backgrounds,
             commands::metadata::write_track_metadata,
             commands::metadata::rename_album_artwork,
             commands::themes::get_builtin_themes,
