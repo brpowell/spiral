@@ -30,6 +30,7 @@ mod file_plan;
 mod file_playback;
 mod file_scan;
 mod fs_move;
+mod genre_settings;
 mod image_crop;
 mod import_files;
 mod itunes_smpb;
@@ -296,6 +297,10 @@ pub fn run() {
             commands::artist_images::get_artist_images,
             commands::artist_images::save_artist_image,
             commands::artist_images::rename_artist_image_key,
+            commands::genre_settings::get_genre_settings,
+            commands::genre_settings::set_genre_backgrounds,
+            commands::genre_settings::rename_genre_settings_key,
+            commands::genre_settings::import_genre_backgrounds,
             commands::metadata::write_track_metadata,
             commands::metadata::rename_album_artwork,
             commands::themes::get_builtin_themes,
