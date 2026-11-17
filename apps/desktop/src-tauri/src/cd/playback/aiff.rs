@@ -7,14 +7,17 @@
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 
+use super::damage::{read_exact_at_with_retry, SectorDamage, UNREADABLE_SECTOR_PREFIX};
 use super::source::CdPcmSource;
 use crate::transcoder::PcmStream;
 
 const READ_BUFFER_BYTES: usize = 64 * 1024;
 const BYTES_PER_SAMPLE: u64 = 2;
+/// Samples (both channels) in one 2352-byte CD-DA sector, the unit the drive fails in.
+const SAMPLES_PER_SECTOR: u64 = 1176;
 
 struct AiffInfo {
     channels: u16,
@@ -160,6 +163,9 @@ pub struct AiffSource {
     total_samples: u64,
     samples_read: u64,
     read_failed: Arc<AtomicBool>,
+    damage: SectorDamage,
+    /// Samples of silence still owed for an unreadable sector that was skipped.
+    silence_remaining: u64,
 }
 
 impl AiffSource {
@@ -183,6 +189,8 @@ impl AiffSource {
             total_samples: info.data_len / BYTES_PER_SAMPLE,
             samples_read: 0,
             read_failed: Arc::new(AtomicBool::new(false)),
+            damage: SectorDamage::new(false),
+            silence_remaining: 0,
         })
     }
 
@@ -191,10 +199,20 @@ impl AiffSource {
         let mut source = Self::open(path)?;
         let sample_count = source.total_samples as usize;
         let mut bytes = vec![0u8; sample_count * BYTES_PER_SAMPLE as usize];
-        source
-            .reader
-            .read_exact(&mut bytes)
-            .map_err(|err| format!("Failed to read CD track audio data: {err}"))?;
+        // Read sector-sized chunks so an unreadable patch is retried locally and then reported,
+        // instead of failing the whole track on the first I/O error.
+        let chunk_bytes = (SAMPLES_PER_SECTOR * BYTES_PER_SAMPLE) as usize * 16;
+        let mut pos = source.data_start;
+        for chunk in bytes.chunks_mut(chunk_bytes) {
+            read_exact_at_with_retry(&mut source.reader, pos, chunk).map_err(|err| {
+                if err.kind() == std::io::ErrorKind::UnexpectedEof {
+                    format!("Failed to read CD track audio data: {err}")
+                } else {
+                    format!("{UNREADABLE_SECTOR_PREFIX} (byte {pos}): {err}")
+                }
+            })?;
+            pos += chunk.len() as u64;
+        }
 
         let mut samples = Vec::with_capacity(sample_count);
         for chunk in bytes.chunks_exact(BYTES_PER_SAMPLE as usize) {
@@ -237,6 +255,10 @@ impl CdPcmSource for AiffSource {
         Arc::clone(&self.read_failed)
     }
 
+    fn damaged_sectors_counter(&self) -> Option<Arc<AtomicU32>> {
+        Some(self.damage.counter())
+    }
+
     fn seek_seconds(&mut self, seconds: f64) -> Result<(), String> {
         let channels = self.channels as u64;
         let total_frames = self.total_samples / channels;
@@ -248,6 +270,7 @@ impl CdPcmSource for AiffSource {
             ))
             .map_err(|err| format!("CD seek failed: {err}"))?;
         self.samples_read = sample_index;
+        self.silence_remaining = 0;
         Ok(())
     }
 
@@ -255,20 +278,77 @@ impl CdPcmSource for AiffSource {
         if self.samples_read >= self.total_samples {
             return None;
         }
-        let mut buf = [0u8; 2];
-        if let Err(err) = self.reader.read_exact(&mut buf) {
-            eprintln!("cd playback: audio read failed: {err}");
-            self.read_failed.store(true, Ordering::SeqCst);
-            self.samples_read = self.total_samples;
-            return None;
+        if self.silence_remaining == 0 {
+            let mut buf = [0u8; 2];
+            match self.reader.read_exact(&mut buf) {
+                Ok(()) => {
+                    self.damage.record_good();
+                    self.samples_read += 1;
+                    let sample = if self.little_endian {
+                        i16::from_le_bytes(buf)
+                    } else {
+                        i16::from_be_bytes(buf)
+                    };
+                    return Some(sample as f32 / 32768.0);
+                }
+                Err(err) => match self.recover_from_read_error(err, &mut buf) {
+                    Ok(true) => {
+                        self.samples_read += 1;
+                        let sample = if self.little_endian {
+                            i16::from_le_bytes(buf)
+                        } else {
+                            i16::from_be_bytes(buf)
+                        };
+                        return Some(sample as f32 / 32768.0);
+                    }
+                    // Unreadable sector skipped: fall through to play its silence.
+                    Ok(false) => {}
+                    Err(err) => {
+                        eprintln!("cd playback: audio read failed: {err}");
+                        self.read_failed.store(true, Ordering::SeqCst);
+                        self.samples_read = self.total_samples;
+                        return None;
+                    }
+                },
+            }
         }
+        self.silence_remaining -= 1;
         self.samples_read += 1;
-        let sample = if self.little_endian {
-            i16::from_le_bytes(buf)
-        } else {
-            i16::from_be_bytes(buf)
-        };
-        Some(sample as f32 / 32768.0)
+        Some(0.0)
+    }
+}
+
+impl AiffSource {
+    /// A read failed mid-track. Retry it; if the media still won't read, skip the rest of the
+    /// damaged sector (played as silence) and carry on. `Ok(true)` means the retry filled `buf`,
+    /// `Ok(false)` means silence is owed. `Err` means playback can't continue: the file ended, or
+    /// too many sectors in a row were unreadable (drive gone).
+    fn recover_from_read_error(
+        &mut self,
+        err: std::io::Error,
+        buf: &mut [u8; 2],
+    ) -> Result<bool, String> {
+        if err.kind() == std::io::ErrorKind::UnexpectedEof {
+            return Err(err.to_string());
+        }
+        let pos = self.data_start + self.samples_read * BYTES_PER_SAMPLE;
+        if read_exact_at_with_retry(&mut self.reader, pos, buf).is_ok() {
+            self.damage.record_good();
+            return Ok(true);
+        }
+
+        let sector_end = ((self.samples_read / SAMPLES_PER_SECTOR + 1) * SAMPLES_PER_SECTOR)
+            .min(self.total_samples);
+        if self.damage.record_bad() {
+            return Err(format!("too many unreadable sectors in a row: {err}"));
+        }
+        self.reader
+            .seek(SeekFrom::Start(
+                self.data_start + sector_end * BYTES_PER_SAMPLE,
+            ))
+            .map_err(|seek_err| format!("seek past damaged sector failed: {seek_err}"))?;
+        self.silence_remaining = sector_end - self.samples_read;
+        Ok(false)
     }
 }
 

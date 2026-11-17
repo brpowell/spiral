@@ -7,9 +7,10 @@
 //! - Linux: `CDROMREADAUDIO`
 #![cfg(any(target_os = "windows", target_os = "linux"))]
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 
+use super::damage::{read_sectors_resilient, SectorDamage};
 use super::source::CdPcmSource;
 use crate::cd::platform::{open_drive_handle, read_track_bounds, with_drive_lock, TrackBounds};
 use crate::transcoder::PcmStream;
@@ -56,6 +57,8 @@ pub struct CddaTrackSource {
     samples_read: u64,
     total_samples: u64,
     read_failed: Arc<AtomicBool>,
+    /// Unreadable-sector tally; strict sources (ripping) error instead of silencing.
+    damage: SectorDamage,
 }
 
 // Windows HANDLE is a raw pointer; ownership is exclusive to this source.
@@ -63,7 +66,9 @@ pub struct CddaTrackSource {
 unsafe impl Send for CddaTrackSource {}
 
 impl CddaTrackSource {
-    pub fn open(drive_id: &str, track_number: u32) -> Result<Self, String> {
+    /// `strict` is for ripping: an unreadable sector is an error. Playback passes `false` and
+    /// plays silence over damaged sectors instead.
+    pub fn open(drive_id: &str, track_number: u32, strict: bool) -> Result<Self, String> {
         let bounds = with_drive_lock(|| read_track_bounds(drive_id, track_number))??;
         #[cfg(target_os = "windows")]
         let handle = with_drive_lock(|| open_drive_handle(drive_id))??;
@@ -85,6 +90,7 @@ impl CddaTrackSource {
             samples_read: 0,
             total_samples,
             read_failed: Arc::new(AtomicBool::new(false)),
+            damage: SectorDamage::new(strict),
         })
     }
 
@@ -101,44 +107,57 @@ impl CddaTrackSource {
 
         #[cfg(target_os = "windows")]
         {
-            // DiskOffset is in bytes using 2048-byte cooked sectors (Windows convention).
-            let info = RAW_READ_INFO {
-                DiskOffset: (self.next_lba as i64) * 2048,
-                SectorCount: count,
-                TrackMode: CDDA,
+            let handle = self.handle;
+            let raw_read = |lba: u32, sectors: u32, out: &mut [u8]| -> Result<usize, String> {
+                // DiskOffset is in bytes using 2048-byte cooked sectors (Windows convention).
+                let info = RAW_READ_INFO {
+                    DiskOffset: (lba as i64) * 2048,
+                    SectorCount: sectors,
+                    TrackMode: CDDA,
+                };
+                let mut returned = 0u32;
+                unsafe {
+                    DeviceIoControl(
+                        handle,
+                        IOCTL_CDROM_RAW_READ,
+                        Some((&info as *const RAW_READ_INFO).cast()),
+                        size_of::<RAW_READ_INFO>() as u32,
+                        Some(out.as_mut_ptr().cast()),
+                        out.len() as u32,
+                        Some(&mut returned),
+                        None,
+                    )
+                    .map_err(|err| format!("CD-DA read failed at LBA {lba}: {err}"))?;
+                }
+                Ok((returned as usize).min(out.len()))
             };
-
-            let mut returned = 0u32;
-            unsafe {
-                DeviceIoControl(
-                    self.handle,
-                    IOCTL_CDROM_RAW_READ,
-                    Some((&info as *const RAW_READ_INFO).cast()),
-                    size_of::<RAW_READ_INFO>() as u32,
-                    Some(self.buf.as_mut_ptr().cast()),
-                    byte_len as u32,
-                    Some(&mut returned),
-                    None,
-                )
-                .map_err(|err| format!("CD-DA read failed at LBA {}: {err}", self.next_lba))?;
-            }
-
+            let filled = read_sectors_resilient(
+                &mut self.damage,
+                self.next_lba,
+                count,
+                &mut self.buf[..byte_len],
+                CDDA_SECTOR_BYTES,
+                raw_read,
+            )?;
             self.next_lba += count;
             self.buf_pos = 0;
-            self.buf_len = (returned as usize).min(byte_len);
+            self.buf_len = filled.min(byte_len);
         }
 
         #[cfg(target_os = "linux")]
         {
-            let read = read_cdda_sectors(
-                self.file.as_raw_fd(),
+            let fd = self.file.as_raw_fd();
+            let filled = read_sectors_resilient(
+                &mut self.damage,
                 self.next_lba,
                 count,
                 &mut self.buf[..byte_len],
+                CDDA_SECTOR_BYTES,
+                |lba, sectors, out| read_cdda_sectors(fd, lba, sectors, out),
             )?;
             self.next_lba += count;
             self.buf_pos = 0;
-            self.buf_len = read.min(byte_len);
+            self.buf_len = filled.min(byte_len);
         }
 
         if self.buf_len < BYTES_PER_SAMPLE {
@@ -176,7 +195,7 @@ impl CddaTrackSource {
 
 /// Read an entire CD-DA track as interleaved little-endian PCM for ripping.
 pub fn read_track_pcm(drive_id: &str, track_number: u32) -> Result<PcmStream, String> {
-    let mut source = CddaTrackSource::open(drive_id, track_number)?;
+    let mut source = CddaTrackSource::open(drive_id, track_number, true)?;
     let mut samples = Vec::with_capacity(source.total_samples as usize);
     while let Some(sample) = source.next_i16()? {
         samples.push(sample);
@@ -218,6 +237,10 @@ impl CdPcmSource for CddaTrackSource {
 
     fn read_failed_flag(&self) -> Arc<AtomicBool> {
         Arc::clone(&self.read_failed)
+    }
+
+    fn damaged_sectors_counter(&self) -> Option<Arc<AtomicU32>> {
+        Some(self.damage.counter())
     }
 
     fn seek_seconds(&mut self, seconds: f64) -> Result<(), String> {

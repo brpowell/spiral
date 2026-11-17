@@ -1,15 +1,19 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockShowErrorToast, mockLogActivity } = vi.hoisted(() => ({
-  mockShowErrorToast: vi.fn(),
-  mockLogActivity: vi.fn(),
-}));
+const { mockShowErrorToast, mockShowToast, mockLogActivity } = vi.hoisted(
+  () => ({
+    mockShowErrorToast: vi.fn(),
+    mockShowToast: vi.fn(),
+    mockLogActivity: vi.fn(),
+  }),
+);
 
 vi.mock("@/store/useBackgroundTasksStore", () => ({
   useBackgroundTasksStore: {
     getState: () => ({
       showErrorToast: mockShowErrorToast,
+      showToast: mockShowToast,
     }),
   },
 }));
@@ -24,6 +28,8 @@ vi.mock("@/lib/i18n/i18n", () => ({
 
 import {
   classifyCdPlaybackFailure,
+  isCdUnreadableSectorError,
+  reportCdPlaybackDamage,
   reportCdPlaybackFailure,
   resetCdPlaybackFailureDedupeForTests,
 } from "./cdPlaybackFailure";
@@ -37,6 +43,12 @@ describe("classifyCdPlaybackFailure", () => {
     expect(classifyCdPlaybackFailure("Failed to read CD audio data")).toBe(
       "disconnected",
     );
+  });
+
+  it("treats the too-damaged-to-read message as unreadable, not disconnected", () => {
+    expect(
+      classifyCdPlaybackFailure("Disc is too damaged to read in real time"),
+    ).toBe("unreadable");
   });
 
   it("treats empty-tray messages as no_disc", () => {
@@ -133,5 +145,45 @@ describe("reportCdPlaybackFailure", () => {
 
     expect(mockShowErrorToast).toHaveBeenCalledTimes(1);
     expect(mockLogActivity).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("isCdUnreadableSectorError", () => {
+  it("matches the rip error for a sector that stayed unreadable", () => {
+    expect(
+      isCdUnreadableSectorError(
+        "Unreadable section of disc (sector 1234): CD-DA read failed",
+      ),
+    ).toBe(true);
+    expect(isCdUnreadableSectorError("Disc drive disconnected")).toBe(false);
+  });
+});
+
+describe("reportCdPlaybackDamage", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("warns without stopping playback and logs the damage", () => {
+    reportCdPlaybackDamage({
+      driveId: "drive-1",
+      trackNumber: 4,
+      damagedSectors: 12,
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: "cd-playback-damaged",
+        status: "warning",
+      }),
+    );
+    expect(mockShowErrorToast).not.toHaveBeenCalled();
+    expect(mockLogActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: "warn",
+        domain: ACTIVITY_LOG_DOMAINS.playback,
+        details: { trackNumber: 4, damagedSectors: 12 },
+      }),
+    );
   });
 });

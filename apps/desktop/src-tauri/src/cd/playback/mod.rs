@@ -9,6 +9,8 @@ use serde::Serialize;
 pub const CD_PLAYBACK_POSITION_EVENT: &str = "cd-playback-position";
 pub const CD_PLAYBACK_ENDED_EVENT: &str = "cd-playback-ended";
 pub const CD_PLAYBACK_ERROR_EVENT: &str = "cd-playback-error";
+/// A track is playing over unreadable disc sectors (they are silenced). Sent once per session.
+pub const CD_PLAYBACK_DAMAGED_EVENT: &str = "cd-playback-damaged";
 /// A native session began playing on its own (gapless splice from another session).
 pub const CD_PLAYBACK_GAPLESS_STARTED_EVENT: &str = "cd-playback-gapless-started";
 
@@ -52,6 +54,15 @@ pub struct CdPlaybackError {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CdPlaybackDamaged {
+    pub session_id: u64,
+    pub drive_id: String,
+    pub track_number: u32,
+    pub damaged_sectors: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CdPlaybackGaplessStarted {
     pub session_id: u64,
     pub drive_id: String,
@@ -60,6 +71,9 @@ pub struct CdPlaybackGaplessStarted {
 
 mod engine;
 mod source;
+
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+pub mod damage;
 
 pub use engine::{position, stop_all};
 

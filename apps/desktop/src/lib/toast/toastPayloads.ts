@@ -201,7 +201,7 @@ export function importPickerFailedPayload(options?: {
 }
 
 export function cdPlaybackFailurePayload(
-  kind: "disconnected" | "no_disc" | "generic",
+  kind: "disconnected" | "no_disc" | "unreadable" | "generic",
   message: string,
   options?: {
     dismissMs?: number | null;
@@ -210,7 +210,7 @@ export function cdPlaybackFailurePayload(
   },
 ): ToastPayload {
   const label =
-    kind === "disconnected"
+    kind === "disconnected" || kind === "unreadable"
       ? t("playback:cd.disconnected.label")
       : t("playback:cd.playbackFailed.label");
   const detail =
@@ -218,7 +218,9 @@ export function cdPlaybackFailurePayload(
       ? t("playback:cd.disconnected.detail")
       : kind === "no_disc"
         ? t("playback:cd.noDisc.detail")
-        : message;
+        : kind === "unreadable"
+          ? t("playback:cd.unreadable.detail")
+          : message;
 
   return withOptionalDismiss(
     {
@@ -228,6 +230,23 @@ export function cdPlaybackFailurePayload(
       ...(kind === "generic" && options?.logLink
         ? { logLink: options.logLink }
         : {}),
+    },
+    options?.dismissMs,
+  );
+}
+
+/** Playback hit unreadable disc sectors and is playing silence over them. */
+export function cdPlaybackDamagedPayload(
+  trackNumber: number,
+  options?: { dismissMs?: number | null },
+): ToastPayload {
+  return withOptionalDismiss(
+    {
+      key: "cd-playback-damaged",
+      label: t("playback:cd.damaged.label"),
+      detail: t("playback:cd.damaged.detail", { track: trackNumber }),
+      status: "warning",
+      logLink: true,
     },
     options?.dismissMs,
   );

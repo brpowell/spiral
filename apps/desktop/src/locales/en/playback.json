@@ -23,6 +23,13 @@
     },
     "playbackFailed": {
       "label": "Playback failed"
+    },
+    "unreadable": {
+      "detail": "This disc is too scratched or dirty to read fast enough to play. Try cleaning it."
+    },
+    "damaged": {
+      "label": "Damaged section skipped",
+      "detail": "Track {{track}} has unreadable parts of the disc, which play as silence. Cleaning the disc may help."
     }
   },
   "skinMode": {

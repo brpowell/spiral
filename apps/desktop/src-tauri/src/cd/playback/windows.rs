@@ -20,7 +20,7 @@ pub fn start(
     // Hold Playing before sector setup so background TOC probes defer.
     let session_guard = begin_phase(&drive_id, DriveSessionPhase::Playing);
 
-    let source = CddaTrackSource::open(&drive_id, track_number)?;
+    let source = CddaTrackSource::open(&drive_id, track_number, false)?;
     engine::start(app, &drive_id, track_number, source, Some(session_guard))
 }
 
