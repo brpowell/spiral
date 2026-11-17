@@ -12,12 +12,16 @@ use windows::Win32::Devices::Cdrom::{
     CDROM_READ_TOC_EX, CDROM_READ_TOC_EX_FORMAT_CDTEXT, CDROM_TOC, IOCTL_CDROM_READ_TOC_EX,
     TRACK_DATA,
 };
-use windows::Win32::Foundation::{CloseHandle, GENERIC_READ, HANDLE};
+use windows::Win32::Foundation::{CloseHandle, GENERIC_READ, GENERIC_WRITE, HANDLE};
+use windows::Win32::Media::Multimedia::mciSendStringW;
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, GetDriveTypeW, GetLogicalDriveStringsW, GetVolumeInformationW,
     FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
-use windows::Win32::System::Ioctl::{IOCTL_STORAGE_CHECK_VERIFY, IOCTL_STORAGE_EJECT_MEDIA};
+use windows::Win32::System::Ioctl::{
+    FSCTL_DISMOUNT_VOLUME, FSCTL_LOCK_VOLUME, IOCTL_STORAGE_CHECK_VERIFY,
+    IOCTL_STORAGE_EJECT_MEDIA, IOCTL_STORAGE_MEDIA_REMOVAL, PREVENT_MEDIA_REMOVAL,
+};
 use windows::Win32::System::WindowsProgramming::DRIVE_CDROM;
 use windows::Win32::System::IO::DeviceIoControl;
 
@@ -480,13 +484,81 @@ pub fn eject_disc(drive_id: &str) -> Result<(), String> {
     let _eject_guard = begin_phase(&drive_id, DriveSessionPhase::Ejecting);
     remove_drive(&drive_id);
 
-    with_drive_lock(|| {
-        let handle = DriveHandle::open(&drive_id)?;
-        ioctl_empty(handle.as_raw(), IOCTL_STORAGE_EJECT_MEDIA)
-            .map_err(|err| format!("Failed to eject drive {drive_id}: {err}"))
+    with_drive_lock(|| match eject_via_ioctl(&drive_id) {
+        Ok(()) => Ok(()),
+        Err(ioctl_err) => eject_via_mci(&drive_id).map_err(|mci_err| {
+            format!("Failed to eject drive {drive_id}: {ioctl_err}; MCI fallback: {mci_err}")
+        }),
     })??;
 
     note_device_status_changed();
+    Ok(())
+}
+
+/// Canonical eject sequence: lock, dismount, allow removal, eject. The lock,
+/// dismount and removal steps are best effort; many drives reject a bare
+/// `IOCTL_STORAGE_EJECT_MEDIA` with ERROR_INVALID_FUNCTION without them.
+fn eject_via_ioctl(drive_id: &str) -> Result<(), String> {
+    let path = device_path(drive_id).ok_or_else(|| format!("Invalid drive id: {drive_id}"))?;
+    let wide = to_wide_null(&path);
+    let raw = unsafe {
+        CreateFileW(
+            PCWSTR(wide.as_ptr()),
+            GENERIC_READ.0 | GENERIC_WRITE.0,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            None,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            None,
+        )
+    };
+    let handle = match raw {
+        Ok(h) => DriveHandle { handle: h },
+        // Some drives refuse write access; fall back to the read-only handle.
+        Err(_) => DriveHandle::open(drive_id)?,
+    };
+
+    let _ = ioctl_empty(handle.as_raw(), FSCTL_LOCK_VOLUME);
+    let _ = ioctl_empty(handle.as_raw(), FSCTL_DISMOUNT_VOLUME);
+
+    let prevent = PREVENT_MEDIA_REMOVAL {
+        PreventMediaRemoval: false,
+    };
+    let mut returned = 0u32;
+    unsafe {
+        let _ = DeviceIoControl(
+            handle.as_raw(),
+            IOCTL_STORAGE_MEDIA_REMOVAL,
+            Some((&prevent as *const PREVENT_MEDIA_REMOVAL).cast()),
+            size_of::<PREVENT_MEDIA_REMOVAL>() as u32,
+            None,
+            0,
+            Some(&mut returned),
+            None,
+        );
+    }
+
+    ioctl_empty(handle.as_raw(), IOCTL_STORAGE_EJECT_MEDIA)
+}
+
+/// Fallback that opens the tray through MCI, which works on drives that
+/// reject the storage IOCTL.
+fn eject_via_mci(drive_id: &str) -> Result<(), String> {
+    let alias = format!("spiral_eject_{}", drive_id.trim_end_matches(':'));
+    let open = to_wide_null(&format!("open {drive_id} type cdaudio alias {alias}"));
+    let door = to_wide_null(&format!("set {alias} door open"));
+    let close = to_wide_null(&format!("close {alias}"));
+    unsafe {
+        let err = mciSendStringW(PCWSTR(open.as_ptr()), None, None);
+        if err != 0 {
+            return Err(format!("MCI open failed (error {err})"));
+        }
+        let err = mciSendStringW(PCWSTR(door.as_ptr()), None, None);
+        let _ = mciSendStringW(PCWSTR(close.as_ptr()), None, None);
+        if err != 0 {
+            return Err(format!("MCI door open failed (error {err})"));
+        }
+    }
     Ok(())
 }
 
