@@ -8,11 +8,15 @@ import { BrowseVirtualGrid } from "@/components/BrowseView/BrowseVirtualGrid";
 import { LibraryEmptyState } from "@/components/LibraryEmptyState/LibraryEmptyState";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { SearchField } from "@/components/SearchField/SearchField";
+import { linkableArtistKey } from "@/lib/tracks/trackNavigation";
 import { createFuzzyMatcher } from "@/lib/ui/fuzzySearch";
+import { useNavigationStore } from "@/store/useNavigationStore";
 import type { Album } from "@/types/album";
+import type { Artist } from "@/types/artist";
 
 interface AlbumsViewProps {
   albums: Album[];
+  artists: Artist[];
 }
 
 const albumSearch = createFuzzyMatcher<Album>((a) => [
@@ -20,11 +24,16 @@ const albumSearch = createFuzzyMatcher<Album>((a) => [
   { fields: [a.artist], weight: 0.75 },
 ]);
 
-export function AlbumsView({ albums }: AlbumsViewProps) {
+export function AlbumsView({ albums, artists }: AlbumsViewProps) {
   const { t } = useTranslation("library");
   const [search, setSearch] = useState("");
   const deferredSearch = useDebouncedValue(search, 150);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const artistBrowseMode = useNavigationStore((s) => s.artistBrowseMode);
+  const libraryArtistKeys = useMemo(
+    () => new Set(artists.map((artist) => artist.key)),
+    [artists],
+  );
 
   const filteredAlbums = useMemo(
     () => albumSearch.rank(albums, deferredSearch),
@@ -33,8 +42,17 @@ export function AlbumsView({ albums }: AlbumsViewProps) {
 
   const getAlbumKey = useCallback((album: Album) => album.key, []);
   const renderAlbum = useCallback(
-    (album: Album) => <AlbumCard album={album} />,
-    [],
+    (album: Album) => (
+      <AlbumCard
+        album={album}
+        artistKey={linkableArtistKey(
+          album.tracks[0],
+          libraryArtistKeys,
+          artistBrowseMode,
+        )}
+      />
+    ),
+    [libraryArtistKeys, artistBrowseMode],
   );
 
   if (albums.length === 0) {

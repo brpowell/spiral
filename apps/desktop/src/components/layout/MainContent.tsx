@@ -128,7 +128,7 @@ export function MainContent() {
             className="main-content__view main-content__view--contained"
             {...viewTransition}
           >
-            <AlbumsView albums={albums} />
+            <AlbumsView albums={albums} artists={artists} />
           </motion.div>
         ) : view === "artists" ? (
           <motion.div
