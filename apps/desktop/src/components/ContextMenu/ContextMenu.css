@@ -136,7 +136,12 @@
 .context-menu__separator {
   height: 1px;
   margin: 0.25rem 0.35rem;
-  background: var(--color-border);
+  /* Mixed from the menu's own fill (not the page border token) so it reads on dark and light themes. */
+  background: color-mix(
+    in oklch,
+    var(--color-text-primary) 24%,
+    var(--context-menu-bg)
+  );
 }
 
 .context-menu > button:first-of-type,
