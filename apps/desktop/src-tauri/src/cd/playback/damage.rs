@@ -7,9 +7,10 @@
 
 #[cfg(any(target_os = "macos", test))]
 use std::io::{ErrorKind, Read, Seek, SeekFrom};
-use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
+use std::sync::{mpsc, Arc};
+use std::time::{Duration, Instant};
 
 /// Extra attempts after a failed read before a sector is declared unreadable.
 pub const READ_RETRIES: u32 = 3;
@@ -21,6 +22,137 @@ pub const MAX_CONSECUTIVE_BAD_SECTORS: u32 = 200;
 /// Prefix of the error a strict (rip) read returns for an unreadable sector. The frontend matches
 /// on it to show a "damaged disc" message, so keep it in sync with `cdPlaybackFailure.ts`.
 pub const UNREADABLE_SECTOR_PREFIX: &str = "Unreadable section of disc";
+
+/// A single read slower than this counts as a stall against the rip's budget.
+const RIP_SLOW_READ: Duration = Duration::from_secs(1);
+/// Total time a rip may spend in stalled reads before the track is abandoned.
+const RIP_STALL_BUDGET: Duration = Duration::from_secs(60);
+/// One read blocked this long (the drive is stuck retrying) abandons the track immediately.
+const RIP_HARD_STALL: Duration = Duration::from_secs(20);
+
+/// Error for a rip abandoned because the drive stalled on a damaged area. Starts with
+/// [`UNREADABLE_SECTOR_PREFIX`] so the frontend reports it as a damaged disc.
+fn rip_stall_error() -> String {
+    format!("{UNREADABLE_SECTOR_PREFIX}: the drive stalled while reading it")
+}
+
+/// Time budget for ripping one track from a damaged disc. Drives often don't report an error;
+/// they block for seconds per read while retrying. The reader reports each read here, and the
+/// caller watches from outside so a read that never returns can't hang the rip.
+pub struct RipBudget {
+    epoch: Instant,
+    /// Milliseconds since `epoch` + 1 when the current read began; 0 when idle.
+    since_ms: AtomicU64,
+    stalled_ms: AtomicU64,
+    cancelled: AtomicBool,
+    slow_read: Duration,
+    budget: Duration,
+    hard_stall: Duration,
+}
+
+impl RipBudget {
+    pub fn new() -> Self {
+        Self::with_limits(RIP_SLOW_READ, RIP_STALL_BUDGET, RIP_HARD_STALL)
+    }
+
+    fn with_limits(slow_read: Duration, budget: Duration, hard_stall: Duration) -> Self {
+        Self {
+            epoch: Instant::now(),
+            since_ms: AtomicU64::new(0),
+            stalled_ms: AtomicU64::new(0),
+            cancelled: AtomicBool::new(false),
+            slow_read,
+            budget,
+            hard_stall,
+        }
+    }
+
+    fn now_ms(&self) -> u64 {
+        self.epoch.elapsed().as_millis() as u64 + 1
+    }
+
+    /// Call before each read. Errors if the rip was abandoned while the previous read was stuck.
+    pub fn begin_read(&self) -> Result<(), String> {
+        if self.cancelled.load(Ordering::Acquire) {
+            return Err(rip_stall_error());
+        }
+        self.since_ms.store(self.now_ms(), Ordering::Release);
+        Ok(())
+    }
+
+    /// Call after each read. Errors once stalled reads have used up the budget.
+    pub fn end_read(&self) -> Result<(), String> {
+        let began = self.since_ms.swap(0, Ordering::AcqRel);
+        let took = Duration::from_millis(self.now_ms().saturating_sub(began));
+        self.record_read(took)
+    }
+
+    fn record_read(&self, took: Duration) -> Result<(), String> {
+        if took < self.slow_read {
+            return Ok(());
+        }
+        eprintln!("cd rip: slow read {:.2}s", took.as_secs_f64());
+        let total = self
+            .stalled_ms
+            .fetch_add(took.as_millis() as u64, Ordering::AcqRel)
+            + took.as_millis() as u64;
+        if Duration::from_millis(total) > self.budget {
+            eprintln!(
+                "cd rip: stall budget used up ({:.0}s); abandoning track",
+                total as f64 / 1000.0
+            );
+            return Err(rip_stall_error());
+        }
+        Ok(())
+    }
+
+    fn blocked_for(&self) -> Option<Duration> {
+        let since = self.since_ms.load(Ordering::Acquire);
+        (since != 0).then(|| Duration::from_millis(self.now_ms().saturating_sub(since)))
+    }
+
+    fn cancel(&self) {
+        self.cancelled.store(true, Ordering::Release);
+    }
+}
+
+impl Default for RipBudget {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Run a track read on a worker thread and wait for it, giving up if one read blocks past the
+/// hard-stall limit. The stuck worker can't be interrupted; it is detached and exits on its own
+/// when the drive finally returns.
+pub fn run_budgeted<T: Send + 'static>(
+    budget: Arc<RipBudget>,
+    job: impl FnOnce(&RipBudget) -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    let (tx, rx) = mpsc::channel();
+    let worker_budget = Arc::clone(&budget);
+    std::thread::Builder::new()
+        .name("cd-rip-read".into())
+        .spawn(move || {
+            let _ = tx.send(job(&worker_budget));
+        })
+        .map_err(|err| format!("Failed to start CD read thread: {err}"))?;
+    loop {
+        match rx.recv_timeout(Duration::from_millis(100)) {
+            Ok(result) => return result,
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                if budget.blocked_for().is_some_and(|b| b > budget.hard_stall) {
+                    eprintln!("cd rip: read blocked past the limit; abandoning track");
+                    budget.cancel();
+                    return Err(rip_stall_error());
+                }
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                return Err("CD read thread ended unexpectedly".into());
+            }
+        }
+    }
+}
 
 /// Running tally of unreadable sectors for one track.
 pub struct SectorDamage {
@@ -180,6 +312,58 @@ mod tests {
             }
             Ok(count as usize * SECTOR)
         }
+    }
+
+    #[test]
+    fn stalled_reads_use_up_the_budget() {
+        let budget = RipBudget::with_limits(
+            Duration::from_millis(10),
+            Duration::from_millis(100),
+            Duration::from_secs(5),
+        );
+        // Fast reads never count.
+        assert!(budget.record_read(Duration::from_millis(5)).is_ok());
+        // Slow ones add up until the budget is exceeded.
+        assert!(budget.record_read(Duration::from_millis(60)).is_ok());
+        let err = budget
+            .record_read(Duration::from_millis(60))
+            .expect_err("over budget");
+        assert!(err.starts_with(UNREADABLE_SECTOR_PREFIX), "{err}");
+    }
+
+    #[test]
+    fn a_blocked_read_is_abandoned_without_waiting_for_it() {
+        let budget = Arc::new(RipBudget::with_limits(
+            Duration::from_secs(1),
+            Duration::from_secs(60),
+            Duration::from_millis(250),
+        ));
+        let began = Instant::now();
+        let err = run_budgeted(budget, |b| {
+            b.begin_read()?;
+            std::thread::sleep(Duration::from_secs(3)); // drive hangs in the read
+            b.end_read()?;
+            Ok(())
+        })
+        .expect_err("abandoned");
+        assert!(err.starts_with(UNREADABLE_SECTOR_PREFIX), "{err}");
+        assert!(
+            began.elapsed() < Duration::from_secs(2),
+            "{:?}",
+            began.elapsed()
+        );
+    }
+
+    #[test]
+    fn a_healthy_read_returns_its_result() {
+        let budget = Arc::new(RipBudget::new());
+        let out = run_budgeted(budget, |b| {
+            b.begin_read()?;
+            b.end_read()?;
+            Ok(42)
+        })
+        .expect("ok");
+        assert_eq!(out, 42);
     }
 
     #[test]

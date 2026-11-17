@@ -10,7 +10,7 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 
-use super::damage::{read_sectors_resilient, SectorDamage};
+use super::damage::{read_sectors_resilient, RipBudget, SectorDamage};
 use super::source::CdPcmSource;
 use crate::cd::platform::{open_drive_handle, read_track_bounds, with_drive_lock, TrackBounds};
 use crate::transcoder::PcmStream;
@@ -94,6 +94,17 @@ impl CddaTrackSource {
         })
     }
 
+    /// `refill`, reporting the read to the rip's stall budget when ripping.
+    fn refill_budgeted(&mut self, budget: Option<&RipBudget>) -> Result<bool, String> {
+        let Some(budget) = budget else {
+            return self.refill();
+        };
+        budget.begin_read()?;
+        let refilled = self.refill();
+        budget.end_read()?;
+        refilled
+    }
+
     fn refill(&mut self) -> Result<bool, String> {
         if self.next_lba >= self.bounds.end_lba {
             self.buf_pos = 0;
@@ -166,13 +177,13 @@ impl CddaTrackSource {
         Ok(true)
     }
 
-    fn next_i16(&mut self) -> Result<Option<i16>, String> {
+    fn next_i16(&mut self, budget: Option<&RipBudget>) -> Result<Option<i16>, String> {
         if self.samples_read >= self.total_samples {
             return Ok(None);
         }
 
         if self.buf_pos + BYTES_PER_SAMPLE > self.buf_len {
-            match self.refill()? {
+            match self.refill_budgeted(budget)? {
                 true => {}
                 false => {
                     self.samples_read = self.total_samples;
@@ -194,10 +205,14 @@ impl CddaTrackSource {
 }
 
 /// Read an entire CD-DA track as interleaved little-endian PCM for ripping.
-pub fn read_track_pcm(drive_id: &str, track_number: u32) -> Result<PcmStream, String> {
+pub fn read_track_pcm(
+    drive_id: &str,
+    track_number: u32,
+    budget: &RipBudget,
+) -> Result<PcmStream, String> {
     let mut source = CddaTrackSource::open(drive_id, track_number, true)?;
     let mut samples = Vec::with_capacity(source.total_samples as usize);
-    while let Some(sample) = source.next_i16()? {
+    while let Some(sample) = source.next_i16(Some(budget))? {
         samples.push(sample);
     }
     Ok(PcmStream {
@@ -268,7 +283,7 @@ impl CdPcmSource for CddaTrackSource {
     }
 
     fn next_sample(&mut self) -> Option<f32> {
-        match self.next_i16() {
+        match self.next_i16(None) {
             Ok(Some(sample)) => Some(sample as f32 / 32768.0),
             Ok(None) => None,
             Err(err) => {

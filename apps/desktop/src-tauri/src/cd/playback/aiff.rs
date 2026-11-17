@@ -10,7 +10,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 
-use super::damage::{read_exact_at_with_retry, SectorDamage, UNREADABLE_SECTOR_PREFIX};
+use super::damage::{read_exact_at_with_retry, RipBudget, SectorDamage, UNREADABLE_SECTOR_PREFIX};
 use super::source::CdPcmSource;
 use crate::transcoder::PcmStream;
 
@@ -195,7 +195,7 @@ impl AiffSource {
     }
 
     /// Read the entire track as interleaved i16 PCM for ripping.
-    pub fn read_pcm(path: &Path) -> Result<PcmStream, String> {
+    pub fn read_pcm(path: &Path, budget: &RipBudget) -> Result<PcmStream, String> {
         let mut source = Self::open(path)?;
         let sample_count = source.total_samples as usize;
         let mut bytes = vec![0u8; sample_count * BYTES_PER_SAMPLE as usize];
@@ -204,7 +204,10 @@ impl AiffSource {
         let chunk_bytes = (SAMPLES_PER_SECTOR * BYTES_PER_SAMPLE) as usize * 16;
         let mut pos = source.data_start;
         for chunk in bytes.chunks_mut(chunk_bytes) {
-            read_exact_at_with_retry(&mut source.reader, pos, chunk).map_err(|err| {
+            budget.begin_read()?;
+            let read = read_exact_at_with_retry(&mut source.reader, pos, chunk);
+            budget.end_read()?;
+            read.map_err(|err| {
                 if err.kind() == std::io::ErrorKind::UnexpectedEof {
                     format!("Failed to read CD track audio data: {err}")
                 } else {
@@ -434,7 +437,7 @@ mod tests {
             let mut file = std::fs::File::create(&path).expect("create");
             file.write_all(&data).expect("write");
         }
-        let pcm = AiffSource::read_pcm(&path).expect("read_pcm");
+        let pcm = AiffSource::read_pcm(&path, &RipBudget::new()).expect("read_pcm");
         assert_eq!(pcm.channels, 2);
         assert_eq!(pcm.sample_rate, 44100);
         assert_eq!(pcm.samples.len(), 8 * 2);
