@@ -7,6 +7,7 @@ pub mod diagnostics_export;
 pub mod equalizer;
 pub mod file_playback;
 pub mod files;
+pub mod genre_settings;
 pub mod items;
 pub mod library;
 pub mod library_settings;

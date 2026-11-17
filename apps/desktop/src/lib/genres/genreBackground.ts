@@ -23,7 +23,6 @@ export function isThemeSolid(
 
 export type GenreBackgrounds = Record<string, GenreBackground>;
 
-const STORAGE_KEY = "spiral:genreBackgrounds";
 const HEX = /^#[0-9a-f]{6}$/i;
 
 export function genreBackgroundsEqual(
@@ -36,38 +35,34 @@ export function genreBackgroundsEqual(
   return a.start === b.start && a.end === b.end;
 }
 
-function parseBackground(value: unknown): GenreBackground | null {
-  if (value == null || typeof value !== "object") return null;
-  const raw = value as Record<string, unknown>;
-  if (raw.theme === "solid") return { theme: "solid" };
-  if (typeof raw.start !== "string" || !HEX.test(raw.start)) return null;
-  const end = typeof raw.end === "string" && HEX.test(raw.end) ? raw.end : null;
-  return { start: raw.start, end };
+/** A background as the backend stores it. */
+export interface BackgroundRecord {
+  kind: "color" | "themeSolid";
+  start: string | null;
+  end: string | null;
 }
 
-export function loadGenreBackgrounds(): GenreBackgrounds {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed: unknown = JSON.parse(raw);
-    if (parsed == null || typeof parsed !== "object") return {};
-    const backgrounds: GenreBackgrounds = {};
-    for (const [key, value] of Object.entries(parsed)) {
-      const background = parseBackground(value);
-      if (background) backgrounds[key] = background;
-    }
-    return backgrounds;
-  } catch {
-    return {};
+export function toBackgroundRecord(
+  background: GenreBackground | null,
+): BackgroundRecord | null {
+  if (!background) return null;
+  if (isThemeSolid(background)) {
+    return { kind: "themeSolid", start: null, end: null };
   }
+  return { kind: "color", start: background.start, end: background.end };
 }
 
-export function saveGenreBackgrounds(backgrounds: GenreBackgrounds): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(backgrounds));
-  } catch {
-    /* ignore quota / private mode */
-  }
+export function fromBackgroundRecord(
+  record: BackgroundRecord | null | undefined,
+): GenreBackground | null {
+  if (!record) return null;
+  if (record.kind === "themeSolid") return { theme: "solid" };
+  return record.start && HEX.test(record.start)
+    ? {
+        start: record.start,
+        end: record.end && HEX.test(record.end) ? record.end : null,
+      }
+    : null;
 }
 
 /**

@@ -53,6 +53,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "track_lyrics_attempts",
         up: track_lyrics_attempts,
     },
+    Migration {
+        version: 5,
+        name: "genre_settings",
+        up: genre_settings,
+    },
 ];
 
 fn latest_version() -> i64 {
@@ -543,6 +548,19 @@ fn track_lyrics_attempts(conn: &Connection) -> Result<(), rusqlite::Error> {
     )
 }
 
+/// Per-genre settings the user has chosen, keyed by the lowercase genre name.
+/// A genre without a row uses the defaults; each later setting is its own column.
+fn genre_settings(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute_batch(
+        "CREATE TABLE genre_settings (
+            genre_key TEXT PRIMARY KEY,
+            background_kind TEXT CHECK (background_kind IN ('color', 'theme_solid')),
+            background_start TEXT,
+            background_end TEXT
+        );",
+    )
+}
+
 fn library_sources(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.execute_batch(
         "CREATE TABLE sources (
@@ -992,11 +1010,14 @@ mod tests {
             } else {
                 before
             };
-            // v4 adds an empty table.
+            // v4 and v5 add empty tables.
             if from < 4 {
                 expected.push(("track_lyrics_attempts".to_string(), 0));
-                expected.sort();
             }
+            if from < 5 {
+                expected.push(("genre_settings".to_string(), 0));
+            }
+            expected.sort();
 
             run(&conn, None).unwrap_or_else(|e| panic!("{name}: upgrade failed: {e}"));
 

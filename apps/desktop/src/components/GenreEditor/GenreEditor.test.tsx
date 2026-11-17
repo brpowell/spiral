@@ -16,6 +16,8 @@ import { GenreEditor } from "./GenreEditor";
 vi.mock("@/lib/tauri", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/tauri")>()),
   writeTrackMetadata: vi.fn(),
+  setGenreBackgrounds: vi.fn().mockResolvedValue(undefined),
+  renameGenreSettingsKey: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("framer-motion", () => ({

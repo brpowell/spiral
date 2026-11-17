@@ -28,6 +28,7 @@ import { CustomWindowFrame } from "./components/WindowChrome/CustomWindowFrame";
 import { useStartupCrashReport } from "./hooks/useStartupCrashReport";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useArtistImageStore } from "./store/useArtistImageStore";
+import { useGenreBackgroundStore } from "./store/useGenreBackgroundStore";
 import { setupAppMenu, type AppMenuHandlers } from "./lib/windows/appMenu";
 import { resetOnboardingCompleted } from "./lib/onboardingPreferences";
 import { toggleStubLocaleAndReload } from "./lib/i18n/appLocale";
@@ -186,6 +187,7 @@ function App() {
     loadLibrary();
     void loadPlaylists();
     void loadArtistImages();
+    void useGenreBackgroundStore.getState().load();
 
     return () => {
       cancelled = true;
