@@ -1,5 +1,10 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
+import {
+  CD_PLAYBACK_DAMAGED_EVENT,
+  reportCdPlaybackDamage,
+  type CdPlaybackDamagedPayload,
+} from "@/lib/cd/cdPlaybackFailure";
 import { BackgroundTasksIndicator } from "./components/BackgroundTasks/BackgroundTasksIndicator";
 import { ImportDropZone } from "./components/import/ImportDropZone/ImportDropZone";
 import { PlayerDock } from "./components/PlayerDock/PlayerDock";
@@ -213,6 +218,24 @@ function App() {
       void usePlayerStore.getState().loadLibrary({ preservePlayback: true });
       void useSourcesStore.getState().loadSources();
     }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void listen<CdPlaybackDamagedPayload>(
+      CD_PLAYBACK_DAMAGED_EVENT,
+      (event) => {
+        reportCdPlaybackDamage(event.payload);
+      },
+    ).then((fn) => {
       if (cancelled) fn();
       else unlisten = fn;
     });

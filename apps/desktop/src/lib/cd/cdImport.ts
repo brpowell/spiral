@@ -6,7 +6,10 @@ import {
 } from "@/lib/albums/albums";
 import { resolveCdSharedArtPath } from "./cdArt";
 import { isCdImportCancelRequested } from "./cdImportGuard";
-import { errorMessageFromUnknown } from "./cdPlaybackFailure";
+import {
+  errorMessageFromUnknown,
+  isCdUnreadableSectorError,
+} from "./cdPlaybackFailure";
 import { t } from "@/lib/i18n/i18n";
 import {
   commitImportEntries,
@@ -422,7 +425,14 @@ function recordCdTrackFailure(
   result.failed += 1;
   const message = errorMessageFromUnknown(err);
   const title = plan.metadata.title ?? `Track ${plan.trackNumber}`;
-  result.errors.push(t("toasts:import.cdTrackFailed", { title }));
+  result.errors.push(
+    t(
+      isCdUnreadableSectorError(message)
+        ? "toasts:import.cdTrackDamaged"
+        : "toasts:import.cdTrackFailed",
+      { title },
+    ),
+  );
   logActivity({
     level: "warn",
     domain: ACTIVITY_LOG_DOMAINS.cd,

@@ -228,7 +228,7 @@ function BackgroundTaskItem({ task }: { task: BackgroundTask }) {
       className={[
         "background-tasks__item",
         `background-tasks__item--${task.status}`,
-        hasFooter || hasEndActions ? "background-tasks__item--multiline" : null,
+        hasFooter ? "background-tasks__item--multiline" : null,
       ]
         .filter(Boolean)
         .join(" ")}

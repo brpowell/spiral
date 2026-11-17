@@ -143,6 +143,8 @@
   gap: 0.45rem;
   min-width: 0;
   margin-left: calc(1rem + 0.65rem);
+  /* Set the description off from the title (on top of the content column gap). */
+  margin-top: 0.08rem;
 }
 
 /* Title → actions with no subtitle: give the button row a bit more air. */
@@ -164,6 +166,8 @@
 
 .background-tasks__meta {
   font-size: 0.72rem;
+  /* Roomier than the default so wrapped descriptions don't feel tight. */
+  line-height: 1.35;
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
   display: -webkit-box;
@@ -191,8 +195,16 @@
   flex-shrink: 0;
   flex-direction: column;
   align-items: flex-end;
-  /* Optically center on the title row when the toast is multi-line. */
-  margin-top: -0.05rem;
+}
+
+/*
+ * Multi-line: the column is top-aligned, so give it exactly the title row's height (1rem, the
+ * icon) and center its content in that box. A taller button then overflows evenly above and below,
+ * putting its text at the same eye level as the title.
+ */
+.background-tasks__item--multiline .background-tasks__actions--end {
+  height: 1rem;
+  justify-content: center;
 }
 
 .background-tasks__action {
@@ -208,6 +220,6 @@
 }
 
 .background-tasks__item--multiline .background-tasks__dismiss {
-  /* Optically center on the title row, not the taller hit target. */
-  margin-top: -0.05rem;
+  /* Center the 22px hit target on the 1rem title row, not top-align it. */
+  margin-top: calc((1rem - 22px) / 2);
 }

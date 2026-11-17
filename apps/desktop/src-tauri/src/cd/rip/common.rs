@@ -2,12 +2,16 @@
 
 use std::fs;
 use std::path::PathBuf;
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+use std::sync::Arc;
 
 use crate::library_organize::sanitize_filename;
 use crate::models::TrackMetadataUpdate;
 
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 use crate::cd::platform::session::{begin_phase, DriveSessionPhase};
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+use crate::cd::playback::damage::{run_budgeted, RipBudget};
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 use crate::cd::playback::read_track_pcm;
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
@@ -61,6 +65,7 @@ fn encode_rip_pcm(
 
 /// Rip one track: platform `read_track_pcm` → shared encode.
 ///
+/// Reads are time-budgeted, see [`RipBudget`].
 /// macOS reads cddafs AIFF; Windows/Linux read raw CD-DA sectors. Both feed the same encoder.
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 pub fn rip_cd_track(
@@ -71,7 +76,12 @@ pub fn rip_cd_track(
 ) -> Result<String, String> {
     let _guard = begin_phase(drive_id, DriveSessionPhase::Ripping);
 
-    let pcm = read_track_pcm(drive_id, track_number)?;
+    // A damaged disc can make the drive block for seconds per read. The budget abandons the
+    // track (the caller moves on to the next) instead of grinding through it for minutes.
+    let drive = drive_id.to_string();
+    let pcm = run_budgeted(Arc::new(RipBudget::new()), move |budget| {
+        read_track_pcm(&drive, track_number, budget)
+    })?;
     let dest = encode_rip_pcm(&pcm, drive_id, track_number, profile_id, metadata)?;
     Ok(dest.to_string_lossy().into_owned())
 }

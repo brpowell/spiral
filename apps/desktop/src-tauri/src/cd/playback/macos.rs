@@ -4,6 +4,7 @@
 use tauri::AppHandle;
 
 use super::aiff::AiffSource;
+use super::damage::RipBudget;
 use super::engine;
 use super::CdPlaybackStarted;
 use crate::cd::aiff_path::find_track_aiff_path;
@@ -25,9 +26,13 @@ pub fn start(
 }
 
 /// Read an entire cddafs track as interleaved PCM for ripping.
-pub fn read_track_pcm(drive_id: &str, track_number: u32) -> Result<PcmStream, String> {
+pub fn read_track_pcm(
+    drive_id: &str,
+    track_number: u32,
+    budget: &RipBudget,
+) -> Result<PcmStream, String> {
     let track_path = find_track_aiff_path(drive_id, track_number)?;
-    AiffSource::read_pcm(&track_path)
+    AiffSource::read_pcm(&track_path, budget)
 }
 
 pub fn set_gain(session_id: u64, gain: f32) {

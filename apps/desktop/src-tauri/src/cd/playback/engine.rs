@@ -6,7 +6,7 @@
 //! Platforms supply a [`CdPcmSource`] and an optional session guard.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, LazyLock, Mutex};
 use std::thread;
@@ -16,9 +16,9 @@ use tauri::{AppHandle, Emitter};
 
 use super::source::CdPcmSource;
 use super::{
-    CdPlaybackEnded, CdPlaybackError, CdPlaybackGaplessStarted, CdPlaybackPosition,
-    CdPlaybackStarted, CD_PLAYBACK_ENDED_EVENT, CD_PLAYBACK_ERROR_EVENT,
-    CD_PLAYBACK_GAPLESS_STARTED_EVENT, CD_PLAYBACK_POSITION_EVENT,
+    CdPlaybackDamaged, CdPlaybackEnded, CdPlaybackError, CdPlaybackGaplessStarted,
+    CdPlaybackPosition, CdPlaybackStarted, CD_PLAYBACK_DAMAGED_EVENT, CD_PLAYBACK_ENDED_EVENT,
+    CD_PLAYBACK_ERROR_EVENT, CD_PLAYBACK_GAPLESS_STARTED_EVENT, CD_PLAYBACK_POSITION_EVENT,
 };
 use crate::cd::platform::session::DriveSessionGuard;
 use crate::native_audio::mixer::DeckShared;
@@ -44,6 +44,51 @@ const RING_SECONDS: f64 = 4.0;
 const START_PREBUFFER_SECONDS: f64 = 2.0;
 /// Decode-thread nap when the ring is full or the stream is done.
 const IDLE_SLEEP: Duration = Duration::from_millis(5);
+
+/// A single source read (or seek) blocking this long means the drive is stuck retrying a damaged
+/// area. Past it the session is ended with [`DISC_TOO_SLOW_MESSAGE`] instead of freezing.
+const STALL_LIMIT: Duration = if cfg!(test) {
+    Duration::from_millis(300)
+} else {
+    Duration::from_secs(6)
+};
+/// How often the watchdog checks whether a read is stuck.
+const WATCHDOG_INTERVAL: Duration = Duration::from_millis(100);
+/// How long stopping a session waits for its thread. A thread stuck in a drive read can't be
+/// interrupted, so after this it is detached and exits on its own once the read returns.
+const JOIN_GRACE: Duration = Duration::from_millis(500);
+/// Source reads at least this slow are logged, to diagnose damaged discs.
+const SLOW_READ_LOG: Duration = Duration::from_millis(500);
+/// Read time over which throughput is judged.
+const HEALTH_WINDOW: Duration = Duration::from_secs(8);
+/// Minimum audio decoded per second of read time over [`HEALTH_WINDOW`]. Below 1.0 the drive
+/// can't keep up with playback; the ring cushion hides a little of that, but not half.
+const MIN_REALTIME_RATIO: f64 = 0.5;
+
+/// Shown (via the playback error event) when a damaged disc can't be read fast enough to play.
+/// The frontend matches on it in `cdPlaybackFailure.ts`.
+pub const DISC_TOO_SLOW_MESSAGE: &str = "Disc is too damaged to read in real time";
+
+/// Judges whether the source keeps up with playback, from the time spent reading.
+#[derive(Default)]
+struct ReadHealth {
+    wall: Duration,
+    audio_seconds: f64,
+}
+
+impl ReadHealth {
+    /// Record one read; returns `true` when a full window of reading averaged too slow.
+    fn record(&mut self, wall: Duration, audio_seconds: f64) -> bool {
+        self.wall += wall;
+        self.audio_seconds += audio_seconds;
+        if self.wall < HEALTH_WINDOW {
+            return false;
+        }
+        let too_slow = self.audio_seconds < self.wall.as_secs_f64() * MIN_REALTIME_RATIO;
+        *self = Self::default();
+        too_slow
+    }
+}
 
 static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 
@@ -86,8 +131,19 @@ fn shutdown_active(active: ActivePlayback) {
         .shared
         .playing
         .store(false, Ordering::Relaxed);
-    if let Err(err) = active.thread.join() {
-        eprintln!("cd playback: thread join failed: {err:?}");
+    let deadline = Instant::now() + JOIN_GRACE;
+    while !active.thread.is_finished() && Instant::now() < deadline {
+        thread::sleep(Duration::from_millis(5));
+    }
+    if active.thread.is_finished() {
+        if let Err(err) = active.thread.join() {
+            eprintln!("cd playback: thread join failed: {err:?}");
+        }
+    } else {
+        eprintln!(
+            "cd playback: session thread still blocked in a drive read; detaching it so stop \
+             doesn't hang"
+        );
     }
 }
 
@@ -182,6 +238,7 @@ fn start_inner(
     let sample_rate = source.sample_rate();
     let channels = source.channels();
     let read_failed = source.read_failed_flag();
+    let damaged_sectors = source.damaged_sectors_counter();
     let session_id = NEXT_SESSION_ID.fetch_add(1, Ordering::SeqCst);
 
     let deck = output.create_deck(channels as usize, sample_rate, RING_SECONDS)?;
@@ -192,6 +249,7 @@ fn start_inner(
         output,
     };
     let stop_requested = Arc::new(AtomicBool::new(false));
+    let reading = Arc::new(ReadingSince::new());
     let (cmd_tx, cmd_rx) = mpsc::channel::<PlaybackCommand>();
     let rate = deck.src_rate as f64;
 
@@ -199,6 +257,7 @@ fn start_inner(
         let app = app.clone();
         let drive_id = drive_id.to_string();
         let stop_requested = Arc::clone(&stop_requested);
+        let reading = Arc::clone(&reading);
         thread::Builder::new()
             .name(format!("cd-playback-{session_id}"))
             .spawn(move || {
@@ -210,8 +269,10 @@ fn start_inner(
                     duration_seconds,
                     source,
                     read_failed,
+                    damaged_sectors,
                     deck,
                     stop_requested,
+                    reading,
                     cmd_rx,
                 );
             })
@@ -224,7 +285,7 @@ fn start_inner(
             control,
             drive_id: drive_id.to_string(),
             track_number,
-            stop_requested,
+            stop_requested: Arc::clone(&stop_requested),
             cmd_tx,
             thread,
             started_at: Instant::now(),
@@ -234,12 +295,139 @@ fn start_inner(
         },
     );
 
+    spawn_stall_watchdog(
+        app,
+        session_id,
+        drive_id.to_string(),
+        track_number,
+        stop_requested,
+        reading,
+    );
+
     Ok(CdPlaybackStarted {
         session_id,
         duration_seconds,
         sample_rate,
         channels,
     })
+}
+
+/// End a session from its own playback thread because the disc can't be read fast enough.
+fn fail_session(app: Option<&AppHandle>, session_id: u64, drive_id: &str, track_number: u32) {
+    SESSIONS
+        .lock()
+        .expect("cd playback state poisoned")
+        .remove(&session_id);
+    emit(
+        app,
+        CD_PLAYBACK_ERROR_EVENT,
+        CdPlaybackError {
+            session_id,
+            drive_id: drive_id.to_string(),
+            track_number,
+            message: DISC_TOO_SLOW_MESSAGE.into(),
+        },
+    );
+}
+
+/// Lets the watchdog see when the playback thread is inside a (possibly blocking) source call.
+struct ReadingSince {
+    epoch: Instant,
+    /// Milliseconds since `epoch` + 1 when the current source call began; 0 when idle.
+    since_ms: AtomicU64,
+    /// Set when the playback thread exits so the watchdog can too.
+    done: AtomicBool,
+}
+
+impl ReadingSince {
+    fn new() -> Self {
+        Self {
+            epoch: Instant::now(),
+            since_ms: AtomicU64::new(0),
+            done: AtomicBool::new(false),
+        }
+    }
+
+    fn begin(&self) {
+        let ms = self.epoch.elapsed().as_millis() as u64 + 1;
+        self.since_ms.store(ms, Ordering::Release);
+    }
+
+    fn end(&self) {
+        self.since_ms.store(0, Ordering::Release);
+    }
+
+    fn blocked_for(&self) -> Option<Duration> {
+        let since = self.since_ms.load(Ordering::Acquire);
+        if since == 0 {
+            return None;
+        }
+        let now = self.epoch.elapsed().as_millis() as u64 + 1;
+        Some(Duration::from_millis(now.saturating_sub(since)))
+    }
+}
+
+/// Marks the playback thread finished on every exit path.
+struct DoneOnDrop(Arc<ReadingSince>);
+
+impl Drop for DoneOnDrop {
+    fn drop(&mut self) {
+        self.0.done.store(true, Ordering::Release);
+    }
+}
+
+/// A drive stuck retrying a damaged area blocks the playback thread inside a read it can't
+/// abandon. This watchdog notices, ends the session with an error the user can see, and detaches
+/// the stuck thread instead of letting the whole app wait on the drive.
+fn spawn_stall_watchdog(
+    app: Option<AppHandle>,
+    session_id: u64,
+    drive_id: String,
+    track_number: u32,
+    stop_requested: Arc<AtomicBool>,
+    reading: Arc<ReadingSince>,
+) {
+    let spawned = thread::Builder::new()
+        .name(format!("cd-watchdog-{session_id}"))
+        .spawn(move || {
+            while !reading.done.load(Ordering::Acquire) && !stop_requested.load(Ordering::SeqCst) {
+                thread::sleep(WATCHDOG_INTERVAL);
+                let Some(blocked) = reading.blocked_for() else {
+                    continue;
+                };
+                if blocked < STALL_LIMIT {
+                    continue;
+                }
+                if stop_requested.swap(true, Ordering::SeqCst) {
+                    return;
+                }
+                eprintln!(
+                    "cd playback: track {track_number} read blocked for {:.1}s; ending session",
+                    blocked.as_secs_f64()
+                );
+                let taken = SESSIONS
+                    .lock()
+                    .expect("cd playback state poisoned")
+                    .remove(&session_id);
+                if let Some(active) = taken {
+                    shutdown_active(active);
+                }
+                emit(
+                    app.as_ref(),
+                    CD_PLAYBACK_ERROR_EVENT,
+                    CdPlaybackError {
+                        session_id,
+                        drive_id,
+                        track_number,
+                        message: DISC_TOO_SLOW_MESSAGE.into(),
+                    },
+                );
+                return;
+            }
+        });
+    if let Err(err) = spawned {
+        eprintln!("cd playback: watchdog failed to start: {err}");
+    }
 }
 
 fn emit<T: serde::Serialize + Clone>(app: Option<&AppHandle>, event: &str, payload: T) {
@@ -263,16 +451,21 @@ fn playback_thread(
     duration_seconds: f64,
     mut source: impl CdPcmSource,
     read_failed: Arc<AtomicBool>,
+    damaged_sectors: Option<Arc<AtomicU32>>,
     mut deck: DeckHandle,
     stop_requested: Arc<AtomicBool>,
+    reading: Arc<ReadingSince>,
     cmd_rx: mpsc::Receiver<PlaybackCommand>,
 ) {
+    let _done = DoneOnDrop(Arc::clone(&reading));
+    let mut health = ReadHealth::default();
     let channels = deck.channels;
     let rate = deck.src_rate as f64;
     let chunk_samples = CHUNK_FRAMES * channels;
     let mut chunk: Vec<f32> = Vec::with_capacity(chunk_samples);
     let mut decoder_done = false;
     let mut last_position_emit = Instant::now();
+    let mut damage_reported = false;
 
     loop {
         if stop_requested.load(Ordering::SeqCst) {
@@ -285,9 +478,11 @@ fn playback_thread(
                 latest = next;
             }
             chunk.clear();
+            reading.begin();
             if let Err(err) = source.seek_seconds(latest) {
                 eprintln!("cd playback: seek failed: {err}");
             }
+            reading.end();
             // Clear `eos` before flushing so the callback cannot mistake the
             // emptied ring for the end of the track.
             deck.shared.eos.store(false, Ordering::Release);
@@ -300,6 +495,9 @@ fn playback_thread(
 
         let mut did_work = false;
         if !decoder_done {
+            let read_started = Instant::now();
+            let before = chunk.len();
+            reading.begin();
             while chunk.len() < chunk_samples {
                 match source.next_sample() {
                     Some(sample) => chunk.push(sample),
@@ -308,6 +506,21 @@ fn playback_thread(
                         break;
                     }
                 }
+            }
+            reading.end();
+            let took = read_started.elapsed();
+            if took >= SLOW_READ_LOG {
+                eprintln!(
+                    "cd playback: track {track_number} slow read {:.2}s at {:.1}s",
+                    took.as_secs_f64(),
+                    source.position_seconds()
+                );
+            }
+            let audio_seconds = (chunk.len() - before) as f64 / channels as f64 / rate;
+            if audio_seconds > 0.0 && health.record(took, audio_seconds) {
+                eprintln!("cd playback: track {track_number} reading below real time; stopping");
+                fail_session(app.as_ref(), session_id, &drive_id, track_number);
+                return;
             }
         }
         if !chunk.is_empty() && deck.free_samples() >= chunk.len() {
@@ -318,6 +531,25 @@ fn playback_thread(
         }
         if decoder_done && chunk.is_empty() && !deck.shared.eos.load(Ordering::Relaxed) {
             deck.shared.eos.store(true, Ordering::Release);
+        }
+
+        if !damage_reported {
+            let damaged = damaged_sectors
+                .as_ref()
+                .map_or(0, |count| count.load(Ordering::Relaxed));
+            if damaged > 0 {
+                damage_reported = true;
+                emit(
+                    app.as_ref(),
+                    CD_PLAYBACK_DAMAGED_EVENT,
+                    CdPlaybackDamaged {
+                        session_id,
+                        drive_id: drive_id.clone(),
+                        track_number,
+                        damaged_sectors: damaged,
+                    },
+                );
+            }
         }
 
         if deck.shared.gapless_started.swap(false, Ordering::AcqRel) {
@@ -524,6 +756,9 @@ mod tests {
         /// Absolute interleaved sample index.
         sample_index: u64,
         read_failed: Arc<AtomicBool>,
+        /// Block once for this long when the read position reaches the given sample, like a
+        /// drive stuck retrying a damaged sector.
+        stall_at: Option<(u64, Duration)>,
     }
 
     impl InterleavedFixture {
@@ -536,7 +771,13 @@ mod tests {
                 total_frames,
                 sample_index: 0,
                 read_failed: Arc::new(AtomicBool::new(false)),
+                stall_at: None,
             }
+        }
+
+        fn stalling_at(mut self, sample: u64, duration: Duration) -> Self {
+            self.stall_at = Some((sample, duration));
+            self
         }
 
         fn total_samples(&self) -> u64 {
@@ -574,6 +815,12 @@ mod tests {
         fn next_sample(&mut self) -> Option<f32> {
             if self.sample_index >= self.total_samples() {
                 return None;
+            }
+            if let Some((at, duration)) = self.stall_at {
+                if self.sample_index == at {
+                    self.stall_at = None;
+                    thread::sleep(duration);
+                }
             }
             self.sample_index += 1;
             Some(0.0)
@@ -720,6 +967,62 @@ mod tests {
             // Unknown sessions are ignored; linking one is an error.
             set_gain(u64::MAX, 1.0);
             assert!(link_gapless(native.session_id, u64::MAX).is_err());
+        });
+    }
+
+    #[test]
+    fn read_health_flags_a_window_of_slow_reads() {
+        let mut health = ReadHealth::default();
+        // 1 s of reading yields 0.2 s of audio: a quarter of a window at a time.
+        assert!(!health.record(Duration::from_secs(4), 0.8));
+        assert!(health.record(Duration::from_secs(4), 0.8));
+    }
+
+    #[test]
+    fn read_health_passes_fast_reads_and_resets_each_window() {
+        let mut health = ReadHealth::default();
+        assert!(!health.record(Duration::from_secs(4), 40.0));
+        assert!(!health.record(Duration::from_secs(4), 40.0));
+        // A slow patch after a healthy window starts from a clean slate.
+        assert!(!health.record(Duration::from_secs(4), 0.5));
+    }
+
+    #[test]
+    fn a_blocked_read_ends_the_session_and_stop_does_not_wait_for_it() {
+        with_clean_sessions(|| {
+            let (output, _state) = fake_output();
+            // The drive hangs for 3 s partway in; the watchdog gives up after 300 ms.
+            let fixture = InterleavedFixture::new(10.0).stalling_at(4_000, Duration::from_secs(3));
+            let started = start_inner(None, "drive-a", 1, fixture, None, output).expect("start");
+
+            let began = Instant::now();
+            while with_session(started.session_id, |_| ()).is_some() {
+                assert!(
+                    began.elapsed() < Duration::from_secs(2),
+                    "watchdog never ended the blocked session"
+                );
+                thread::sleep(Duration::from_millis(10));
+            }
+            assert!(began.elapsed() < Duration::from_secs(2));
+        });
+    }
+
+    #[test]
+    fn stopping_a_session_stuck_in_a_read_returns_promptly() {
+        with_clean_sessions(|| {
+            let (output, _state) = fake_output();
+            // Stall longer than the watchdog limit is irrelevant here: stop right away.
+            let fixture = InterleavedFixture::new(10.0).stalling_at(4_000, Duration::from_secs(3));
+            let started = start_inner(None, "drive-a", 1, fixture, None, output).expect("start");
+            thread::sleep(Duration::from_millis(60));
+
+            let began = Instant::now();
+            stop(started.session_id);
+            assert!(
+                began.elapsed() < Duration::from_secs(1),
+                "stop waited on the blocked read: {:?}",
+                began.elapsed()
+            );
         });
     }
 

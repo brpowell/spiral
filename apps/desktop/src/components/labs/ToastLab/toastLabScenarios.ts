@@ -9,6 +9,7 @@ import {
   availableUpdatePayload,
   availableUpdateActions,
   bulkTrackMetadataSavePayload,
+  cdPlaybackDamagedPayload,
   cdPlaybackFailurePayload,
   cdHeroArtFetchedSettleOptions,
   cdImportFailedSettleOptions,
@@ -509,6 +510,36 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         cdPlaybackFailurePayload("no_disc", "No audio CD in drive", {
           dismissMs,
         }),
+      );
+    },
+  },
+  {
+    id: "cd-damaged",
+    group: "Playback",
+    buttonLabel: "CD · damaged section",
+    source: "cdPlaybackFailure.ts",
+    fire: async ({ showToast, dismissMs }) => {
+      await seedToastLabLog(
+        ACTIVITY_LOG_DOMAINS.playback,
+        "Toast Lab: sample CD damaged section",
+        { trackNumber: 3, damagedSectors: 12 },
+        "warn",
+      );
+      showToast(cdPlaybackDamagedPayload(3, { dismissMs }));
+    },
+  },
+  {
+    id: "cd-unreadable",
+    group: "Playback",
+    buttonLabel: "CD · too damaged",
+    source: "cdPlaybackFailure.ts",
+    fire: ({ showErrorToast, dismissMs }) => {
+      showErrorToast(
+        cdPlaybackFailurePayload(
+          "unreadable",
+          "Disc is too damaged to read in real time",
+          { dismissMs },
+        ),
       );
     },
   },

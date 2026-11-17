@@ -107,7 +107,8 @@
     "noTracksSelected": "No tracks selected to import",
     "cdFailed": "Couldn't import CD",
     "cdFailedDetail": "Check the disc and try again.",
-    "cdTrackFailed": "{{title}} couldn't be ripped"
+    "cdTrackFailed": "{{title}} couldn't be ripped",
+    "cdTrackDamaged": "{{title}} couldn't be imported: the disc might be damaged, try cleaning it."
   },
   "cdMetadata": {
     "lookingUp": "Looking up CD metadata…",
