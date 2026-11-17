@@ -1,7 +1,7 @@
 use crate::activity_log::{self, ActivityLogContext};
 use crate::cd::platform;
 use crate::cd::playback;
-use crate::cd::playback::CdPlaybackStarted;
+use crate::cd::playback::{CdPlaybackPosition, CdPlaybackStarted};
 use crate::cd::types::{CdDisc, CdDiscCdText, CdDrive};
 use crate::cd::{cleanup_rip_temp, rip_cd_track as rip_cd_track_impl};
 use crate::disc_metadata_cache::{self, DiscMetadataCachePeek, DiscMetadataOverride};
@@ -105,6 +105,12 @@ pub async fn start_cd_playback(
     tauri::async_runtime::spawn_blocking(move || playback::start(app, &drive_id, track_number))
         .await
         .map_err(|err| err.to_string())?
+}
+
+/// Current position of a CD session, or `None` once it has ended.
+#[tauri::command]
+pub fn get_cd_playback_position(session_id: u64) -> Option<CdPlaybackPosition> {
+    playback::position(session_id)
 }
 
 #[tauri::command]

@@ -88,6 +88,9 @@ struct ActivePlayback {
     cmd_tx: mpsc::Sender<PlaybackCommand>,
     thread: thread::JoinHandle<()>,
     started_at: Instant,
+    /// Source sample rate and length, to turn the deck's frame counter into seconds on demand.
+    rate: f64,
+    duration_seconds: f64,
 }
 
 impl ActivePlayback {
@@ -220,6 +223,7 @@ fn start_inner(
     };
     let stop_requested = Arc::new(AtomicBool::new(false));
     let (cmd_tx, cmd_rx) = mpsc::channel::<PlaybackCommand>();
+    let rate = deck.src_rate as f64;
 
     let thread = {
         let stop_requested = Arc::clone(&stop_requested);
@@ -250,6 +254,8 @@ fn start_inner(
                 cmd_tx,
                 thread,
                 started_at: Instant::now(),
+                rate,
+                duration_seconds,
             },
         );
 
@@ -375,6 +381,23 @@ fn playback_thread(
         FILE_PLAYBACK_ENDED_EVENT,
         FilePlaybackEnded { session_id },
     );
+}
+
+/// The session's current position, read straight from the mixer. Lets the webview resync after
+/// it was throttled instead of waiting on (and trusting the timing of) the next position event.
+pub fn position(session_id: u64) -> Option<FilePlaybackPosition> {
+    with_session(session_id, |active| FilePlaybackPosition {
+        session_id,
+        position_seconds: (active
+            .control
+            .shared
+            .position_frames
+            .load(Ordering::Relaxed) as f64
+            / active.rate)
+            .min(active.duration_seconds),
+        duration_seconds: active.duration_seconds,
+        is_playing: active.is_playing(),
+    })
 }
 
 pub fn pause(session_id: u64) {

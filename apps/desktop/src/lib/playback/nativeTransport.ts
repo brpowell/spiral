@@ -39,6 +39,7 @@ export interface NativeTransport {
     pause: string;
     resume: string;
     seek: string;
+    position: string;
     stop: string;
     gain: string;
     balance: string;
@@ -65,6 +66,7 @@ export const FILE_NATIVE_TRANSPORT: NativeTransport = {
     pause: "pause_file_playback",
     resume: "resume_file_playback",
     seek: "seek_file_playback",
+    position: "get_file_playback_position",
     stop: "stop_file_playback",
     gain: "set_file_playback_gain",
     balance: "set_file_playback_balance",
@@ -94,6 +96,7 @@ export const CD_NATIVE_TRANSPORT: NativeTransport = {
     pause: "pause_cd_playback",
     resume: "resume_cd_playback",
     seek: "seek_cd_playback",
+    position: "get_cd_playback_position",
     stop: "stop_cd_playback",
     gain: "set_cd_playback_gain",
     balance: "set_cd_playback_balance",

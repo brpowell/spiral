@@ -79,6 +79,7 @@ export class NativePlaybackEngine {
   /** Primed for a gapless splice: buffered in Rust, silent until it starts itself. */
   private gated = false;
   private listeners: Promise<UnlistenFn[]> | null = null;
+  private removeWakeListeners: (() => void) | null = null;
   private loadGeneration = 0;
   private errorCallback: ((error: NativePlaybackError) => void) | null = null;
 
@@ -129,7 +130,46 @@ export class NativePlaybackEngine {
     }).catch((err) => console.error("Native gain update failed:", err));
   }
 
+  /**
+   * A hidden window's webview is throttled, so position events reach it late and get stamped
+   * with their arrival time. Ask Rust for the true position the moment the window is back.
+   */
+  private watchWake(): void {
+    if (this.removeWakeListeners || typeof document === "undefined") return;
+    const onWake = () => {
+      if (document.visibilityState === "visible") void this.resyncPosition();
+    };
+    document.addEventListener("visibilitychange", onWake);
+    window.addEventListener("focus", onWake);
+    this.removeWakeListeners = () => {
+      document.removeEventListener("visibilitychange", onWake);
+      window.removeEventListener("focus", onWake);
+      this.removeWakeListeners = null;
+    };
+  }
+
+  /** Re-anchors the playhead on the position Rust reports right now. */
+  async resyncPosition(): Promise<void> {
+    const session = this.current;
+    if (!session) return;
+    try {
+      const payload = await invoke<NativePositionPayload | null>(
+        this.transport.commands.position,
+        { sessionId: session.sessionId },
+      );
+      if (!payload || this.current?.sessionId !== session.sessionId) return;
+      this.durationSeconds = payload.durationSeconds;
+      this.playing = payload.isPlaying;
+      if (performance.now() < this.ignoreEventsUntilMs) return;
+      this.anchorSeconds = payload.positionSeconds;
+      this.anchorAtMs = performance.now();
+    } catch (err) {
+      console.error("Native position resync failed:", err);
+    }
+  }
+
   private ensureListeners(): Promise<UnlistenFn[]> {
+    this.watchWake();
     this.listeners ??= Promise.all([
       listen<NativePositionPayload>(this.transport.events.position, (event) => {
         if (!isNativeSession(this.current, event.payload)) return;
@@ -352,6 +392,7 @@ export class NativePlaybackEngine {
   }
 
   destroy(): void {
+    this.removeWakeListeners?.();
     this.retire();
   }
 

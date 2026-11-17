@@ -15,11 +15,26 @@ if (typeof document !== "undefined") {
   );
 }
 
+/**
+ * WebKit stops firing requestAnimationFrame for an occluded or backgrounded window, so a bare
+ * rAF wait would stall any loop (such as the CD rip) until the window is shown again. A painting
+ * window resolves in ~32ms; this is the ceiling before giving up on a paint that is not coming.
+ */
+const PAINT_FALLBACK_MS = 100;
+
 /** Wait for React to commit and the browser to paint before heavy work. */
 export function waitForPaint(): Promise<void> {
   return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(fallback);
+      resolve();
+    };
+    const fallback = setTimeout(finish, PAINT_FALLBACK_MS);
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => resolve());
+      requestAnimationFrame(finish);
     });
   });
 }
