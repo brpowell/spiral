@@ -29,6 +29,7 @@ import type {
   MusicBrainzTrackSlot,
 } from "@/types/musicbrainz";
 import { useCdStore } from "@/store/useCdStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
 import type { CoverArtCandidate } from "@/types/coverArt";
 import { AlbumArtPicker } from "@/components/AlbumEditor/AlbumArtPicker";
 import { AlbumEditorArtTab } from "@/components/AlbumEditor/AlbumEditorArtTab";
@@ -46,7 +47,10 @@ import {
 } from "@/components/common/Modal/Modal";
 import { Button } from "@/components/common/Button/Button";
 import { FormField } from "@/components/common/Field/Field";
+import { AutocompleteInput } from "@/components/common/AutocompleteInput/AutocompleteInput";
 import { TextInput } from "@/components/common/TextInput/TextInput";
+import { collectArtistNameSuggestions } from "@/lib/artists/artistNameSuggestions";
+import { collectGenreSuggestions } from "@/lib/tracks/trackFieldSuggestions";
 import { Tab, TabList, TabPanel, Tabs } from "@/components/common/Tabs/Tabs";
 import { MusicBrainzEditorTab } from "@/components/MusicBrainzEditorTab/MusicBrainzEditorTab";
 import "@/components/TrackEditor/TrackEditor.css";
@@ -77,6 +81,15 @@ const ART_PREVIEW_KEY = "staging:cd-album-editor";
 const ART_DOWNLOAD_KEY = "staging:cd-album-editor-download";
 
 export function CdAlbumEditor() {
+  const library = usePlayerStore((s) => s.library);
+  const artistSuggestions = useMemo(
+    () => collectArtistNameSuggestions(library),
+    [library],
+  );
+  const genreSuggestions = useMemo(
+    () => collectGenreSuggestions(library),
+    [library],
+  );
   const editingCdAlbumDriveId = useCdStore((s) => s.editingCdAlbumDriveId);
   const cdAlbumEditorInitialTab = useCdStore((s) => s.cdAlbumEditorInitialTab);
   const cdAlbumEditorAutoOpenMbSearch = useCdStore(
@@ -620,8 +633,9 @@ export function CdAlbumEditor() {
                         <FormField
                           label={t("library:editor.fields.albumArtist")}
                         >
-                          <TextInput
+                          <AutocompleteInput
                             value={form.artist}
+                            suggestions={artistSuggestions}
                             onChange={(e) => setField("artist", e.target.value)}
                           />
                         </FormField>
@@ -633,8 +647,9 @@ export function CdAlbumEditor() {
                           />
                         </FormField>
                         <FormField label={t("library:editor.fields.genre")}>
-                          <TextInput
+                          <AutocompleteInput
                             value={form.genre}
+                            suggestions={genreSuggestions}
                             onChange={(e) => setField("genre", e.target.value)}
                           />
                         </FormField>
