@@ -61,10 +61,14 @@ struct DeckControl {
 struct ActivePlayback {
     control: DeckControl,
     drive_id: String,
+    track_number: u32,
     stop_requested: Arc<AtomicBool>,
     cmd_tx: mpsc::Sender<PlaybackCommand>,
     thread: thread::JoinHandle<()>,
     started_at: Instant,
+    /// Source sample rate and length, to turn the deck's frame counter into seconds on demand.
+    rate: f64,
+    duration_seconds: f64,
     /// Holds `DriveSessionPhase::Playing` for the life of the track (when provided).
     _session_guard: Option<DriveSessionGuard>,
 }
@@ -189,6 +193,7 @@ fn start_inner(
     };
     let stop_requested = Arc::new(AtomicBool::new(false));
     let (cmd_tx, cmd_rx) = mpsc::channel::<PlaybackCommand>();
+    let rate = deck.src_rate as f64;
 
     let thread = {
         let app = app.clone();
@@ -218,10 +223,13 @@ fn start_inner(
         ActivePlayback {
             control,
             drive_id: drive_id.to_string(),
+            track_number,
             stop_requested,
             cmd_tx,
             thread,
             started_at: Instant::now(),
+            rate,
+            duration_seconds,
             _session_guard: session_guard,
         },
     );
@@ -432,6 +440,25 @@ pub fn link_gapless(from_session: u64, to_session: u64) -> Result<(), String> {
     from.control
         .output
         .link_gapless(from.control.deck_id, to.control.deck_id)
+}
+
+/// The session's current position, read straight from the mixer. Lets the webview resync after
+/// it was throttled instead of waiting on (and trusting the timing of) the next position event.
+pub fn position(session_id: u64) -> Option<CdPlaybackPosition> {
+    with_session(session_id, |active| CdPlaybackPosition {
+        session_id,
+        drive_id: active.drive_id.clone(),
+        track_number: active.track_number,
+        position_seconds: (active
+            .control
+            .shared
+            .position_frames
+            .load(Ordering::Relaxed) as f64
+            / active.rate)
+            .min(active.duration_seconds),
+        duration_seconds: active.duration_seconds,
+        is_playing: active.is_playing(),
+    })
 }
 
 pub fn seek(session_id: u64, seconds: f64) -> Result<(), String> {

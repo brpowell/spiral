@@ -1,4 +1,4 @@
-use crate::file_playback::{self, FilePlaybackStarted};
+use crate::file_playback::{self, FilePlaybackPosition, FilePlaybackStarted};
 use tauri::AppHandle;
 
 /// Start a paused session; audio is decoded and mixed in Rust and played
@@ -6,6 +6,12 @@ use tauri::AppHandle;
 #[tauri::command]
 pub fn start_file_playback(app: AppHandle, path: String) -> Result<FilePlaybackStarted, String> {
     file_playback::start(app, &path)
+}
+
+/// Current position of a session, or `None` once it has ended.
+#[tauri::command]
+pub fn get_file_playback_position(session_id: u64) -> Option<FilePlaybackPosition> {
+    file_playback::position(session_id)
 }
 
 #[tauri::command]

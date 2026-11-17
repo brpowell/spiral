@@ -54,6 +54,7 @@ describe("NativeFilePlaybackEngine", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.useRealTimers();
   });
 
@@ -461,5 +462,38 @@ describe("NativeFilePlaybackEngine gapless", () => {
 
   it("advertises gapless", () => {
     expect(new NativeFilePlaybackEngine().capabilities.gapless).toBe(true);
+  });
+
+  it("re-anchors on Rust's position when the window becomes visible again", async () => {
+    const doc = Object.assign(new EventTarget(), {
+      visibilityState: "visible",
+    });
+    vi.stubGlobal("document", doc);
+    vi.stubGlobal("window", new EventTarget());
+    const engine = await loadedEngine();
+    await engine.play();
+    emit("file-playback-position", {
+      sessionId: 7,
+      positionSeconds: 10,
+      durationSeconds: 200,
+      isPlaying: true,
+    });
+    // Position events were starved while hidden; Rust is now well ahead.
+    invoke.mockImplementation(async (command: string) =>
+      command === "get_file_playback_position"
+        ? {
+            sessionId: 7,
+            positionSeconds: 55,
+            durationSeconds: 200,
+            isPlaying: true,
+          }
+        : undefined,
+    );
+    doc.dispatchEvent(new Event("visibilitychange"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(commandsNamed("get_file_playback_position")).toEqual([
+      ["get_file_playback_position", { sessionId: 7 }],
+    ]);
+    expect(engine.getPositionSeconds()).toBeCloseTo(55, 0);
   });
 });
