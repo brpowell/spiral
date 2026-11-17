@@ -1,23 +1,18 @@
-# Unsigned test installers for Windows and Linux, to try a change on other machines.
+# Unsigned test installers for every desktop platform, to try a change on other machines.
 #
 # Unlike `desktop-release.yml` this never creates or touches a tag or GitHub Release, never
 # enters the `production-release` environment, and never sees a signing secret: it builds from the
-# ref, uploads the installers as workflow artifacts (14 days), and stops. Windows builds are
-# unsigned (SmartScreen will warn) and no updater artifacts are produced.
+# selected branch, uploads the installers as workflow artifacts (14 days), and stops. Builds are
+# unsigned (Windows shows SmartScreen warnings; macOS needs the quarantine flag cleared) and no
+# updater artifacts are produced.
 #
-# Trigger it by adding a label to a pull request (add it again to rebuild: remove, then re-add):
-#   test-build                 all four cells
-#   test-build:windows         windows-x64 + windows-aarch64
-#   test-build:windows-x64     one cell (likewise windows-aarch64, linux-x64, linux-aarch64)
-#   test-build:linux           linux-x64 + linux-aarch64
-# or run it from the Actions tab (once this file is on the default branch) and pick a platform.
+# Run it from the Actions tab: pick the branch under "Use workflow from" and the platforms to
+# build. GitHub only lists a workflow there once the file is on the default branch.
 #
 # Keep the matrix and Linux dependencies below in sync with `desktop-release.yml`.
 name: Test build
 
 on:
-  pull_request:
-    types: [labeled]
   workflow_dispatch:
     inputs:
       platforms:
@@ -27,6 +22,7 @@ on:
         type: choice
         options:
           - all
+          - macos
           - windows
           - windows-x64
           - windows-aarch64
@@ -38,32 +34,24 @@ permissions:
   contents: read
 
 concurrency:
-  group: test-build-${{ github.event.pull_request.number || github.ref }}-${{ github.event.label.name || inputs.platforms }}
+  group: test-build-${{ github.ref }}-${{ inputs.platforms }}
   cancel-in-progress: true
 
 jobs:
   plan:
     name: Plan build matrix
     runs-on: ubuntu-latest
-    # Ignore unrelated labels.
-    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.event.label.name, 'test-build') }}
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - name: Select matrix cells
         id: matrix
         env:
-          LABEL: ${{ github.event.label.name }}
-          INPUT: ${{ inputs.platforms }}
+          SELECTED: ${{ inputs.platforms }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            selected="${INPUT:-all}"
-          elif [ "$LABEL" = "test-build" ]; then
-            selected="all"
-          else
-            selected="${LABEL#test-build:}"
-          fi
+          selected="${SELECTED:-all}"
           all='[
+            {"label":"macos-universal","platform":"macos-latest","args":"--target universal-apple-darwin --bundles app,dmg","rust_targets":"aarch64-apple-darwin,x86_64-apple-darwin"},
             {"label":"windows-x64","platform":"windows-latest","args":"--bundles nsis","rust_targets":""},
             {"label":"windows-aarch64","platform":"windows-11-arm","args":"--target aarch64-pc-windows-msvc --bundles nsis","rust_targets":"aarch64-pc-windows-msvc"},
             {"label":"linux-x64","platform":"ubuntu-24.04","args":"--bundles appimage,deb,rpm","rust_targets":""},
@@ -148,6 +136,7 @@ jobs:
         with:
           name: spiral-${{ matrix.label }}
           path: |
+            target/**/bundle/dmg/*.dmg
             target/**/bundle/nsis/*.exe
             target/**/bundle/appimage/*.AppImage
             target/**/bundle/deb/*.deb
