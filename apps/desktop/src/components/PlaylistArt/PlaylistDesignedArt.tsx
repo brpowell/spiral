@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   playlistDesignBackgroundStyle,
   defaultPlaylistDesignCover,
@@ -11,6 +12,8 @@ interface PlaylistDesignedArtProps {
   coverIcon: string | null;
   className?: string;
   alt?: string;
+  /** Extra layers drawn over the cover, such as a label. */
+  children?: ReactNode;
 }
 
 export function PlaylistDesignedArt({
@@ -19,6 +22,7 @@ export function PlaylistDesignedArt({
   coverIcon,
   className = "",
   alt = "",
+  children,
 }: PlaylistDesignedArtProps) {
   const defaults = defaultPlaylistDesignCover();
   const background = coverBackground?.trim() || defaults.coverBackground;
@@ -35,6 +39,7 @@ export function PlaylistDesignedArt({
       <span className="playlist-art__design-icon" aria-hidden>
         <SpiralIcon id={coverIcon ?? defaults.coverIcon} />
       </span>
+      {children}
     </div>
   );
 }

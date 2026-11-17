@@ -12,6 +12,7 @@ import {
   findThemeById,
   resolveThemeTokens,
 } from "@/lib/theme/theme";
+import { useThemeAccent } from "@/hooks/useThemeAccent";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { useThemeStore } from "@/store/useThemeStore";
 import type { SkinBindPath } from "@/types/skin";
@@ -33,17 +34,6 @@ export function usePrefersReducedMotion(): boolean {
   }, []);
 
   return reducedMotion;
-}
-
-/** The active theme's accent colour, or undefined before themes load. */
-function useThemeAccent(): string | undefined {
-  return useThemeStore((s) => {
-    const theme =
-      findThemeById(s.themes, s.activeThemeId) ??
-      findThemeById(s.themes, DEFAULT_THEME_ID) ??
-      s.themes[0];
-    return theme ? resolveThemeTokens(theme)["color-accent"] : undefined;
-  });
 }
 
 /** Shades of the active theme's accent, ignoring whatever track is loaded. */

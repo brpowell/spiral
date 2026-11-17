@@ -15,6 +15,8 @@ export type AutocompleteInputProps = Omit<
   "role" | "aria-autocomplete" | "aria-expanded" | "aria-controls"
 > & {
   suggestions?: string[];
+  /** Open the menu on focus (default). Off: it opens once the user types. */
+  openOnFocus?: boolean;
 };
 
 function applyInputValue(
@@ -33,6 +35,7 @@ function applyInputValue(
 
 export function AutocompleteInput({
   suggestions,
+  openOnFocus = true,
   disabled,
   value,
   onChange,
@@ -49,6 +52,7 @@ export function AutocompleteInput({
 
   const {
     setFocused,
+    markEdited,
     filteredSuggestions,
     activeIndex,
     setActiveIndex,
@@ -65,6 +69,7 @@ export function AutocompleteInput({
     inputRef,
     containerRef,
     disabled,
+    openOnFocus,
   });
 
   const selectSuggestion = useCallback(
@@ -94,7 +99,10 @@ export function AutocompleteInput({
             ? `${optionIdPrefix}-${activeIndex}`
             : undefined
         }
-        onChange={onChange}
+        onChange={(e) => {
+          markEdited();
+          onChange?.(e);
+        }}
         onFocus={(e) => {
           setFocused(true);
           onFocus?.(e);

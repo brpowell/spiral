@@ -1,0 +1,95 @@
+.cover-art {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.cover-art__preview {
+  position: sticky;
+  top: 0;
+}
+
+.cover-art__preview > * {
+  width: 10rem;
+  height: 10rem;
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-bg) 35%, transparent);
+}
+
+.cover-art__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  min-width: 0;
+}
+
+/* Keep every art option laid out so the tab stays as tall as the tallest one. */
+.cover-art__stage {
+  display: grid;
+}
+
+.cover-art__stage > * {
+  grid-area: 1 / 1;
+  align-self: start;
+}
+
+.cover-art__stage > [inert] {
+  visibility: hidden;
+}
+
+.cover-art__modes.radio-group {
+  display: grid;
+  grid-template-columns: repeat(var(--cover-art-modes, 3), minmax(0, 1fr));
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.cover-art__mode.radio-group-item--button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.45rem;
+  min-width: 0;
+  height: auto;
+  border-radius: var(--radius-md);
+}
+
+.cover-art__mode-thumb {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.cover-art__mode-thumb .playlist-art,
+.playlist-art--style-card {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+}
+
+.cover-art__mode-label {
+  font-size: 0.8rem;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+@media (max-width: 560px) {
+  .cover-art {
+    grid-template-columns: 1fr;
+    gap: 1.15rem;
+  }
+
+  .cover-art__preview {
+    position: static;
+    display: flex;
+    justify-content: center;
+  }
+}

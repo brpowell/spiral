@@ -74,6 +74,10 @@
     "discardBulk": "Unsaved edits to {{count}} tracks will be lost.",
     "discardAlbum": "Unsaved edits to this album will be lost.",
     "discardArtist": "Unsaved edits to this artist will be lost.",
+    "genreMergeWarning_one": "{{count}} track from this genre will be merged into <strong>{{name}}</strong>",
+    "genreMergeWarning_other": "{{count}} tracks from this genre will be merged into <strong>{{name}}</strong>",
+    "genreTabsAria": "Genre editor sections",
+    "discardGenre": "Unsaved edits to this genre will be lost.",
     "discardPlaylist": "Unsaved edits to this playlist will be lost.",
     "editTracks": "Edit {{count}} tracks",
     "editTracksDescription": "Changes apply to all {{count}} tracks.",
@@ -104,6 +108,12 @@
     "fileLocation": "Location",
     "fileMissing": "File not found at this location",
     "filePathAria": "Track file path",
+    "background": {
+      "color": "Choose color",
+      "theme": "Use theme palette",
+      "gradient": "Gradient",
+      "applyToAll": "Apply to all genres"
+    },
     "fields": {
       "title": "Title",
       "artist": "Artist",
@@ -115,6 +125,7 @@
       "totalTracks": "Total Tracks",
       "totalDiscs": "Total Discs",
       "genre": "Genre",
+      "background": "Background",
       "rating": "Rating",
       "description": "Description"
     },
@@ -267,6 +278,14 @@
       "emptyPerformer": "No albums in library for this performer.",
       "actionsAria": "Artist actions"
     },
+    "genres": {
+      "title": "Genres",
+      "searchPlaceholder": "Search genres…",
+      "searchAria": "Search genres",
+      "emptySearch": "No genres match your search.",
+      "notFound": "Genre not found.",
+      "actionsAria": "Genre actions"
+    },
     "playlists": {
       "title": "Playlists",
       "new": "New Playlist",
@@ -282,6 +301,7 @@
     "album": "Album",
     "artist": "Artist",
     "playlist": "Playlist",
+    "genre": "Genre",
     "disc": "Disc {{number}}"
   },
   "counts": {
@@ -294,6 +314,7 @@
     "playAll": "Play All",
     "editAlbum": "Edit Album",
     "editArtist": "Edit Artist",
+    "editGenre": "Edit Genre",
     "editPlaylist": "Edit Playlist",
     "deletePlaylist": "Delete Playlist",
     "addToQueue": "Add to Queue",

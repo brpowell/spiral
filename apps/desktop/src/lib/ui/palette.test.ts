@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getDefaultPalette, normalizeVisualizerPalette } from "./palette";
+import {
+  coverGradientFromPalette,
+  getDefaultPalette,
+  normalizeVisualizerPalette,
+} from "./palette";
 
 function lightness(hex: string): number {
   const n = Number.parseInt(hex.slice(1), 16);
@@ -74,5 +78,56 @@ describe("getDefaultPalette with a theme accent", () => {
 
   it("falls back to Spiral green for an accent it cannot parse", () => {
     expect(getDefaultPalette("oklch(60% 0.2 30)")).toEqual(getDefaultPalette());
+  });
+});
+
+function saturation(hex: string): number {
+  const n = Number.parseInt(hex.slice(1), 16);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max === min) return 0;
+  return (max - min) / (1 - Math.abs(max + min - 1));
+}
+
+describe("coverGradientFromPalette", () => {
+  it("keeps both stops dark enough for white text", () => {
+    const { start, end } = coverGradientFromPalette([
+      "#ffe066",
+      "#fff3b0",
+      "#e8d28a",
+      "#403000",
+      "#faf0c8",
+    ]);
+    expect(lightness(start)).toBeLessThanOrEqual(0.45);
+    expect(lightness(end)).toBeLessThanOrEqual(0.3);
+    expect(lightness(end)).toBeLessThan(lightness(start));
+  });
+
+  it("softens a fully saturated swatch instead of passing it through", () => {
+    const { start, end } = coverGradientFromPalette(["#ff0000", "#ff9900"]);
+    expect(saturation(start)).toBeLessThanOrEqual(0.63);
+    expect(saturation(end)).toBeLessThanOrEqual(0.63);
+  });
+
+  it("starts from the most colourful swatch", () => {
+    const { start } = coverGradientFromPalette([
+      "#808080",
+      "#2255dd",
+      "#bbbbbb",
+    ]);
+    const n = Number.parseInt(start.slice(1), 16);
+    const [r, , b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    expect(b).toBeGreaterThan(r);
+  });
+
+  it("falls back to a usable gradient for an empty or invalid palette", () => {
+    for (const colors of [[], ["not-a-color"]]) {
+      const { start, end } = coverGradientFromPalette(colors);
+      expect(start).toMatch(/^#[0-9a-f]{6}$/);
+      expect(end).toMatch(/^#[0-9a-f]{6}$/);
+    }
   });
 });

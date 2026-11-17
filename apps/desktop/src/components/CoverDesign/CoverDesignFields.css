@@ -1,0 +1,128 @@
+.cover-design {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.cover-design__colors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.cover-design__color-action {
+  margin-bottom: 0.55rem;
+}
+
+.cover-design__color-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  max-width: 2.75rem;
+}
+
+label.cover-design__color-picker {
+  cursor: pointer;
+}
+
+.cover-design__color-picker-label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.cover-design__swatch-hit {
+  position: relative;
+  display: block;
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.cover-design__swatch.btn {
+  width: 2.75rem;
+  height: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0;
+}
+
+.cover-design__swatch-hit > .cover-design__swatch.btn {
+  pointer-events: none;
+}
+
+.cover-design__color-add.btn {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+/* The system color panel anchors to this input, so it has to cover the swatch. */
+.cover-design__swatch-input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.cover-design__swatch-input:focus {
+  outline: none;
+}
+
+.cover-design__swatch-hit:hover > .btn--secondary {
+  --btn-lip: inset 0 1px 0 rgb(255 255 255 / 0.5), 0 1px 0 rgb(0 0 0 / 0.12);
+  box-shadow: var(--btn-lip);
+}
+
+.cover-design__swatch-hit:active > .btn--secondary {
+  --btn-lip: inset 0 1px 2px rgb(0 0 0 / 0.14);
+  top: 1px;
+  box-shadow: var(--btn-lip);
+}
+
+.cover-design__color-swatch {
+  position: relative;
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.cover-design__color-clear {
+  position: absolute;
+  z-index: 2;
+  top: -0.35rem;
+  right: -0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+.cover-design__color-clear:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-secondary);
+}
+
+.cover-design__color-clear svg {
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
+.cover-design__color-clear:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

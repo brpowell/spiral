@@ -1,22 +1,11 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEditorDiscardPrompt } from "@/hooks/useEditorDiscardPrompt";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useResetOnOpen } from "@/hooks/useResetOnOpen";
 import { t } from "@/lib/i18n/i18n";
 import { cropsEqual, type ImageCrop } from "@/lib/art/imageCrop";
 import { resolvePlaylistDesignFields } from "@/lib/playlists/playlistArt";
-import {
-  DEFAULT_PLAYLIST_COVER_GRADIENT_END,
-  defaultPlaylistDesignCover,
-  randomPlaylistCoverColors,
-} from "@/lib/playlists/playlistCoverPresets";
+import { defaultPlaylistDesignCover } from "@/lib/playlists/playlistCoverPresets";
 import {
   getPlaylistById,
   resolvePlaylistTracks,
@@ -26,6 +15,8 @@ import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";
 import type { Playlist, PlaylistImageMode } from "@/types/playlist";
+import { CoverArtLayout } from "@/components/CoverDesign/CoverArtLayout";
+import { CoverDesignFields } from "@/components/CoverDesign/CoverDesignFields";
 import { EditorDiscardOverlay } from "@/components/EditorDiscardOverlay/EditorDiscardOverlay";
 import { EditorSaveButton } from "@/components/EditorSaveButton/EditorSaveButton";
 import { PlaylistArt } from "@/components/PlaylistArt/PlaylistArt";
@@ -33,13 +24,8 @@ import { PlaylistDesignedArt } from "@/components/PlaylistArt/PlaylistDesignedAr
 import { PlaylistGeneratedArt } from "@/components/PlaylistArt/PlaylistGeneratedArt";
 import { Alert } from "@/components/common/Alert/Alert";
 import { Button } from "@/components/common/Button/Button";
-import { cssColorToHex } from "@/components/common/ColorField/ColorField";
 import { FormField } from "@/components/common/Field/Field";
 import { ImageCropModal } from "@/components/common/ImageCropModal/ImageCropModal";
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "@/components/common/RadioGroup/RadioGroup";
 import {
   Modal,
   ModalBody,
@@ -51,61 +37,11 @@ import {
 import { Tab, TabList, TabPanel, Tabs } from "@/components/common/Tabs/Tabs";
 import { TextInput } from "@/components/common/TextInput/TextInput";
 import { Textarea } from "@/components/common/Textarea/Textarea";
-import { IconClose, IconShuffle } from "@/components/icons";
-import { PlaylistIconPicker } from "./PlaylistIconPicker";
 import "@/components/PlaylistArt/PlaylistArt.css";
 import "@/components/TrackEditor/TrackEditor.css";
 import "./PlaylistEditorModal.css";
 
 type PlaylistEditorTab = "details" | "art";
-
-function CoverColorButton({
-  value,
-  label,
-  onChange,
-}: {
-  value: string;
-  label: string;
-  onChange: (value: string) => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const openPicker = () => {
-    const input = inputRef.current;
-    if (!input) return;
-    try {
-      input.showPicker();
-    } catch {
-      input.click();
-    }
-  };
-
-  return (
-    <span className="playlist-editor__swatch-hit">
-      <Button
-        variant="secondary"
-        className="playlist-editor__swatch"
-        style={
-          {
-            "--btn-face": value,
-            "--btn-face-hover": value,
-          } as CSSProperties
-        }
-        aria-label={label}
-        onClick={openPicker}
-      />
-      <input
-        ref={inputRef}
-        type="color"
-        className="playlist-editor__swatch-input"
-        value={value}
-        tabIndex={-1}
-        aria-hidden
-        onChange={(e) => onChange(e.target.value)}
-      />
-    </span>
-  );
-}
 
 type PlaylistEditorSnapshot = {
   title: string;
@@ -509,13 +445,6 @@ export function PlaylistEditorModal() {
   ]);
 
   const titleId = "playlist-editor-title";
-  const pickerBackground =
-    cssColorToHex(coverBackground) ??
-    defaultPlaylistDesignCover().coverBackground;
-  const pickerBackgroundEnd =
-    cssColorToHex(coverBackgroundEnd ?? "") ??
-    DEFAULT_PLAYLIST_COVER_GRADIENT_END;
-
   const identityTitle =
     title.trim() ||
     (isNew ? t("library:views.playlists.new") : t("common:untitledPlaylist"));
@@ -611,247 +540,107 @@ export function PlaylistEditorModal() {
                       </TabPanel>
 
                       <TabPanel value="art" className="track-editor__tab-panel">
-                        <div className="playlist-editor__art">
-                          <div className="playlist-editor__art-preview">
+                        <CoverArtLayout
+                          name="playlist-image-mode"
+                          ariaLabel={t(
+                            "library:editor.playlist.coverSourceAria",
+                          )}
+                          value={imageMode}
+                          onChange={handleSelectMode}
+                          preview={
                             <PlaylistArt
                               playlist={previewPlaylist}
                               tracks={tracks}
-                              className="playlist-art--editor"
                               imageCrop={
                                 showLiveCrop ? customImageCrop : undefined
                               }
                             />
-                          </div>
-
-                          <div className="playlist-editor__art-controls">
-                            <RadioGroup
-                              name="playlist-image-mode"
-                              value={imageMode}
-                              onChange={handleSelectMode}
-                              variant="button"
-                              orientation="horizontal"
-                              aria-label={t(
-                                "library:editor.playlist.coverSourceAria",
-                              )}
-                              className="playlist-editor__style-cards"
-                            >
-                              <RadioGroupItem
-                                value="design"
-                                className="playlist-editor__style-card"
-                              >
-                                <span
-                                  className="playlist-editor__style-thumb"
-                                  aria-hidden
-                                >
-                                  <PlaylistDesignedArt
-                                    coverBackground={coverBackground}
-                                    coverBackgroundEnd={coverBackgroundEnd}
-                                    coverIcon={coverIcon}
-                                    className="playlist-art--style-card"
-                                  />
-                                </span>
-                                <span className="playlist-editor__style-label">
-                                  {t("library:editor.playlist.design")}
-                                </span>
-                              </RadioGroupItem>
-                              <RadioGroupItem
-                                value="generated"
-                                className="playlist-editor__style-card"
-                              >
-                                <span
-                                  className="playlist-editor__style-thumb"
-                                  aria-hidden
-                                >
-                                  <PlaylistGeneratedArt
-                                    tracks={tracks}
-                                    className="playlist-art--style-card"
-                                  />
-                                </span>
-                                <span className="playlist-editor__style-label">
-                                  {t("library:editor.playlist.fromTracks")}
-                                </span>
-                              </RadioGroupItem>
-                              <RadioGroupItem
-                                value="custom"
-                                className="playlist-editor__style-card"
-                              >
-                                <span
-                                  className="playlist-editor__style-thumb"
-                                  aria-hidden
-                                >
-                                  <PlaylistArt
-                                    playlist={{
-                                      ...previewPlaylist,
-                                      imageMode: "custom",
-                                      customImagePath: showLiveCrop
-                                        ? customImageSourcePath
-                                        : pendingCustomPath,
-                                    }}
-                                    className="playlist-art--style-card"
-                                    imageCrop={
-                                      showLiveCrop ? customImageCrop : undefined
-                                    }
-                                  />
-                                </span>
-                                <span className="playlist-editor__style-label">
-                                  {t("library:editor.playlist.image")}
-                                </span>
-                              </RadioGroupItem>
-                            </RadioGroup>
-
-                            <div className="playlist-editor__option-stage">
-                              <Alert
-                                variant="info"
-                                inert={imageMode !== "generated"}
-                              >
-                                {t("library:editor.playlist.fromTracksHint")}
-                              </Alert>
-
-                              <div
-                                className="playlist-editor__design"
-                                inert={imageMode !== "design"}
-                              >
-                                <div className="playlist-editor__colors">
-                                  <label className="playlist-editor__color-picker">
-                                    <span className="playlist-editor__color-picker-label">
-                                      {t("library:editor.playlist.colorStart")}
-                                    </span>
-                                    <CoverColorButton
-                                      value={pickerBackground}
-                                      label={t(
-                                        "library:editor.playlist.colorStart",
-                                      )}
-                                      onChange={setCoverBackground}
-                                    />
-                                  </label>
-                                  {coverBackgroundEnd ? (
-                                    <Button
-                                      variant="secondary"
-                                      size="sm"
-                                      iconOnly
-                                      className="playlist-editor__color-action"
-                                      aria-label={t(
-                                        "library:editor.playlist.swapColors",
-                                      )}
-                                      onClick={() => {
-                                        setCoverBackground(coverBackgroundEnd);
-                                        setCoverBackgroundEnd(coverBackground);
-                                      }}
-                                    >
-                                      <svg
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        aria-hidden
-                                      >
-                                        <path d="m16 3 4 4-4 4" />
-                                        <path d="M20 7H4" />
-                                        <path d="m8 21-4-4 4-4" />
-                                        <path d="M4 17h16" />
-                                      </svg>
-                                    </Button>
-                                  ) : null}
-                                  <div className="playlist-editor__color-picker">
-                                    <span className="playlist-editor__color-picker-label">
-                                      {t("library:editor.playlist.colorEnd")}
-                                    </span>
-                                    {coverBackgroundEnd ? (
-                                      <span className="playlist-editor__color-swatch">
-                                        <CoverColorButton
-                                          value={pickerBackgroundEnd}
-                                          label={t(
-                                            "library:editor.playlist.colorEnd",
-                                          )}
-                                          onChange={setCoverBackgroundEnd}
-                                        />
-                                        <button
-                                          type="button"
-                                          className="playlist-editor__color-clear"
-                                          aria-label={t(
-                                            "library:editor.playlist.clearSecondColor",
-                                          )}
-                                          onClick={() =>
-                                            setCoverBackgroundEnd(null)
-                                          }
-                                        >
-                                          <IconClose />
-                                        </button>
-                                      </span>
-                                    ) : (
-                                      <Button
-                                        variant="secondary"
-                                        className="playlist-editor__swatch playlist-editor__color-add"
-                                        aria-label={t(
-                                          "library:editor.playlist.addSecondColor",
-                                        )}
-                                        onClick={() =>
-                                          setCoverBackgroundEnd(
-                                            DEFAULT_PLAYLIST_COVER_GRADIENT_END,
-                                          )
-                                        }
-                                      >
-                                        +
-                                      </Button>
-                                    )}
-                                  </div>
-                                  <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    iconOnly
-                                    className="playlist-editor__color-action"
-                                    aria-label={t(
-                                      "library:editor.playlist.randomizeColors",
-                                    )}
-                                    onClick={() => {
-                                      const next = randomPlaylistCoverColors(
-                                        coverBackgroundEnd != null,
-                                        {
-                                          background: coverBackground,
-                                          backgroundEnd: coverBackgroundEnd,
-                                        },
-                                      );
-                                      setCoverBackground(next.coverBackground);
-                                      setCoverBackgroundEnd(
-                                        next.coverBackgroundEnd,
-                                      );
-                                    }}
-                                  >
-                                    <IconShuffle aria-hidden />
-                                  </Button>
-                                </div>
-                                <PlaylistIconPicker
-                                  value={coverIcon}
-                                  onChange={setCoverIcon}
+                          }
+                          options={[
+                            {
+                              value: "design",
+                              label: t("library:editor.playlist.design"),
+                              thumb: (
+                                <PlaylistDesignedArt
+                                  coverBackground={coverBackground}
+                                  coverBackgroundEnd={coverBackgroundEnd}
+                                  coverIcon={coverIcon}
+                                  className="playlist-art--style-card"
                                 />
-                              </div>
+                              ),
+                            },
+                            {
+                              value: "generated",
+                              label: t("library:editor.playlist.fromTracks"),
+                              thumb: (
+                                <PlaylistGeneratedArt
+                                  tracks={tracks}
+                                  className="playlist-art--style-card"
+                                />
+                              ),
+                            },
+                            {
+                              value: "custom",
+                              label: t("library:editor.playlist.image"),
+                              thumb: (
+                                <PlaylistArt
+                                  playlist={{
+                                    ...previewPlaylist,
+                                    imageMode: "custom",
+                                    customImagePath: showLiveCrop
+                                      ? customImageSourcePath
+                                      : pendingCustomPath,
+                                  }}
+                                  className="playlist-art--style-card"
+                                  imageCrop={
+                                    showLiveCrop ? customImageCrop : undefined
+                                  }
+                                />
+                              ),
+                            },
+                          ]}
+                        >
+                          <Alert
+                            variant="info"
+                            inert={imageMode !== "generated"}
+                          >
+                            {t("library:editor.playlist.fromTracksHint")}
+                          </Alert>
 
-                              <div
-                                className="playlist-editor__image-actions"
-                                inert={imageMode !== "custom"}
+                          <CoverDesignFields
+                            inert={imageMode !== "design"}
+                            background={coverBackground}
+                            backgroundEnd={coverBackgroundEnd}
+                            icon={coverIcon}
+                            onChange={(design) => {
+                              setCoverBackground(design.background);
+                              setCoverBackgroundEnd(design.backgroundEnd);
+                              setCoverIcon(design.icon);
+                            }}
+                          />
+
+                          <div
+                            className="playlist-editor__image-actions"
+                            inert={imageMode !== "custom"}
+                          >
+                            <div className="playlist-editor__image-buttons">
+                              <Button
+                                size="sm"
+                                onClick={() => void handlePickImage()}
                               >
-                                <div className="playlist-editor__image-buttons">
-                                  <Button
-                                    size="sm"
-                                    onClick={() => void handlePickImage()}
-                                  >
-                                    {t("library:editor.playlist.chooseImage")}
-                                  </Button>
-                                  {hasCustomImage ? (
-                                    <Button size="sm" onClick={handleEditImage}>
-                                      {t("library:editor.editImage")}
-                                    </Button>
-                                  ) : null}
-                                </div>
-                                <p className="playlist-editor__hint">
-                                  {t("library:editor.playlist.chooseImageHint")}
-                                </p>
-                              </div>
+                                {t("library:editor.playlist.chooseImage")}
+                              </Button>
+                              {hasCustomImage ? (
+                                <Button size="sm" onClick={handleEditImage}>
+                                  {t("library:editor.editImage")}
+                                </Button>
+                              ) : null}
                             </div>
+                            <p className="playlist-editor__hint">
+                              {t("library:editor.playlist.chooseImageHint")}
+                            </p>
                           </div>
-                        </div>
+                        </CoverArtLayout>
                       </TabPanel>
                     </div>
                   </ModalBody>

@@ -161,3 +161,90 @@ export function getDefaultPalette(accent?: string): string[] {
   const derived = accent ? paletteFromAccent(accent) : null;
   return normalizeVisualizerPalette(derived ?? FALLBACK_PALETTE);
 }
+
+export interface CoverGradient {
+  start: string;
+  end: string;
+}
+
+/** Hue distance on the colour wheel, in degrees (0-180). */
+function hueGap(a: number, b: number): number {
+  const delta = Math.abs(a - b) % 360;
+  return Math.min(delta, 360 - delta);
+}
+
+/** How much a swatch reads as a colour: saturated and away from black and white. */
+function colorfulness(hsl: { s: number; l: number }): number {
+  return hsl.s * (1 - Math.abs(2 * hsl.l - 1));
+}
+
+const COVER_START_LIGHTNESS = { min: 0.3, max: 0.44 } as const;
+const COVER_END_LIGHTNESS = { min: 0.18, max: 0.29 } as const;
+
+/**
+ * Cover colors are a tint of the artwork, not the artwork's full punch, so
+ * saturation is scaled down and capped. A vivid yellow or red still reads as
+ * itself, just quieter.
+ */
+const COVER_SATURATION_SCALE = 0.85;
+const COVER_MAX_SATURATION = 0.62;
+
+function softenSaturation(saturation: number): number {
+  return Math.min(COVER_MAX_SATURATION, saturation * COVER_SATURATION_SCALE);
+}
+
+function clampBetween(
+  value: number,
+  range: { min: number; max: number },
+): number {
+  return Math.min(range.max, Math.max(range.min, value));
+}
+
+/**
+ * Two stops for a cover background, taken from a palette. Both stay dark enough
+ * for white text and are softened rather than full strength: the start is the
+ * palette's most colourful swatch, the end a deeper shade (of a different
+ * swatch when one sits near it, else of the same colour). Falls back to shades
+ * of Spiral green for an empty or unusable palette.
+ */
+export function coverGradientFromPalette(
+  colors: readonly string[],
+): CoverGradient {
+  const swatches = colors
+    .map((hex) => parseHex(hex))
+    .filter((rgb): rgb is Rgb => rgb != null)
+    .map(hslOf);
+  const usable =
+    swatches.length > 0
+      ? swatches
+      : getDefaultPalette().flatMap((hex) => {
+          const rgb = parseHex(hex);
+          return rgb ? [hslOf(rgb)] : [];
+        });
+
+  const ranked = [...usable].sort((a, b) => colorfulness(b) - colorfulness(a));
+  const primary = ranked[0] ?? { h: 0, s: 0, l: 0.3 };
+  // A neighbour hue gives the gradient some travel; skip near-identical swatches.
+  const neighbour = ranked
+    .slice(1)
+    .find(
+      (swatch) =>
+        swatch.s > 0.15 &&
+        hueGap(swatch.h, primary.h) >= 14 &&
+        hueGap(swatch.h, primary.h) <= 90,
+    );
+  const endBase = neighbour ?? primary;
+
+  return {
+    start: hexFromHsl(
+      primary.h,
+      softenSaturation(primary.s),
+      clampBetween(primary.l, COVER_START_LIGHTNESS),
+    ),
+    end: hexFromHsl(
+      endBase.h,
+      softenSaturation(endBase.s),
+      clampBetween(endBase.l * 0.6, COVER_END_LIGHTNESS),
+    ),
+  };
+}

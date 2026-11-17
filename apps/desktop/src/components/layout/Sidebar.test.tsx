@@ -40,7 +40,7 @@ describe("Sidebar", () => {
     const labels = within(screen.getByRole("navigation"))
       .getAllByRole("listitem")
       .map((item) => item.textContent);
-    expect(labels).toEqual(["Tracks", "Albums", "Artists", "Studio"]);
+    expect(labels).toEqual(["Tracks", "Albums", "Artists", "Genres", "Studio"]);
     const more = screen.getByRole("button", { name: "More" });
     expect(more.closest(".sidebar__footer")).toBeTruthy();
     expect(more.closest(".sidebar__scroll")).toBeNull();
