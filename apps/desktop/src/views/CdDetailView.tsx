@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DetailArtistLink } from "@/components/DetailArtistLink/DetailArtistLink";
 import { EntityArt } from "@/components/EntityArt/EntityArt";
 import { Button } from "@/components/common/Button/Button";
@@ -137,6 +137,16 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
   const rawDisc = discsByDriveId[driveId];
   const remoteMetadata = metadataByDriveId[driveId] ?? null;
   const discOverride = overridesByDriveId[driveId];
+  const discIdentity = rawDisc == null ? null : (rawDisc.discId ?? "unknown");
+  const lastDiscIdentityRef = useRef<string | null>(discIdentity);
+  useEffect(() => {
+    // A different disc (or none) in this drive: drop the previous disc's
+    // import checkmarks so they don't carry over to the new one.
+    if (lastDiscIdentityRef.current === discIdentity) return;
+    lastDiscIdentityRef.current = discIdentity;
+    if (useCdImportStore.getState().progress?.driveId === driveId) return;
+    clearCdImportCompletedDisplay(driveId);
+  }, [discIdentity, driveId, clearCdImportCompletedDisplay]);
   const disc = useMemo(() => {
     if (rawDisc == null) return rawDisc;
     return mergeDiscDisplayLayers(rawDisc, remoteMetadata, discOverride);
