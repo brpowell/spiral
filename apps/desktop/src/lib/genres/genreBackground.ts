@@ -23,7 +23,6 @@ export function isThemeSolid(
 
 export type GenreBackgrounds = Record<string, GenreBackground>;
 
-const STORAGE_KEY = "spiral:genreBackgrounds";
 const HEX = /^#[0-9a-f]{6}$/i;
 
 export function genreBackgroundsEqual(
@@ -45,9 +44,13 @@ function parseBackground(value: unknown): GenreBackground | null {
   return { start: raw.start, end };
 }
 
-export function loadGenreBackgrounds(): GenreBackgrounds {
+/** The key earlier versions kept backgrounds under, in the webview's local storage. */
+const LEGACY_STORAGE_KEY = "spiral:genreBackgrounds";
+
+/** Backgrounds saved by an earlier version in local storage, to import once. */
+export function readLegacyGenreBackgrounds(): GenreBackgrounds {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return {};
     const parsed: unknown = JSON.parse(raw);
     if (parsed == null || typeof parsed !== "object") return {};
@@ -62,12 +65,43 @@ export function loadGenreBackgrounds(): GenreBackgrounds {
   }
 }
 
-export function saveGenreBackgrounds(backgrounds: GenreBackgrounds): void {
+/** Forget the local-storage copy once it is safely in the library database. */
+export function clearLegacyGenreBackgrounds(): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(backgrounds));
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
   } catch {
-    /* ignore quota / private mode */
+    /* ignore */
   }
+}
+
+/** A background as the backend stores it. */
+export interface BackgroundRecord {
+  kind: "color" | "themeSolid";
+  start: string | null;
+  end: string | null;
+}
+
+export function toBackgroundRecord(
+  background: GenreBackground | null,
+): BackgroundRecord | null {
+  if (!background) return null;
+  if (isThemeSolid(background)) {
+    return { kind: "themeSolid", start: null, end: null };
+  }
+  return { kind: "color", start: background.start, end: background.end };
+}
+
+export function fromBackgroundRecord(
+  record: BackgroundRecord | null | undefined,
+): GenreBackground | null {
+  if (!record) return null;
+  if (record.kind === "themeSolid") return { theme: "solid" };
+  return record.start && HEX.test(record.start)
+    ? {
+        start: record.start,
+        end: record.end && HEX.test(record.end) ? record.end : null,
+      }
+    : null;
 }
 
 /**

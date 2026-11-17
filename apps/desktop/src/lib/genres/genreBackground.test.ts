@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   backgroundsAfterRename,
   genreBackgroundsEqual,
-  loadGenreBackgrounds,
-  saveGenreBackgrounds,
+  clearLegacyGenreBackgrounds,
+  fromBackgroundRecord,
+  readLegacyGenreBackgrounds,
+  toBackgroundRecord,
   type GenreBackground,
 } from "./genreBackground";
 
@@ -43,25 +45,33 @@ describe("backgroundsAfterRename", () => {
   });
 });
 
-describe("persistence", () => {
+describe("legacy local storage", () => {
   const storage = new Map<string, string>();
+  const KEY = "spiral:genreBackgrounds";
 
   beforeEach(() => {
     storage.clear();
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => storage.get(key) ?? null,
-      setItem: (key: string, value: string) => void storage.set(key, value),
+      removeItem: (key: string) => void storage.delete(key),
     });
   });
 
-  it("round-trips backgrounds", () => {
-    saveGenreBackgrounds({ rock: red, jazz: blue });
-    expect(loadGenreBackgrounds()).toEqual({ rock: red, jazz: blue });
+  it("reads backgrounds an earlier version saved", () => {
+    storage.set(
+      KEY,
+      JSON.stringify({ rock: red, jazz: blue, flat: { theme: "solid" } }),
+    );
+    expect(readLegacyGenreBackgrounds()).toEqual({
+      rock: red,
+      jazz: blue,
+      flat: { theme: "solid" },
+    });
   });
 
   it("drops malformed entries and survives corrupt storage", () => {
     storage.set(
-      "spiral:genreBackgrounds",
+      KEY,
       JSON.stringify({
         ok: red,
         notHex: { start: "red" },
@@ -69,27 +79,41 @@ describe("persistence", () => {
         nothing: null,
       }),
     );
-    expect(loadGenreBackgrounds()).toEqual({ ok: red });
+    expect(readLegacyGenreBackgrounds()).toEqual({ ok: red });
 
-    storage.set("spiral:genreBackgrounds", "{not json");
-    expect(loadGenreBackgrounds()).toEqual({});
-  });
-
-  it("round-trips a flat theme palette", () => {
-    saveGenreBackgrounds({ rock: { theme: "solid" } });
-    expect(loadGenreBackgrounds()).toEqual({ rock: { theme: "solid" } });
-    expect(genreBackgroundsEqual({ theme: "solid" }, { theme: "solid" })).toBe(
-      true,
-    );
-    expect(genreBackgroundsEqual({ theme: "solid" }, red)).toBe(false);
-    expect(genreBackgroundsEqual({ theme: "solid" }, null)).toBe(false);
+    storage.set(KEY, "{not json");
+    expect(readLegacyGenreBackgrounds()).toEqual({});
   });
 
   it("treats an invalid second color as none", () => {
-    storage.set(
-      "spiral:genreBackgrounds",
-      JSON.stringify({ x: { start: "#123456", end: "nope" } }),
-    );
-    expect(loadGenreBackgrounds().x).toEqual({ start: "#123456", end: null });
+    storage.set(KEY, JSON.stringify({ x: { start: "#123456", end: "nope" } }));
+    expect(readLegacyGenreBackgrounds().x).toEqual({
+      start: "#123456",
+      end: null,
+    });
+  });
+
+  it("clears the stored copy", () => {
+    storage.set(KEY, JSON.stringify({ rock: red }));
+    clearLegacyGenreBackgrounds();
+    expect(storage.has(KEY)).toBe(false);
+  });
+});
+
+describe("background records", () => {
+  it("round-trips a color, a gradient and the flat theme", () => {
+    for (const background of [red, blue, { theme: "solid" } as const]) {
+      expect(fromBackgroundRecord(toBackgroundRecord(background))).toEqual(
+        background,
+      );
+    }
+    expect(toBackgroundRecord(null)).toBeNull();
+    expect(fromBackgroundRecord(null)).toBeNull();
+  });
+
+  it("ignores a color record without a valid start", () => {
+    expect(
+      fromBackgroundRecord({ kind: "color", start: null, end: null }),
+    ).toBeNull();
   });
 });

@@ -70,6 +70,7 @@ import {
 } from "./lyrics/lyrics";
 import type { ListenEventPayload } from "@/types/listenEvent";
 import type { ActivityLogContext } from "@/types/activityLog";
+import type { BackgroundRecord } from "./genres/genreBackground";
 import { reportSkinLayoutValidation } from "./skin/skinLayoutReport";
 
 function normalizeCoverArtCandidate(
@@ -1042,6 +1043,37 @@ export async function renameArtistImageKey(
     oldKey,
     newKey,
   });
+}
+
+export interface GenreSettingsRecord {
+  genreKey: string;
+  background: BackgroundRecord | null;
+}
+
+export async function getGenreSettings(): Promise<GenreSettingsRecord[]> {
+  return invoke<GenreSettingsRecord[]>("get_genre_settings");
+}
+
+/** Give each genre this background; null clears it. */
+export async function setGenreBackgrounds(
+  genreKeys: string[],
+  background: BackgroundRecord | null,
+): Promise<void> {
+  await invoke<void>("set_genre_backgrounds", { genreKeys, background });
+}
+
+export async function renameGenreSettingsKey(
+  oldKey: string,
+  newKey: string,
+): Promise<void> {
+  await invoke<void>("rename_genre_settings_key", { oldKey, newKey });
+}
+
+/** One-time import of backgrounds an earlier version kept in local storage. */
+export async function importGenreBackgrounds(
+  backgrounds: ReadonlyArray<readonly [string, BackgroundRecord]>,
+): Promise<void> {
+  await invoke<void>("import_genre_backgrounds", { backgrounds });
 }
 
 export async function getBuiltinThemes(): Promise<Theme[]> {
