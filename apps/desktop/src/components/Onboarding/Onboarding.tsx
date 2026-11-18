@@ -39,7 +39,7 @@ export const ONBOARDING_HOLD_MS = 800;
 /** Length of the logo's shrink-and-move into the corner. */
 export const ONBOARDING_DOCK_MS = 800;
 /** How long Finish stays disabled on the closing support step. */
-export const ONBOARDING_FINISH_COUNTDOWN_S = 15;
+export const ONBOARDING_FINISH_COUNTDOWN_S = 12;
 /** Matches the `.onboarding` opacity transition. */
 export const ONBOARDING_FADE_MS = 600;
 
