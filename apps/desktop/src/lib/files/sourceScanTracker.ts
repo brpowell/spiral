@@ -46,6 +46,7 @@ function startScanToast(sourceId: number): void {
             ctx.setDetail(
               progress.found > 0
                 ? t("toasts:sourceScan.finding", {
+                    count: progress.found,
                     found: progress.found.toLocaleString(),
                   })
                 : t("toasts:sourceScan.findingStart"),

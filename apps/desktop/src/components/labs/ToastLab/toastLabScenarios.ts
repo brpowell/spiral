@@ -1747,7 +1747,9 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         key: "source-scan-lab",
         label: t("toasts:sourceScan.running"),
         run: async (ctx) => {
-          ctx.setDetail(t("toasts:sourceScan.finding", { found: "250" }));
+          ctx.setDetail(
+            t("toasts:sourceScan.finding", { count: 250, found: "250" }),
+          );
           await sleep(600);
           const total = 128;
           for (let done = 8; done <= total; done += 8) {
