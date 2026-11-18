@@ -80,6 +80,7 @@ const INDEX_COL: TrackListColumnDef = {
 const TRACK_NUM_COL: TrackListColumnDef = {
   id: "trackNumber",
   label: t("library:columns.index"),
+  sortable: true,
   resizable: true,
   align: "center",
 };

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   albumTotalDurationSeconds,
@@ -16,6 +16,14 @@ import { ContextMenuItem } from "@/components/ContextMenu/ContextMenu";
 import { MenuButton } from "@/components/MenuButton/MenuButton";
 import { TrackList } from "@/components/TrackList/TrackList";
 import {
+  compareTracks,
+  nextSort,
+  type SortState,
+} from "@/components/TrackList/trackListSort";
+import type { TrackListSortField } from "@/components/TrackList/types";
+import { usePopularity } from "@/hooks/usePopularity";
+import { POPULARITY_COLUMN_PROFILE } from "@/lib/popularity/profiles";
+import {
   IconAddToQueue,
   IconBack,
   IconDisc,
@@ -30,6 +38,9 @@ import type { Artist } from "@/types/artist";
 import type { Track } from "@/types/track";
 import "./AlbumDetailView.css";
 import "./DetailViewShared.css";
+
+/** What the list shows while no other column is chosen: disc, then track number. */
+const DEFAULT_SORT = { field: "trackNumber", dir: "asc" } as const;
 
 interface AlbumDetailViewProps {
   albums: Album[];
@@ -70,7 +81,39 @@ export function AlbumDetailView({
     () => (album ? groupAlbumTracksByDisc(album.tracks) : []),
     [album],
   );
+  // null means the album's natural order (by disc, then track number).
+  const [sort, setSort] = useState<SortState>(null);
+  const { scores: popularityScores } = usePopularity(
+    POPULARITY_COLUMN_PROFILE,
+    { enabled: sort?.field === "popularity" },
+  );
+  // Sorting stays within each disc; the discs themselves keep their order.
+  const sortedDiscGroups = useMemo(
+    () =>
+      sort
+        ? discGroups.map((group) => ({
+            ...group,
+            tracks: [...group.tracks].sort((x, y) =>
+              compareTracks(x, y, sort.field, sort.dir, popularityScores),
+            ),
+          }))
+        : discGroups,
+    [discGroups, sort, popularityScores],
+  );
+  const sortedTracks = useMemo(
+    () => sortedDiscGroups.flatMap((group) => group.tracks),
+    [sortedDiscGroups],
+  );
   const multipleDiscs = discGroups.length > 1;
+
+  const handleSort = (field: TrackListSortField) => {
+    setSort((current) => {
+      const next = nextSort(current ?? DEFAULT_SORT, field);
+      return next && next.field === DEFAULT_SORT.field && next.dir === "asc"
+        ? null
+        : next;
+    });
+  };
 
   const handleRatingChange = useCallback(
     (trackId: number, rating: CanonicalRating) => {
@@ -93,11 +136,11 @@ export function AlbumDetailView({
     return null;
   }
 
-  const trackIds = album.tracks.map((t) => t.id);
+  const trackIds = sortedTracks.map((t) => t.id);
   const totalDuration = albumTotalDurationSeconds(album.tracks);
 
   const handlePlayAll = () => {
-    const first = album.tracks[0];
+    const first = sortedTracks[0];
     if (first) void playTracks(trackIds, first.id);
   };
 
@@ -123,6 +166,9 @@ export function AlbumDetailView({
     playbackState,
     onSelectTrack: handleSelectTrack,
     onPlayTrack: handlePlayTrack,
+    sortField: (sort ?? DEFAULT_SORT).field,
+    sortDir: (sort ?? DEFAULT_SORT).dir,
+    onSort: handleSort,
     onRatingChange: handleRatingChange,
   };
 
@@ -212,7 +258,7 @@ export function AlbumDetailView({
         <div className="detail-view__tracks">
           {multipleDiscs ? (
             <div className="album-detail__discs">
-              {discGroups.map(({ discNumber, tracks: discTracks }) => (
+              {sortedDiscGroups.map(({ discNumber, tracks: discTracks }) => (
                 <section key={discNumber} className="album-detail__disc">
                   <h2 className="album-detail__disc-label">
                     <IconDisc aria-hidden />
@@ -230,7 +276,7 @@ export function AlbumDetailView({
             <TrackList
               {...trackListProps}
               fillHeight={false}
-              tracks={album.tracks}
+              tracks={sortedTracks}
             />
           )}
         </div>
