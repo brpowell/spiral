@@ -9,7 +9,6 @@ import {
   getSourceStatuses,
   listSources,
   previewOrganizeSource,
-  relocateSource,
   removeSource,
   rescanSource,
   setImportSource,
@@ -35,7 +34,6 @@ describe("source commands", () => {
     await addSource("/Music/Jazz", "Jazz");
     await removeSource(3);
     await rescanSource(1);
-    await relocateSource(3, "/Volumes/Big/Collection");
     await setSourceOrganize(3, true);
     await setSourcePathFormat(3, "{artist}/{title}");
     await setSourcePathFormat(3, null);
@@ -49,10 +47,6 @@ describe("source commands", () => {
       ["add_source", { rootPath: "/Music/Jazz", name: "Jazz" }],
       ["remove_source", { sourceId: 3 }],
       ["rescan_source", { sourceId: 1 }],
-      [
-        "relocate_source",
-        { sourceId: 3, newRootPath: "/Volumes/Big/Collection" },
-      ],
       ["set_source_organize", { sourceId: 3, autoOrganize: true }],
       [
         "set_source_path_format",

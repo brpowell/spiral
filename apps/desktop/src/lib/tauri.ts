@@ -553,14 +553,6 @@ export async function rescanSource(
   return invoke<ReconcileSummary>("rescan_source", { sourceId });
 }
 
-/** Point a source at the folder its files moved to, then rescan it. */
-export async function relocateSource(
-  sourceId: number,
-  newRootPath: string,
-): Promise<Source> {
-  return invoke<Source>("relocate_source", { sourceId, newRootPath });
-}
-
 /** Turn organizing on or off for a source. Existing files don't move here. */
 export async function setSourceOrganize(
   sourceId: number,

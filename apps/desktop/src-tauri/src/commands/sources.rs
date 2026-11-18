@@ -349,33 +349,6 @@ pub async fn rescan_source(app: AppHandle, source_id: i64) -> Result<ReconcileSu
     reconcile_in_background(app, source_id).await
 }
 
-/// Point a source at the folder its files moved to, then rescan it.
-#[tauri::command]
-pub async fn relocate_source(
-    app: AppHandle,
-    source_id: i64,
-    new_root_path: String,
-) -> Result<Source, String> {
-    let ctx = scan_context(&app)?;
-    let task_app = app.clone();
-    let source = tauri::async_runtime::spawn_blocking(move || {
-        let new_root_path = path_scope::ensure_allowed(&task_app, &new_root_path)?
-            .to_string_lossy()
-            .into_owned();
-        let state = task_app.state::<DbState>();
-        source_scan::relocate_source(&state.0, &ctx, source_id, &new_root_path)
-    })
-    .await
-    .map_err(|e| e.to_string())??;
-    if let Some(root) = &source.root_path {
-        path_scope::allow_dir(&app, Path::new(root));
-    }
-    source_watch::sync(&app);
-    emit_source_changed(&app, source_id);
-    reconcile_in_background(app, source_id).await?;
-    Ok(source)
-}
-
 /// Turn organizing on or off for a source, refused with
 /// [`sources::SOURCE_UNAVAILABLE`] when turning it on for a folder that's
 /// offline. Existing files don't move here.

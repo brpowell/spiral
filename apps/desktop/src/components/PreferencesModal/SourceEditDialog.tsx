@@ -8,7 +8,6 @@ import {
   type OrganizePathSample,
 } from "@/lib/files/organizePathFormat";
 import { describeSourceError, sourceErrorCode } from "@/lib/files/sourceAccess";
-import { pickMusicFolder } from "@/lib/tauri";
 import type { Source } from "@/types/source";
 import { Button } from "@/components/common/Button/Button";
 import { Checkbox } from "@/components/common/Checkbox/Checkbox";
@@ -28,7 +27,6 @@ import {
 } from "@/components/common/Modal/Modal";
 import { TextInput } from "@/components/common/TextInput/TextInput";
 import { EditorDiscardOverlay } from "@/components/EditorDiscardOverlay/EditorDiscardOverlay";
-import { IconOpenFolder } from "@/components/icons";
 import "./SourceEditDialog.css";
 
 /** The placeholders a path format can use, in the order they're listed. */
@@ -52,8 +50,6 @@ export function normalizeFormat(value: string): string | null {
 
 /** What the user changed in the dialog; unset fields stay as they were. */
 export interface SourceEdits {
-  /** A new folder for the source. */
-  rootPath?: string;
   autoOrganize?: boolean;
   /** The source's own format; null goes back to the default one. */
   pathFormat?: string | null;
@@ -77,8 +73,9 @@ interface SourceEditDialogProps {
 }
 
 /**
- * Edit a source: its location and how Spiral organizes it. Nothing changes
- * until Save, and closing with unsaved changes asks first.
+ * Edit a source: how Spiral organizes it. Its location is shown but can't be
+ * changed: a folder is added once and removed to go. Nothing changes until
+ * Save, and closing with unsaved changes asks first.
  */
 export function SourceEditDialog({
   source: requested,
@@ -99,11 +96,9 @@ export function SourceEditDialog({
   if (requested && requested !== shown) setShown(requested);
   const source = requested ?? shown;
 
-  const [rootPath, setRootPath] = useState("");
   const [autoOrganize, setAutoOrganize] = useState(false);
   const [format, setFormat] = useState("");
   const [saving, setSaving] = useState(false);
-  const [picking, setPicking] = useState(false);
   const [tokensOpen, setTokensOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -119,7 +114,6 @@ export function SourceEditDialog({
   // Compared by meaning, so editing a field back to how it was counts as clean.
   const changes: SourceEdits = {};
   if (source) {
-    if (rootPath && rootPath !== source.rootPath) changes.rootPath = rootPath;
     if (autoOrganize !== source.autoOrganize) {
       changes.autoOrganize = autoOrganize;
     }
@@ -142,7 +136,6 @@ export function SourceEditDialog({
   // Start from the source as it is each time the dialog opens.
   useEffect(() => {
     if (!requested) return;
-    setRootPath(requested.rootPath ?? "");
     setAutoOrganize(requested.autoOrganize);
     setFormat(requested.pathFormat ?? "");
     setSaving(false);
@@ -154,20 +147,8 @@ export function SourceEditDialog({
   if (!source) return null;
 
   const id = (field: string) => `source-edit-${source.id}-${field}`;
-  const busy = saving || picking;
-
-  const changeLocation = async () => {
-    setPicking(true);
-    setError(null);
-    try {
-      const folder = await pickMusicFolder();
-      if (folder) setRootPath(folder);
-    } catch (err) {
-      setError(describeSourceError(err));
-    } finally {
-      setPicking(false);
-    }
-  };
+  const busy = saving;
+  const rootPath = source.rootPath ?? "";
 
   const save = async () => {
     if (busy || (!dirty && !adding)) return;
@@ -225,8 +206,7 @@ export function SourceEditDialog({
 
       <ModalBody>
         <div className="source-edit__fields" inert={discardPrompt || undefined}>
-          {/* Label and path stacked as any field's are; Change location beside
-              both, so its height doesn't push the path away from its label. */}
+          {/* Which folder this is: shown, never editable. */}
           <div className="source-edit__location">
             <span className="source-edit__label">
               {t("preferences:sources.location")}
@@ -234,16 +214,6 @@ export function SourceEditDialog({
             <code className="source-edit__path" title={rootPath}>
               {displayPath(rootPath)}
             </code>
-            <Button
-              size="sm"
-              disabled={busy}
-              isLoading={picking}
-              loadingLabel={t("preferences:sources.changing")}
-              onClick={() => void changeLocation()}
-            >
-              <IconOpenFolder aria-hidden />
-              {t("preferences:sources.changeLocation")}
-            </Button>
           </div>
 
           {/* The format belongs to organizing: nested under it, and off with it. */}
