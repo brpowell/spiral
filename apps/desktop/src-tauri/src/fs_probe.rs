@@ -285,10 +285,11 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     fn unique(name: &str) -> PathBuf {
+        static NEXT: AtomicUsize = AtomicUsize::new(0);
         std::env::temp_dir().join(format!(
             "spiral-fs-probe-{name}-{}-{}",
             std::process::id(),
-            Instant::now().elapsed().as_nanos()
+            NEXT.fetch_add(1, Ordering::Relaxed)
         ))
     }
 

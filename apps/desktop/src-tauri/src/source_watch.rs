@@ -593,8 +593,9 @@ fn run(app: AppHandle, rx: Receiver<Message>) {
         });
 
         // The folder itself may have gone away (an unplugged drive, a dropped
-        // share): then stop watching it and reconcile everything, which marks
-        // its tracks missing. A due source's folder is looked at now; the
+        // share): then stop watching it and reconcile everything. The scan
+        // finds the folder offline and leaves its tracks as they are (they
+        // aren't missing, the folder is). A due source's folder is looked at now; the
         // others every `RETRY`. Looking can stall, so the registry is unlocked
         // meanwhile: a status poll mustn't wait on a dead share.
         let check_roots = now >= next_check;
@@ -1110,10 +1111,11 @@ mod tests {
     }
 
     fn temp_dir(label: &str) -> PathBuf {
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let dir = std::env::temp_dir().join(format!(
             "spiral-source-{label}-{}-{}",
             std::process::id(),
-            Instant::now().elapsed().as_nanos()
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
         std::fs::create_dir_all(&dir).unwrap();
         dir
