@@ -211,6 +211,14 @@ impl AudioOutput {
         })
     }
 
+    /// Take deck `id` out of the mixer now, before its [`DeckHandle`] drops.
+    /// For a deck whose owner is stuck (a decode thread blocked on a dead
+    /// network share): the slot is free again at once. The handle's own drop
+    /// later finds nothing to remove; deck ids are never reused.
+    pub fn remove_deck(&self, id: u64) {
+        lock(&self.mixer).remove_deck(id);
+    }
+
     /// Splice deck `to` onto the end of deck `from` sample-accurately.
     pub fn link_gapless(&self, from: u64, to: u64) -> Result<(), String> {
         lock(&self.mixer).link_gapless(from, to)?;

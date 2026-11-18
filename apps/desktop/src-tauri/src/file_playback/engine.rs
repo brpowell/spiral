@@ -135,7 +135,15 @@ fn shutdown_active(active: ActivePlayback) {
         .store(false, Ordering::Relaxed);
     if !join_within(active.thread, STOP_WAIT) {
         eprintln!("file playback: decode thread is stuck on a read; leaving it to finish");
+        // Its deck would hold one of the mixer's two slots until the read
+        // returns, which on a dead share may be never.
+        release_deck(&active.control);
     }
+}
+
+/// Free a session's mixer slot without waiting for its decode thread.
+fn release_deck(control: &DeckControl) {
+    control.output.remove_deck(control.deck_id);
 }
 
 /// Join `thread`, giving up (and leaving it running) after `wait`. Whether it
@@ -377,7 +385,10 @@ fn take_stalled(
                 .shared
                 .playing
                 .store(false, Ordering::Relaxed);
-            // Dropping the handle leaves the thread to exit on its own.
+            // Its thread may never return from the read, and with it its deck:
+            // free the mixer slot now. Dropping the handle leaves the thread
+            // to exit on its own.
+            release_deck(&active.control);
             Some((
                 active.app,
                 FilePlaybackError {
@@ -824,6 +835,76 @@ mod tests {
             assert!(take_stalled(&mut SESSIONS.lock().unwrap(), later + 10_000)
                 .iter()
                 .all(|(_, e)| e.session_id != stuck.session_id));
+        });
+    }
+
+    /// A session whose decode thread is stuck on a read, and owns `deck`
+    /// until `release` is dropped.
+    fn stuck_session(
+        output: &AudioOutput,
+        heartbeat_ms: u64,
+    ) -> (ActivePlayback, mpsc::Sender<()>) {
+        let deck = output.create_deck(2, 44_100, 0.1).unwrap();
+        let control = DeckControl {
+            deck_id: deck.id(),
+            shared: Arc::clone(&deck.shared),
+            output: output.clone(),
+        };
+        let (release, blocked) = mpsc::channel::<()>();
+        let thread = thread::spawn(move || {
+            let _deck = deck;
+            let _ = blocked.recv();
+        });
+        let (cmd_tx, _cmd_rx) = mpsc::channel();
+        let active = ActivePlayback {
+            control,
+            stop_requested: Arc::new(AtomicBool::new(false)),
+            cmd_tx,
+            thread,
+            started_at: Instant::now(),
+            heartbeat: Arc::new(AtomicU64::new(heartbeat_ms)),
+            app: None,
+            path: "/share/track.flac".into(),
+            rate: 44_100.0,
+            duration_seconds: 1.0,
+        };
+        (active, release)
+    }
+
+    /// A session given up on as stuck frees its mixer slot at once, while its
+    /// decode thread (and the deck handle it owns) is still blocked.
+    #[test]
+    fn a_stalled_session_frees_its_deck_while_its_thread_is_stuck() {
+        with_clean_sessions(|| {
+            let (output, _state) = fake_output();
+            let (stuck, release) = stuck_session(&output, 0);
+            let _other = output.create_deck(2, 44_100, 0.1).unwrap();
+            assert!(output.create_deck(2, 44_100, 0.1).is_err(), "both in use");
+
+            let mut sessions = HashMap::from([(77, stuck)]);
+            let reported = take_stalled(&mut sessions, STALL_AFTER.as_millis() as u64);
+            assert_eq!(reported.len(), 1);
+            assert!(
+                output.create_deck(2, 44_100, 0.1).is_ok(),
+                "the stuck session's slot is free"
+            );
+            drop(release);
+        });
+    }
+
+    /// Stopping a session whose thread doesn't finish in time frees its slot.
+    #[test]
+    fn stopping_a_stuck_session_frees_its_deck() {
+        with_clean_sessions(|| {
+            let (output, _state) = fake_output();
+            let (stuck, release) = stuck_session(&output, now_ms());
+            let _other = output.create_deck(2, 44_100, 0.1).unwrap();
+            shutdown_active(stuck);
+            assert!(
+                output.create_deck(2, 44_100, 0.1).is_ok(),
+                "the stuck session's slot is free"
+            );
+            drop(release);
         });
     }
 
