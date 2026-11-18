@@ -23,7 +23,7 @@ use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
@@ -39,9 +39,11 @@ const MAX_PATHS: usize = 500;
 const RETRY: Duration = Duration::from_secs(60);
 /// How often the worker wakes to flush quiet sources.
 const TICK: Duration = Duration::from_millis(250);
-/// How long starting a watcher may take before the folder is treated as
-/// unreachable and retried later.
-const ATTACH_TIMEOUT: Duration = Duration::from_secs(5);
+/// How long a caller waits for a watcher to start. A recursive watch walks the
+/// whole tree on some platforms (inotify on Linux), which on a big library on a
+/// slow disk or share can take longer: then it carries on in the background and
+/// the worker takes it up when it's ready (see [`LATE`]).
+const ATTACH_WAIT: Duration = Duration::from_secs(5);
 
 struct Message {
     source_id: i64,
@@ -171,7 +173,41 @@ struct Watch {
     /// `None` while the folder can't be watched; retried at `retry_at`.
     watcher: Option<RecommendedWatcher>,
     retry_at: Instant,
+    /// A watcher is still starting in the background (see [`ATTACH_WAIT`]):
+    /// not retried meanwhile, which would only start another walk.
+    starting: bool,
 }
+
+/// A watcher whose start outlasted [`ATTACH_WAIT`], or its failure, waiting
+/// for the worker to take it up.
+struct Late {
+    source_id: i64,
+    generation: u64,
+    result: Result<(WatchRoot, RecommendedWatcher), String>,
+}
+
+static LATE: Mutex<Vec<Late>> = Mutex::new(Vec::new());
+
+/// Why a watcher isn't running yet.
+#[derive(Debug, PartialEq, Eq)]
+enum AttachError {
+    /// The folder is missing or not answering, or watching it failed.
+    Failed(String),
+    /// Still starting after [`ATTACH_WAIT`]; it goes to [`LATE`] when done.
+    StillStarting,
+}
+
+impl std::fmt::Display for AttachError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AttachError::Failed(err) => f.write_str(err),
+            AttachError::StillStarting => f.write_str("still starting the watcher"),
+        }
+    }
+}
+
+/// A watcher started for `(source_id, generation)`.
+type Started = (i64, u64, WatchRoot, RecommendedWatcher);
 
 struct Registry {
     watches: HashMap<i64, Watch>,
@@ -269,29 +305,85 @@ fn watch_folder(
     Ok(watcher)
 }
 
-/// Probe `root`, then start a watcher on it, waiting for neither longer than
-/// the probe and [`ATTACH_TIMEOUT`]. A stalled folder is an error, as when it's
-/// missing, so the caller retries it later.
+/// Probe `root`, then start a watcher on it. The probe is bounded; starting
+/// the watcher isn't (on Linux it walks the whole tree), so it runs on its own
+/// thread and is waited for up to [`ATTACH_WAIT`]: past that it's
+/// [`AttachError::StillStarting`] and lands in [`LATE`] when done. A stalled
+/// or missing folder is [`AttachError::Failed`], so the caller retries it.
 fn try_watch(
     root: &Path,
     source_id: i64,
     generation: u64,
     tx: Sender<Message>,
-) -> Result<(WatchRoot, RecommendedWatcher), String> {
-    match fs_probe::probe_dir_before_use(root) {
-        Probed::Yes => {}
-        Probed::No => return Err("folder not found".into()),
-        Probed::Stalled => return Err("folder is not responding".into()),
-    }
-    let owned = root.to_path_buf();
-    fs_probe::run_within(ATTACH_TIMEOUT, move || {
-        let root = WatchRoot::new(owned);
-        watch_folder(&root, source_id, generation, tx).map(|watcher| (root, watcher))
+) -> Result<(WatchRoot, RecommendedWatcher), AttachError> {
+    try_watch_with(root, source_id, generation, ATTACH_WAIT, move |root| {
+        watch_folder(root, source_id, generation, tx)
     })
-    .unwrap_or_else(|| Err("starting the watcher timed out".into()))
 }
 
-/// A watch for `root`, watching it unless that fails (then retried at `RETRY`).
+/// [`try_watch`] with the watcher's start and the wait given, for tests.
+fn try_watch_with(
+    root: &Path,
+    source_id: i64,
+    generation: u64,
+    wait: Duration,
+    start: impl FnOnce(&WatchRoot) -> Result<RecommendedWatcher, String> + Send + 'static,
+) -> Result<(WatchRoot, RecommendedWatcher), AttachError> {
+    match fs_probe::probe_dir_before_use(root) {
+        Probed::Yes => {}
+        Probed::No => return Err(AttachError::Failed("folder not found".into())),
+        Probed::Stalled => return Err(AttachError::Failed("folder is not responding".into())),
+    }
+
+    /// What the starter thread found, and whether the caller stopped waiting.
+    #[derive(Default)]
+    struct Slot {
+        result: Option<Result<(WatchRoot, RecommendedWatcher), String>>,
+        gave_up: bool,
+    }
+    let slot = Arc::new((Mutex::new(Slot::default()), Condvar::new()));
+    let owned = root.to_path_buf();
+    let worker_slot = Arc::clone(&slot);
+    let spawned = thread::Builder::new()
+        .name("source-watch-start".into())
+        .spawn(move || {
+            let root = WatchRoot::new(owned);
+            let result = start(&root).map(|watcher| (root, watcher));
+            let (lock_slot, done) = &*worker_slot;
+            let mut slot = lock(lock_slot);
+            if slot.gave_up {
+                drop(slot);
+                lock(&LATE).push(Late {
+                    source_id,
+                    generation,
+                    result,
+                });
+            } else {
+                slot.result = Some(result);
+                done.notify_all();
+            }
+        });
+    if let Err(err) = spawned {
+        return Err(AttachError::Failed(format!("can't start a thread: {err}")));
+    }
+
+    let (lock_slot, done) = &*slot;
+    let (mut slot, _) = done
+        .wait_timeout_while(lock(lock_slot), wait, |slot| slot.result.is_none())
+        .unwrap_or_else(|e| e.into_inner());
+    match slot.result.take() {
+        Some(result) => result.map_err(AttachError::Failed),
+        None => {
+            // Decided under the slot's lock, so the thread either already
+            // answered (above) or sees this and hands its watcher to `LATE`.
+            slot.gave_up = true;
+            Err(AttachError::StillStarting)
+        }
+    }
+}
+
+/// A watch for `root`, watching it unless that fails (then retried at `RETRY`)
+/// or is still starting (then taken up when it's ready).
 fn new_watch(root: PathBuf, source_id: i64, generation: u64, tx: Sender<Message>) -> Watch {
     match try_watch(&root, source_id, generation, tx) {
         Ok((root, watcher)) => Watch {
@@ -299,13 +391,22 @@ fn new_watch(root: PathBuf, source_id: i64, generation: u64, tx: Sender<Message>
             generation,
             watcher: Some(watcher),
             retry_at: Instant::now() + RETRY,
+            starting: false,
         },
         Err(err) => {
-            eprintln!(
-                "source watch: can't watch {} (source {source_id}): {err}; retrying every {}s",
-                root.display(),
-                RETRY.as_secs()
-            );
+            let starting = err == AttachError::StillStarting;
+            if starting {
+                eprintln!(
+                    "source watch: {} (source {source_id}) is slow to watch; using it once it's ready",
+                    root.display()
+                );
+            } else {
+                eprintln!(
+                    "source watch: can't watch {} (source {source_id}): {err}; retrying every {}s",
+                    root.display(),
+                    RETRY.as_secs()
+                );
+            }
             Watch {
                 root: WatchRoot {
                     resolved: root.clone(),
@@ -314,6 +415,7 @@ fn new_watch(root: PathBuf, source_id: i64, generation: u64, tx: Sender<Message>
                 generation,
                 watcher: None,
                 retry_at: Instant::now() + RETRY,
+                starting,
             }
         }
     }
@@ -507,7 +609,7 @@ fn run(app: AppHandle, rx: Receiver<Message>) {
                 if check_roots || due.iter().any(|(due_id, _)| *due_id == id) {
                     to_look.push(target);
                 }
-            } else if now >= watch.retry_at {
+            } else if !watch.starting && now >= watch.retry_at {
                 watch.retry_at = now + RETRY;
                 to_retry.push(target);
             }
@@ -516,10 +618,20 @@ fn run(app: AppHandle, rx: Receiver<Message>) {
         drop(registry);
 
         let looked = look_at_roots(&to_look);
-        let retried = retry_watches(to_retry, &tx);
+        let (retried, still_starting) = retry_watches(to_retry, &tx);
+        let late = std::mem::take(&mut *lock(&LATE));
 
         let mut registry = lock(registry_lock);
-        let back = apply_checks(&mut registry, &mut due, &looked, retried);
+        let back = apply_checks(
+            &mut registry,
+            &mut due,
+            &looked,
+            Retried {
+                started: retried,
+                still_starting,
+                late,
+            },
+        );
         drop(registry);
         // A folder that's back: the frontend may have flagged its tracks
         // offline, which a reload clears (the reconcile may change nothing).
@@ -545,28 +657,45 @@ fn look_at_roots(roots: &[(i64, u64, PathBuf)]) -> Vec<(i64, u64, Probed)> {
 }
 
 /// A new watcher for each unwatched folder that answers again, started
-/// together.
+/// together: those started, and those still starting (see [`ATTACH_WAIT`]).
 fn retry_watches(
     roots: Vec<(i64, u64, PathBuf)>,
     tx: &Sender<Message>,
-) -> Vec<(i64, u64, WatchRoot, RecommendedWatcher)> {
-    thread::scope(|scope| {
+) -> (Vec<Started>, Vec<(i64, u64)>) {
+    let results: Vec<_> = thread::scope(|scope| {
         let handles: Vec<_> = roots
             .into_iter()
             .map(|(id, generation, root)| {
                 let tx = tx.clone();
-                scope.spawn(move || {
-                    try_watch(&root, id, generation, tx)
-                        .ok()
-                        .map(|(root, watcher)| (id, generation, root, watcher))
-                })
+                scope.spawn(move || (id, generation, try_watch(&root, id, generation, tx)))
             })
             .collect();
         handles
             .into_iter()
-            .filter_map(|handle| handle.join().ok().flatten())
+            .filter_map(|handle| handle.join().ok())
             .collect()
-    })
+    });
+    let mut started = Vec::new();
+    let mut still_starting = Vec::new();
+    for (id, generation, result) in results {
+        match result {
+            Ok((root, watcher)) => started.push((id, generation, root, watcher)),
+            Err(AttachError::StillStarting) => still_starting.push((id, generation)),
+            Err(AttachError::Failed(_)) => {}
+        }
+    }
+    (started, still_starting)
+}
+
+/// What became of the watchers the worker (or `sync`) tried to start.
+#[derive(Default)]
+struct Retried {
+    /// Started in time.
+    started: Vec<Started>,
+    /// Still starting: not retried until they're in [`LATE`].
+    still_starting: Vec<(i64, u64)>,
+    /// Taken from [`LATE`]: started (or failed) after their caller moved on.
+    late: Vec<Late>,
 }
 
 /// Reconcile all of `source_id`, instead of what was due for it.
@@ -585,8 +714,48 @@ fn apply_checks(
     registry: &mut Registry,
     due: &mut Vec<(i64, Batch)>,
     looked: &[(i64, u64, Probed)],
-    retried: Vec<(i64, u64, WatchRoot, RecommendedWatcher)>,
+    retried: Retried,
 ) -> Vec<i64> {
+    let Retried {
+        started: mut retried,
+        still_starting,
+        late,
+    } = retried;
+    for (id, generation) in still_starting {
+        if let Some(watch) = registry
+            .watches
+            .get_mut(&id)
+            .filter(|w| w.generation == generation && w.watcher.is_none())
+        {
+            watch.starting = true;
+        }
+    }
+    for Late {
+        source_id: id,
+        generation,
+        result,
+    } in late
+    {
+        let Some(watch) = registry
+            .watches
+            .get_mut(&id)
+            .filter(|w| w.generation == generation)
+        else {
+            continue; // Removed or replaced meanwhile: the watcher is dropped.
+        };
+        watch.starting = false;
+        match result {
+            Ok((root, watcher)) => retried.push((id, generation, root, watcher)),
+            Err(err) => {
+                eprintln!(
+                    "source watch: can't watch {} (source {id}): {err}; retrying every {}s",
+                    watch.root.root.display(),
+                    RETRY.as_secs()
+                );
+                watch.retry_at = Instant::now() + RETRY;
+            }
+        }
+    }
     let mut back = Vec::new();
     for &(id, generation, probed) in looked {
         if probed.is_yes() {
@@ -1031,7 +1200,7 @@ mod tests {
             &mut registry,
             &mut due,
             &[(3, generation, Probed::Stalled)],
-            Vec::new(),
+            Retried::default(),
         );
         assert!(registry.watches[&3].watcher.is_none());
         assert_eq!(due, vec![(3, Batch::All)]);
@@ -1053,7 +1222,10 @@ mod tests {
             &mut registry,
             &mut due,
             &[],
-            vec![(3, generation, root, watcher)],
+            Retried {
+                started: vec![(3, generation, root, watcher)],
+                ..Retried::default()
+            },
         );
         assert_eq!(back, vec![3]);
         assert!(registry.watches[&3].watcher.is_some());
@@ -1072,10 +1244,95 @@ mod tests {
             &mut registry,
             &mut due,
             &[(3, stale, Probed::No)],
-            Vec::new(),
+            Retried::default(),
         );
         assert!(registry.watches[&3].watcher.is_some());
         assert!(due.is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A watcher slow to start (a big tree walked over a slow share) isn't
+    /// given up on: the caller moves on, and the worker takes it up when it's
+    /// ready, reconciling the source whole.
+    #[test]
+    fn a_watcher_slow_to_start_is_taken_up_when_ready() {
+        const ID: i64 = 9_001;
+        let dir = temp_dir("slow-start");
+        let mut registry = registry();
+        let generation = registry.next_generation();
+        let tx = registry.tx.clone();
+
+        let started = Instant::now();
+        let result = try_watch_with(&dir, ID, generation, Duration::from_millis(50), {
+            let tx = tx.clone();
+            move |root| {
+                thread::sleep(Duration::from_millis(300));
+                watch_folder(root, ID, generation, tx)
+            }
+        });
+        assert_eq!(result.err(), Some(AttachError::StillStarting));
+        assert!(started.elapsed() < Duration::from_millis(250));
+        registry.watches.insert(
+            ID,
+            Watch {
+                root: WatchRoot::new(dir.clone()),
+                generation,
+                watcher: None,
+                retry_at: Instant::now() + RETRY,
+                starting: false,
+            },
+        );
+        let mut due = Vec::new();
+        apply_checks(
+            &mut registry,
+            &mut due,
+            &[],
+            Retried {
+                still_starting: vec![(ID, generation)],
+                ..Retried::default()
+            },
+        );
+        assert!(registry.watches[&ID].starting, "not retried meanwhile");
+
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let late = loop {
+            let mut queue = lock(&LATE);
+            if let Some(at) = queue.iter().position(|late| late.source_id == ID) {
+                break queue.remove(at);
+            }
+            drop(queue);
+            assert!(Instant::now() < deadline, "the watcher never arrived");
+            thread::sleep(Duration::from_millis(10));
+        };
+        let back = apply_checks(
+            &mut registry,
+            &mut due,
+            &[],
+            Retried {
+                late: vec![late],
+                ..Retried::default()
+            },
+        );
+        assert_eq!(back, vec![ID]);
+        assert!(registry.watches[&ID].watcher.is_some());
+        assert!(!registry.watches[&ID].starting);
+        assert_eq!(due, vec![(ID, Batch::All)]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_watcher_that_starts_in_time_is_returned_at_once() {
+        let dir = temp_dir("quick-start");
+        let (tx, _rx) = mpsc::channel();
+        let (root, _watcher) = try_watch_with(&dir, 1, 1, Duration::from_secs(5), move |root| {
+            watch_folder(root, 1, 1, tx)
+        })
+        .unwrap();
+        assert_eq!(root.root, dir);
+        let missing = try_watch_with(&dir.join("nope"), 1, 1, Duration::from_secs(5), |_| {
+            unreachable!("a missing folder isn't watched")
+        });
+        assert!(matches!(missing, Err(AttachError::Failed(_))));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
