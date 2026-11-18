@@ -113,8 +113,6 @@ struct ActivePlayback {
     started_at: Instant,
     /// When the decode thread last came round its loop (see [`now_ms`]).
     heartbeat: Arc<AtomicU64>,
-    /// The watchdog already reported this session stuck.
-    stall_reported: bool,
     app: Option<AppHandle>,
     path: String,
     /// Source sample rate and length, to turn the deck's frame counter into seconds on demand.
@@ -329,7 +327,6 @@ fn start_inner(
                 thread,
                 started_at: Instant::now(),
                 heartbeat,
-                stall_reported: false,
                 app,
                 path: path.to_string(),
                 rate,
@@ -352,27 +349,42 @@ fn now_ms() -> u64 {
 }
 
 /// Sessions whose decode thread hasn't come round its loop for
-/// [`STALL_AFTER`] as of `now`, each reported once: what to tell the frontend.
+/// [`STALL_AFTER`] as of `now`: what to tell the frontend.
+///
+/// Each is ended here, not left for the frontend to stop: it lets go of a
+/// session once it's told it failed. Its deck goes quiet and its thread is
+/// asked to stop; the thread can't see that until its read returns, which may
+/// be when the share is back, and must not play on then.
 fn take_stalled(
     sessions: &mut HashMap<u64, ActivePlayback>,
     now: u64,
 ) -> Vec<(Option<AppHandle>, FilePlaybackError)> {
-    sessions
-        .iter_mut()
+    let stalled: Vec<u64> = sessions
+        .iter()
         .filter(|(_, active)| {
-            !active.stall_reported
-                && now.saturating_sub(active.heartbeat.load(Ordering::Relaxed))
-                    >= STALL_AFTER.as_millis() as u64
+            now.saturating_sub(active.heartbeat.load(Ordering::Relaxed))
+                >= STALL_AFTER.as_millis() as u64
         })
-        .map(|(&session_id, active)| {
-            active.stall_reported = true;
-            (
-                active.app.clone(),
+        .map(|(&id, _)| id)
+        .collect();
+    stalled
+        .into_iter()
+        .filter_map(|session_id| {
+            let active = sessions.remove(&session_id)?;
+            active.stop_requested.store(true, Ordering::SeqCst);
+            active
+                .control
+                .shared
+                .playing
+                .store(false, Ordering::Relaxed);
+            // Dropping the handle leaves the thread to exit on its own.
+            Some((
+                active.app,
                 FilePlaybackError {
                     session_id,
                     message: not_responding(&active.path),
                 },
-            )
+            ))
         })
         .collect()
 }
@@ -481,6 +493,16 @@ fn playback_thread(
             // Reading failed partway (e.g. the share dropped): that's not the
             // end of the track, so don't let it play out as one.
             if let Some(err) = source.take_read_error() {
+                // Already ended (the watchdog gave up on it): nothing to add.
+                if stop_requested.load(Ordering::SeqCst) {
+                    return;
+                }
+                // The frontend lets go of a session that failed, so end it
+                // here, as at a natural end.
+                SESSIONS
+                    .lock()
+                    .expect("file playback state poisoned")
+                    .remove(&session_id);
                 let message = if err.starts_with(crate::sources::SOURCE_UNAVAILABLE) {
                     not_responding(&path)
                 } else {
@@ -772,6 +794,15 @@ mod tests {
                 .message
                 .starts_with(crate::sources::SOURCE_UNAVAILABLE));
             assert!(error.message.contains(&ogg_path), "{}", error.message);
+
+            // Ended there and then: gone from the sessions, its deck quiet,
+            // so a read that returns later (the share is back) can't play on.
+            {
+                let sessions = SESSIONS.lock().unwrap();
+                assert!(!sessions.contains_key(&stuck.session_id));
+                assert!(sessions.contains_key(&live.session_id));
+            }
+            assert!(position(stuck.session_id).is_none());
 
             // Once only.
             assert!(take_stalled(&mut SESSIONS.lock().unwrap(), later + 10_000)

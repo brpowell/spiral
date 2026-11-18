@@ -305,6 +305,66 @@ describe("skipping missing tracks", () => {
     expect(state.currentTrackId).toBe(3);
   });
 
+  describe("a folder flagged offline", () => {
+    const offline = {
+      missingFile: true as const,
+      sourceOffline: true as const,
+    };
+
+    it("is tested again on play, and cleared when it's back", async () => {
+      setQueue([
+        track(1, { sourceId: 7, ...offline }),
+        track(2, { sourceId: 7, ...offline }),
+        track(3, { sourceId: 1 }),
+      ]);
+      await usePlayerStore.getState().playTrack(1);
+
+      const state = usePlayerStore.getState();
+      expect(state.currentTrackId).toBe(1);
+      expect(state.playbackState).toBe("playing");
+      expect(
+        state.library.map((t) => !!t.missingFile || !!t.sourceOffline),
+      ).toEqual([false, false, false]);
+      expect(toasts()).toEqual([]);
+    });
+
+    it("still offline: passed over again with its toast", async () => {
+      mockUnavailable.mockResolvedValue([7]);
+      setQueue([
+        track(1, { sourceId: 7, ...offline }),
+        track(2, { sourceId: 7, ...offline }),
+        track(3, { sourceId: 1 }),
+      ]);
+      await usePlayerStore.getState().playTrack(1);
+
+      const state = usePlayerStore.getState();
+      expect(state.currentTrackId).toBe(3);
+      expect(state.library.map((t) => !!t.sourceOffline)).toEqual([
+        true,
+        true,
+        false,
+      ]);
+      expect(mockFileExists).not.toHaveBeenCalledWith("/music/1.flac");
+    });
+
+    it("comes back with a file that's gone: only that file is missing", async () => {
+      mockFileExists.mockImplementation(
+        async (path: string) => path !== "/music/1.flac",
+      );
+      setQueue([
+        track(1, { sourceId: 7, ...offline }),
+        track(2, { sourceId: 7, ...offline }),
+      ]);
+      await usePlayerStore.getState().playTrack(1);
+
+      const [first, second] = usePlayerStore.getState().library;
+      expect(first.missingFile).toBe(true);
+      expect(first.sourceOffline).toBeUndefined();
+      expect(second.missingFile).toBeUndefined();
+      expect(usePlayerStore.getState().currentTrackId).toBe(2);
+    });
+  });
+
   it("Next says which track it passed over", async () => {
     setQueue([track(1), track(2, missing), track(3)], 1);
     usePlayerStore.getState().nextTrack();

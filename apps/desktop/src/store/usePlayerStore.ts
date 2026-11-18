@@ -640,6 +640,26 @@ function handleSourceUnavailable(
   notifySkippedMissing(get, trackId);
 }
 
+/**
+ * A source's folder answers again: clear the offline flag from its tracks.
+ * Their files are tested as they're played, like any other.
+ */
+function handleSourceAvailable(
+  set: (
+    partial:
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+  sourceId: number,
+): void {
+  set((state) => ({
+    library: state.library.map((track) =>
+      track.sourceId === sourceId && track.sourceOffline
+        ? withTrackMissingFile(track, false)
+        : track,
+    ),
+  }));
+}
+
 /** Skipping passes over importing tracks too, which aren't worth a mention. */
 function notifySkippedMissing(get: () => PlayerState, trackId: number): void {
   const track = get().library.find((item) => item.id === trackId);
@@ -656,6 +676,7 @@ async function advanceToPlayableInOrder(
   get: () => PlayerState,
   fromTrackId: number,
   getNextId: PlaybackNextIdFn,
+  offlineSourceIds: number[] = [],
 ): Promise<void> {
   const state = get();
   const order = getPlaybackOrder(get);
@@ -666,12 +687,14 @@ async function advanceToPlayableInOrder(
     state.library,
     getNextId,
     {
+      offlineSourceIds,
       onSkippedMissing: (trackId) => notifySkippedMissing(get, trackId),
       onDiscoveredMissing: (trackId) => {
         handlePlaybackFileMissing(set, get, trackId);
       },
       onSourceUnavailable: (sourceId, trackId) =>
         handleSourceUnavailable(set, get, sourceId, trackId),
+      onSourceAvailable: (sourceId) => handleSourceAvailable(set, sourceId),
     },
   );
 
@@ -710,9 +733,9 @@ async function flagUnplayableTrack(
   get: () => PlayerState,
   trackId: number,
   options: { fileKnownMissing?: boolean; error?: unknown } = {},
-): Promise<boolean> {
+): Promise<"source" | "file" | null> {
   const track = get().library.find((item) => item.id === trackId);
-  if (!track) return false;
+  if (!track) return null;
   const folderNotResponding =
     options.error !== undefined && isSourceUnavailableError(options.error);
   if (
@@ -720,13 +743,13 @@ async function flagUnplayableTrack(
     (folderNotResponding || (await unavailableSourceIds()).has(track.sourceId))
   ) {
     handleSourceUnavailable(set, get, track.sourceId, trackId);
-    return true;
+    return "source";
   }
   if (options.fileKnownMissing || !(await fileExists(track.filePath))) {
     handlePlaybackFileMissing(set, get, trackId);
-    return true;
+    return "file";
   }
-  return false;
+  return null;
 }
 
 async function handleMissingLibraryPlayback(
@@ -741,16 +764,20 @@ async function handleMissingLibraryPlayback(
   error?: unknown,
 ): Promise<void> {
   // The folder may be what's gone (e.g. playback said it isn't responding).
-  await flagUnplayableTrack(set, get, trackId, {
+  const flagged = await flagUnplayableTrack(set, get, trackId, {
     fileKnownMissing: true,
     error,
   });
   if (generation !== playResolvedGeneration) return;
+  // Just found offline: trust that over a folder test in the walk, which a
+  // dropped share can answer from its cache.
+  const sourceId = get().library.find((item) => item.id === trackId)?.sourceId;
   await advanceToPlayableInOrder(
     set,
     get,
     trackId,
     options?.getNextId ?? getManualNextId,
+    flagged === "source" && sourceId !== undefined ? [sourceId] : [],
   );
 }
 
@@ -787,23 +814,24 @@ async function playResolvedPlayable(
 
   if (source.kind === "file" && playable.type === "library") {
     // Settle the track's folder first: if it isn't accessible, everything in
-    // it is offline, and its file needn't be tried.
-    const sourceId = state.library.find(
-      (item) => item.id === playable.trackId,
-    )?.sourceId;
-    if (
-      sourceId !== undefined &&
-      (await unavailableSourceIds()).has(sourceId)
-    ) {
+    // it is offline, and its file needn't be tried. If it was flagged offline
+    // and answers again, its tracks are cleared and the file is tried.
+    const track = state.library.find((item) => item.id === playable.trackId);
+    const sourceId = track?.sourceId;
+    if (sourceId !== undefined) {
+      const offline = (await unavailableSourceIds()).has(sourceId);
       if (generation !== playResolvedGeneration) return;
-      handleSourceUnavailable(set, get, sourceId, playable.trackId);
-      await advanceToPlayableInOrder(
-        set,
-        get,
-        playable.trackId,
-        options?.getNextId ?? getManualNextId,
-      );
-      return;
+      if (offline) {
+        handleSourceUnavailable(set, get, sourceId, playable.trackId);
+        await advanceToPlayableInOrder(
+          set,
+          get,
+          playable.trackId,
+          options?.getNextId ?? getManualNextId,
+        );
+        return;
+      }
+      if (track?.sourceOffline) handleSourceAvailable(set, sourceId);
     }
     const exists = await fileExists(source.path);
     if (generation !== playResolvedGeneration) return;

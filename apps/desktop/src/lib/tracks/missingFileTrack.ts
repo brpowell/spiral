@@ -8,6 +8,16 @@ export function isTrackMissingFile(track: Track): boolean {
   return track.missingFile === true || track.missingSince != null;
 }
 
+/**
+ * Flagged only because its source folder was offline when last tried (no
+ * scan found its file gone). Worth trying again: the folder may be back.
+ */
+export function isTrackOnlySourceOffline(
+  track: Pick<Track, "sourceOffline" | "missingSince">,
+): boolean {
+  return track.sourceOffline === true && !track.missingSince;
+}
+
 /** Tooltip for a missing track: its folder is offline, or since when, when a scan recorded it. */
 export function missingFileLabel(
   track: Pick<Track, "missingSince" | "sourceOffline">,

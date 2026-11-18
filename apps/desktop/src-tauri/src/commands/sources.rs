@@ -105,7 +105,9 @@ fn emit_if_changed(app: &AppHandle, summary: &ReconcileSummary) {
     }
 }
 
-fn emit_source_changed(app: &AppHandle, source_id: i64) {
+/// Tell the frontend a source changed, so it reloads the library (and drops
+/// what it guessed about the source, such as that its folder was offline).
+pub(crate) fn emit_source_changed(app: &AppHandle, source_id: i64) {
     if let Err(err) = app.emit(LIBRARY_TRACKS_CHANGED_EVENT, SourceChanged { source_id }) {
         eprintln!("emit {LIBRARY_TRACKS_CHANGED_EVENT}: {err}");
     }

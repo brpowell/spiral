@@ -14,7 +14,7 @@
 //! registry lock, and every look is bounded (see [`fs_probe`]).
 
 use crate::commands::library::DbState;
-use crate::commands::sources::reconcile_and_notify;
+use crate::commands::sources::{emit_source_changed, reconcile_and_notify};
 use crate::fs_probe::{self, Probed};
 use crate::settings;
 use crate::source_scan::{is_hidden_below, ReconcileScope};
@@ -519,8 +519,13 @@ fn run(app: AppHandle, rx: Receiver<Message>) {
         let retried = retry_watches(to_retry, &tx);
 
         let mut registry = lock(registry_lock);
-        apply_checks(&mut registry, &mut due, &looked, retried);
+        let back = apply_checks(&mut registry, &mut due, &looked, retried);
         drop(registry);
+        // A folder that's back: the frontend may have flagged its tracks
+        // offline, which a reload clears (the reconcile may change nothing).
+        for id in back {
+            emit_source_changed(&app, id);
+        }
 
         for (id, batch) in due {
             reconcile_in_background(&app, &busy, id, batch);
@@ -575,13 +580,14 @@ fn require_full(due: &mut Vec<(i64, Batch)>, source_id: i64) {
 /// Act on what [`look_at_roots`] and [`retry_watches`] found, skipping a
 /// source whose watch was replaced meanwhile: a watched folder that no longer
 /// answers is given up on, and an unwatched one that does is watched again;
-/// either way the whole source is reconciled.
+/// either way the whole source is reconciled. The sources watched again.
 fn apply_checks(
     registry: &mut Registry,
     due: &mut Vec<(i64, Batch)>,
     looked: &[(i64, u64, Probed)],
     retried: Vec<(i64, u64, WatchRoot, RecommendedWatcher)>,
-) {
+) -> Vec<i64> {
+    let mut back = Vec::new();
     for &(id, generation, probed) in looked {
         if probed.is_yes() {
             continue;
@@ -608,8 +614,10 @@ fn apply_checks(
             watch.root = root;
             watch.watcher = Some(watcher);
             require_full(due, id);
+            back.push(id);
         }
     }
+    back
 }
 
 fn lost(watch: &mut Watch, id: i64) {
@@ -1041,12 +1049,13 @@ mod tests {
 
         let (root, watcher) = try_watch(&dir, 3, generation, registry.tx.clone()).unwrap();
         let mut due = Vec::new();
-        apply_checks(
+        let back = apply_checks(
             &mut registry,
             &mut due,
             &[],
             vec![(3, generation, root, watcher)],
         );
+        assert_eq!(back, vec![3]);
         assert!(registry.watches[&3].watcher.is_some());
         assert_eq!(due, vec![(3, Batch::All)]);
         let _ = std::fs::remove_dir_all(&dir);

@@ -2,7 +2,10 @@ import { fileExists } from "@/lib/art/artPath";
 import { getUnavailableSourceIds } from "@/lib/tauri";
 import { isCdTrackListId } from "@/lib/cd/cdTracks";
 import { isTrackImporting } from "@/lib/import/pendingImportTrack";
-import { isTrackMissingFile } from "@/lib/tracks/missingFileTrack";
+import {
+  isTrackMissingFile,
+  isTrackOnlySourceOffline,
+} from "@/lib/tracks/missingFileTrack";
 import type { RepeatMode, Track } from "@/types/track";
 
 export type PlaybackNextIdFn = (
@@ -11,9 +14,15 @@ export type PlaybackNextIdFn = (
   mode: RepeatMode,
 ) => number | null;
 
+/**
+ * Not worth trying: importing, or its file is missing. A track flagged only
+ * because its folder was offline is worth trying, so it's tried (and its
+ * folder tested again) like any other: the folder may be back.
+ */
 export function isTrackKnownUnplayable(track: Track | undefined): boolean {
   if (!track) return true;
   if (isTrackImporting(track)) return true;
+  if (isTrackOnlySourceOffline(track)) return false;
   if (isTrackMissingFile(track)) return true;
   return false;
 }
@@ -84,6 +93,13 @@ export interface FindNextPlayableOptions {
    * over without looking at their files.
    */
   onSourceUnavailable?: (sourceId: number, trackId: number) => void;
+  /**
+   * A track flagged offline is in a folder that answers again. Called once
+   * per source; the caller clears the offline flag from all of its tracks.
+   */
+  onSourceAvailable?: (sourceId: number) => void;
+  /** Sources known offline already (just found so): not tested again. */
+  offlineSourceIds?: number[];
 }
 
 /**
@@ -105,6 +121,7 @@ export async function findNextPlayableInOrder(
   /** Looked up when the first track with a source needs it. */
   let unavailable: Set<number> | null = null;
   const offlineReported = new Set<number>();
+  const recovered = new Set<number>();
 
   while (candidate !== null) {
     if (visited.has(candidate)) return null;
@@ -120,25 +137,36 @@ export async function findNextPlayableInOrder(
       continue;
     }
 
-    if (isTrackMissingFile(track)) {
+    // A file known missing is passed over; one flagged only because its
+    // folder was offline gets its folder tested again below.
+    if (isTrackMissingFile(track) && !isTrackOnlySourceOffline(track)) {
       options.onSkippedMissing?.(candidate);
       candidate = getNextId(order, candidate, repeatMode);
       continue;
     }
 
     if (track.sourceId !== undefined) {
-      unavailable ??= await unavailableSourceIds();
+      unavailable ??= new Set([
+        ...(await unavailableSourceIds()),
+        ...(options.offlineSourceIds ?? []),
+      ]);
       if (unavailable.has(track.sourceId)) {
-        // The first track of an offline source tells the caller to flag the
-        // source; the rest are flagged by then and are only passed over.
-        if (!offlineReported.has(track.sourceId)) {
+        // The first track of an offline source not yet flagged tells the
+        // caller to flag the source; the rest are flagged by then and are
+        // only passed over.
+        if (!track.sourceOffline && !offlineReported.has(track.sourceId)) {
           offlineReported.add(track.sourceId);
           options.onSourceUnavailable?.(track.sourceId, candidate);
         } else {
+          offlineReported.add(track.sourceId);
           options.onSkippedMissing?.(candidate);
         }
         candidate = getNextId(order, candidate, repeatMode);
         continue;
+      }
+      if (track.sourceOffline && !recovered.has(track.sourceId)) {
+        recovered.add(track.sourceId);
+        options.onSourceAvailable?.(track.sourceId);
       }
     }
 
