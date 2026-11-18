@@ -82,6 +82,49 @@ describe("source scan tracking", () => {
     expect(tasks.getState().tasks[0]?.status).toBe("success");
   });
 
+  it("settles the toast for a scan that finishes before the toast starts", async () => {
+    // An empty folder scans in a blink: `finished` lands before the task has
+    // even begun running, so there is nobody waiting for it yet.
+    const { tracker, scans, tasks } = await setup(false);
+    tracker.handleSourceScanEvent({
+      sourceId: 7,
+      phase: "started",
+      summary: null,
+      progress: null,
+      background: false,
+    });
+    tracker.handleSourceScanEvent({
+      sourceId: 7,
+      phase: "finished",
+      summary: { ...summary, added: 0 },
+      progress: null,
+      background: false,
+    });
+    await flush();
+    expect(scans.getState().scanning.has(7)).toBe(false);
+    expect(tasks.getState().tasks[0]?.status).toBe("success");
+  });
+
+  it("dismisses the toast quietly for a scan that failed before the toast started", async () => {
+    const { tracker, tasks } = await setup(false);
+    tracker.handleSourceScanEvent({
+      sourceId: 7,
+      phase: "started",
+      summary: null,
+      progress: null,
+      background: false,
+    });
+    tracker.handleSourceScanEvent({
+      sourceId: 7,
+      phase: "finished",
+      summary: null,
+      progress: null,
+      background: false,
+    });
+    await flush();
+    expect(tasks.getState().tasks).toHaveLength(0);
+  });
+
   it("holds the toast back during onboarding, then shows it on finish", async () => {
     const { tracker, scans, tasks, onboarding } = await setup(true);
     const stop = tracker.startSourceScanTracking();
