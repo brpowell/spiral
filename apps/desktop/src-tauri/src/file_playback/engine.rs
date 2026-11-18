@@ -24,6 +24,9 @@ use crate::native_audio::{AudioOutput, DeckHandle};
 
 pub const FILE_PLAYBACK_POSITION_EVENT: &str = "file-playback-position";
 pub const FILE_PLAYBACK_ENDED_EVENT: &str = "file-playback-ended";
+/// A session's file stopped answering mid-track (a dropped network share):
+/// playback can't go on. Payload: [`FilePlaybackError`].
+pub const FILE_PLAYBACK_ERROR_EVENT: &str = "file-playback-error";
 /// A session began playing on its own (gapless splice from another session).
 pub const FILE_PLAYBACK_GAPLESS_STARTED_EVENT: &str = "file-playback-gapless-started";
 
@@ -41,6 +44,11 @@ const OPEN_TIMEOUT: Duration = Duration::from_secs(10);
 /// reading a dead share can't see the stop request; it is left to finish (and
 /// then exit) on its own rather than blocking whoever stopped it.
 const STOP_WAIT: Duration = Duration::from_secs(2);
+/// A decode thread that hasn't come round its loop for this long is stuck on a
+/// read. The ring only holds [`RING_SECONDS`], so the audio has stopped by then.
+const STALL_AFTER: Duration = Duration::from_secs(5);
+/// How often the watchdog looks for stuck decode threads.
+const WATCHDOG_TICK: Duration = Duration::from_millis(500);
 /// Decode-thread nap when the ring is full or the stream is done.
 const IDLE_SLEEP: Duration = Duration::from_millis(5);
 const POSITION_EVENT_INTERVAL: Duration = Duration::from_millis(250);
@@ -65,6 +73,13 @@ pub struct FilePlaybackPosition {
     pub position_seconds: f64,
     pub duration_seconds: f64,
     pub is_playing: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FilePlaybackError {
+    pub session_id: u64,
+    pub message: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -96,6 +111,12 @@ struct ActivePlayback {
     cmd_tx: mpsc::Sender<PlaybackCommand>,
     thread: thread::JoinHandle<()>,
     started_at: Instant,
+    /// When the decode thread last came round its loop (see [`now_ms`]).
+    heartbeat: Arc<AtomicU64>,
+    /// The watchdog already reported this session stuck.
+    stall_reported: bool,
+    app: Option<AppHandle>,
+    path: String,
     /// Source sample rate and length, to turn the deck's frame counter into seconds on demand.
     rate: f64,
     duration_seconds: f64,
@@ -143,11 +164,15 @@ fn with_session<R>(session_id: u64, f: impl FnOnce(&ActivePlayback) -> R) -> Opt
     guard.get(&session_id).map(f)
 }
 
-/// Evict the oldest idle (not playing) session when at capacity.
-/// Returns an error if both slots are occupied by playing sessions.
-fn make_room_for_new_session(sessions: &mut HashMap<u64, ActivePlayback>) -> Result<(), String> {
+/// Evict the oldest idle (not playing) session when at capacity, returning it
+/// for the caller to shut down once it has let go of [`SESSIONS`] (shutting
+/// down can wait on a stuck decode thread). An error if both slots are
+/// occupied by playing sessions.
+fn make_room_for_new_session(
+    sessions: &mut HashMap<u64, ActivePlayback>,
+) -> Result<Option<ActivePlayback>, String> {
     if sessions.len() < MAX_SESSIONS {
-        return Ok(());
+        return Ok(None);
     }
 
     let snapshot: Vec<(u64, bool, Instant)> = sessions
@@ -156,13 +181,8 @@ fn make_room_for_new_session(sessions: &mut HashMap<u64, ActivePlayback>) -> Res
         .collect();
 
     match pick_eviction_victim(&snapshot, MAX_SESSIONS) {
-        EvictionDecision::HasRoom => Ok(()),
-        EvictionDecision::Evict(id) => {
-            if let Some(active) = sessions.remove(&id) {
-                shutdown_active(active);
-            }
-            Ok(())
-        }
+        EvictionDecision::HasRoom => Ok(None),
+        EvictionDecision::Evict(id) => Ok(sessions.remove(&id)),
         EvictionDecision::Full => Err("Maximum concurrent file playback sessions reached".into()),
     }
 }
@@ -238,14 +258,26 @@ fn start_inner(
         ));
     }
 
-    {
+    let evicted = {
         let mut sessions = SESSIONS.lock().expect("file playback state poisoned");
-        make_room_for_new_session(&mut sessions)?;
+        make_room_for_new_session(&mut sessions)?
+    };
+    if let Some(active) = evicted {
+        shutdown_active(active);
     }
+    start_watchdog();
 
     let open_path = file_path.clone();
     let source = fs_probe::run_within(OPEN_TIMEOUT, move || StreamingDecoder::open(&open_path))
-        .ok_or_else(|| not_responding(path))??;
+        .ok_or_else(|| not_responding(path))?
+        .map_err(|err| {
+            // Opening timed out or the share is down: say it the one way.
+            if err.starts_with(crate::sources::SOURCE_UNAVAILABLE) {
+                not_responding(path)
+            } else {
+                err
+            }
+        })?;
     let duration_seconds = source.duration_seconds();
     let sample_rate = source.sample_rate();
     let channels = source.channels();
@@ -260,9 +292,13 @@ fn start_inner(
     let stop_requested = Arc::new(AtomicBool::new(false));
     let (cmd_tx, cmd_rx) = mpsc::channel::<PlaybackCommand>();
     let rate = deck.src_rate as f64;
+    let heartbeat = Arc::new(AtomicU64::new(now_ms()));
 
     let thread = {
         let stop_requested = Arc::clone(&stop_requested);
+        let heartbeat = Arc::clone(&heartbeat);
+        let app = app.clone();
+        let thread_path = path.to_string();
         thread::Builder::new()
             .name(format!("file-playback-{session_id}"))
             .spawn(move || {
@@ -274,6 +310,8 @@ fn start_inner(
                     deck,
                     stop_requested,
                     cmd_rx,
+                    heartbeat,
+                    thread_path,
                 );
             })
             .map_err(|err| format!("Failed to start file playback thread: {err}"))?
@@ -290,6 +328,10 @@ fn start_inner(
                 cmd_tx,
                 thread,
                 started_at: Instant::now(),
+                heartbeat,
+                stall_reported: false,
+                app,
+                path: path.to_string(),
                 rate,
                 duration_seconds,
             },
@@ -303,8 +345,83 @@ fn start_inner(
     })
 }
 
+/// Milliseconds on a clock shared by the decode threads and the watchdog.
+fn now_ms() -> u64 {
+    static START: LazyLock<Instant> = LazyLock::new(Instant::now);
+    START.elapsed().as_millis() as u64
+}
+
+/// Sessions whose decode thread hasn't come round its loop for
+/// [`STALL_AFTER`] as of `now`, each reported once: what to tell the frontend.
+fn take_stalled(
+    sessions: &mut HashMap<u64, ActivePlayback>,
+    now: u64,
+) -> Vec<(Option<AppHandle>, FilePlaybackError)> {
+    sessions
+        .iter_mut()
+        .filter(|(_, active)| {
+            !active.stall_reported
+                && now.saturating_sub(active.heartbeat.load(Ordering::Relaxed))
+                    >= STALL_AFTER.as_millis() as u64
+        })
+        .map(|(&session_id, active)| {
+            active.stall_reported = true;
+            (
+                active.app.clone(),
+                FilePlaybackError {
+                    session_id,
+                    message: not_responding(&active.path),
+                },
+            )
+        })
+        .collect()
+}
+
+/// Watch for decode threads stuck on a read (a file on a network share that
+/// dropped). Such a thread can't report anything itself, and without this the
+/// track just goes quiet with nothing to say why.
+fn start_watchdog() {
+    // Tests drive `take_stalled` themselves.
+    if cfg!(test) {
+        return;
+    }
+    static STARTED: std::sync::Once = std::sync::Once::new();
+    STARTED.call_once(|| {
+        let spawned = thread::Builder::new()
+            .name("file-playback-watchdog".into())
+            .spawn(|| {
+                let mut last_tick = now_ms();
+                loop {
+                    thread::sleep(WATCHDOG_TICK);
+                    let now = now_ms();
+                    // After the computer slept, every heartbeat is old: let
+                    // the decode threads come round once before judging.
+                    let slept =
+                        now.saturating_sub(last_tick) > 4 * WATCHDOG_TICK.as_millis() as u64;
+                    last_tick = now;
+                    if slept {
+                        continue;
+                    }
+                    let stalled = {
+                        let mut sessions = SESSIONS.lock().expect("file playback state poisoned");
+                        take_stalled(&mut sessions, now)
+                    };
+                    for (app, error) in stalled {
+                        eprintln!("file playback: {}", error.message);
+                        emit_event(app.as_ref(), FILE_PLAYBACK_ERROR_EVENT, error);
+                    }
+                }
+            });
+        if let Err(err) = spawned {
+            eprintln!("file playback: can't start the watchdog: {err}");
+        }
+    });
+}
+
 /// Keeps the deck ring topped up and reports position, natural end and gapless
-/// starts from what the mixer actually played.
+/// starts from what the mixer actually played. Beats `heartbeat` each time
+/// round, so the watchdog can tell when a read has it stuck.
+#[allow(clippy::too_many_arguments)]
 fn playback_thread(
     app: Option<AppHandle>,
     session_id: u64,
@@ -313,6 +430,8 @@ fn playback_thread(
     mut deck: DeckHandle,
     stop_requested: Arc<AtomicBool>,
     cmd_rx: mpsc::Receiver<PlaybackCommand>,
+    heartbeat: Arc<AtomicU64>,
+    path: String,
 ) {
     let channels = deck.channels;
     let rate = deck.src_rate as f64;
@@ -322,6 +441,7 @@ fn playback_thread(
     let mut last_position_emit = Instant::now();
 
     loop {
+        heartbeat.store(now_ms(), Ordering::Relaxed);
         if stop_requested.load(Ordering::SeqCst) {
             return;
         }
@@ -357,6 +477,25 @@ fn playback_thread(
                         break;
                     }
                 }
+            }
+            // Reading failed partway (e.g. the share dropped): that's not the
+            // end of the track, so don't let it play out as one.
+            if let Some(err) = source.take_read_error() {
+                let message = if err.starts_with(crate::sources::SOURCE_UNAVAILABLE) {
+                    not_responding(&path)
+                } else {
+                    format!("Failed to read {path}: {err}")
+                };
+                eprintln!("file playback: {message}");
+                emit_event(
+                    app.as_ref(),
+                    FILE_PLAYBACK_ERROR_EVENT,
+                    FilePlaybackError {
+                        session_id,
+                        message,
+                    },
+                );
+                return;
             }
         }
         if !chunk.is_empty() && deck.free_samples() >= chunk.len() {
@@ -598,6 +737,46 @@ mod tests {
             let (output, _state) = fake_output();
             let err = start_inner(None, "/definitely/not/here/track.flac", output).unwrap_err();
             assert!(err.starts_with("File not found"), "{err}");
+        });
+    }
+
+    /// A decode thread stuck on a read stops beating; the watchdog reports
+    /// its session once, as not responding, and leaves live ones alone.
+    #[test]
+    fn a_session_whose_decode_thread_stops_coming_round_is_reported_once() {
+        with_clean_sessions(|| {
+            let (ogg_path, flac_path) = fixture_paths();
+            let (output, _state) = fake_output();
+            let stuck = start_inner(None, &ogg_path, output.clone()).unwrap();
+            let live = start_inner(None, &flac_path, output).unwrap();
+
+            // Stand in for a read that never returns: the thread stops beating.
+            let at = {
+                let sessions = SESSIONS.lock().unwrap();
+                let active = &sessions[&stuck.session_id];
+                active.stop_requested.store(true, Ordering::SeqCst);
+                active.heartbeat.load(Ordering::Relaxed)
+            };
+            thread::sleep(Duration::from_millis(50));
+            let later = at + STALL_AFTER.as_millis() as u64 + 1;
+            // The live one keeps beating; pretend it just did.
+            SESSIONS.lock().unwrap()[&live.session_id]
+                .heartbeat
+                .store(later, Ordering::Relaxed);
+
+            let reported = take_stalled(&mut SESSIONS.lock().unwrap(), later);
+            assert_eq!(reported.len(), 1);
+            let error = &reported[0].1;
+            assert_eq!(error.session_id, stuck.session_id);
+            assert!(error
+                .message
+                .starts_with(crate::sources::SOURCE_UNAVAILABLE));
+            assert!(error.message.contains(&ogg_path), "{}", error.message);
+
+            // Once only.
+            assert!(take_stalled(&mut SESSIONS.lock().unwrap(), later + 10_000)
+                .iter()
+                .all(|(_, e)| e.session_id != stuck.session_id));
         });
     }
 

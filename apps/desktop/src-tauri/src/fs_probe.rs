@@ -121,13 +121,32 @@ fn probe_with(
     }
 }
 
-/// Whether `path` is a folder, without waiting on a stalled share.
+/// Whether an I/O error means a network share stopped answering (timed out,
+/// host down, connection gone), rather than something wrong with the file.
+pub fn is_network_failure(err: &std::io::Error) -> bool {
+    use std::io::ErrorKind::*;
+    matches!(
+        err.kind(),
+        TimedOut
+            | HostUnreachable
+            | NetworkUnreachable
+            | NetworkDown
+            | NotConnected
+            | ConnectionReset
+            | ConnectionAborted
+            | StaleNetworkFileHandle
+    ) || matches!(err.raw_os_error(), Some(code) if code == libc::EHOSTDOWN || code == libc::ETIMEDOUT)
+}
+
+/// Whether `path` is a folder that can be listed, without waiting on a
+/// stalled share. Listing, not just looking it up: a network share that
+/// dropped can keep answering lookups from a cache while every read fails.
 pub fn probe_dir(path: &Path) -> Probed {
     probe_dir_within(path, PROBE_TIMEOUT)
 }
 
 pub fn probe_dir_within(path: &Path, timeout: Duration) -> Probed {
-    probe_with(Kind::Dir, path, timeout, |p| p.is_dir())
+    probe_with(Kind::Dir, path, timeout, |p| std::fs::read_dir(p).is_ok())
 }
 
 /// Whether `path` is a regular file, without waiting on a stalled share.
@@ -245,6 +264,23 @@ mod tests {
         assert!(is_dir(&dir));
         assert!(!is_dir(&dir.join("nope")));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn network_errors_are_told_apart_from_file_errors() {
+        use std::io::{Error, ErrorKind};
+        assert!(is_network_failure(&Error::from(ErrorKind::TimedOut)));
+        assert!(is_network_failure(&Error::from_raw_os_error(
+            libc::ETIMEDOUT
+        )));
+        assert!(is_network_failure(&Error::from_raw_os_error(
+            libc::EHOSTDOWN
+        )));
+        assert!(is_network_failure(&Error::from(ErrorKind::NotConnected)));
+        assert!(!is_network_failure(&Error::from(ErrorKind::NotFound)));
+        assert!(!is_network_failure(&Error::from(
+            ErrorKind::PermissionDenied
+        )));
     }
 
     #[test]

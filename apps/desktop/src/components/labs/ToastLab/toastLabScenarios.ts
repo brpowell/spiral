@@ -480,6 +480,31 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     },
   },
   {
+    id: "playback-source-offline",
+    group: "Playback",
+    buttonLabel: "Music folder offline",
+    source: "playbackToast.ts",
+    fire: ({ showErrorToast, dismissMs }) => {
+      showErrorToast(
+        playbackFileMissingPayload(
+          { ...EXAMPLE_TRACK, sourceOffline: true },
+          { dismissMs },
+        ),
+      );
+    },
+  },
+  {
+    id: "playback-files-missing-offline",
+    group: "Playback",
+    buttonLabel: "N tracks skipped · folder offline",
+    source: "playbackToast.ts",
+    fire: ({ showErrorToast, dismissMs }) => {
+      showErrorToast(
+        playbackFilesMissingPayload(3, { dismissMs, allSourceOffline: true }),
+      );
+    },
+  },
+  {
     id: "playback-files-missing",
     group: "Playback",
     buttonLabel: "N tracks skipped",

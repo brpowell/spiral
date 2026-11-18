@@ -178,6 +178,14 @@ export function onCdError(
   crossfadeController.onCdError(callback);
 }
 
+/** A library file stopped answering mid-track (a dropped network share). */
+export function onFileError(
+  callback: Parameters<PlaybackEngineManager["onFileError"]>[0],
+): void {
+  manager.onFileError(callback);
+  crossfadeController.onFileError(callback);
+}
+
 export function setVolume(volume: number): void {
   if (isCrossfadeControllerActive()) {
     crossfadeController.setVolume(volume);

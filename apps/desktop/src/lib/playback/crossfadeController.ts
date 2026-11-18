@@ -12,6 +12,7 @@ import {
   type CdPlaybackStreamError,
 } from "./nativeCdPlaybackEngine";
 import { NativeFilePlaybackEngine } from "./nativeFilePlaybackEngine";
+import type { NativePlaybackError } from "./nativePlaybackEngine";
 import type { PlaybackSource } from "./types";
 
 const FADE_COMPLETE_BUFFER_MS = 50;
@@ -144,6 +145,8 @@ export class CrossfadeController {
   private onEndCallback: (() => void) | null = null;
   private onCdErrorCallback: ((error: CdPlaybackStreamError) => void) | null =
     null;
+  private onFileErrorCallback: ((error: NativePlaybackError) => void) | null =
+    null;
   private controllerActive = false;
   private userVolume = 1;
   private userMuted = false;
@@ -168,6 +171,10 @@ export class CrossfadeController {
       if (engine instanceof NativeCdPlaybackEngine) {
         engine.onError((error) => {
           this.onCdErrorCallback?.(error);
+        });
+      } else if (engine instanceof NativeFilePlaybackEngine) {
+        engine.onError((error) => {
+          this.onFileErrorCallback?.(error);
         });
       }
     }
@@ -240,6 +247,10 @@ export class CrossfadeController {
 
   onCdError(callback: ((error: CdPlaybackStreamError) => void) | null): void {
     this.onCdErrorCallback = callback;
+  }
+
+  onFileError(callback: ((error: NativePlaybackError) => void) | null): void {
+    this.onFileErrorCallback = callback;
   }
 
   getActiveEngine(): DualDeckEngine {

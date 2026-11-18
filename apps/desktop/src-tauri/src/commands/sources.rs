@@ -5,7 +5,7 @@ use crate::settings;
 use crate::source_scan::{self, ReconcileScope, ReconcileSummary, ScanContext, ScanProgress};
 use crate::source_watch;
 use crate::sources::{self, LibraryRoots, Source};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -307,6 +307,33 @@ pub fn get_source_statuses(state: State<DbState>) -> Result<Vec<SourceStatus>, S
         .collect())
 }
 
+/// The ids of the sources whose folder isn't answering right now (an unplugged
+/// drive, a dropped share). Playback asks before it walks the set list, so a
+/// dead folder is settled once instead of file by file. Each folder is looked
+/// at for a few seconds at most, together, and off the main thread.
+#[tauri::command(async)]
+pub fn get_unavailable_source_ids(state: State<DbState>) -> Result<Vec<i64>, String> {
+    let roots: Vec<(i64, PathBuf)> = {
+        let conn = state.0.lock().map_err(|e| e.to_string())?;
+        sources::list_sources(&conn)
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .filter_map(|s| Some((s.id, PathBuf::from(s.root_path?))))
+            .collect()
+    };
+    Ok(unavailable_ids(&roots))
+}
+
+fn unavailable_ids(roots: &[(i64, PathBuf)]) -> Vec<i64> {
+    let paths: Vec<PathBuf> = roots.iter().map(|(_, root)| root.clone()).collect();
+    roots
+        .iter()
+        .zip(fs_probe::probe_dirs(&paths))
+        .filter(|(_, probed)| !probed.is_yes())
+        .map(|((id, _), _)| *id)
+        .collect()
+}
+
 #[tauri::command]
 pub fn list_sources(state: State<DbState>) -> Result<Vec<Source>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -466,4 +493,24 @@ pub fn create_managed_source(app: AppHandle, state: State<DbState>) -> Result<So
         }
     });
     Ok(source)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unavailable_ids_lists_missing_and_stalled_folders_only() {
+        let base = std::env::temp_dir().join(format!("spiral-unavailable-{}", std::process::id()));
+        let here = base.join("here");
+        let stalled = base.join("stalled");
+        std::fs::create_dir_all(&here).unwrap();
+        std::fs::create_dir_all(&stalled).unwrap();
+        let _stall = fs_probe::stall_dir(&stalled);
+
+        let roots = [(1, here.clone()), (2, base.join("unplugged")), (3, stalled)];
+        assert_eq!(unavailable_ids(&roots), vec![2, 3]);
+        assert_eq!(unavailable_ids(&[]), Vec::<i64>::new());
+        let _ = std::fs::remove_dir_all(&base);
+    }
 }

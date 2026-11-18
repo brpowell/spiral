@@ -35,6 +35,12 @@ export interface Track {
   importSourcePath?: string;
   /** Client-only flag set when playback cannot find the file on disk. */
   missingFile?: true;
+  /**
+   * Client-only, with `missingFile`: the file is missing because its source's
+   * folder isn't accessible (an unplugged drive, a dropped network share),
+   * not because the file itself is gone.
+   */
+  sourceOffline?: true;
   lyricsFormat?: LyricsFormat | null;
   /** MusicBrainz recording UUID (`MUSICBRAINZ_TRACKID`). */
   recordingMbid?: string | null;

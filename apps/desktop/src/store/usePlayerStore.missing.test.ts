@@ -2,9 +2,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Track } from "@/types/track";
 
-const { mockFileExists, playback } = vi.hoisted(() => ({
+const { mockFileExists, mockUnavailable, playback } = vi.hoisted(() => ({
   mockFileExists: vi.fn(),
-  playback: { trackEnded: () => {} },
+  mockUnavailable: vi.fn(),
+  playback: {
+    trackEnded: () => {},
+    fileError: (_error: {
+      message: string;
+      driveId: string;
+      trackNumber: number;
+    }) => {},
+  },
 }));
 
 vi.mock("@/lib/playback", async (importOriginal) => ({
@@ -12,11 +20,23 @@ vi.mock("@/lib/playback", async (importOriginal) => ({
   onEnd: (callback: () => void) => {
     playback.trackEnded = callback;
   },
+  onFileError: (callback: typeof playback.fileError) => {
+    playback.fileError = callback;
+  },
 }));
 
 vi.mock("@/lib/art/artPath", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/art/artPath")>()),
   fileExists: mockFileExists,
+}));
+
+// Answer the one command playback asks; any other fails as it does without a webview.
+vi.mock("@tauri-apps/api/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tauri-apps/api/core")>()),
+  invoke: async (command: string) => {
+    if (command === "get_unavailable_source_ids") return mockUnavailable();
+    throw new Error(`no webview for ${command}`);
+  },
 }));
 
 import * as audio from "@/lib/playback";
@@ -86,6 +106,8 @@ describe("skipping missing tracks", () => {
     vi.spyOn(Date, "now").mockImplementation(() => now);
     mockFileExists.mockReset();
     mockFileExists.mockResolvedValue(true);
+    mockUnavailable.mockReset();
+    mockUnavailable.mockResolvedValue([]);
     startPlayback = vi
       .spyOn(audio, "crossfadeLoadAndPlay")
       .mockResolvedValue(undefined);
@@ -124,6 +146,163 @@ describe("skipping missing tracks", () => {
     expect(usePlayerStore.getState().currentTrackId).toBe(2);
     expect(toasts()).toEqual([{ label: "File not found", detail: "Track 1" }]);
     expect(usePlayerStore.getState().library[0].missingFile).toBe(true);
+  });
+
+  it("an offline source's tracks are all flagged without trying their files", async () => {
+    mockUnavailable.mockResolvedValue([7]);
+    const library = [
+      track(1, { sourceId: 7 }),
+      track(2, { sourceId: 7 }),
+      track(3, { sourceId: 1 }),
+      track(4, { sourceId: 7 }),
+    ];
+    setQueue(library);
+    await usePlayerStore.getState().playTrack(1);
+
+    const state = usePlayerStore.getState();
+    expect(state.currentTrackId).toBe(3);
+    expect(state.library.map((t) => !!t.missingFile)).toEqual([
+      true,
+      true,
+      false,
+      true,
+    ]);
+    expect(mockFileExists).not.toHaveBeenCalledWith("/music/1.flac");
+    expect(mockFileExists).not.toHaveBeenCalledWith("/music/2.flac");
+    expect(state.library.map((t) => !!t.sourceOffline)).toEqual([
+      true,
+      true,
+      false,
+      true,
+    ]);
+    // Said to be the folder, not each file: one toast for the run.
+    expect(toasts()).toEqual([
+      { label: "2 tracks skipped", detail: "Their music folder is offline" },
+    ]);
+  });
+
+  it("a single offline track's toast names the folder", async () => {
+    mockUnavailable.mockResolvedValue([7]);
+    setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 1 })]);
+    await usePlayerStore.getState().playTrack(1);
+    expect(toasts()).toEqual([
+      { label: "Music folder offline", detail: "Track 1" },
+    ]);
+  });
+
+  it("a file that is just gone still says so", async () => {
+    mockFileExists.mockImplementation(
+      async (path: string) => path !== "/music/1.flac",
+    );
+    setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 7 })]);
+    await usePlayerStore.getState().playTrack(1);
+    expect(toasts()).toEqual([{ label: "File not found", detail: "Track 1" }]);
+    expect(usePlayerStore.getState().library[0].sourceOffline).toBeUndefined();
+  });
+
+  it("a reachable source is tried file by file as usual", async () => {
+    mockFileExists.mockImplementation(
+      async (path: string) => path !== "/music/1.flac",
+    );
+    setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 7 })]);
+    await usePlayerStore.getState().playTrack(1);
+
+    const state = usePlayerStore.getState();
+    expect(state.currentTrackId).toBe(2);
+    expect(state.library.map((t) => !!t.missingFile)).toEqual([true, false]);
+  });
+
+  describe("a file that stops answering mid-track", () => {
+    const stalled = {
+      message: "source_unavailable: /music/1.flac is not responding",
+      driveId: "",
+      trackNumber: 0,
+    };
+
+    beforeEach(() => {
+      vi.spyOn(audio, "unload").mockImplementation(() => {});
+    });
+
+    it("stops, and flags its whole folder offline when that's the cause", async () => {
+      mockUnavailable.mockResolvedValue([7]);
+      setQueue(
+        [
+          track(1, { sourceId: 7 }),
+          track(2, { sourceId: 7 }),
+          track(3, { sourceId: 1 }),
+        ],
+        1,
+      );
+      playback.fileError(stalled);
+
+      expect(usePlayerStore.getState().playbackState).toBe("stopped");
+      expect(audio.unload).toHaveBeenCalled();
+      await vi.waitFor(() =>
+        expect(toasts()).toEqual([
+          { label: "Music folder offline", detail: "Track 1" },
+        ]),
+      );
+      expect(
+        usePlayerStore.getState().library.map((t) => !!t.sourceOffline),
+      ).toEqual([true, true, false]);
+      expect(mockFileExists).not.toHaveBeenCalled();
+    });
+
+    it("trusts a not-responding error over a folder test that passes", async () => {
+      mockUnavailable.mockResolvedValue([]);
+      setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 7 })], 1);
+      playback.fileError(stalled);
+      await vi.waitFor(() =>
+        expect(
+          usePlayerStore.getState().library.map((t) => !!t.sourceOffline),
+        ).toEqual([true, true]),
+      );
+    });
+
+    it("flags just the file when its folder is there", async () => {
+      const readError = {
+        ...stalled,
+        message: "Failed to read /music/1.flac: read failed: bad data",
+      };
+      mockFileExists.mockResolvedValue(false);
+      setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 7 })], 1);
+      playback.fileError(readError);
+
+      await vi.waitFor(() =>
+        expect(toasts()).toEqual([
+          { label: "File not found", detail: "Track 1" },
+        ]),
+      );
+      const [first, second] = usePlayerStore.getState().library;
+      expect(first.missingFile).toBe(true);
+      expect(first.sourceOffline).toBeUndefined();
+      expect(second.missingFile).toBeUndefined();
+    });
+  });
+
+  it("a start that times out flags its folder offline even when the folder test passes", async () => {
+    // A dropped share can keep answering lookups from a cache.
+    mockUnavailable.mockResolvedValue([]);
+    startPlayback.mockRejectedValueOnce(
+      new Error(
+        "source_unavailable: /music/1.flac is not responding; check the connection to its folder",
+      ),
+    );
+    setQueue([
+      track(1, { sourceId: 7 }),
+      track(2, { sourceId: 7 }),
+      track(3, { sourceId: 1 }),
+    ]);
+    await usePlayerStore.getState().playTrack(1);
+
+    const state = usePlayerStore.getState();
+    expect(state.library.map((t) => !!t.sourceOffline)).toEqual([
+      true,
+      true,
+      false,
+    ]);
+    // Its folder's other track is passed over; the next folder's plays.
+    expect(state.currentTrackId).toBe(3);
   });
 
   it("Next says which track it passed over", async () => {

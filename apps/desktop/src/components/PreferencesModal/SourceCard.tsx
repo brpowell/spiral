@@ -96,7 +96,10 @@ export function SourceCard({
         </span>,
       );
     }
-    if (count.missing > 0) {
+    // An offline folder's tracks aren't missing, they're unreachable: the
+    // offline status says it all. Missing is for files gone from a folder
+    // that's there.
+    if (count.missing > 0 && !offline) {
       parts.push(
         <span className="sources-section__missing">
           {t("preferences:sources.missingCount", { count: count.missing })}

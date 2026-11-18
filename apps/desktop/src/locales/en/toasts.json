@@ -18,9 +18,11 @@
   },
   "playback": {
     "fileMissing": "File not found",
+    "sourceOffline": "Music folder offline",
     "filesMissing_one": "{{count}} track skipped",
     "filesMissing_other": "{{count}} tracks skipped",
     "filesMissingDetail": "Their files weren't found",
+    "filesMissingOfflineDetail": "Their music folder is offline",
     "failed": "Playback failed",
     "failedDetail": "Something went wrong. Try again, or check the logs for details."
   },

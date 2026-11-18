@@ -633,6 +633,14 @@ export async function getActiveScans(): Promise<ActiveScan[]> {
   return invoke<ActiveScan[]>("get_active_scans");
 }
 
+/**
+ * The ids of the sources whose folder isn't answering now (an unplugged drive,
+ * a dropped network share). Looks at each folder for a few seconds at most.
+ */
+export async function getUnavailableSourceIds(): Promise<number[]> {
+  return invoke<number[]>("get_unavailable_source_ids");
+}
+
 /** Watch status of each watched folder, for the offline badge. */
 export async function getSourceStatuses(): Promise<SourceStatus[]> {
   return invoke<SourceStatus[]>("get_source_statuses");

@@ -420,12 +420,21 @@ fn reconcile_watched(
     progress: Option<ProgressFn<'_>>,
 ) -> Result<ReconcileSummary, String> {
     let root = PathBuf::from(root);
-    // A network folder whose connection dropped doesn't fail, it stalls, and a
-    // walk of it would hold up this pass (and the lock every pass shares)
-    // indefinitely. Say so, and leave the rows as they are: the folder may be
-    // back in a moment, which an unplugged drive (no folder at all) isn't.
-    if fs_probe::probe_dir(&root) == Probed::Stalled {
-        return Err(sources::not_responding(&root));
+    // A folder that isn't there (an unplugged drive) or doesn't answer (a
+    // dropped network share, which would stall a walk, and the lock every
+    // pass shares, indefinitely) is offline, not empty: say so and leave the
+    // rows as they are. Its tracks aren't missing; missing is for a file that's
+    // gone from a folder that's there.
+    match fs_probe::probe_dir(&root) {
+        Probed::Yes => {}
+        Probed::No => {
+            return Err(format!(
+                "{}: the folder {} is not available",
+                sources::SOURCE_UNAVAILABLE,
+                root.display()
+            ))
+        }
+        Probed::Stalled => return Err(sources::not_responding(&root)),
     }
     // Knowing every source's folder, the walk skips one nested in this one.
     let roots = ctx
@@ -438,8 +447,6 @@ fn reconcile_watched(
         files: HashSet::new(),
     });
 
-    // An unreachable root (an unplugged drive) yields no files, so every track
-    // in scope is marked missing until it comes back.
     let mut found: Vec<String> = Vec::new();
     for dir in &coverage.dirs {
         let base = found.len();
@@ -1200,17 +1207,24 @@ mod tests {
         assert_eq!(track.missing_since, None);
     }
 
+    /// An unplugged drive's folder is offline, not empty: its tracks aren't
+    /// marked missing, and nothing changes when it's back.
     #[test]
-    fn unreachable_root_marks_everything_missing() {
+    fn an_unreachable_root_fails_and_keeps_its_tracks() {
         let fx = Fixture::new("unplugged");
         let id = fx.watch("Drive/Music");
-        fx.wav("Drive/Music/a.wav");
-        fx.wav("Drive/Music/b.wav");
+        let a = fx.wav("Drive/Music/a.wav");
+        let b = fx.wav("Drive/Music/b.wav");
         fx.reconcile(id);
         fs::rename(fx.path("Drive"), fx.path("Unplugged")).unwrap();
-        assert_eq!(fx.reconcile(id), summary(id, 0, 0, 2, 0));
+        let err = reconcile_source(&fx.db, &fx.ctx, id, ReconcileScope::All).unwrap_err();
+        assert!(err.starts_with(sources::SOURCE_UNAVAILABLE), "{err}");
+        assert_eq!(
+            fx.tracks(id),
+            vec![(s(&a), "a".into(), false), (s(&b), "b".into(), false)]
+        );
         fs::rename(fx.path("Unplugged"), fx.path("Drive")).unwrap();
-        assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 2));
+        assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 0));
     }
 
     /// A share whose connection dropped stalls instead of failing. The pass
@@ -1619,7 +1633,15 @@ mod tests {
 
         fs::create_dir_all(fx.path("New")).unwrap();
         fs::rename(fx.path("Old/Music"), fx.path("New/Music")).unwrap();
-        assert_eq!(fx.reconcile(id), summary(id, 0, 0, 2, 0));
+        // The old folder is gone: offline, so its rows stay as they were.
+        assert!(reconcile_source(&fx.db, &fx.ctx, id, ReconcileScope::All).is_err());
+        // Rows an earlier scan marked missing are cleared once it's relocated.
+        lock(&fx.db)
+            .execute(
+                "UPDATE tracks SET missing_since = '2026-01-01T00:00:00Z' WHERE source_id = ?1",
+                params![id],
+            )
+            .unwrap();
 
         // Validation still applies, against everything but the source itself.
         let err = relocate_source(&fx.db, &fx.ctx, id, &s(&fx.path("Other/Sub")));
