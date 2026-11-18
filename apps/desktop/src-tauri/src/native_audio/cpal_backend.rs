@@ -1,9 +1,9 @@
 //! cpal-backed [`StreamFactory`]: CoreAudio on macOS, WASAPI on Windows, ALSA on Linux.
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{FromSample, SampleFormat, SizedSample};
+use cpal::{ErrorKind, FromSample, SampleFormat, SizedSample};
 
-use super::output::{ActiveStream, ErrorSink, Render, StreamFactory, StreamInfo};
+use super::output::{ActiveStream, ErrorSink, Render, StreamFactory, StreamFault, StreamInfo};
 
 pub struct CpalFactory;
 
@@ -41,7 +41,14 @@ impl StreamFactory for CpalFactory {
                 .unwrap_or_else(|_| "unknown".into()),
         };
 
-        let err_fn = move |err: cpal::Error| on_error(err.to_string());
+        // ALSA reports every underrun here after it has already re-prepared the
+        // stream, so only the other kinds mean the stream needs replacing.
+        let err_fn = move |err: cpal::Error| {
+            on_error(match err.kind() {
+                ErrorKind::Xrun => StreamFault::Xrun,
+                _ => StreamFault::Fatal(err.to_string()),
+            })
+        };
         let stream = match supported.sample_format() {
             SampleFormat::F32 => {
                 let mut render = render;

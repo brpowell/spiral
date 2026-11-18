@@ -29,6 +29,8 @@ const IDLE_CLOSE: Duration = Duration::from_secs(3);
 const WATCHDOG: Duration = Duration::from_millis(1500);
 const RETRY_MIN: Duration = Duration::from_millis(250);
 const RETRY_MAX: Duration = Duration::from_secs(2);
+/// Underruns are summarised in the activity log at most this often.
+const XRUN_LOG_INTERVAL: Duration = Duration::from_secs(10);
 
 /// Format the device actually opened with.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,7 +46,18 @@ pub trait ActiveStream {
 }
 
 pub type Render = Box<dyn FnMut(&mut [f32]) + Send>;
-pub type ErrorSink = Box<dyn Fn(String) + Send + Sync>;
+pub type ErrorSink = Box<dyn Fn(StreamFault) + Send + Sync>;
+
+/// A problem a device stream reports from its own thread.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StreamFault {
+    /// The device ran dry (or overflowed) and the backend already recovered the
+    /// stream in place. Rebuilding would turn a millisecond glitch into a long
+    /// gap, so it is only counted.
+    Xrun,
+    /// The stream is unusable and must be rebuilt.
+    Fatal(String),
+}
 
 /// Creates device streams. Lives on the output thread, so it need not be `Sync`.
 pub trait StreamFactory: Send + 'static {
@@ -165,6 +178,9 @@ impl AudioOutput {
                     retry_at: None,
                     retry_delay: RETRY_MIN,
                     build_failures: 0,
+                    xruns: Arc::new(AtomicU64::new(0)),
+                    xruns_logged: 0,
+                    xrun_logged_at: None,
                 }
                 .run();
             });
@@ -284,6 +300,10 @@ struct OutputThread {
     retry_at: Option<Instant>,
     retry_delay: Duration,
     build_failures: u32,
+    /// Underruns reported by any stream, bumped from the device thread.
+    xruns: Arc<AtomicU64>,
+    xruns_logged: u64,
+    xrun_logged_at: Option<Instant>,
 }
 
 impl OutputThread {
@@ -333,6 +353,7 @@ impl OutputThread {
     }
 
     fn tick(&mut self) {
+        self.report_xruns();
         if self.sleeping {
             return;
         }
@@ -358,6 +379,24 @@ impl OutputThread {
             }
             (false, false) => self.idle_since = None,
         }
+    }
+
+    /// Summarise underruns since the last report, at most every `XRUN_LOG_INTERVAL`.
+    fn report_xruns(&mut self) {
+        let total = self.xruns.load(Ordering::Relaxed);
+        if total == self.xruns_logged
+            || self
+                .xrun_logged_at
+                .is_some_and(|at| at.elapsed() < XRUN_LOG_INTERVAL)
+        {
+            return;
+        }
+        log_warn(format!(
+            "output underrun x{} (recovered in place; {total} this session)",
+            total - self.xruns_logged
+        ));
+        self.xruns_logged = total;
+        self.xrun_logged_at = Some(Instant::now());
     }
 
     fn check_watchdog(&mut self) {
@@ -388,7 +427,15 @@ impl OutputThread {
         });
         let ctl = self.ctl.clone();
         let ctl = Mutex::new(ctl);
-        let on_error: ErrorSink = Box::new(move |message| {
+        let xruns = Arc::clone(&self.xruns);
+        let on_error: ErrorSink = Box::new(move |fault| {
+            let message = match fault {
+                StreamFault::Xrun => {
+                    xruns.fetch_add(1, Ordering::Relaxed);
+                    return;
+                }
+                StreamFault::Fatal(message) => message,
+            };
             if let Ok(ctl) = ctl.lock() {
                 let _ = ctl.send(Ctl::StreamError {
                     generation,
@@ -476,8 +523,16 @@ pub(crate) mod fake {
         }
 
         pub fn raise_error(&self, message: &str) {
+            self.raise(StreamFault::Fatal(message.to_string()));
+        }
+
+        pub fn raise_xrun(&self) {
+            self.raise(StreamFault::Xrun);
+        }
+
+        fn raise(&self, fault: StreamFault) {
             if let Some(sink) = self.on_error.lock().unwrap().as_ref() {
-                sink(message.to_string());
+                sink(fault);
             }
         }
     }
@@ -622,6 +677,35 @@ mod tests {
             state.builds.load(Ordering::SeqCst) == 2
                 && state.live_streams.load(Ordering::SeqCst) == 1
         });
+    }
+
+    #[test]
+    fn xrun_keeps_the_stream_and_is_logged() {
+        let (_output, state, deck) = setup();
+        deck.set_playing(true);
+        wait_for("stream", || state.live_streams.load(Ordering::SeqCst) == 1);
+        state.pump(4800);
+        let before = deck.shared.position_frames.load(Ordering::Relaxed);
+
+        for _ in 0..3 {
+            state.raise_xrun();
+        }
+        wait_for("underrun logged", || {
+            crate::activity_log::get_recent(200, Some(LOG_DOMAIN))
+                .iter()
+                .any(|entry| entry.message.starts_with("output underrun x"))
+        });
+        assert_eq!(
+            state.builds.load(Ordering::SeqCst),
+            1,
+            "an xrun must not rebuild the stream"
+        );
+        state.pump(4800).expect("same stream still rendering");
+        let after = deck.shared.position_frames.load(Ordering::Relaxed);
+        assert!(
+            after > before + 4000,
+            "playback continued: {before} -> {after}"
+        );
     }
 
     #[test]
