@@ -434,12 +434,10 @@ pub const LAST_SOURCE: &str = "last_source";
 /// inside the Spiral folder, but may not be the Spiral folder itself or its
 /// database, artwork or packs (or inside those). It may contain the Spiral
 /// folder (e.g. `~/Music` around `~/Music/Spiral`); walks skip its data.
-/// `exclude` skips one source's own root, for moving that source.
 pub fn validate_source_root(
     conn: &Connection,
     roots: &LibraryRoots,
     root: &Path,
-    exclude: Option<i64>,
 ) -> Result<(), String> {
     if path_forms(root).is_empty() {
         return Err(format!(
@@ -460,10 +458,7 @@ pub fn validate_source_root(
         ));
     }
     let existing = source_roots(conn).map_err(|e| e.to_string())?;
-    if let Some((_, other)) = existing
-        .iter()
-        .find(|(id, other)| Some(*id) != exclude && overlaps(root, other))
-    {
+    if let Some((_, other)) = existing.iter().find(|(_, other)| overlaps(root, other)) {
         return Err(format!(
             "{SOURCE_OVERLAP}: {} overlaps the source folder {}",
             root.display(),
@@ -492,7 +487,7 @@ pub fn add_source(
     name: Option<&str>,
 ) -> Result<Source, String> {
     let root = PathBuf::from(root_path.trim());
-    validate_source_root(conn, roots, &root, None)?;
+    validate_source_root(conn, roots, &root)?;
     let name = name
         .map(str::trim)
         .filter(|n| !n.is_empty())
@@ -591,26 +586,6 @@ pub fn remove_source(conn: &Connection, id: i64) -> Result<usize, String> {
     }
     tx.commit().map_err(|e| e.to_string())?;
     Ok(removed)
-}
-
-/// Point a source at the folder its files moved to. Tracks store paths
-/// relative to the root, so only the source row changes; rescan afterwards to
-/// pick up what differs.
-pub fn set_source_root(
-    conn: &Connection,
-    roots: &LibraryRoots,
-    id: i64,
-    new_root: &str,
-) -> Result<Source, String> {
-    get_source_or_err(conn, id)?;
-    let new_root = PathBuf::from(new_root.trim());
-    validate_source_root(conn, roots, &new_root, Some(id))?;
-    conn.execute(
-        "UPDATE sources SET root_path = ?1 WHERE id = ?2",
-        params![stored_root(conn, &new_root)?, id],
-    )
-    .map_err(|e| e.to_string())?;
-    get_source_or_err(conn, id)
 }
 
 fn update_source(
@@ -869,15 +844,6 @@ mod tests {
         conn.last_insert_rowid()
     }
 
-    fn track_location(conn: &Connection, id: i64) -> (i64, String) {
-        conn.query_row(
-            "SELECT source_id, rel_path FROM tracks WHERE id = ?1",
-            params![id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )
-        .unwrap()
-    }
-
     fn tracks_folder(roots: &LibraryRoots) -> PathBuf {
         settings::media_folder_for_root(&roots.library_root)
     }
@@ -1084,38 +1050,6 @@ mod tests {
     }
 
     #[test]
-    fn moving_a_source_root_moves_its_tracks() {
-        let tmp = TempDir::new("move-root");
-        let (conn, roots) = library(&tmp);
-        let rock = add(&conn, &roots, &tmp.dir("Old/Rock")).unwrap();
-        let id = insert_track(&conn, "Artist/a.mp3", rock.id);
-        let new_root = tmp.dir("New/Rock");
-        let moved = set_source_root(&conn, &roots, rock.id, &s(&new_root)).unwrap();
-        assert_eq!(moved.root_path, Some(s(&new_root)));
-        assert_eq!(track_location(&conn, id), (rock.id, "Artist/a.mp3".into()));
-        let track = crate::db::get_track_by_id(&conn, id).unwrap().unwrap();
-        assert_eq!(track.file_path, s(&new_root.join("Artist").join("a.mp3")));
-
-        let artwork = s(&tmp.dir("Music/Spiral Library/Artwork"));
-        assert!(set_source_root(&conn, &roots, rock.id, &artwork)
-            .unwrap_err()
-            .starts_with(SOURCE_SPIRAL_DATA));
-
-        // Into the Spiral folder and out again: stored relative to it there.
-        let inside = tmp.dir("Music/Spiral Library/Rock");
-        let moved = set_source_root(&conn, &roots, rock.id, &s(&inside)).unwrap();
-        assert_eq!(moved.root_path, Some(s(&inside)));
-        assert_eq!(
-            stored_roots(&conn).unwrap(),
-            vec![(rock.id, "Rock".to_string())]
-        );
-        let track = crate::db::get_track_by_id(&conn, id).unwrap().unwrap();
-        assert_eq!(track.file_path, s(&inside.join("Artist").join("a.mp3")));
-        set_source_root(&conn, &roots, rock.id, &s(&new_root)).unwrap();
-        assert_eq!(stored_roots(&conn).unwrap(), vec![(rock.id, s(&new_root))]);
-    }
-
-    #[test]
     fn multiple_separate_sources_can_be_added() {
         let tmp = TempDir::new("multi");
         let (conn, roots) = library(&tmp);
@@ -1204,7 +1138,6 @@ mod tests {
         assert!(create_managed_source(&conn, &roots)
             .unwrap_err()
             .starts_with(SOURCE_OVERLAP));
-        set_source_root(&conn, &roots, music.id, &s(&tmp.0)).unwrap();
     }
 
     #[test]

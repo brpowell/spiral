@@ -23,7 +23,6 @@ const tauri = vi.hoisted(() => ({
   getSourceStatuses: vi.fn(),
   addSource: vi.fn(),
   pickMusicFolder: vi.fn(),
-  relocateSource: vi.fn(),
   removeSource: vi.fn(),
   rescanSource: vi.fn(),
   revealPathInFileManager: vi.fn(),
@@ -456,45 +455,14 @@ describe("SourcesSection", () => {
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
-  it("changes a folder's location on Save", async () => {
-    tauri.pickMusicFolder.mockResolvedValue("/Volumes/New/Music");
-    tauri.relocateSource.mockResolvedValue({
-      ...sources[1],
-      rootPath: "/Volumes/New/Music",
-    });
+  it("shows where the folder is, but can't change it", async () => {
     await renderSection();
     const dialog = await openEdit("Music");
-    fireEvent.click(
-      within(dialog).getByRole("button", { name: /Change location/ }),
-    );
-    expect(await within(dialog).findByText("/Volumes/New/Music")).toBeTruthy();
-    expect(tauri.relocateSource).not.toHaveBeenCalled();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-    await waitFor(() =>
-      expect(tauri.relocateSource).toHaveBeenCalledWith(
-        3,
-        "/Volumes/New/Music",
-      ),
-    );
-  });
-
-  it("keeps the dialog open with a readable error when saving fails", async () => {
-    tauri.pickMusicFolder.mockResolvedValue("/Volumes/Big/Music/Rock");
-    tauri.relocateSource.mockRejectedValue(
-      "source_overlap: /Volumes/Big/Music/Rock overlaps /Volumes/Big/Music",
-    );
-    await renderSection();
-    const dialog = await openEdit("Music");
-    fireEvent.click(
-      within(dialog).getByRole("button", { name: /Change location/ }),
-    );
-    await within(dialog).findByText("/Volumes/Big/Music/Rock");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-    const alert = await within(dialog).findByRole("alert");
-    expect(alert.textContent).toMatch(/overlaps one of your sources/);
+    expect(within(dialog).getByText("/Volumes/Big/Music")).toBeTruthy();
     expect(
-      screen.getByRole("dialog", { name: "Edit music source" }),
-    ).toBeTruthy();
+      within(dialog).queryByRole("button", { name: /Change location/ }),
+    ).toBeNull();
+    expect(tauri.pickMusicFolder).not.toHaveBeenCalled();
   });
 
   /** Saves the open edit dialog and waits for it to close. */
@@ -544,6 +512,10 @@ describe("SourcesSection", () => {
       "That music folder isn't available. Connect its drive and try again.",
     );
     expect(organize).not.toBeChecked();
+    // A failed save keeps the dialog open to try again.
+    expect(
+      screen.getByRole("dialog", { name: "Edit music source" }),
+    ).toBeTruthy();
     expect(tauri.applyOrganizeSource).not.toHaveBeenCalled();
     expect(toastLabels()).toEqual([]);
   });

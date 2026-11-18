@@ -5,7 +5,6 @@ import {
 } from "@/lib/files/organizePathFormat";
 import { organizeInBackground } from "@/lib/files/organizeSource";
 import {
-  relocateSource,
   rescanSource,
   setSourceOrganize,
   setSourcePathFormat,
@@ -66,9 +65,6 @@ export function SourceEditFlow({
   const saveEdits = async (editing: Source, edits: SourceEdits) => {
     onSaving?.();
     let current = editing;
-    if (edits.rootPath) {
-      current = await relocateSource(editing.id, edits.rootPath);
-    }
     if (edits.autoOrganize !== undefined) {
       current = await setSourceOrganize(editing.id, edits.autoOrganize);
     }
@@ -86,9 +82,9 @@ export function SourceEditFlow({
       // A folder just added hasn't been scanned: do that first, so every file
       // it holds gets organized.
       void organizeInBackground([{ source: current }], { scanFirst: adding });
-    } else if (adding && !edits.rootPath) {
+    } else if (adding) {
       // Confirming the add starts the folder's first scan (cancelling never
-      // scans it). Moving it to another folder scans it already.
+      // scans it).
       void rescanSource(current.id).catch((err) =>
         console.error("scan of the added source failed:", err),
       );

@@ -260,7 +260,6 @@ pub fn run() {
             commands::sources::add_source,
             commands::sources::remove_source,
             commands::sources::rescan_source,
-            commands::sources::relocate_source,
             commands::sources::set_source_organize,
             commands::sources::set_source_path_format,
             commands::sources::set_import_source,

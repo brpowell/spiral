@@ -64,8 +64,6 @@
     "findingStart": "Finding files…",
     "finding": "Finding files… {{found}}",
     "scanProgress": "Scanning… {{current}} of {{total}}",
-    "changeLocation": "Change location…",
-    "changing": "Changing…",
     "remove": "Remove…",
     "removeLast": "Spiral needs at least one music folder.",
     "actionsAria": "Actions for {{name}}",
