@@ -56,6 +56,8 @@ export interface DualDeckEngine {
   release(): void;
   destroy(): void;
   onEnd(callback: () => void): void;
+  /** A mid-track read failure (a file deck's dropped network share). */
+  onError?(callback: ((error: NativePlaybackError) => void) | null): void;
   primeGaplessStart(): Promise<void>;
   /** Give up on the sample-accurate splice and start now. */
   forceGaplessStart(): void;
@@ -172,9 +174,9 @@ export class CrossfadeController {
         engine.onError((error) => {
           this.onCdErrorCallback?.(error);
         });
-      } else if (engine instanceof NativeFilePlaybackEngine) {
+      } else if (engine.onError) {
         engine.onError((error) => {
-          this.onFileErrorCallback?.(error);
+          this.handleDeckFileError(engine, error);
         });
       }
     }
@@ -854,6 +856,44 @@ export class CrossfadeController {
     this.clearFadeSession();
     // Fade owned the outgoing end; clear so the next natural end can advance.
     this.handledEnd = false;
+  }
+
+  /**
+   * A deck's file stopped answering (a dropped network share). Only the deck
+   * holding the current track is the store's business: the outgoing deck of a
+   * fade that already handed over, or an incoming one still preloading or
+   * fading in, is dropped from the handoff and the current track plays on.
+   * The current track failing mid-fade hands over to the incoming one early.
+   */
+  private handleDeckFileError(
+    engine: DualDeckEngine,
+    error: NativePlaybackError,
+  ): void {
+    if (!this.controllerActive) return;
+    const deck: DeckId = engine === this.decks.a ? "a" : "b";
+
+    if (deck !== this.activeDeck) {
+      if (this.fadeState === "idle") engine.release();
+      else this.cancelCrossfade();
+      return;
+    }
+
+    if (
+      (this.fadeState === "fading" || this.fadeState === "gaplessPrimed") &&
+      !this.dominantTrackPromoted &&
+      this.fadeIncomingDeck !== null &&
+      this.activeFadeContext
+    ) {
+      this.promoteIncomingToActive(
+        this.fadeIncomingDeck,
+        this.activeFadeContext,
+      );
+      this.cancelCrossfade();
+      return;
+    }
+
+    this.cancelCrossfade();
+    this.onFileErrorCallback?.(error);
   }
 
   private handleDeckEnd(engine: DualDeckEngine): void {

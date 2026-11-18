@@ -5,6 +5,7 @@ import {
   type DualDeckEngine,
 } from "./crossfadeController";
 import type { DeckId } from "./deckGain";
+import type { NativePlaybackError } from "./nativePlaybackEngine";
 import type { PlaybackSource } from "./types";
 
 vi.mock("./deckGain", () => ({
@@ -35,6 +36,7 @@ describe("effectiveFadeSeconds", () => {
 
 function createMockEngine(deckId: DeckId) {
   const listeners: Array<() => void> = [];
+  let errorCallback: ((error: NativePlaybackError) => void) | null = null;
   let startedCallback: (() => void) | null = null;
   return {
     deckId,
@@ -63,8 +65,16 @@ function createMockEngine(deckId: DeckId) {
     onEnd: vi.fn((callback: () => void) => {
       listeners.push(callback);
     }),
+    onError: vi.fn(
+      (callback: ((error: NativePlaybackError) => void) | null) => {
+        errorCallback = callback;
+      },
+    ),
     emitEnd: () => {
       for (const listener of listeners) listener();
+    },
+    emitError: (message = "source_unavailable: /a.wav is not responding") => {
+      errorCallback?.({ driveId: "", trackNumber: 0, message });
     },
     emitStarted: () => {
       startedCallback?.();
@@ -72,6 +82,7 @@ function createMockEngine(deckId: DeckId) {
   } satisfies Partial<DualDeckEngine> & {
     deckId: DeckId;
     emitEnd: () => void;
+    emitError: (message?: string) => void;
     emitStarted: () => void;
   };
 }
@@ -1005,5 +1016,87 @@ describe("CrossfadeController", () => {
     });
     expect(deckA.release).toHaveBeenCalled();
     expect(controller.getActiveEngine()).toBe(deckB);
+  });
+
+  describe("a deck's file stops answering", () => {
+    async function fadingController(onActiveTrackChange = vi.fn()): Promise<{
+      controller: CrossfadeController;
+      deckA: ReturnType<typeof createMockEngine>;
+      deckB: ReturnType<typeof createMockEngine>;
+      onFileError: ReturnType<typeof vi.fn>;
+    }> {
+      const deckA = createMockEngine("a");
+      const deckB = createMockEngine("b");
+      const controller = new CrossfadeController(asDecks(deckA, deckB));
+      const onFileError = vi.fn();
+      controller.onFileError(onFileError);
+      await controller.loadAndPlay(
+        { kind: "file", path: "/a.wav" },
+        { volume: 1, muted: false, balance: 0 },
+      );
+      controller.maybeScheduleCrossfade(
+        crossfadeScheduleArgs({ onActiveTrackChange }),
+      );
+      await vi.waitFor(() => {
+        expect(deckB.play).toHaveBeenCalled();
+      });
+      return { controller, deckA, deckB, onFileError };
+    }
+
+    it("reports the current track's deck when nothing is fading", async () => {
+      const deckA = createMockEngine("a");
+      const deckB = createMockEngine("b");
+      const controller = new CrossfadeController(asDecks(deckA, deckB));
+      const onFileError = vi.fn();
+      controller.onFileError(onFileError);
+      await controller.loadAndPlay(
+        { kind: "file", path: "/a.wav" },
+        { volume: 1, muted: false, balance: 0 },
+      );
+
+      deckA.emitError();
+      expect(onFileError).toHaveBeenCalledTimes(1);
+    });
+
+    it("drops an incoming deck that fails and keeps the current track", async () => {
+      const { controller, deckA, deckB, onFileError } =
+        await fadingController();
+
+      deckB.emitError();
+      expect(onFileError).not.toHaveBeenCalled();
+      expect(deckB.release).toHaveBeenCalled();
+      expect(deckA.release).not.toHaveBeenCalled();
+      expect(controller.isCrossfadeInProgress()).toBe(false);
+      expect(controller.getActiveEngine()).toBe(deckA);
+    });
+
+    it("drops an outgoing deck that fails after the handover", async () => {
+      const onActiveTrackChange = vi.fn();
+      const { controller, deckA, deckB, onFileError } =
+        await fadingController(onActiveTrackChange);
+      await vi.advanceTimersByTimeAsync(3500);
+      expect(controller.getActiveEngine()).toBe(deckB);
+
+      deckA.emitError();
+      expect(onFileError).not.toHaveBeenCalled();
+      expect(deckA.release).toHaveBeenCalled();
+      expect(deckB.release).not.toHaveBeenCalled();
+      expect(controller.getActiveEngine()).toBe(deckB);
+    });
+
+    it("hands over early when the current track fails mid-fade", async () => {
+      const onActiveTrackChange = vi.fn();
+      const { controller, deckA, deckB, onFileError } =
+        await fadingController(onActiveTrackChange);
+      await vi.advanceTimersByTimeAsync(1000);
+
+      deckA.emitError();
+      expect(onFileError).not.toHaveBeenCalled();
+      expect(onActiveTrackChange).toHaveBeenCalledTimes(1);
+      expect(deckA.release).toHaveBeenCalled();
+      expect(deckB.release).not.toHaveBeenCalled();
+      expect(controller.getActiveEngine()).toBe(deckB);
+      expect(controller.isCrossfadeInProgress()).toBe(false);
+    });
   });
 });
