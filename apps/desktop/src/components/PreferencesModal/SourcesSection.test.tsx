@@ -763,7 +763,7 @@ describe("SourcesSection", () => {
     expect(tauri.rescanSource).not.toHaveBeenCalled();
   });
 
-  it("confirms removal, saying the files stay on disk", async () => {
+  it("warns what removal deletes, and only removes once acknowledged", async () => {
     tauri.removeSource.mockResolvedValue(2);
     await renderSection();
     chooseFromMenu("Music", /Remove/);
@@ -771,19 +771,80 @@ describe("SourcesSection", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Remove music source?",
     });
-    expect(dialog.textContent).toMatch(/2 tracks leave your library/);
-    expect(dialog.textContent).toMatch(
-      /playlist entries and listening history/,
+    const warning = within(dialog).getByRole("alert");
+    expect(warning.textContent).toMatch(
+      /2 tracks will be removed from your library/,
     );
-    expect(dialog.textContent).toMatch(/files on disk stay untouched/);
+    expect(warning.textContent).toMatch(
+      /Playlist entries and listening history will also be deleted/,
+    );
+    expect(warning.textContent).toMatch(/files will remain on your disk/);
+
+    // Remove is off until the checkbox is ticked.
+    const remove = within(dialog).getByRole("button", { name: "Remove" });
+    expect(remove).toBeDisabled();
+    fireEvent.click(remove);
     expect(tauri.removeSource).not.toHaveBeenCalled();
 
-    fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
+    fireEvent.click(
+      within(dialog).getByRole("checkbox", {
+        name: /I understand and want to remove this music source/,
+      }),
+    );
+    expect(remove).toBeEnabled();
+    fireEvent.click(remove);
     await waitFor(() => expect(tauri.removeSource).toHaveBeenCalledWith(3));
     await waitFor(() => expect(loadLibrary).toHaveBeenCalled());
   });
 
-  it("shows the folder being removed and that its files stay", async () => {
+  it("removes a folder with no tracks without a warning or confirmation", async () => {
+    tauri.removeSource.mockResolvedValue(0);
+    usePlayerStore.setState({ library: [track(1, 1)] });
+    await renderSection();
+    chooseFromMenu("Music", /Remove/);
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Remove music source?",
+    });
+    expect(within(dialog).getByText("/Volumes/Big/Music")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("alert")).toBeNull();
+    expect(within(dialog).queryByRole("checkbox")).toBeNull();
+
+    const remove = within(dialog).getByRole("button", { name: "Remove" });
+    expect(remove).toBeEnabled();
+    fireEvent.click(remove);
+    await waitFor(() => expect(tauri.removeSource).toHaveBeenCalledWith(3));
+  });
+
+  it("asks again each time the prompt opens", async () => {
+    await renderSection();
+    chooseFromMenu("Music", /Remove/);
+    let dialog = await screen.findByRole("dialog", {
+      name: "Remove music source?",
+    });
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    expect(
+      within(dialog).getByRole("button", { name: "Remove" }),
+    ).toBeEnabled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Remove music source?" }),
+      ).toBeNull(),
+    );
+
+    chooseFromMenu("Music", /Remove/);
+    dialog = await screen.findByRole("dialog", {
+      name: "Remove music source?",
+    });
+    expect(within(dialog).getByRole("checkbox")).not.toBeChecked();
+    expect(
+      within(dialog).getByRole("button", { name: "Remove" }),
+    ).toBeDisabled();
+    expect(tauri.removeSource).not.toHaveBeenCalled();
+  });
+
+  it("shows the folder being removed above the warning, with no default-folder note", async () => {
     tauri.removeSource.mockResolvedValue(1);
     await renderSection();
     chooseFromMenu("Tracks", /Remove/);
@@ -791,16 +852,18 @@ describe("SourcesSection", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Remove music source?",
     });
-    // The folder's path heads the prompt, above the explanation.
+    // The folder's path heads the prompt, above the warning.
     const path = within(dialog).getByText("~/Music/Spiral Library/Tracks");
-    const body = within(dialog).getByText(/1 track leaves your library/);
+    const warning = within(dialog).getByRole("alert");
     expect(
-      path.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING,
+      path.compareDocumentPosition(warning) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(dialog.textContent).toMatch(/file on disk stays untouched/);
-    expect(dialog.textContent).not.toMatch(/You can add it back later/);
-    expect(dialog.textContent).toMatch(/It's your default folder/);
+    expect(warning.textContent).toMatch(/1 track will be removed/);
+    expect(warning.textContent).toMatch(/file will remain on your disk/);
+    // Even for the default folder, the dialog says nothing more.
+    expect(dialog.textContent).not.toMatch(/default folder/);
 
+    fireEvent.click(within(dialog).getByRole("checkbox"));
     fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
     await waitFor(() => expect(tauri.removeSource).toHaveBeenCalledWith(1));
   });

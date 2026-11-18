@@ -18,8 +18,10 @@ import { useSourcesStore } from "@/store/useSourcesStore";
 import type { Source } from "@/types/source";
 import { AlertConfirmation } from "@/components/common/AlertConfirmation/AlertConfirmation";
 import { Button } from "@/components/common/Button/Button";
+import { Alert } from "@/components/common/Alert/Alert";
+import { Checkbox } from "@/components/common/Checkbox/Checkbox";
 import { FormField } from "@/components/common/Field/Field";
-import { IconOpenFolder, IconPlus } from "@/components/icons";
+import { IconOpenFolder, IconPlus, IconWarning } from "@/components/icons";
 import { SourceCard } from "./SourceCard";
 import { SourceEditFlow } from "./SourceEditFlow";
 import "./SourcesSection.css";
@@ -49,6 +51,14 @@ export function SourcesSection() {
   // The folder just added, whose dialog finishes adding it (Cancel undoes).
   const [addingId, setAddingId] = useState<number | null>(null);
   const [removing, setRemoving] = useState<Source | null>(null);
+  // Removing deletes the folder's listening history, so Remove stays off until
+  // this is ticked. Cleared each time the prompt opens.
+  const [removeAcknowledged, setRemoveAcknowledged] = useState(false);
+  // How many tracks the prompt is about, fixed when it opens so the dialog
+  // doesn't change shape while it fades out. A folder with none has nothing to
+  // warn about or confirm.
+  const [removeTrackCount, setRemoveTrackCount] = useState(0);
+  const removeNeedsConfirm = removeTrackCount > 0;
 
   useEffect(() => {
     void loadSources();
@@ -172,6 +182,8 @@ export function SourcesSection() {
               onReveal={() => void reveal(source)}
               onRemove={() => {
                 setError(null);
+                setRemoveAcknowledged(false);
+                setRemoveTrackCount(trackCount(source));
                 setRemoving(source);
               }}
               removeDisabledReason={
@@ -215,6 +227,7 @@ export function SourcesSection() {
           onClose={() => setRemoving(null)}
           title={t("preferences:sources.removeTitle")}
           confirmLabel={t("preferences:sources.removeConfirm")}
+          confirmDisabled={removeNeedsConfirm && !removeAcknowledged}
           onConfirm={confirmRemove}
         >
           {/* Which folder this is, shown like its card in the list. */}
@@ -226,13 +239,26 @@ export function SourcesSection() {
               </code>
             </div>
           ) : null}
-          <p>
-            {t("preferences:sources.removeBody", {
-              count: removing ? trackCount(removing) : 0,
-            })}
-          </p>
-          {removing?.importTarget ? (
-            <p>{t("preferences:sources.removeDefault")}</p>
+          {removeNeedsConfirm ? (
+            <>
+              <Alert
+                variant="warning"
+                icon={<IconWarning />}
+                className="sources-section__remove-alert"
+              >
+                {t("preferences:sources.removeWarning", {
+                  count: removeTrackCount,
+                })}
+              </Alert>
+              <div className="alert-confirmation__option">
+                <Checkbox
+                  checked={removeAcknowledged}
+                  onChange={(e) => setRemoveAcknowledged(e.target.checked)}
+                >
+                  {t("preferences:sources.removeAcknowledge")}
+                </Checkbox>
+              </div>
+            </>
           ) : null}
         </AlertConfirmation>
       </div>
