@@ -70,15 +70,16 @@ export function getNextSkippingKnownUnplayable(
 }
 
 /**
- * The sources whose folder isn't answering. A failed check reads as "none", so
- * playback falls back to looking at each file.
+ * Whether a source's folder isn't answering. Only that folder is looked at, so
+ * playing a track doesn't wake every other source's disk. A failed check reads
+ * as "answering", so playback falls back to looking at the file.
  */
-export async function unavailableSourceIds(): Promise<Set<number>> {
+export async function isSourceUnavailable(sourceId: number): Promise<boolean> {
   try {
-    return new Set(await getUnavailableSourceIds());
+    return (await getUnavailableSourceIds([sourceId])).includes(sourceId);
   } catch (err) {
     console.error("getUnavailableSourceIds failed:", err);
-    return new Set();
+    return false;
   }
 }
 
@@ -118,8 +119,10 @@ export async function findNextPlayableInOrder(
 ): Promise<number | null> {
   let candidate = getNextId(order, currentId, repeatMode);
   const visited = new Set<number>();
-  /** Looked up when the first track with a source needs it. */
-  let unavailable: Set<number> | null = null;
+  /** Each source's folder, looked at when the walk first reaches it. */
+  const unavailable = new Map<number, boolean>(
+    (options.offlineSourceIds ?? []).map((id) => [id, true]),
+  );
   const offlineReported = new Set<number>();
   const recovered = new Set<number>();
 
@@ -146,11 +149,12 @@ export async function findNextPlayableInOrder(
     }
 
     if (track.sourceId !== undefined) {
-      unavailable ??= new Set([
-        ...(await unavailableSourceIds()),
-        ...(options.offlineSourceIds ?? []),
-      ]);
-      if (unavailable.has(track.sourceId)) {
+      let offline = unavailable.get(track.sourceId);
+      if (offline === undefined) {
+        offline = await isSourceUnavailable(track.sourceId);
+        unavailable.set(track.sourceId, offline);
+      }
+      if (offline) {
         // The first track of an offline source not yet flagged tells the
         // caller to flag the source; the rest are flagged by then and are
         // only passed over.

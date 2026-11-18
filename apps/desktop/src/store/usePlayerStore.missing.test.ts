@@ -33,8 +33,12 @@ vi.mock("@/lib/art/artPath", async (importOriginal) => ({
 // Answer the one command playback asks; any other fails as it does without a webview.
 vi.mock("@tauri-apps/api/core", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@tauri-apps/api/core")>()),
-  invoke: async (command: string) => {
-    if (command === "get_unavailable_source_ids") return mockUnavailable();
+  invoke: async (command: string, args?: { sourceIds?: number[] }) => {
+    // Like the backend: only the sources asked about are answered for.
+    if (command === "get_unavailable_source_ids") {
+      const offline: number[] = await mockUnavailable(args?.sourceIds);
+      return offline.filter((id) => args?.sourceIds?.includes(id));
+    }
     throw new Error(`no webview for ${command}`);
   },
 }));
@@ -210,6 +214,14 @@ describe("skipping missing tracks", () => {
     const state = usePlayerStore.getState();
     expect(state.currentTrackId).toBe(2);
     expect(state.library.map((t) => !!t.missingFile)).toEqual([true, false]);
+  });
+
+  it("only looks at the folder of the track being played", async () => {
+    setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 8 })]);
+    await usePlayerStore.getState().playTrack(1);
+
+    expect(usePlayerStore.getState().currentTrackId).toBe(1);
+    expect(mockUnavailable.mock.calls).toEqual([[[7]]]);
   });
 
   describe("a file that stops answering mid-track", () => {

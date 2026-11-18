@@ -309,18 +309,24 @@ pub fn get_source_statuses(state: State<DbState>) -> Result<Vec<SourceStatus>, S
         .collect())
 }
 
-/// The ids of the sources whose folder isn't answering right now (an unplugged
-/// drive, a dropped share). Playback asks before it walks the set list, so a
-/// dead folder is settled once instead of file by file. Each folder is looked
-/// at for [`fs_probe::ACCESS_TIMEOUT`] at most, together, and off the main
-/// thread: long enough that a slow but healthy share isn't taken for offline.
+/// Which of `source_ids` have a folder that isn't answering right now (an
+/// unplugged drive, a dropped share). Playback asks about a track's source
+/// before trying its file, so a dead folder is settled once instead of file by
+/// file. Only the sources asked about are looked at, so playing one track
+/// doesn't wake every other source's disk. Each folder is looked at for
+/// [`fs_probe::ACCESS_TIMEOUT`] at most, together, and off the main thread:
+/// long enough that a slow but healthy share isn't taken for offline.
 #[tauri::command(async)]
-pub fn get_unavailable_source_ids(state: State<DbState>) -> Result<Vec<i64>, String> {
+pub fn get_unavailable_source_ids(
+    state: State<DbState>,
+    source_ids: Vec<i64>,
+) -> Result<Vec<i64>, String> {
     let roots: Vec<(i64, PathBuf)> = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
         sources::list_sources(&conn)
             .map_err(|e| e.to_string())?
             .into_iter()
+            .filter(|s| source_ids.contains(&s.id))
             .filter_map(|s| Some((s.id, PathBuf::from(s.root_path?))))
             .collect()
     };

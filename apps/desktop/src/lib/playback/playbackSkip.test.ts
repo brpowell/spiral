@@ -206,7 +206,11 @@ describe("findNextPlayableInOrder with an offline source", () => {
     expect(onSkippedMissing).toHaveBeenCalledWith(3);
     expect(fileExists).not.toHaveBeenCalledWith("/music/2.mp3");
     expect(fileExists).not.toHaveBeenCalledWith("/music/3.mp3");
-    expect(getUnavailableSourceIds).toHaveBeenCalledTimes(1);
+    // Each source the walk reaches is looked at once, and only those.
+    expect(vi.mocked(getUnavailableSourceIds).mock.calls).toEqual([
+      [[2]],
+      [[1]],
+    ]);
   });
 
   it("ends the walk when every track is offline", async () => {

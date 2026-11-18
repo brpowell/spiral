@@ -91,7 +91,7 @@ import {
   getNextSkippingKnownUnplayable,
   isTrackKnownUnplayable,
   type PlaybackNextIdFn,
-  unavailableSourceIds,
+  isSourceUnavailable,
 } from "@/lib/playback/playbackSkip";
 import type { PlayableRef } from "@/types/playable";
 import type { PlaybackSource } from "@/lib/playback";
@@ -740,7 +740,7 @@ async function flagUnplayableTrack(
     options.error !== undefined && isSourceUnavailableError(options.error);
   if (
     track.sourceId !== undefined &&
-    (folderNotResponding || (await unavailableSourceIds()).has(track.sourceId))
+    (folderNotResponding || (await isSourceUnavailable(track.sourceId)))
   ) {
     handleSourceUnavailable(set, get, track.sourceId, trackId);
     return "source";
@@ -819,7 +819,7 @@ async function playResolvedPlayable(
     const track = state.library.find((item) => item.id === playable.trackId);
     const sourceId = track?.sourceId;
     if (sourceId !== undefined) {
-      const offline = (await unavailableSourceIds()).has(sourceId);
+      const offline = await isSourceUnavailable(sourceId);
       if (generation !== playResolvedGeneration) return;
       if (offline) {
         handleSourceUnavailable(set, get, sourceId, playable.trackId);
