@@ -90,15 +90,19 @@ fn probe_with(
                     .name("fs-probe".into())
                     .spawn(move || {
                         let result = check(&owned);
+                        // Leave the map before answering: a caller that came
+                        // after the answer must ask afresh, not be handed it.
+                        {
+                            let mut in_flight = lock(&IN_FLIGHT);
+                            if in_flight
+                                .get(&worker_key)
+                                .is_some_and(|p| Arc::ptr_eq(p, &worker))
+                            {
+                                in_flight.remove(&worker_key);
+                            }
+                        }
                         *lock(&worker.outcome) = Some(result);
                         worker.done.notify_all();
-                        let mut in_flight = lock(&IN_FLIGHT);
-                        if in_flight
-                            .get(&worker_key)
-                            .is_some_and(|p| Arc::ptr_eq(p, &worker))
-                        {
-                            in_flight.remove(&worker_key);
-                        }
                     });
                 if spawned.is_err() {
                     return Probed::Stalled;

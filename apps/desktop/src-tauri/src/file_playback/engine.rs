@@ -772,19 +772,35 @@ mod tests {
             let stuck = start_inner(None, &ogg_path, output.clone()).unwrap();
             let live = start_inner(None, &flac_path, output).unwrap();
 
-            // Stand in for a read that never returns: the thread stops beating.
-            let at = {
-                let sessions = SESSIONS.lock().unwrap();
-                let active = &sessions[&stuck.session_id];
-                active.stop_requested.store(true, Ordering::SeqCst);
-                active.heartbeat.load(Ordering::Relaxed)
-            };
-            thread::sleep(Duration::from_millis(50));
-            let later = at + STALL_AFTER.as_millis() as u64 + 1;
-            // The live one keeps beating; pretend it just did.
-            SESSIONS.lock().unwrap()[&live.session_id]
+            // Stand in for a read that never returns: the thread stops
+            // beating. Wait for it to stop, then for the live one to beat
+            // again, so the live one's last beat is the newer.
+            SESSIONS.lock().unwrap()[&stuck.session_id]
+                .stop_requested
+                .store(true, Ordering::SeqCst);
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while !SESSIONS.lock().unwrap()[&stuck.session_id]
+                .thread
+                .is_finished()
+            {
+                assert!(Instant::now() < deadline, "decode thread never stopped");
+                thread::sleep(Duration::from_millis(5));
+            }
+            let at = SESSIONS.lock().unwrap()[&stuck.session_id]
                 .heartbeat
-                .store(later, Ordering::Relaxed);
+                .load(Ordering::Relaxed);
+            let beats_after = |id: u64| {
+                SESSIONS.lock().unwrap()[&id]
+                    .heartbeat
+                    .load(Ordering::Relaxed)
+                    > at
+            };
+            while !beats_after(live.session_id) {
+                assert!(Instant::now() < deadline, "live session never beat");
+                thread::sleep(Duration::from_millis(5));
+            }
+            // Just past the stuck one's limit, within the live one's.
+            let later = at + STALL_AFTER.as_millis() as u64 + 1;
 
             let reported = take_stalled(&mut SESSIONS.lock().unwrap(), later);
             assert_eq!(reported.len(), 1);
