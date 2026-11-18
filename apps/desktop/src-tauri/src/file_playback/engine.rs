@@ -250,7 +250,7 @@ fn start_inner(
     output: AudioOutput,
 ) -> Result<FilePlaybackStarted, String> {
     let file_path = PathBuf::from(path);
-    match fs_probe::probe_file(&file_path) {
+    match fs_probe::probe_file_before_use(&file_path) {
         Probed::Yes => {}
         Probed::No => return Err(format!("File not found: {path}")),
         Probed::Stalled => return Err(not_responding(path)),

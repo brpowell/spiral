@@ -76,8 +76,9 @@ pub async fn scan_folder(app: AppHandle, folder_path: String) -> Result<Vec<Stri
 }
 
 /// A file on a network share that dropped reads as missing after
-/// [`crate::fs_probe::ACCESS_TIMEOUT`], instead of holding a worker thread for
-/// as long as the share stalls.
+/// [`crate::fs_probe::PROBE_TIMEOUT`], instead of holding a worker thread for
+/// as long as the share stalls. For a track in a source, playback asks about
+/// its folder first with a longer wait, so a slow share is awake by then.
 #[tauri::command]
 pub async fn file_exists(app: AppHandle, path: String) -> bool {
     tauri::async_runtime::spawn_blocking(move || {

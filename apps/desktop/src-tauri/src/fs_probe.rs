@@ -27,7 +27,8 @@ pub const PROBE_TIMEOUT: Duration = Duration::from_secs(3);
 pub const PROBE_TIMEOUT: Duration = Duration::from_secs(1);
 
 /// How long a check waits before a folder or file is about to be used: one
-/// whose answer fails a scan, or flags tracks offline. Long enough for a
+/// whose answer fails a scan, or flags tracks offline. Never while holding the
+/// database lock: those use [`PROBE_TIMEOUT`]. Long enough for a
 /// healthy share that's slow to answer (a NAS spinning its disks up), so it
 /// isn't taken for a dead one. A dead share costs this once per drop: later
 /// checks of the same path join the stuck one and answer at once.
@@ -182,8 +183,14 @@ pub fn probe_dir_within(path: &Path, timeout: Duration) -> Probed {
 }
 
 /// Whether `path` is a regular file, without waiting on a stalled share for
-/// longer than [`ACCESS_TIMEOUT`] (it's asked before playing the file).
+/// longer than [`PROBE_TIMEOUT`].
 pub fn probe_file(path: &Path) -> Probed {
+    probe_with(Kind::File, path, PROBE_TIMEOUT, |p| p.is_file())
+}
+
+/// [`probe_file`] just before playing the file, waiting up to
+/// [`ACCESS_TIMEOUT`].
+pub fn probe_file_before_use(path: &Path) -> Probed {
     probe_with(Kind::File, path, ACCESS_TIMEOUT, |p| p.is_file())
 }
 
