@@ -278,7 +278,7 @@ fn try_watch(
     generation: u64,
     tx: Sender<Message>,
 ) -> Result<(WatchRoot, RecommendedWatcher), String> {
-    match fs_probe::probe_dir(root) {
+    match fs_probe::probe_dir_before_use(root) {
         Probed::Yes => {}
         Probed::No => return Err("folder not found".into()),
         Probed::Stalled => return Err("folder is not responding".into()),
@@ -539,7 +539,7 @@ fn look_at_roots(roots: &[(i64, u64, PathBuf)]) -> Vec<(i64, u64, Probed)> {
     let paths: Vec<PathBuf> = roots.iter().map(|(_, _, root)| root.clone()).collect();
     roots
         .iter()
-        .zip(fs_probe::probe_dirs(&paths))
+        .zip(fs_probe::probe_dirs_before_use(&paths))
         .map(|(&(id, generation, _), probed)| (id, generation, probed))
         .collect()
 }

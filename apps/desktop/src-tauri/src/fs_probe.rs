@@ -19,11 +19,22 @@ use std::sync::{Arc, Condvar, LazyLock, Mutex, MutexGuard};
 use std::thread;
 use std::time::{Duration, Instant};
 
-/// How long a check of a folder or file waits for the filesystem.
+/// How long a check that only reports on a folder (the offline badge) waits
+/// for the filesystem.
 #[cfg(not(test))]
 pub const PROBE_TIMEOUT: Duration = Duration::from_secs(3);
 #[cfg(test)]
 pub const PROBE_TIMEOUT: Duration = Duration::from_secs(1);
+
+/// How long a check waits before a folder or file is about to be used: one
+/// whose answer fails a scan, or flags tracks offline. Long enough for a
+/// healthy share that's slow to answer (a NAS spinning its disks up), so it
+/// isn't taken for a dead one. A dead share costs this once per drop: later
+/// checks of the same path join the stuck one and answer at once.
+#[cfg(not(test))]
+pub const ACCESS_TIMEOUT: Duration = Duration::from_secs(10);
+#[cfg(test)]
+pub const ACCESS_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// What a bounded check found.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -161,13 +172,19 @@ pub fn probe_dir(path: &Path) -> Probed {
     probe_dir_within(path, PROBE_TIMEOUT)
 }
 
+/// [`probe_dir`] before using the folder, waiting up to [`ACCESS_TIMEOUT`].
+pub fn probe_dir_before_use(path: &Path) -> Probed {
+    probe_dir_within(path, ACCESS_TIMEOUT)
+}
+
 pub fn probe_dir_within(path: &Path, timeout: Duration) -> Probed {
     probe_with(Kind::Dir, path, timeout, |p| std::fs::read_dir(p).is_ok())
 }
 
-/// Whether `path` is a regular file, without waiting on a stalled share.
+/// Whether `path` is a regular file, without waiting on a stalled share for
+/// longer than [`ACCESS_TIMEOUT`] (it's asked before playing the file).
 pub fn probe_file(path: &Path) -> Probed {
-    probe_with(Kind::File, path, PROBE_TIMEOUT, |p| p.is_file())
+    probe_with(Kind::File, path, ACCESS_TIMEOUT, |p| p.is_file())
 }
 
 /// `Path::is_dir` that reads a stalled share as "not a folder" after
@@ -179,10 +196,19 @@ pub fn is_dir(path: &Path) -> bool {
 /// [`probe_dir`] for several folders at once, so that stalled shares are
 /// waited for together rather than one after another.
 pub fn probe_dirs(paths: &[PathBuf]) -> Vec<Probed> {
+    probe_dirs_within(paths, PROBE_TIMEOUT)
+}
+
+/// [`probe_dir_before_use`] for several folders at once.
+pub fn probe_dirs_before_use(paths: &[PathBuf]) -> Vec<Probed> {
+    probe_dirs_within(paths, ACCESS_TIMEOUT)
+}
+
+fn probe_dirs_within(paths: &[PathBuf], timeout: Duration) -> Vec<Probed> {
     thread::scope(|scope| {
         let handles: Vec<_> = paths
             .iter()
-            .map(|path| scope.spawn(move || probe_dir(path)))
+            .map(|path| scope.spawn(move || probe_dir_within(path, timeout)))
             .collect();
         handles
             .into_iter()
@@ -232,7 +258,7 @@ pub fn stall_file(path: &Path) -> Stalled {
 fn stall(kind: Kind, path: &Path) -> Stalled {
     // Already stuck for longer than any caller waits, so callers don't wait.
     let started = Instant::now()
-        .checked_sub(PROBE_TIMEOUT * 2)
+        .checked_sub(ACCESS_TIMEOUT.max(PROBE_TIMEOUT) * 2)
         .unwrap_or_else(Instant::now);
     let probe = Arc::new(Probe {
         started,
@@ -385,6 +411,31 @@ mod tests {
         drop(stall);
         assert_eq!(probe_dir(&dir), Probed::Yes);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A slow folder is reported as stalled to a caller that only reports on
+    /// it, while one about to use it, joining the same check, waits longer and
+    /// gets the answer.
+    #[test]
+    fn a_slow_folder_is_waited_for_longer_before_use() {
+        let path = unique("slow");
+        let slow = |_: &Path| {
+            thread::sleep(Duration::from_millis(400));
+            true
+        };
+        let short = Duration::from_millis(100);
+        let long = Duration::from_secs(2);
+        let path2 = path.clone();
+        let reporter = thread::spawn(move || probe_with(Kind::Dir, &path2, short, slow));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !lock(&IN_FLIGHT).contains_key(&(Kind::Dir, path.clone())) {
+            assert!(Instant::now() < deadline, "probe never started");
+            thread::sleep(Duration::from_millis(1));
+        }
+        // Joins the running check rather than starting its own.
+        let patient = probe_with(Kind::Dir, &path, long, |_: &Path| false);
+        assert_eq!(reporter.join().unwrap(), Probed::Stalled);
+        assert_eq!(patient, Probed::Yes);
     }
 
     #[test]

@@ -312,7 +312,8 @@ pub fn get_source_statuses(state: State<DbState>) -> Result<Vec<SourceStatus>, S
 /// The ids of the sources whose folder isn't answering right now (an unplugged
 /// drive, a dropped share). Playback asks before it walks the set list, so a
 /// dead folder is settled once instead of file by file. Each folder is looked
-/// at for a few seconds at most, together, and off the main thread.
+/// at for [`fs_probe::ACCESS_TIMEOUT`] at most, together, and off the main
+/// thread: long enough that a slow but healthy share isn't taken for offline.
 #[tauri::command(async)]
 pub fn get_unavailable_source_ids(state: State<DbState>) -> Result<Vec<i64>, String> {
     let roots: Vec<(i64, PathBuf)> = {
@@ -330,7 +331,7 @@ fn unavailable_ids(roots: &[(i64, PathBuf)]) -> Vec<i64> {
     let paths: Vec<PathBuf> = roots.iter().map(|(_, root)| root.clone()).collect();
     roots
         .iter()
-        .zip(fs_probe::probe_dirs(&paths))
+        .zip(fs_probe::probe_dirs_before_use(&paths))
         .filter(|(_, probed)| !probed.is_yes())
         .map(|((id, _), _)| *id)
         .collect()

@@ -627,7 +627,7 @@ export async function getActiveScans(): Promise<ActiveScan[]> {
 
 /**
  * The ids of the sources whose folder isn't answering now (an unplugged drive,
- * a dropped network share). Looks at each folder for a few seconds at most.
+ * a dropped network share). Waits up to about ten seconds for a slow folder.
  */
 export async function getUnavailableSourceIds(): Promise<number[]> {
   return invoke<number[]>("get_unavailable_source_ids");

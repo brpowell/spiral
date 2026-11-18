@@ -424,7 +424,7 @@ fn reconcile_watched(
     // pass shares, indefinitely) is offline, not empty: say so and leave the
     // rows as they are. Its tracks aren't missing; missing is for a file that's
     // gone from a folder that's there.
-    match fs_probe::probe_dir(&root) {
+    match fs_probe::probe_dir_before_use(&root) {
         Probed::Yes => {}
         Probed::No => {
             return Err(format!(

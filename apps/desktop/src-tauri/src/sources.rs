@@ -446,7 +446,7 @@ pub fn validate_source_root(
             root.display()
         ));
     }
-    match fs_probe::probe_dir(root) {
+    match fs_probe::probe_dir_before_use(root) {
         Probed::Yes => {}
         Probed::No => {
             return Err(format!(
@@ -759,7 +759,7 @@ fn reachable_root(conn: &Connection, source_id: i64) -> Result<PathBuf, String> 
         .root(source_id)
         .ok_or_else(|| format!("{NO_SOURCE}: source {source_id} has no folder"))?
         .to_path_buf();
-    match fs_probe::probe_dir(&root) {
+    match fs_probe::probe_dir_before_use(&root) {
         Probed::Yes => Ok(root),
         Probed::No => Err(format!(
             "{SOURCE_UNAVAILABLE}: the folder {} is not available",
