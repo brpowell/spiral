@@ -20,6 +20,8 @@ import { albumTotalDurationSeconds } from "@/lib/albums/albums";
 import { formatDurationNatural } from "@/lib/format/format";
 import { GenreCover } from "@/components/GenreArt/GenreCover";
 import { useGenreLook } from "@/hooks/useGenreLook";
+import { usePopularity } from "@/hooks/usePopularity";
+import { POPULARITY_COLUMN_PROFILE } from "@/lib/popularity/profiles";
 import { getGenreByKey, type Genre } from "@/lib/genres/genres";
 import { confirmAndApplyTrackRatings } from "@/lib/tracks/applyTrackRating";
 import type { CanonicalRating } from "@/lib/tracks/trackRating";
@@ -58,12 +60,19 @@ export function GenreDetailView({ genres, genreKey }: GenreDetailViewProps) {
     if (!genre) closeGenre();
   }, [genre, closeGenre]);
 
+  const { scores: popularityScores } = usePopularity(
+    POPULARITY_COLUMN_PROFILE,
+    { enabled: sort?.field === "popularity" },
+  );
+
   const tracks = useMemo(() => {
     const list = genre ? [...genre.tracks] : [];
     return sort
-      ? list.sort((a, b) => compareTracks(a, b, sort.field, sort.dir))
+      ? list.sort((a, b) =>
+          compareTracks(a, b, sort.field, sort.dir, popularityScores),
+        )
       : list;
-  }, [genre, sort]);
+  }, [genre, sort, popularityScores]);
   const trackIds = useMemo(() => tracks.map((track) => track.id), [tracks]);
 
   const handleRatingChange = useCallback(
