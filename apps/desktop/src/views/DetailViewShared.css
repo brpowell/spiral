@@ -16,6 +16,8 @@
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  /* Sorting reorders rows; with anchoring on, WebKit scrolls the page to follow a moved row. */
+  overflow-anchor: none;
 }
 
 .detail-view__chrome {
