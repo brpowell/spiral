@@ -162,6 +162,12 @@ fn join_within(thread: thread::JoinHandle<()>, wait: Duration) -> bool {
     true
 }
 
+/// One start at a time. A start checks for a free slot, then opens the file
+/// (which can take seconds on a network share) and only then takes the slot:
+/// two at once could both see room and overfill the mixer's two decks. The
+/// main thread used to serialize starts; they now run off it.
+static START_LOCK: Mutex<()> = Mutex::new(());
+
 static SESSIONS: LazyLock<Mutex<HashMap<u64, ActivePlayback>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
@@ -264,6 +270,7 @@ fn start_inner(
         ));
     }
 
+    let _one_at_a_time = START_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let evicted = {
         let mut sessions = SESSIONS.lock().expect("file playback state poisoned");
         make_room_for_new_session(&mut sessions)?
@@ -1002,6 +1009,28 @@ mod tests {
                 err.contains("Maximum concurrent"),
                 "unexpected error: {err}"
             );
+        });
+    }
+
+    /// A start waits for one already under way, so the two can't both see a
+    /// free slot and overfill the mixer.
+    #[test]
+    fn starts_run_one_at_a_time() {
+        with_clean_sessions(|| {
+            let (ogg_path, _) = fixture_paths();
+            let (output, _state) = fake_output();
+            let held = START_LOCK.lock().unwrap();
+            let start = thread::spawn(move || start_inner(None, &ogg_path, output).map(|_| ()));
+            thread::sleep(Duration::from_millis(150));
+            assert!(
+                !start.is_finished(),
+                "started while another start held the lock"
+            );
+            drop(held);
+            start
+                .join()
+                .unwrap()
+                .expect("starts once the other is done");
         });
     }
 
