@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { isTrackImporting } from "@/lib/import/pendingImportTrack";
 import { applyArtistImages } from "@/lib/artists/artistArt";
 import { groupTracksIntoAlbums } from "@/lib/albums/albums";
@@ -65,14 +65,43 @@ export function MainContent() {
               ? `genre-${genreKey}`
               : view;
 
+  const mainRef = useRef<HTMLElement>(null);
+  const scrollTopRef = useRef(0);
+
+  // A new page starts at the top. Without this, the incoming view fades in above the viewport
+  // while the old one (still scrolled) fades out, then snaps into place when the old one unmounts.
+  // The outgoing view is shifted by the scroll we remove so it stays put while it fades.
+  useLayoutEffect(() => {
+    const main = mainRef.current;
+    const previousTop = scrollTopRef.current;
+    if (!main || previousTop <= 0) return;
+    main.scrollTop = 0;
+    scrollTopRef.current = 0;
+    for (const el of main.querySelectorAll<HTMLElement>(
+      ":scope > [data-view-key]",
+    )) {
+      if (el.dataset.viewKey !== contentKey) {
+        el.style.translate = `0 ${-previousTop}px`;
+      }
+    }
+  }, [contentKey]);
+
+  const viewProps = { ...viewTransition, "data-view-key": contentKey };
+
   return (
-    <main className="main-content">
+    <main
+      ref={mainRef}
+      className="main-content"
+      onScroll={(e) => {
+        scrollTopRef.current = e.currentTarget.scrollTop;
+      }}
+    >
       <AnimatePresence mode="popLayout" initial={false}>
         {cdDriveId != null ? (
           <motion.div
             key={contentKey}
             className="main-content__view main-content__view--contained"
-            {...viewTransition}
+            {...viewProps}
           >
             <CdDetailView
               driveId={cdDriveId}
@@ -84,7 +113,7 @@ export function MainContent() {
           <motion.div
             key={contentKey}
             className="main-content__view main-content__view--contained"
-            {...viewTransition}
+            {...viewProps}
           >
             <PlaylistDetailView playlistId={playlistId} />
           </motion.div>
@@ -92,7 +121,7 @@ export function MainContent() {
           <motion.div
             key={contentKey}
             className="main-content__view main-content__view--contained"
-            {...viewTransition}
+            {...viewProps}
           >
             <AlbumDetailView
               albums={albums}
@@ -104,7 +133,7 @@ export function MainContent() {
           <motion.div
             key={contentKey}
             className="main-content__view"
-            {...viewTransition}
+            {...viewProps}
           >
             <ArtistDetailView
               albums={albums}
@@ -118,7 +147,7 @@ export function MainContent() {
           <motion.div
             key={contentKey}
             className="main-content__view main-content__view--contained"
-            {...viewTransition}
+            {...viewProps}
           >
             <TracksView tracks={library} />
           </motion.div>
@@ -126,7 +155,7 @@ export function MainContent() {
           <motion.div
             key={contentKey}
             className="main-content__view main-content__view--contained"
-            {...viewTransition}
+            {...viewProps}
           >
             <AlbumsView albums={albums} artists={artists} />
           </motion.div>
@@ -134,7 +163,7 @@ export function MainContent() {
           <motion.div
             key={contentKey}
             className="main-content__view main-content__view--contained"
-            {...viewTransition}
+            {...viewProps}
           >
             <ArtistsView
               artists={artists}
@@ -146,7 +175,7 @@ export function MainContent() {
           <motion.div
             key={contentKey}
             className="main-content__view main-content__view--contained"
-            {...viewTransition}
+            {...viewProps}
           >
             <GenreDetailView genres={genres} genreKey={genreKey} />
           </motion.div>
@@ -154,7 +183,7 @@ export function MainContent() {
           <motion.div
             key={contentKey}
             className="main-content__view main-content__view--contained"
-            {...viewTransition}
+            {...viewProps}
           >
             <GenresView genres={genres} />
           </motion.div>
@@ -162,7 +191,7 @@ export function MainContent() {
           <motion.div
             key={contentKey}
             className="main-content__view main-content__placeholder"
-            {...viewTransition}
+            {...viewProps}
           >
             <p>Coming soon.</p>
           </motion.div>
