@@ -230,17 +230,17 @@ describe("Onboarding", () => {
     expect(openUrl).toHaveBeenCalledWith(BUY_ME_A_COFFEE_URL);
   });
 
-  it("keeps Finish disabled, counting down on the button, for 15 seconds", () => {
+  it("keeps Finish disabled, counting down on the button, for 12 seconds", () => {
     render(<Onboarding />);
     playThroughReveal();
     act(() => useOnboardingStore.setState({ step: 3 }));
 
     const button = () => screen.getByRole("button", { name: /^Finish/ });
     expect(button()).toBeDisabled();
-    expect(button()).toHaveTextContent("Finish (15)");
+    expect(button()).toHaveTextContent("Finish (12)");
 
     tickSeconds(5);
-    expect(button()).toHaveTextContent("Finish (10)");
+    expect(button()).toHaveTextContent("Finish (7)");
 
     tickSeconds(10);
     expect(button()).toBeEnabled();
@@ -253,13 +253,13 @@ describe("Onboarding", () => {
     act(() => useOnboardingStore.setState({ step: 3 }));
     tickSeconds(6);
     expect(screen.getByRole("button", { name: /^Finish/ })).toHaveTextContent(
-      "Finish (9)",
+      "Finish (6)",
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByRole("button", { name: /^Finish/ })).toHaveTextContent(
-      "Finish (15)",
+      "Finish (12)",
     );
   });
 
