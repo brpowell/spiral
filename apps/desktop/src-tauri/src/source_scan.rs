@@ -37,6 +37,7 @@ use rusqlite::{params, Connection};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
@@ -93,17 +94,13 @@ pub enum ScanProgress {
     /// Listing the audio files in the folder; the total isn't known yet.
     Walking { found: usize },
     /// Comparing each file with the library, reading the new and changed
-    /// ones. `path` is the file being looked at.
-    Reading {
-        current: usize,
-        total: usize,
-        path: String,
-    },
+    /// ones. `current` counts the files done, in whatever order they finish.
+    Reading { current: usize, total: usize },
 }
 
-/// Receives progress while a reconcile runs. Called often: throttle in the
-/// receiver.
-pub type ProgressFn<'a> = &'a mut dyn FnMut(ScanProgress);
+/// Receives progress while a reconcile runs. Called often, and from several
+/// threads at once while files are read: throttle in the receiver.
+pub type ProgressFn<'a> = &'a (dyn Fn(ScanProgress) + Sync);
 
 /// Least time between the walk's progress reports.
 const WALK_REPORT_EVERY: Duration = Duration::from_millis(150);
@@ -419,7 +416,7 @@ fn reconcile_watched(
     source_id: i64,
     root: &str,
     scope: ReconcileScope<'_>,
-    mut progress: Option<ProgressFn<'_>>,
+    progress: Option<ProgressFn<'_>>,
 ) -> Result<ReconcileSummary, String> {
     let root = PathBuf::from(root);
     // Knowing every source's folder, the walk skips one nested in this one.
@@ -439,7 +436,7 @@ fn reconcile_watched(
     for dir in &coverage.dirs {
         let base = found.len();
         let mut report = |n: usize| {
-            if let Some(p) = progress.as_mut() {
+            if let Some(p) = progress {
                 p(ScanProgress::Walking { found: base + n });
             }
         };
@@ -530,8 +527,21 @@ fn reconcile_watched(
             .iter()
             .map(|job| (job.row.is_none() || job.read).then_some(job.path.as_str()))
             .collect();
+        // Files that need no read are finished already.
+        done += wanted.iter().filter(|w| w.is_none()).count();
+        let finished_reads = AtomicUsize::new(0);
+        let base = done;
+        let on_read = || {
+            let n = finished_reads.fetch_add(1, Ordering::Relaxed) + 1;
+            if let Some(p) = progress {
+                p(ScanProgress::Reading {
+                    current: base + n,
+                    total,
+                });
+            }
+        };
         let reads: Vec<Option<Result<crate::models::TrackInput, String>>> =
-            read_tracks(ctx, &wanted)
+            read_tracks(ctx, &wanted, &on_read)
                 .into_iter()
                 .map(|read| {
                     read.map(|result| {
@@ -553,15 +563,8 @@ fn reconcile_watched(
             return Ok(summary);
         }
         let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+        done += finished_reads.load(Ordering::Relaxed);
         for (job, read) in jobs.into_iter().zip(reads) {
-            done += 1;
-            if let Some(p) = progress.as_mut() {
-                p(ScanProgress::Reading {
-                    current: done,
-                    total,
-                    path: job.path.clone(),
-                });
-            }
             if let Some(track_id) = job.repoint {
                 set_path(&tx, source_id, track_id, &job.path)?;
             }
@@ -596,6 +599,12 @@ fn reconcile_watched(
             }
         }
         tx.commit().map_err(|e| e.to_string())?;
+        if let Some(p) = progress {
+            p(ScanProgress::Reading {
+                current: done,
+                total,
+            });
+        }
     }
 
     let gone: Vec<i64> = known
@@ -677,7 +686,6 @@ fn read_threads() -> usize {
 
 /// Run `f` over `items` on a few threads, keeping their order.
 fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> {
-    use std::sync::atomic::{AtomicUsize, Ordering};
     let next = AtomicUsize::new(0);
     let out: Vec<Mutex<Option<R>>> = items.iter().map(|_| Mutex::new(None)).collect();
     std::thread::scope(|scope| {
@@ -702,8 +710,15 @@ fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> 
 fn read_tracks(
     ctx: &ScanContext,
     paths: &[Option<&str>],
+    on_read: &(dyn Fn() + Sync),
 ) -> Vec<Option<Result<metadata_reader::ParsedTrack, String>>> {
-    par_map(paths, |path| path.map(|p| read_track(ctx, p)))
+    par_map(paths, |path| {
+        let read = path.map(|p| read_track(ctx, p));
+        if read.is_some() {
+            on_read();
+        }
+        read
+    })
 }
 
 /// Save a track read from a source's folder and make sure it belongs to it (a
@@ -1061,30 +1076,30 @@ mod tests {
     fn reports_each_file_it_reads_with_the_total() {
         let fx = Fixture::new("progress");
         let id = fx.watch("Collection");
-        let a = fx.wav("Collection/a.wav");
-        let b = fx.wav("Collection/Artist/b.wav");
+        fx.wav("Collection/a.wav");
+        fx.wav("Collection/Artist/b.wav");
         fs::write(fx.path("Collection/notes.txt"), b"hi").unwrap();
 
-        let mut seen = Vec::new();
-        let mut report = |p: ScanProgress| seen.push(p);
-        reconcile_source_with_progress(&fx.db, &fx.ctx, id, ReconcileScope::All, Some(&mut report))
+        let seen = Mutex::new(Vec::new());
+        let report = |p: ScanProgress| lock(&seen).push(p);
+        reconcile_source_with_progress(&fx.db, &fx.ctx, id, ReconcileScope::All, Some(&report))
             .unwrap();
+        let seen = seen.into_inner().unwrap();
 
         // The walk reports before the reads do.
         assert_eq!(seen.first(), Some(&ScanProgress::Walking { found: 0 }));
-        let reading: Vec<_> = seen
+        let mut reading: Vec<_> = seen
             .into_iter()
             .filter_map(|p| match p {
-                ScanProgress::Reading {
-                    current,
-                    total,
-                    path,
-                } => Some((current, total, path)),
+                ScanProgress::Reading { current, total } => Some((current, total)),
                 ScanProgress::Walking { .. } => None,
             })
             .collect();
-        // Files are read in sorted path order.
-        assert_eq!(reading, vec![(1, 2, s(&b)), (2, 2, s(&a))]);
+        // Reads finish in any order, so check what was counted, not when.
+        reading.sort();
+        reading.dedup();
+        assert_eq!(reading, vec![(1, 2), (2, 2)]);
+        assert_eq!(reading.last(), Some(&(2, 2)));
     }
 
     #[test]

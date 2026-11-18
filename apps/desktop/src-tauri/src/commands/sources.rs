@@ -155,13 +155,19 @@ fn scan_source_with_events(
     let result = (|| {
         let ctx = scan_context(app)?;
         let state = app.state::<DbState>();
-        let mut last = Instant::now() - PROGRESS_EVERY;
-        let mut report = |progress: ScanProgress| {
-            let reading = matches!(progress, ScanProgress::Reading { .. });
-            if reading && last.elapsed() < PROGRESS_EVERY {
-                return;
+        // Called from several reader threads at once.
+        let last = Mutex::new((Instant::now() - PROGRESS_EVERY, 0usize));
+        let report = |progress: ScanProgress| {
+            if let ScanProgress::Reading { current, total } = progress {
+                let mut last = last.lock().unwrap_or_else(|e| e.into_inner());
+                // Threads finish in any order: never report a count that goes
+                // backwards. The last file always goes through, so the bar
+                // reaches the end.
+                if current <= last.1 || (last.0.elapsed() < PROGRESS_EVERY && current < total) {
+                    return;
+                }
+                *last = (Instant::now(), current);
             }
-            last = Instant::now();
             emit_source_scan(
                 app,
                 SourceScanEvent {
@@ -178,7 +184,7 @@ fn scan_source_with_events(
             &ctx,
             source_id,
             ReconcileScope::All,
-            Some(&mut report),
+            Some(&report),
         )?;
         emit_if_changed(app, &summary);
         Ok(summary)

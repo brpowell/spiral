@@ -41,7 +41,7 @@ export interface ReconcileSummary {
 /** How far a scan has got: listing files, then reading each one. */
 export type ScanProgress =
   | { phase: "walking"; found: number }
-  | { phase: "reading"; current: number; total: number; path: string };
+  | { phase: "reading"; current: number; total: number };
 
 /**
  * A source's scan (first or rescan) starting, progressing or ending.

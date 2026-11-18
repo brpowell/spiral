@@ -144,7 +144,6 @@ describe("source scan tracking", () => {
         phase: "reading",
         current: 3,
         total: 10,
-        path: "/Music/A/x.mp3",
       },
       background: false,
     });
@@ -220,7 +219,7 @@ describe("source scan tracking", () => {
       {
         sourceId: 7,
         background: true,
-        progress: { phase: "reading", current: 5, total: 20, path: "/a/b.mp3" },
+        progress: { phase: "reading", current: 5, total: 20 },
       },
     ]);
     const stop = tracker.startSourceScanTracking();
