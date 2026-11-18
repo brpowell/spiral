@@ -345,13 +345,26 @@ pub fn parse_track_metadata(
     parse_track_metadata_for_library(app_data_dir, file_path, lyrics_sidecar_enabled, None)
 }
 
-/// When `library_root` is set, embedded art is written under `Artwork/` (no-clobber).
-pub fn parse_track_metadata_for_library(
-    app_data_dir: &Path,
+/// A track's metadata, read from its file, with its embedded picture held
+/// back. Reading touches only the file, so many can be read at once; placing
+/// the picture writes to the shared artwork folders, so that's done one at a time.
+pub struct ParsedTrack {
+    pub input: TrackInput,
+    art: Option<PendingArt>,
+}
+
+struct PendingArt {
+    bytes: Vec<u8>,
+    mime: String,
+    tags: BasicTags,
+    title_fallback: String,
+}
+
+/// Read a file's metadata. The picture is placed by [`place_embedded_art`].
+pub fn read_track_metadata(
     file_path: &str,
     lyrics_sidecar_enabled: bool,
-    library_root: Option<&Path>,
-) -> Result<TrackInput, String> {
+) -> Result<ParsedTrack, String> {
     let path = PathBuf::from(file_path);
     if !path.is_file() {
         return Err(format!("File not found: {file_path}"));
@@ -368,36 +381,33 @@ pub fn parse_track_metadata_for_library(
     };
 
     let title_fallback = filename_title(&path);
-    let art_path = art.and_then(|(bytes, mime)| {
-        if let Some(root) = library_root {
-            library_embedded_art(root, &tags, &title_fallback, &bytes, &mime)
-        } else {
-            cache_embedded_art(app_data_dir, file_path, &bytes, &mime)
-        }
-    });
+    let art_len = art.as_ref().map_or(0, |(bytes, _)| bytes.len());
+    let audio =
+        audio_properties::read_audio_properties_after_tags(&path, tags.duration_seconds, art_len);
 
-    let audio = audio_properties::read_audio_properties(&path);
-
-    Ok(TrackInput {
-        title: tags.title.unwrap_or(title_fallback),
-        artist: tags.artist,
-        album: tags.album,
-        album_artist: tags.album_artist,
+    let input = TrackInput {
+        title: tags.title.clone().unwrap_or_else(|| title_fallback.clone()),
+        artist: tags.artist.clone(),
+        album: tags.album.clone(),
+        album_artist: tags.album_artist.clone(),
         track_number: tags.track_number,
         total_tracks: tags.total_tracks,
         disc_number: tags.disc_number,
         total_discs: tags.total_discs,
         year: tags.year,
-        genre: tags.genre,
+        genre: tags.genre.clone(),
         duration_seconds: tags.duration_seconds,
         sample_rate: audio.sample_rate,
         bitrate: audio.bitrate,
         codec: audio.codec,
         file_path: file_path.to_string(),
-        art_path,
+        art_path: None,
         rating: tags.rating,
         lyrics: {
-            let embedded = tags.lyrics.map(lyrics_normalize::normalize_embedded_lyrics);
+            let embedded = tags
+                .lyrics
+                .clone()
+                .map(lyrics_normalize::normalize_embedded_lyrics);
             let sidecar = if lyrics_sidecar_enabled {
                 lyrics_sidecar::read_lyrics_sidecar(&path)
                     .map(lyrics_normalize::normalize_sidecar_lyrics)
@@ -406,11 +416,48 @@ pub fn parse_track_metadata_for_library(
             };
             lyrics_normalize::resolve_embedded_and_sidecar_lyrics(embedded, sidecar)
         },
-        recording_mbid: tags.recording_mbid,
-        release_mbid: tags.release_mbid,
-        artist_mbids: tags.artist_mbids,
-        album_artist_mbids: tags.album_artist_mbids,
-    })
+        recording_mbid: tags.recording_mbid.clone(),
+        release_mbid: tags.release_mbid.clone(),
+        artist_mbids: tags.artist_mbids.clone(),
+        album_artist_mbids: tags.album_artist_mbids.clone(),
+    };
+    let art = art.map(|(bytes, mime)| PendingArt {
+        bytes,
+        mime,
+        tags,
+        title_fallback,
+    });
+    Ok(ParsedTrack { input, art })
+}
+
+/// Write a parsed track's embedded picture where it belongs and record the
+/// path: under the library's `Artwork/` when `library_root` is set (no-clobber),
+/// else in the app's art cache.
+pub fn place_embedded_art(
+    app_data_dir: &Path,
+    library_root: Option<&Path>,
+    parsed: ParsedTrack,
+) -> TrackInput {
+    let ParsedTrack { mut input, art } = parsed;
+    input.art_path = art.and_then(|a| {
+        if let Some(root) = library_root {
+            library_embedded_art(root, &a.tags, &a.title_fallback, &a.bytes, &a.mime)
+        } else {
+            cache_embedded_art(app_data_dir, &input.file_path, &a.bytes, &a.mime)
+        }
+    });
+    input
+}
+
+/// When `library_root` is set, embedded art is written under `Artwork/` (no-clobber).
+pub fn parse_track_metadata_for_library(
+    app_data_dir: &Path,
+    file_path: &str,
+    lyrics_sidecar_enabled: bool,
+    library_root: Option<&Path>,
+) -> Result<TrackInput, String> {
+    let parsed = read_track_metadata(file_path, lyrics_sidecar_enabled)?;
+    Ok(place_embedded_art(app_data_dir, library_root, parsed))
 }
 
 #[cfg(test)]

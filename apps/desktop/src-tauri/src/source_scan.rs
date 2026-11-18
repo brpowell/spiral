@@ -151,6 +151,23 @@ struct KnownTrack {
     missing: bool,
 }
 
+/// How many files are read, then written in one transaction, at a time.
+const WRITE_BATCH: usize = 100;
+
+/// What reconciling does for one file found on disk.
+struct ScanJob {
+    path: String,
+    stat: (i64, i64),
+    /// The row it belongs to, if any.
+    row: Option<KnownTrack>,
+    /// The row's file moved here.
+    moved: bool,
+    /// The row to point at this path first (a move or respelling).
+    repoint: Option<i64>,
+    /// The row's file changed since it was read.
+    read: bool,
+}
+
 /// What a set of paths covers: whole folders and single files.
 struct Coverage {
     dirs: Vec<PathBuf>,
@@ -445,86 +462,140 @@ fn reconcile_watched(
     let mut matched = HashSet::new();
 
     let total = found.len();
-    for (index, path) in found.into_iter().enumerate() {
-        if let Some(p) = progress.as_mut() {
-            p(ScanProgress::Reading {
-                current: index + 1,
-                total,
-                path: path.clone(),
+    let mut done = 0;
+    let mut remaining = found.into_iter();
+    loop {
+        let chunk: Vec<String> = remaining.by_ref().take(WRITE_BATCH).collect();
+        if chunk.is_empty() {
+            break;
+        }
+
+        // 1. Decide what each file needs, from what's in memory. Each file is
+        // looked at (a round trip on a network folder), a few at a time.
+        let stats = par_map(&chunk, |path| file_stat(Path::new(path)));
+        let mut jobs = Vec::with_capacity(chunk.len());
+        for (path, stat) in chunk.into_iter().zip(stats) {
+            let Some(stat) = stat else {
+                done += 1;
+                continue;
+            };
+            let mut row = known.remove(&path);
+            let mut moved = false;
+            let mut repoint = None;
+            if row.is_none() {
+                if rows.is_none() {
+                    rows = Some(source_rows(&lock(db), source_id)?);
+                }
+                let SourceRows { by_key, by_stat } = rows.as_mut().unwrap();
+                // A row may hold another spelling of this file's path, e.g.
+                // after a rename that only changed case on a case-insensitive
+                // volume. Or this may be a row's file, moved. Either way,
+                // re-point that row rather than adding a second one for the
+                // file. The row may be outside this pass's scope, as when a
+                // watcher reports a move's two halves separately.
+                let respelled = equivalent_track(by_key, &matched, &path);
+                let relocated = match respelled {
+                    Some(_) => None,
+                    None => moved_track(by_stat, &matched, stat),
+                };
+                moved = relocated.is_some();
+                if let Some((stored, track)) = respelled.or(relocated) {
+                    known.remove(&stored);
+                    repoint = Some(track.id);
+                    row = Some(track);
+                }
+            }
+            if let Some(track) = &row {
+                matched.insert(track.id);
+            }
+            // A NULL stat predates change tracking: record it and trust the
+            // row, rather than re-reading every file once.
+            let changed = row
+                .as_ref()
+                .is_some_and(|t| t.stat.is_some_and(|s| s != stat));
+            jobs.push(ScanJob {
+                path,
+                stat,
+                row,
+                moved,
+                repoint,
+                read: changed,
             });
         }
-        let Some(stat) = file_stat(Path::new(&path)) else {
-            continue;
-        };
-        let mut row = known.remove(&path);
-        let mut moved = false;
-        if row.is_none() {
-            if rows.is_none() {
-                rows = Some(source_rows(&lock(db), source_id)?);
-            }
-            let SourceRows { by_key, by_stat } = rows.as_mut().unwrap();
-            // A row may hold another spelling of this file's path, e.g. after
-            // a rename that only changed case on a case-insensitive volume.
-            // Or this may be a row's file, moved. Either way, re-point that
-            // row rather than adding a second one for the file. The row may
-            // be outside this pass's scope, as when a watcher reports a
-            // move's two halves separately.
-            let respelled = equivalent_track(by_key, &matched, &path);
-            let relocated = match respelled {
-                Some(_) => None,
-                None => moved_track(by_stat, &matched, stat),
-            };
-            moved = relocated.is_some();
-            if let Some((stored, track)) = respelled.or(relocated) {
-                known.remove(&stored);
-                set_path(&lock(db), source_id, track.id, &path)?;
-                row = Some(track);
-            }
+
+        // 2. Read the files that are new or changed, without the database
+        // lock, a few at a time. Then place their pictures, one at a time: they
+        // share the artwork folders.
+        let wanted: Vec<Option<&str>> = jobs
+            .iter()
+            .map(|job| (job.row.is_none() || job.read).then_some(job.path.as_str()))
+            .collect();
+        let reads: Vec<Option<Result<crate::models::TrackInput, String>>> =
+            read_tracks(ctx, &wanted)
+                .into_iter()
+                .map(|read| {
+                    read.map(|result| {
+                        result.map(|parsed| {
+                            metadata_reader::place_embedded_art(
+                                &ctx.app_data_dir,
+                                Some(&ctx.roots.library_root),
+                                parsed,
+                            )
+                        })
+                    })
+                })
+                .collect();
+
+        // 3. Apply the chunk's changes in one transaction: a commit per track
+        // costs a disk sync each.
+        let conn = lock(db);
+        if !source_exists(&conn, source_id) {
+            return Ok(summary);
         }
-        if let Some(track) = &row {
-            matched.insert(track.id);
-        }
-        match row {
-            Some(track) => {
-                // A NULL stat predates change tracking: record it and trust the
-                // row, rather than re-reading every file once.
-                let changed = track.stat.is_some_and(|s| s != stat);
-                if changed {
-                    match read_track(ctx, &path) {
-                        Ok(input) => {
-                            let conn = lock(db);
-                            if !source_exists(&conn, source_id) {
-                                return Ok(summary);
+        let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+        for (job, read) in jobs.into_iter().zip(reads) {
+            done += 1;
+            if let Some(p) = progress.as_mut() {
+                p(ScanProgress::Reading {
+                    current: done,
+                    total,
+                    path: job.path.clone(),
+                });
+            }
+            if let Some(track_id) = job.repoint {
+                set_path(&tx, source_id, track_id, &job.path)?;
+            }
+            match job.row {
+                Some(track) => {
+                    if let Some(read) = read {
+                        match read {
+                            Ok(input) => {
+                                save(&tx, &input, source_id)?;
+                                summary.updated += 1;
                             }
-                            save(&conn, &input, source_id)?;
-                            summary.updated += 1;
+                            Err(err) => summary.fail(&job.path, err),
                         }
-                        Err(err) => summary.fail(&path, err),
+                    }
+                    if job.moved {
+                        summary.moved += 1;
+                    } else if track.missing {
+                        summary.restored += 1;
+                    }
+                    if job.read || track.missing || track.stat != Some(job.stat) {
+                        set_present(&tx, track.id, job.stat)?;
                     }
                 }
-                if moved {
-                    summary.moved += 1;
-                } else if track.missing {
-                    summary.restored += 1;
-                }
-                if changed || track.missing || track.stat != Some(stat) {
-                    set_present(&lock(db), track.id, stat)?;
-                }
+                None => match read.expect("new files are read") {
+                    Ok(input) => {
+                        let id = save(&tx, &input, source_id)?;
+                        set_present(&tx, id, job.stat)?;
+                        summary.added += 1;
+                    }
+                    Err(err) => summary.fail(&job.path, err),
+                },
             }
-            None => match read_track(ctx, &path) {
-                Ok(input) => {
-                    let conn = lock(db);
-                    // Removed while we were reading: stop rather than recreate it.
-                    if !source_exists(&conn, source_id) {
-                        return Ok(summary);
-                    }
-                    let id = save(&conn, &input, source_id)?;
-                    set_present(&conn, id, stat)?;
-                    summary.added += 1;
-                }
-                Err(err) => summary.fail(&path, err),
-            },
         }
+        tx.commit().map_err(|e| e.to_string())?;
     }
 
     let gone: Vec<i64> = known
@@ -570,8 +641,10 @@ fn audio_files_in_source(
         })
         .filter_map(Result::ok);
     for e in entries {
-        // `is_file` follows symlinks to files, as `file_scan` does.
-        if !e.file_type().is_dir() && e.path().is_file() && is_supported_audio_file(e.path()) {
+        // A symlink to a file counts, as in `file_scan`; telling needs a stat,
+        // so a regular file (known from the listing) skips it.
+        let is_file = e.file_type().is_file() || (e.file_type().is_symlink() && e.path().is_file());
+        if is_file && is_supported_audio_file(e.path()) {
             files.push(e.path().to_string_lossy().into_owned());
         }
         // A slow (network) folder can take long to walk even when it has few
@@ -584,13 +657,53 @@ fn audio_files_in_source(
     files
 }
 
-fn read_track(ctx: &ScanContext, path: &str) -> Result<crate::models::TrackInput, String> {
-    metadata_reader::parse_track_metadata_for_library(
-        &ctx.app_data_dir,
-        path,
-        ctx.lyrics_sidecar_enabled,
-        Some(&ctx.roots.library_root),
-    )
+fn read_track(ctx: &ScanContext, path: &str) -> Result<metadata_reader::ParsedTrack, String> {
+    metadata_reader::read_track_metadata(path, ctx.lyrics_sidecar_enabled)
+}
+
+/// How many files are read at once. Reading is nearly all waiting on the disk
+/// or network, not computing, so this is well above the core count: on a
+/// network share 32 was 2.2x faster than 8 (816 files: 1.5 s against 3.3 s),
+/// and a local disk loses nothing.
+const READ_THREADS: usize = 32;
+
+fn read_threads() -> usize {
+    // `SPIRAL_SCAN_THREADS` is for experiments on slow (network) folders.
+    std::env::var("SPIRAL_SCAN_THREADS")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .map_or(READ_THREADS, |n| n.clamp(1, 64))
+}
+
+/// Run `f` over `items` on a few threads, keeping their order.
+fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let next = AtomicUsize::new(0);
+    let out: Vec<Mutex<Option<R>>> = items.iter().map(|_| Mutex::new(None)).collect();
+    std::thread::scope(|scope| {
+        for _ in 0..read_threads().min(items.len().max(1)) {
+            scope.spawn(|| loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                let Some(item) = items.get(i) else { break };
+                *lock(&out[i]) = Some(f(item));
+            });
+        }
+    });
+    out.into_iter()
+        .map(|m| {
+            m.into_inner()
+                .unwrap_or_else(|e| e.into_inner())
+                .expect("every item was mapped")
+        })
+        .collect()
+}
+
+/// Read `paths` (the `Some` ones) on a few threads, keeping their order.
+fn read_tracks(
+    ctx: &ScanContext,
+    paths: &[Option<&str>],
+) -> Vec<Option<Result<metadata_reader::ParsedTrack, String>>> {
+    par_map(paths, |path| path.map(|p| read_track(ctx, p)))
 }
 
 /// Save a track read from a source's folder and make sure it belongs to it (a
@@ -839,6 +952,109 @@ mod tests {
             moved,
             ..summary(source_id, 0, 0, 0, 0)
         }
+    }
+
+    /// Timing for a real folder: `SPIRAL_BENCH_DIR=~/Music cargo test --release
+    /// --lib bench_scan -- --ignored --nocapture`. Read-only on that folder.
+    #[test]
+    #[ignore]
+    fn bench_scan() {
+        use std::time::Instant;
+        let Ok(dir) = std::env::var("SPIRAL_BENCH_DIR") else {
+            return;
+        };
+        let fx = Fixture::new("bench");
+        let reconcile_only = std::env::var("SPIRAL_BENCH_RECONCILE_ONLY").is_ok();
+        // A database file, not memory: commits cost a disk sync there.
+        {
+            let library = fx.dir.join("Music/Spiral Library");
+            let conn = Connection::open(library.join("Library.db")).unwrap();
+            conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+            sources::attach_spiral_folder(&conn, &library).unwrap();
+            db_migrations::run(&conn, None).unwrap();
+            *lock(&fx.db) = conn;
+        }
+        let root = PathBuf::from(&dir);
+        let files = {
+            let roots = fx.ctx.roots.clone();
+            audio_files_in_source(&root, &root, &roots, &mut |_| {})
+        };
+        println!("{} audio files in {dir}", files.len());
+
+        if !reconcile_only {
+            let t = Instant::now();
+            let _ = audio_files_in_source(&root, &root, &fx.ctx.roots, &mut |_| {});
+            println!("walk (list files):  {:?}", t.elapsed());
+
+            let t = Instant::now();
+            for f in &files {
+                let _ = file_stat(Path::new(f));
+            }
+            println!("stat, serial:       {:?}", t.elapsed());
+            let t = Instant::now();
+            let _ = par_map(&files, |f| file_stat(Path::new(f)));
+            println!("stat, parallel:     {:?}", t.elapsed());
+
+            let t = Instant::now();
+            for f in &files {
+                let _ = metadata_reader::read_basic_tags(Path::new(f));
+            }
+            println!("tags only:          {:?}", t.elapsed());
+
+            let t = Instant::now();
+            for f in &files {
+                let _ = crate::audio_properties::header_properties_for_bench(Path::new(f));
+            }
+            println!("  headers only:     {:?}", t.elapsed());
+
+            let t = Instant::now();
+            for f in &files {
+                let _ = crate::audio_properties::read_audio_properties(Path::new(f));
+            }
+            println!(
+                "audio properties (headers + average bitrate): {:?}",
+                t.elapsed()
+            );
+
+            let t = Instant::now();
+            for f in &files {
+                let _ = metadata_reader::parse_track_metadata_for_library(
+                    &fx.ctx.app_data_dir,
+                    f,
+                    false,
+                    Some(&fx.ctx.roots.library_root),
+                );
+            }
+            println!("parse (incl. art):  {:?}", t.elapsed());
+        }
+        let id = sources::add_source(&lock(&fx.db), &fx.ctx.roots, &dir, None)
+            .unwrap()
+            .id;
+        let t = Instant::now();
+        let summary = fx.reconcile(id);
+        println!(
+            "full reconcile:     {:?} ({} added)",
+            t.elapsed(),
+            summary.added
+        );
+        let t = Instant::now();
+        fx.reconcile(id);
+        println!("second pass (no-op): {:?}", t.elapsed());
+    }
+
+    #[test]
+    fn scans_more_files_than_one_batch() {
+        let fx = Fixture::new("batches");
+        let id = fx.watch("Collection");
+        let count = WRITE_BATCH * 2 + 7;
+        for i in 0..count {
+            fx.wav(&format!("Collection/Album/{i:04}.wav"));
+        }
+
+        assert_eq!(fx.reconcile(id), summary(id, count as u32, 0, 0, 0));
+        assert_eq!(fx.tracks(id).len(), count);
+        // Nothing changed, so nothing is read or written again.
+        assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 0));
     }
 
     #[test]

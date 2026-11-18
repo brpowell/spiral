@@ -17,15 +17,85 @@ pub fn read_audio_properties(path: &Path) -> AudioProperties {
         .and_then(|e| e.to_str())
         .map(|e| e.to_ascii_lowercase());
 
-    #[cfg(target_os = "macos")]
-    if let Some(mut props) = read_afinfo_properties(path) {
-        if props.codec.is_none() {
-            props.codec = codec_from_extension(ext.as_deref());
-        }
-        return props;
+    let mut props = read_native_properties(path, ext.as_deref());
+    // Uncompressed audio has an exact header rate; the rest are averaged.
+    if ext.as_deref() != Some("wav") {
+        props.bitrate = average_bitrate(path).or(props.bitrate);
     }
 
-    let mut props = match ext.as_deref() {
+    // Starting `afinfo` costs far more than reading the headers ourselves
+    // (about 100 ms a file), so it's only for files whose headers we couldn't
+    // read.
+    #[cfg(target_os = "macos")]
+    if props.sample_rate.is_none() {
+        if let Some(mut from_afinfo) = read_afinfo_properties(path) {
+            if from_afinfo.codec.is_none() {
+                from_afinfo.codec = props.codec.clone();
+            }
+            return from_afinfo;
+        }
+    }
+
+    props
+}
+
+/// Properties for a file whose tags were just read, without opening it again:
+/// the headers give the sample rate and codec, and the bitrate is averaged from
+/// the file's size and `duration_seconds`, less its embedded picture's
+/// `art_bytes`. That is within about 1% of what `afinfo` reports (see
+/// [`average_bitrate`], which is exact but costs another read). Falls back to
+/// that when the length isn't known.
+pub fn read_audio_properties_after_tags(
+    path: &Path,
+    duration_seconds: Option<f64>,
+    art_bytes: usize,
+) -> AudioProperties {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase());
+    let mut props = read_native_properties(path, ext.as_deref());
+    if ext.as_deref() != Some("wav") {
+        let estimate = duration_seconds.filter(|d| *d > 0.0).and_then(|seconds| {
+            let size = std::fs::metadata(path).ok()?.len();
+            let bits = size.saturating_sub(art_bytes as u64) as f64 * 8.0 / seconds;
+            (bits > 0.0 && bits < u32::MAX as f64).then_some(bits as u32)
+        });
+        props.bitrate = estimate.or_else(|| average_bitrate(path)).or(props.bitrate);
+    }
+    props
+}
+
+/// The file's average bitrate in bits per second, as `afinfo` reports it
+/// (within 0.2%). Headers hold only a nominal or first-frame rate, wrong for
+/// FLAC and variable-bitrate files, so this comes from lofty, which averages
+/// over the audio's length.
+fn average_bitrate(path: &Path) -> Option<u32> {
+    use lofty::config::ParseOptions;
+    use lofty::file::AudioFile;
+    let file = lofty::probe::Probe::open(path)
+        .ok()?
+        .options(ParseOptions::new().read_tags(false))
+        .read()
+        .ok()?;
+    file.properties()
+        .audio_bitrate()
+        .filter(|kbps| *kbps > 0)
+        .map(|kbps| kbps * 1000)
+}
+
+#[cfg(test)]
+pub fn header_properties_for_bench(path: &Path) -> AudioProperties {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase());
+    read_native_properties(path, ext.as_deref())
+}
+
+/// Read the properties from the file's own headers.
+fn read_native_properties(path: &Path, ext: Option<&str>) -> AudioProperties {
+    let mut props = match ext {
         Some("flac") => read_flac_properties(path),
         Some("wav") => read_wav_properties(path),
         Some("mp3") => read_mp3_properties(path),
@@ -36,7 +106,7 @@ pub fn read_audio_properties(path: &Path) -> AudioProperties {
     };
 
     if props.codec.is_none() {
-        props.codec = codec_from_extension(ext.as_deref());
+        props.codec = codec_from_extension(ext);
     }
 
     props
@@ -259,7 +329,7 @@ fn read_mp3_properties(path: &Path) -> AudioProperties {
     }
 
     // Cover art / ID3 bytes can still defeat the header scan; Symphonia is the fallback.
-    if props.sample_rate.is_none() || props.bitrate.is_none() {
+    if props.sample_rate.is_none() {
         let fallback = probe_symphonia_properties(path, Some("mp3"));
         if props.sample_rate.is_none() {
             props.sample_rate = fallback.sample_rate;
