@@ -348,7 +348,11 @@ fn try_watch_with(
         .name("source-watch-start".into())
         .spawn(move || {
             let root = WatchRoot::new(owned);
-            let result = start(&root).map(|watcher| (root, watcher));
+            // A panic must still answer, or the source would wait on this
+            // start (and not be retried) forever.
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| start(&root)))
+                .unwrap_or_else(|_| Err("starting the watcher panicked".into()))
+                .map(|watcher| (root, watcher));
             let (lock_slot, done) = &*worker_slot;
             let mut slot = lock(lock_slot);
             if slot.gave_up {
@@ -419,6 +423,42 @@ fn new_watch(root: PathBuf, source_id: i64, generation: u64, tx: Sender<Message>
             }
         }
     }
+}
+
+/// A source's watch while its first watcher starts.
+fn placeholder(root: PathBuf, generation: u64) -> Watch {
+    Watch {
+        root: WatchRoot {
+            resolved: root.clone(),
+            root,
+        },
+        generation,
+        watcher: None,
+        retry_at: Instant::now() + RETRY,
+        starting: true,
+    }
+}
+
+/// Put what starting a source's watcher gave into its [`placeholder`], unless
+/// the source was removed or replaced meanwhile, or the worker already took up
+/// a watcher that was slow to start (it may finish before its caller does).
+fn settle_attach(registry: &mut Registry, id: i64, watch: Watch) {
+    let Some(current) = registry
+        .watches
+        .get_mut(&id)
+        .filter(|current| current.generation == watch.generation && current.watcher.is_none())
+    else {
+        return;
+    };
+    if watch.watcher.is_some() {
+        *current = watch;
+    } else if !watch.starting && current.starting {
+        // Failed: retried at `RETRY`.
+        current.starting = false;
+        current.retry_at = watch.retry_at;
+    }
+    // Still starting: the placeholder already says so, or the worker has
+    // since settled it.
 }
 
 impl Registry {
@@ -501,7 +541,14 @@ pub fn sync(app: &AppHandle) {
         let mut to_attach = Vec::new();
         for (id, root) in wanted {
             if !registry.watches.contains_key(&id) {
-                to_attach.push((id, root, registry.next_generation()));
+                let generation = registry.next_generation();
+                // In the registry before its watcher starts, so neither its
+                // first events nor a watcher that's slow to start (handed over
+                // through `LATE`) find no watch to go to.
+                registry
+                    .watches
+                    .insert(id, placeholder(root.clone(), generation));
+                to_attach.push((id, root, generation));
             }
         }
         (registry.tx.clone(), to_attach)
@@ -524,7 +571,7 @@ pub fn sync(app: &AppHandle) {
     });
     let mut registry = lock(registry);
     for (id, watch) in attached {
-        registry.watches.insert(id, watch);
+        settle_attach(&mut registry, id, watch);
     }
 }
 
@@ -1319,6 +1366,84 @@ mod tests {
         assert!(registry.watches[&ID].watcher.is_some());
         assert!(!registry.watches[&ID].starting);
         assert_eq!(due, vec![(ID, Batch::All)]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `sync` puts a placeholder in first, so a slow watcher the worker takes
+    /// up before `sync` finishes isn't dropped, and `sync`'s own "still
+    /// starting" doesn't undo it.
+    #[test]
+    fn a_slow_watcher_that_beats_sync_home_is_kept() {
+        let dir = temp_dir("beats-sync");
+        let mut registry = registry();
+        let generation = registry.next_generation();
+        registry
+            .watches
+            .insert(5, placeholder(dir.clone(), generation));
+
+        // The worker takes it up from `LATE` while `sync` is still waiting.
+        let (root, watcher) = try_watch(&dir, 5, generation, registry.tx.clone()).unwrap();
+        let mut due = Vec::new();
+        let back = apply_checks(
+            &mut registry,
+            &mut due,
+            &[],
+            Retried {
+                late: vec![Late {
+                    source_id: 5,
+                    generation,
+                    result: Ok((root, watcher)),
+                }],
+                ..Retried::default()
+            },
+        );
+        assert_eq!(back, vec![5]);
+
+        // Then `sync` gets round to what it saw: still starting.
+        let mut still_starting = placeholder(dir.clone(), generation);
+        still_starting.starting = true;
+        settle_attach(&mut registry, 5, still_starting);
+        assert!(registry.watches[&5].watcher.is_some());
+        assert!(!registry.watches[&5].starting);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn sync_fills_in_its_placeholders() {
+        let dir = temp_dir("fills-in");
+        let mut registry = registry();
+        let generation = registry.next_generation();
+        registry
+            .watches
+            .insert(1, placeholder(dir.clone(), generation));
+        registry
+            .watches
+            .insert(2, placeholder(dir.join("gone"), generation + 1));
+
+        let started = new_watch(dir.clone(), 1, generation, registry.tx.clone());
+        settle_attach(&mut registry, 1, started);
+        assert!(registry.watches[&1].watcher.is_some());
+
+        // Failed to start: retried later, not left waiting on a start.
+        let failed = new_watch(dir.join("gone"), 2, generation + 1, registry.tx.clone());
+        settle_attach(&mut registry, 2, failed);
+        assert!(registry.watches[&2].watcher.is_none());
+        assert!(!registry.watches[&2].starting);
+
+        // A stale result (the source was replaced) changes nothing.
+        let stale = new_watch(dir.clone(), 2, generation, registry.tx.clone());
+        settle_attach(&mut registry, 2, stale);
+        assert!(registry.watches[&2].watcher.is_none());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_watcher_start_that_panics_is_a_failure() {
+        let dir = temp_dir("start-panics");
+        let result = try_watch_with(&dir, 1, 1, Duration::from_secs(5), |_| {
+            panic!("watcher backend blew up")
+        });
+        assert!(matches!(result, Err(AttachError::Failed(_))));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
