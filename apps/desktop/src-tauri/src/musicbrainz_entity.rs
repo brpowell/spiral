@@ -239,7 +239,10 @@ pub fn search_entities(
         })),
     );
     let response = fetch_json(&url, "MusicBrainz entity search")?;
-    let hits = parse_search_response(kind, &response);
+    let mut hits = parse_search_response(kind, &response);
+    if kind == MusicBrainzEntityKind::Release {
+        crate::locale_country::sort_by_system_country(&mut hits);
+    }
     log_mb(
         LogLevel::Info,
         format!(
