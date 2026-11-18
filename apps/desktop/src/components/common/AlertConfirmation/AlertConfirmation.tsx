@@ -21,6 +21,8 @@ export interface AlertConfirmationProps {
   confirmLabel: string;
   onConfirm: () => void | Promise<void>;
   confirmVariant?: ButtonVariant;
+  /** Keep the confirm button off until something else (a checkbox) allows it. */
+  confirmDisabled?: boolean;
   /** Optional middle/right action (e.g. Keep unique) before the confirm button. */
   secondaryLabel?: string;
   onSecondary?: () => void | Promise<void>;
@@ -51,6 +53,7 @@ export function AlertConfirmation({
   confirmLabel,
   onConfirm,
   confirmVariant = "danger",
+  confirmDisabled = false,
   secondaryLabel,
   onSecondary,
   secondaryVariant = "secondary",
@@ -119,6 +122,7 @@ export function AlertConfirmation({
         ) : null}
         <Button
           variant={confirmVariant}
+          disabled={confirmDisabled}
           onClick={() => void runAction(onConfirm)}
         >
           {confirmLabel}

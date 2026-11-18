@@ -64,8 +64,6 @@
     "findingStart": "Finding files…",
     "finding": "Finding files… {{found}}",
     "scanProgress": "Scanning… {{current}} of {{total}}",
-    "changeLocation": "Change location…",
-    "changing": "Changing…",
     "remove": "Remove…",
     "removeLast": "Spiral needs at least one music folder.",
     "actionsAria": "Actions for {{name}}",
@@ -77,9 +75,9 @@
     "location": "Location",
     "makeDefault": "Make default",
     "removeTitle": "Remove music source?",
-    "removeBody_one": "Its {{count}} track leaves your library, along with its playlist entries and listening history. The file on disk stays untouched.",
-    "removeBody_other": "Its {{count}} tracks leave your library, along with their playlist entries and listening history. The files on disk stay untouched.",
-    "removeDefault": "It's your default folder, so music you add will be copied into another of your folders instead.",
+    "removeWarning_one": "{{count}} track will be removed from your library. Playlist entries and listening history will also be deleted. The file will remain on your disk.",
+    "removeWarning_other": "{{count}} tracks will be removed from your library. Playlist entries and listening history will also be deleted. The files will remain on your disk.",
+    "removeAcknowledge": "I understand and want to remove this music source",
     "removeConfirm": "Remove"
   },
   "cd": {

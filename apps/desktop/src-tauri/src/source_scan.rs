@@ -28,10 +28,9 @@ use crate::artwork_organize;
 use crate::audio_formats::is_supported_audio_file;
 use crate::db;
 use crate::fs_probe::{self, Probed};
-use crate::library_organize;
 use crate::lyrics_normalize;
 use crate::metadata_reader;
-use crate::sources::{self, LibraryRoots, Source, SourceRoots};
+use crate::sources::{self, LibraryRoots, SourceRoots};
 use crate::track_identity;
 use chrono::Utc;
 use rusqlite::{params, Connection};
@@ -747,52 +746,6 @@ fn save(
     db::set_track_source(conn, id, source_id).map_err(|e| e.to_string())?;
     lyrics_normalize::persist_import_lyrics(conn, id, &input.lyrics).map_err(|e| e.to_string())?;
     Ok(id)
-}
-
-/// Point a user source at a new folder, e.g. after the collection moved to
-/// another drive. Tracks store paths relative to the root, so this only
-/// updates the source row; the caller should reconcile afterwards to pick up
-/// what differs.
-pub fn relocate_source(
-    db: &Mutex<Connection>,
-    ctx: &ScanContext,
-    source_id: i64,
-    new_root: &str,
-) -> Result<Source, String> {
-    let _serial = lock(&RECONCILE_LOCK);
-    let conn = lock(db);
-    let old_tracks = db::get_tracks_for_source(&conn, source_id).map_err(|e| e.to_string())?;
-    let source = sources::set_source_root(&conn, &ctx.roots, source_id, new_root)?;
-
-    // Art cached in app data is keyed by file path. Library Artwork/ paths are
-    // left as they are by `migrate_art_cache`.
-    let new_paths: HashMap<i64, String> = db::get_tracks_for_source(&conn, source_id)
-        .map_err(|e| e.to_string())?
-        .into_iter()
-        .map(|t| (t.id, t.file_path))
-        .collect();
-    for track in old_tracks.iter().filter(|t| t.art_path.is_some()) {
-        let Some(new_path) = new_paths.get(&track.id) else {
-            continue;
-        };
-        match library_organize::migrate_art_cache(
-            &ctx.app_data_dir,
-            &track.file_path,
-            new_path,
-            track.art_path.as_deref(),
-        ) {
-            Ok(new_art) if new_art != track.art_path => {
-                conn.execute(
-                    "UPDATE tracks SET art_path = ?1 WHERE id = ?2",
-                    params![new_art, track.id],
-                )
-                .map_err(|e| e.to_string())?;
-            }
-            Ok(_) => {}
-            Err(err) => eprintln!("relocate source art cache: {err}"),
-        }
-    }
-    Ok(source)
 }
 
 /// Remove a user source and its tracks, cleaning up their cached and
@@ -1606,68 +1559,6 @@ mod tests {
         // `Tracks`'s own pass marks it, and picks up the stray file the
         // source around it skipped.
         assert_eq!(fx.reconcile(tracks), summary(tracks, 1, 0, 1, 0));
-    }
-
-    #[test]
-    fn relocate_rewrites_paths_and_clears_missing() {
-        let fx = Fixture::new("relocate");
-        let id = fx.watch("Old/Music");
-        let other = fx.watch("Other");
-        fx.wav("Old/Music/a.wav");
-        fx.wav("Old/Music/Sub/b.wav");
-        fx.reconcile(id);
-        let a_id = fx.track_id(&fx.path("Old/Music/a.wav"));
-        let old_cache = art_cache::write_bytes_to_art_cache(
-            &fx.ctx.app_data_dir,
-            &s(&fx.path("Old/Music/a.wav")),
-            b"art",
-            "jpg",
-        )
-        .unwrap();
-        lock(&fx.db)
-            .execute(
-                "UPDATE tracks SET art_path = ?1 WHERE id = ?2",
-                params![s(&old_cache), a_id],
-            )
-            .unwrap();
-
-        fs::create_dir_all(fx.path("New")).unwrap();
-        fs::rename(fx.path("Old/Music"), fx.path("New/Music")).unwrap();
-        // The old folder is gone: offline, so its rows stay as they were.
-        assert!(reconcile_source(&fx.db, &fx.ctx, id, ReconcileScope::All).is_err());
-        // Rows an earlier scan marked missing are cleared once it's relocated.
-        lock(&fx.db)
-            .execute(
-                "UPDATE tracks SET missing_since = '2026-01-01T00:00:00Z' WHERE source_id = ?1",
-                params![id],
-            )
-            .unwrap();
-
-        // Validation still applies, against everything but the source itself.
-        let err = relocate_source(&fx.db, &fx.ctx, id, &s(&fx.path("Other/Sub")));
-        assert!(err.is_err());
-        let err = relocate_source(&fx.db, &fx.ctx, other, &s(&fx.path("New/Music")));
-        assert!(err.is_ok(), "{err:?}");
-        relocate_source(&fx.db, &fx.ctx, other, &s(&fx.path("Other"))).unwrap();
-
-        let source = relocate_source(&fx.db, &fx.ctx, id, &s(&fx.path("New/Music"))).unwrap();
-        assert_eq!(source.root_path, Some(s(&fx.path("New/Music"))));
-        assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 2));
-        assert_eq!(
-            fx.tracks(id),
-            vec![
-                (s(&fx.path("New/Music/Sub/b.wav")), "b".into(), false),
-                (s(&fx.path("New/Music/a.wav")), "a".into(), false),
-            ]
-        );
-        assert_eq!(fx.track_id(&fx.path("New/Music/a.wav")), a_id);
-
-        // The cached art moved with its key.
-        let track = db::get_track_by_id(&lock(&fx.db), a_id).unwrap().unwrap();
-        let new_cache = PathBuf::from(track.art_path.unwrap());
-        assert_ne!(new_cache, old_cache);
-        assert!(new_cache.is_file());
-        assert!(!old_cache.exists());
     }
 
     #[test]

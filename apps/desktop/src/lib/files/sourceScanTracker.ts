@@ -25,6 +25,20 @@ const toastWaiters = new Map<
   (summary: ReconcileSummary | null) => void
 >();
 
+/**
+ * Scans whose toast is requested but whose task hasn't started running yet:
+ * a task begins only after the next paint, and nobody listens for the scan's
+ * end until then.
+ */
+const toastPending = new Set<number>();
+
+/**
+ * A scan's result that arrived while its toast was still pending, so the task
+ * can settle with it as soon as it starts. An empty folder scans fast enough
+ * to finish before that, and would otherwise leave the toast spinning forever.
+ */
+const earlyResults = new Map<number, ReconcileSummary | null>();
+
 function sourceName(sourceId: number): string {
   const source = useSourcesStore.getState().sourcesById.get(sourceId);
   return source ? sourceDisplayName(source) : "";
@@ -32,13 +46,36 @@ function sourceName(sourceId: number): string {
 
 /** Show a background task for a scan that's running, settled by its result. */
 function startScanToast(sourceId: number): void {
-  if (toastWaiters.has(sourceId)) return;
+  if (toastWaiters.has(sourceId) || toastPending.has(sourceId)) return;
+  toastPending.add(sourceId);
+  earlyResults.delete(sourceId);
   void useBackgroundTasksStore.getState().runInBackground({
     key: `source-scan-${sourceId}`,
     label: t("toasts:sourceScan.running"),
     progressDisplay: "bar",
     run: (ctx) =>
       new Promise<void>((resolve) => {
+        toastPending.delete(sourceId);
+        const finish = (summary: ReconcileSummary | null) => {
+          toastWaiters.delete(sourceId);
+          toastUpdaters.delete(sourceId);
+          if (summary) {
+            // Looked up now: a folder just added isn't in the store yet when its
+            // scan starts.
+            ctx.settleAs(
+              sourceScanSettleOptions(sourceName(sourceId), summary),
+            );
+          } else {
+            ctx.dismissSilently();
+          }
+          resolve();
+        };
+        if (earlyResults.has(sourceId)) {
+          const summary = earlyResults.get(sourceId) ?? null;
+          earlyResults.delete(sourceId);
+          finish(summary);
+          return;
+        }
         toastUpdaters.set(sourceId, (progress) => {
           if (progress?.phase === "walking") {
             ctx.clearProgress();
@@ -60,20 +97,7 @@ function startScanToast(sourceId: number): void {
             );
           }
         });
-        toastWaiters.set(sourceId, (summary) => {
-          toastWaiters.delete(sourceId);
-          toastUpdaters.delete(sourceId);
-          if (summary) {
-            // Looked up now: a folder just added isn't in the store yet when its
-            // scan starts.
-            ctx.settleAs(
-              sourceScanSettleOptions(sourceName(sourceId), summary),
-            );
-          } else {
-            ctx.dismissSilently();
-          }
-          resolve();
-        });
+        toastWaiters.set(sourceId, finish);
       }),
   });
 }
@@ -109,7 +133,12 @@ export function handleSourceScanEvent(event: SourceScanEvent): void {
     return;
   }
   scans.end(event.sourceId);
-  toastWaiters.get(event.sourceId)?.(event.summary);
+  const waiter = toastWaiters.get(event.sourceId);
+  if (waiter) {
+    waiter(event.summary);
+  } else if (toastPending.has(event.sourceId)) {
+    earlyResults.set(event.sourceId, event.summary);
+  }
 }
 
 /**

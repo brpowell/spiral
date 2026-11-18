@@ -125,6 +125,11 @@
   background: var(--color-surface-raised, var(--color-surface));
 }
 
+/* The warning under the folder card: the card already carries its own gap. */
+.sources-section__remove-alert {
+  margin: 0;
+}
+
 .sources-section__remove-folder svg {
   flex-shrink: 0;
   width: 20px;
