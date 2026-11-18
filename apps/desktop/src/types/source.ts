@@ -38,6 +38,32 @@ export interface ReconcileSummary {
   errors: string[];
 }
 
+/** How far a scan has got: listing files, then reading each one. */
+export type ScanProgress =
+  | { phase: "walking"; found: number }
+  | { phase: "reading"; current: number; total: number };
+
+/**
+ * A source's scan (first or rescan) starting, progressing or ending.
+ */
+export interface SourceScanEvent {
+  sourceId: number;
+  phase: "started" | "progress" | "finished";
+  /** Set on `finished` unless the scan errored. */
+  summary: ReconcileSummary | null;
+  /** Set on `progress`. */
+  progress: ScanProgress | null;
+  /** True for the scan at startup, which nobody asked for. */
+  background: boolean;
+}
+
+/** A scan running now (`get_active_scans`). */
+export interface ActiveScan {
+  sourceId: number;
+  background: boolean;
+  progress: ScanProgress | null;
+}
+
 /** Whether a watched folder is being watched live (see `get_source_statuses`). */
 export type SourceWatchStatus = "watching" | "unreachable" | "notWatching";
 

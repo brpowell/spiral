@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { useSourceScansStore } from "@/store/useSourceScansStore";
 import { useSourcesStore } from "@/store/useSourcesStore";
 import type { LibrarySettings } from "@/types/library";
 import type { FilePlanSummary, Source } from "@/types/source";
@@ -259,29 +260,17 @@ describe("SourcesSection", () => {
   });
 
   it("rescans from the menu", async () => {
-    const original = useBackgroundTasksStore.getState().showToast;
-    const showToast = vi.fn();
-    useBackgroundTasksStore.setState({ showToast });
-    tauri.rescanSource.mockResolvedValue({
-      added: 1,
-      updated: 0,
-      moved: 2,
-      missing: 0,
-      restored: 0,
-      failed: 0,
-    });
+    tauri.rescanSource.mockResolvedValue({});
     await renderSection();
     chooseFromMenu("Music", /Rescan/);
     await waitFor(() => expect(tauri.rescanSource).toHaveBeenCalledWith(3));
-    await waitFor(() =>
-      expect(showToast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          label: "“Music” scanned",
-          detail: "1 added, 2 moved",
-        }),
-      ),
-    );
-    useBackgroundTasksStore.setState({ showToast: original });
+  });
+
+  it("shows a scan that's already running when it opens", async () => {
+    useSourceScansStore.getState().begin(3);
+    await renderSection();
+    expect(screen.getByRole("status").textContent).toContain("Scanning");
+    useSourceScansStore.getState().end(3);
   });
 
   it("has no writable switch or read-only badge", async () => {
@@ -706,18 +695,22 @@ describe("SourcesSection", () => {
       name: "Jazz",
       rootPath: "/Volumes/Big/Jazz",
     });
+    tauri.rescanSource.mockResolvedValue({});
     await renderSection();
     fireEvent.click(screen.getByRole("button", { name: /Add folder/ }));
     await waitFor(() =>
       expect(tauri.addSource).toHaveBeenCalledWith("/Volumes/Big/Jazz"),
     );
 
-    // Then its settings, to finish adding it as it is or adjusted.
+    // Then its settings, to finish adding it as it is or adjusted. Nothing
+    // is scanned until that's confirmed.
     const dialog = await screen.findByRole("dialog", {
       name: "Add music source",
     });
+    expect(tauri.rescanSource).not.toHaveBeenCalled();
     fireEvent.click(within(dialog).getByRole("button", { name: "Add folder" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(tauri.rescanSource).toHaveBeenCalledWith(4));
     expect(tauri.removeSource).not.toHaveBeenCalled();
   });
 
@@ -766,6 +759,8 @@ describe("SourcesSection", () => {
     });
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(tauri.removeSource).toHaveBeenCalledWith(4));
+    // A folder that was never confirmed is never scanned.
+    expect(tauri.rescanSource).not.toHaveBeenCalled();
   });
 
   it("confirms removal, saying the files stay on disk", async () => {

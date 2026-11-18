@@ -12,6 +12,7 @@ import type {
   ImportTarget,
   ReconcileSummary,
   Source,
+  ActiveScan,
   SourceStatus,
 } from "@/types/source";
 import type {
@@ -520,11 +521,20 @@ export async function refreshLibraryMetadataFromFiles(): Promise<RefreshLibraryM
  */
 export const LIBRARY_TRACKS_CHANGED_EVENT = "library://tracks-changed";
 
+/**
+ * Emitted as a source's scan starts, progresses and ends (`SourceScanEvent`):
+ * the one after `addSource`, and rescans too for progress.
+ */
+export const SOURCE_SCAN_EVENT = "library://source-scan";
+
 export async function listSources(): Promise<Source[]> {
   return invoke<Source[]>("list_sources");
 }
 
-/** Add a folder the user picked as a source; it is scanned in the background. */
+/**
+ * Add a folder the user picked as a source. It isn't scanned until the Add
+ * dialog is confirmed (then `rescanSource`), since cancelling removes it.
+ */
 export async function addSource(
   rootPath: string,
   name?: string,
@@ -616,6 +626,11 @@ export async function getImportSource(): Promise<ImportTarget> {
  */
 export async function createManagedSource(): Promise<Source> {
   return invoke<Source>("create_managed_source");
+}
+
+/** The scans running now, for a window that opened after they started. */
+export async function getActiveScans(): Promise<ActiveScan[]> {
+  return invoke<ActiveScan[]>("get_active_scans");
 }
 
 /** Watch status of each watched folder, for the offline badge. */

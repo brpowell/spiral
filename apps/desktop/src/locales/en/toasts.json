@@ -136,7 +136,13 @@
     "failedFallback": "Couldn't organize “{{name}}”"
   },
   "sourceScan": {
+    "running": "Scanning music source",
+    "progress": "{{current}} of {{total}} tracks",
+    "findingStart": "Finding files…",
+    "finding_one": "Found {{found}} track",
+    "finding_other": "Found {{found}} tracks",
     "done": "“{{name}}” scanned",
+    "doneUnnamed": "Music source scanned",
     "noChanges": "No changes",
     "added": "{{count}} added",
     "updated": "{{count}} updated",

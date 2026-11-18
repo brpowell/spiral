@@ -269,6 +269,7 @@ pub fn run() {
             commands::sources::get_import_source,
             commands::sources::create_managed_source,
             commands::sources::get_source_statuses,
+            commands::sources::get_active_scans,
             commands::lyrics::get_track_lyrics,
             commands::lyrics::mark_track_instrumental,
             commands::lyrics::save_track_lyrics,

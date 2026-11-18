@@ -121,6 +121,23 @@ export function organizeFailedPayload(
 
 // —— Music folders ——
 
+/** A scan's result as the settled state of its running background task. */
+export function sourceScanSettleOptions(
+  name: string,
+  summary: Parameters<typeof sourceScanPayload>[1],
+  options?: { dismissMs?: number | null },
+): BackgroundTaskSettleAsOptions {
+  const { label, detail, status } = sourceScanPayload(name, summary, options);
+  return {
+    label,
+    detail,
+    status: status === "warning" ? "warning" : "success",
+    ...(options?.dismissMs !== undefined
+      ? { dismissMs: options.dismissMs }
+      : {}),
+  };
+}
+
 /** What a rescan found, listing only what changed. */
 export function sourceScanPayload(
   name: string,
@@ -141,7 +158,9 @@ export function sourceScanPayload(
   ].filter(Boolean);
   return withOptionalDismiss(
     {
-      label: t("toasts:sourceScan.done", { name }),
+      label: name
+        ? t("toasts:sourceScan.done", { name })
+        : t("toasts:sourceScan.doneUnnamed"),
       detail:
         changes.length > 0
           ? changes.join(", ")

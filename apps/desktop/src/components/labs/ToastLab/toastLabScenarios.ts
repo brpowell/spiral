@@ -32,6 +32,7 @@ import {
   playlistAddedPayload,
   queueAddedPayload,
   sourceScanPayload,
+  sourceScanSettleOptions,
   themeActivateFailedPayload,
   themeApplyFailedPayload,
   themeCreateFailedPayload,
@@ -1735,6 +1736,50 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
   },
 
   // —— Organize ——
+  {
+    id: "source-scan-added-folder",
+    group: "Organize",
+    buttonLabel: "Add folder · scanning → done",
+    source: "sourceScanTracker.ts",
+    fire: ({ runInBackground, dismissMs, sleep }) => {
+      void runInBackground({
+        progressDisplay: "bar",
+        key: "source-scan-lab",
+        label: t("toasts:sourceScan.running"),
+        run: async (ctx) => {
+          ctx.setDetail(
+            t("toasts:sourceScan.finding", { count: 250, found: "250" }),
+          );
+          await sleep(600);
+          const total = 128;
+          for (let done = 8; done <= total; done += 8) {
+            ctx.setProgress(done, total);
+            ctx.setDetail(
+              t("toasts:sourceScan.progress", {
+                current: String(done),
+                total: String(total),
+              }),
+            );
+            await sleep(120);
+          }
+          ctx.settleAs(
+            sourceScanSettleOptions(
+              EXAMPLE_FOLDER,
+              {
+                added: 128,
+                updated: 0,
+                moved: 0,
+                missing: 0,
+                restored: 0,
+                failed: 0,
+              },
+              { dismissMs },
+            ),
+          );
+        },
+      });
+    },
+  },
   {
     id: "source-scan-changes",
     group: "Organize",
