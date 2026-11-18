@@ -38,29 +38,46 @@ struct ScopeSet {
     resolved_network_uris: HashMap<String, PathBuf>,
 }
 
+/// Resolving a path touches the disk, and a folder on a network share that
+/// dropped can stall that for a long time. So the runtime entry points resolve
+/// before taking the scope's lock and only hand the result to `ScopeSet`:
+/// a stalled share then holds up its own caller, not every scope check.
 impl ScopeSet {
+    #[cfg(test)]
     fn allow_dir(&mut self, dir: &Path) {
-        for form in path_forms(dir) {
+        self.add_dir_forms(path_forms(dir));
+    }
+
+    fn add_dir_forms(&mut self, forms: Vec<PathBuf>) {
+        for form in forms {
             if !self.dirs.contains(&form) {
                 self.dirs.push(form);
             }
         }
     }
 
+    #[cfg(test)]
     fn allow_file(&mut self, file: &Path) {
-        self.files.extend(path_forms(file));
+        self.add_file_forms(path_forms(file));
     }
 
+    fn add_file_forms(&mut self, forms: Vec<PathBuf>) {
+        self.files.extend(forms);
+    }
+
+    #[cfg(test)]
     fn contains(&self, path: &Path) -> bool {
-        let Some(path) = resolve(path) else {
-            return false;
-        };
-        self.files.contains(&path)
+        resolve(path).is_some_and(|path| self.contains_resolved(&path))
+    }
+
+    /// `path` is already resolved (see [`resolve`]).
+    fn contains_resolved(&self, path: &Path) -> bool {
+        self.files.contains(path)
             || self.dirs.iter().any(|dir| path.starts_with(dir))
             || self
                 .temp_dir
                 .as_deref()
-                .is_some_and(|temp| is_in_zip_import_dir(temp, &path))
+                .is_some_and(|temp| is_in_zip_import_dir(temp, path))
     }
 }
 
@@ -171,7 +188,7 @@ pub fn allow_dir(app: &AppHandle, dir: &Path) {
             .0
             .write()
             .unwrap_or_else(|e| e.into_inner())
-            .allow_dir(dir);
+            .add_dir_forms(forms.clone());
     }
     for form in forms {
         if let Err(err) = app.asset_protocol_scope().allow_directory(&form, true) {
@@ -190,7 +207,7 @@ pub fn allow_file(app: &AppHandle, file: &Path) {
             .0
             .write()
             .unwrap_or_else(|e| e.into_inner())
-            .allow_file(file);
+            .add_file_forms(forms.clone());
     }
     for form in forms {
         if let Err(err) = app.asset_protocol_scope().allow_file(&form) {
@@ -234,12 +251,15 @@ pub fn allow_user_paths<P: AsRef<Path>>(app: &AppHandle, paths: &[P]) {
 }
 
 pub fn is_allowed(app: &AppHandle, path: &Path) -> bool {
+    let Some(resolved) = resolve(path) else {
+        return false;
+    };
     app.try_state::<PathScope>().is_some_and(|scope| {
         scope
             .0
             .read()
             .unwrap_or_else(|e| e.into_inner())
-            .contains(path)
+            .contains_resolved(&resolved)
     })
 }
 

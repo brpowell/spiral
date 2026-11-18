@@ -27,6 +27,7 @@ use crate::art_cache;
 use crate::artwork_organize;
 use crate::audio_formats::is_supported_audio_file;
 use crate::db;
+use crate::fs_probe::{self, Probed};
 use crate::library_organize;
 use crate::lyrics_normalize;
 use crate::metadata_reader;
@@ -419,6 +420,13 @@ fn reconcile_watched(
     progress: Option<ProgressFn<'_>>,
 ) -> Result<ReconcileSummary, String> {
     let root = PathBuf::from(root);
+    // A network folder whose connection dropped doesn't fail, it stalls, and a
+    // walk of it would hold up this pass (and the lock every pass shares)
+    // indefinitely. Say so, and leave the rows as they are: the folder may be
+    // back in a moment, which an unplugged drive (no folder at all) isn't.
+    if fs_probe::probe_dir(&root) == Probed::Stalled {
+        return Err(sources::not_responding(&root));
+    }
     // Knowing every source's folder, the walk skips one nested in this one.
     let roots = ctx
         .roots
@@ -1203,6 +1211,33 @@ mod tests {
         assert_eq!(fx.reconcile(id), summary(id, 0, 0, 2, 0));
         fs::rename(fx.path("Unplugged"), fx.path("Drive")).unwrap();
         assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 2));
+    }
+
+    /// A share whose connection dropped stalls instead of failing. The pass
+    /// reports it at once, without walking it, and leaves the rows alone (it may
+    /// be back in a moment), so a later pass restores nothing it didn't change.
+    #[test]
+    fn a_stalled_root_fails_fast_and_keeps_its_tracks() {
+        let fx = Fixture::new("stalled");
+        let id = fx.watch("Share/Music");
+        let a = fx.wav("Share/Music/a.wav");
+        fx.reconcile(id);
+
+        let stall = fs_probe::stall_dir(&fx.path("Share/Music"));
+        let started = Instant::now();
+        for scope in [
+            ReconcileScope::All,
+            ReconcileScope::Paths(std::slice::from_ref(&a)),
+        ] {
+            let err = reconcile_source(&fx.db, &fx.ctx, id, scope).unwrap_err();
+            assert!(err.starts_with(sources::SOURCE_UNAVAILABLE), "{err}");
+        }
+        assert!(started.elapsed() < Duration::from_millis(500));
+        assert_eq!(fx.tracks(id), vec![(s(&a), "a".into(), false)]);
+
+        // The share is back: scanning works again.
+        drop(stall);
+        assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 0));
     }
 
     #[test]

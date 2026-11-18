@@ -1,4 +1,5 @@
 use crate::commands::library::DbState;
+use crate::fs_probe::{self, Probed};
 use crate::path_scope;
 use crate::settings;
 use crate::source_scan::{self, ReconcileScope, ReconcileSummary, ScanContext, ScanProgress};
@@ -203,6 +204,21 @@ async fn reconcile_in_background(
         .and_then(|r| r)
 }
 
+/// Let the webview reach a source's folder. Resolving the path of a network
+/// share that isn't answering stalls, and startup mustn't wait on it: that
+/// folder is allowed from its own thread once the share responds.
+fn allow_source_dir(app: &AppHandle, root: &Path) {
+    if fs_probe::probe_dir(root) != Probed::Stalled {
+        path_scope::allow_dir(app, root);
+        return;
+    }
+    let app = app.clone();
+    let root = root.to_path_buf();
+    let _ = std::thread::Builder::new()
+        .name("allow-source-dir".into())
+        .spawn(move || path_scope::allow_dir(&app, &root));
+}
+
 /// Startup, and after the library is switched or moved: let the webview reach
 /// every source folder (for playback and artwork), reconcile all sources in
 /// the background to catch what changed while Spiral wasn't looking, and
@@ -216,14 +232,15 @@ pub fn init(app: &AppHandle) {
     };
     for source in &watched {
         if let Some(root) = &source.root_path {
-            path_scope::allow_dir(app, Path::new(root));
+            allow_source_dir(app, Path::new(root));
         }
     }
 
-    source_watch::sync(app);
-
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        // Starting the watchers looks at each folder, which can stall on a
+        // network share that isn't connected: not on the startup thread.
+        source_watch::sync(&app);
         let state = app.state::<DbState>();
         source_scan::merge_duplicate_rows(&state.0);
         let ids = match sources::list_sources(&state.0.lock().unwrap_or_else(|e| e.into_inner())) {
@@ -272,7 +289,9 @@ pub struct SourceStatus {
 }
 
 /// Watch status for every source with a folder, so the UI can flag offline ones.
-#[tauri::command]
+/// Looks at each folder, which can stall on a dropped network share, so it
+/// runs off the main thread (and gives up on a folder after a few seconds).
+#[tauri::command(async)]
 pub fn get_source_statuses(state: State<DbState>) -> Result<Vec<SourceStatus>, String> {
     let ids: Vec<i64> = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -326,8 +345,9 @@ pub async fn add_source(
     Ok(source)
 }
 
-/// Remove a source: its tracks leave the library, its files stay.
-#[tauri::command]
+/// Remove a source: its tracks leave the library, its files stay. Restarting
+/// the watchers looks at folders, so this runs off the main thread.
+#[tauri::command(async)]
 pub fn remove_source(
     app: AppHandle,
     state: State<DbState>,
@@ -378,8 +398,9 @@ pub async fn relocate_source(
 
 /// Turn organizing on or off for a source, refused with
 /// [`sources::SOURCE_UNAVAILABLE`] when turning it on for a folder that's
-/// offline. Existing files don't move here.
-#[tauri::command]
+/// offline. Existing files don't move here. Checking the folder can stall on
+/// a network share, so this runs off the main thread.
+#[tauri::command(async)]
 pub fn set_source_organize(
     state: State<DbState>,
     source_id: i64,
@@ -408,8 +429,9 @@ pub fn set_import_source(state: State<DbState>, source_id: i64) -> Result<Source
 }
 
 /// The source new imports are copied into, if any, and whether copying into
-/// it is possible right now.
-#[tauri::command]
+/// it is possible right now. Checking the folder can stall on a network share,
+/// so this runs off the main thread.
+#[tauri::command(async)]
 pub fn get_import_source(state: State<DbState>) -> Result<sources::ImportTarget, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     sources::import_target(&conn).map_err(|e| e.to_string())
@@ -418,7 +440,7 @@ pub fn get_import_source(state: State<DbState>) -> Result<sources::ImportTarget,
 /// Let Spiral manage the user's music (onboarding): create `Tracks` in the
 /// Spiral folder, add it as an organized source and make it the import
 /// target if none is set. Calling it again returns the existing source.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn create_managed_source(app: AppHandle, state: State<DbState>) -> Result<Source, String> {
     let roots = LibraryRoots::from_settings(&settings::resolved_library_settings(&app));
     let (source, existed) = {

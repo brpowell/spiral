@@ -8,9 +8,14 @@
 //! source instead. A folder that can't be watched (an unplugged drive, or no
 //! watcher at all) is retried every [`RETRY`]; until then it only updates at
 //! startup and on a manual rescan.
+//!
+//! A source on a network share can stall rather than fail when the connection
+//! drops, so nothing here looks at a source's folder while holding the
+//! registry lock, and every look is bounded (see [`fs_probe`]).
 
 use crate::commands::library::DbState;
 use crate::commands::sources::reconcile_and_notify;
+use crate::fs_probe::{self, Probed};
 use crate::settings;
 use crate::source_scan::{is_hidden_below, ReconcileScope};
 use crate::sources::{self, LibraryRoots};
@@ -34,6 +39,9 @@ const MAX_PATHS: usize = 500;
 const RETRY: Duration = Duration::from_secs(60);
 /// How often the worker wakes to flush quiet sources.
 const TICK: Duration = Duration::from_millis(250);
+/// How long starting a watcher may take before the folder is treated as
+/// unreachable and retried later.
+const ATTACH_TIMEOUT: Duration = Duration::from_secs(5);
 
 struct Message {
     source_id: i64,
@@ -187,18 +195,44 @@ pub enum WatchStatus {
     NotWatching,
 }
 
-/// The watch status of each given source.
+/// The watch status of each given source. Looks at each folder now (the
+/// worker only checks a quiet one every [`RETRY`]), but never for longer than a
+/// probe timeout and never while holding the registry lock, so a dropped
+/// network share reads as unreachable instead of hanging the caller.
 pub fn statuses(source_ids: &[i64]) -> Vec<(i64, WatchStatus)> {
-    let registry = REGISTRY.get().map(lock);
-    source_ids
+    let snapshot: Vec<(i64, Option<(PathBuf, bool)>)> = {
+        let registry = REGISTRY.get().map(lock);
+        source_ids
+            .iter()
+            .map(|&id| (id, registry.as_ref().and_then(|r| r.snapshot(id))))
+            .collect()
+    };
+    let roots: Vec<PathBuf> = snapshot
         .iter()
-        .map(|&id| {
-            let status = registry
-                .as_ref()
-                .map_or(WatchStatus::NotWatching, |r| r.status(id));
+        .filter_map(|(_, watch)| watch.as_ref().map(|(root, _)| root.clone()))
+        .collect();
+    let mut probed = fs_probe::probe_dirs(&roots).into_iter();
+    snapshot
+        .into_iter()
+        .map(|(id, watch)| {
+            let status = match watch {
+                None => WatchStatus::NotWatching,
+                Some((_, watching)) => {
+                    status_from(watching, probed.next().unwrap_or(Probed::Stalled))
+                }
+            };
             (id, status)
         })
         .collect()
+}
+
+/// A source with a watch is watched live only while its folder answers.
+fn status_from(has_watcher: bool, folder: Probed) -> WatchStatus {
+    if has_watcher && folder.is_yes() {
+        WatchStatus::Watching
+    } else {
+        WatchStatus::Unreachable
+    }
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -235,42 +269,68 @@ fn watch_folder(
     Ok(watcher)
 }
 
-impl Registry {
-    fn attach(&mut self, source_id: i64, root: PathBuf) {
-        self.next_generation += 1;
-        let root = WatchRoot::new(root);
-        let generation = self.next_generation;
-        let watcher = match watch_folder(&root, source_id, generation, self.tx.clone()) {
-            Ok(watcher) => Some(watcher),
-            Err(err) => {
-                eprintln!(
-                    "source watch: can't watch {} (source {source_id}): {err}; retrying every {}s",
-                    root.root.display(),
-                    RETRY.as_secs()
-                );
-                None
-            }
-        };
-        self.watches.insert(
-            source_id,
+/// Probe `root`, then start a watcher on it, waiting for neither longer than
+/// the probe and [`ATTACH_TIMEOUT`]. A stalled folder is an error, as when it's
+/// missing, so the caller retries it later.
+fn try_watch(
+    root: &Path,
+    source_id: i64,
+    generation: u64,
+    tx: Sender<Message>,
+) -> Result<(WatchRoot, RecommendedWatcher), String> {
+    match fs_probe::probe_dir(root) {
+        Probed::Yes => {}
+        Probed::No => return Err("folder not found".into()),
+        Probed::Stalled => return Err("folder is not responding".into()),
+    }
+    let owned = root.to_path_buf();
+    fs_probe::run_within(ATTACH_TIMEOUT, move || {
+        let root = WatchRoot::new(owned);
+        watch_folder(&root, source_id, generation, tx).map(|watcher| (root, watcher))
+    })
+    .unwrap_or_else(|| Err("starting the watcher timed out".into()))
+}
+
+/// A watch for `root`, watching it unless that fails (then retried at `RETRY`).
+fn new_watch(root: PathBuf, source_id: i64, generation: u64, tx: Sender<Message>) -> Watch {
+    match try_watch(&root, source_id, generation, tx) {
+        Ok((root, watcher)) => Watch {
+            root,
+            generation,
+            watcher: Some(watcher),
+            retry_at: Instant::now() + RETRY,
+        },
+        Err(err) => {
+            eprintln!(
+                "source watch: can't watch {} (source {source_id}): {err}; retrying every {}s",
+                root.display(),
+                RETRY.as_secs()
+            );
             Watch {
-                root,
+                root: WatchRoot {
+                    resolved: root.clone(),
+                    root,
+                },
                 generation,
-                watcher,
+                watcher: None,
                 retry_at: Instant::now() + RETRY,
-            },
-        );
+            }
+        }
+    }
+}
+
+impl Registry {
+    fn next_generation(&mut self) -> u64 {
+        self.next_generation += 1;
+        self.next_generation
     }
 
-    fn status(&self, source_id: i64) -> WatchStatus {
-        match self.watches.get(&source_id) {
-            // The worker only checks a quiet root every `RETRY`, so look now.
-            Some(watch) if watch.watcher.is_some() && watch.root.root.is_dir() => {
-                WatchStatus::Watching
-            }
-            Some(_) => WatchStatus::Unreachable,
-            None => WatchStatus::NotWatching,
-        }
+    /// A source's folder and whether it has a watcher, without looking at the
+    /// folder.
+    fn snapshot(&self, source_id: i64) -> Option<(PathBuf, bool)> {
+        self.watches
+            .get(&source_id)
+            .map(|watch| (watch.root.root.clone(), watch.watcher.is_some()))
     }
 
     /// The source's root when `generation` is still its current watcher.
@@ -282,10 +342,15 @@ impl Registry {
     }
 }
 
+/// One `sync` at a time, so two never start a watcher for the same source.
+static SYNC_LOCK: Mutex<()> = Mutex::new(());
+
 /// Make the running watchers match the open library's watched sources. Call
 /// after a source is added, removed or relocated, or the library changes.
-/// Starts the watcher thread on first use.
+/// Starts the watcher thread on first use. Starting a watcher looks at the
+/// folder, which can be slow on a network share: call this off the main thread.
 pub fn sync(app: &AppHandle) {
+    let _serial = lock(&SYNC_LOCK);
     let (wanted, roots): (HashMap<i64, PathBuf>, LibraryRoots) = {
         let state = app.state::<DbState>();
         let conn = lock(&state.0);
@@ -325,15 +390,39 @@ pub fn sync(app: &AppHandle) {
             next_generation: 0,
         })
     });
-    let mut registry = lock(registry);
-    registry.roots = roots;
-    registry
-        .watches
-        .retain(|id, w| wanted.get(id) == Some(&w.root.root));
-    for (id, root) in wanted {
-        if !registry.watches.contains_key(&id) {
-            registry.attach(id, root);
+    let (tx, to_attach) = {
+        let mut registry = lock(registry);
+        registry.roots = roots;
+        registry
+            .watches
+            .retain(|id, w| wanted.get(id) == Some(&w.root.root));
+        let mut to_attach = Vec::new();
+        for (id, root) in wanted {
+            if !registry.watches.contains_key(&id) {
+                to_attach.push((id, root, registry.next_generation()));
+            }
         }
+        (registry.tx.clone(), to_attach)
+    };
+
+    // Starting a watcher looks at the folder, so the registry is unlocked
+    // meanwhile: status polls and the worker don't wait on a dead share.
+    let attached: Vec<(i64, Watch)> = thread::scope(|scope| {
+        let handles: Vec<_> = to_attach
+            .into_iter()
+            .map(|(id, root, generation)| {
+                let tx = tx.clone();
+                scope.spawn(move || (id, new_watch(root, id, generation, tx)))
+            })
+            .collect();
+        handles
+            .into_iter()
+            .filter_map(|handle| handle.join().ok())
+            .collect()
+    });
+    let mut registry = lock(registry);
+    for (id, watch) in attached {
+        registry.watches.insert(id, watch);
     }
 }
 
@@ -376,10 +465,10 @@ fn run(app: AppHandle, rx: Receiver<Message>) {
         messages.extend(rx.try_iter());
 
         let now = Instant::now();
-        let Some(registry) = REGISTRY.get() else {
+        let Some(registry_lock) = REGISTRY.get() else {
             continue;
         };
-        let mut registry = lock(registry);
+        let mut registry = lock(registry_lock);
         for message in messages {
             // Events from a watcher that was since removed or replaced are dropped.
             if let Some(root) = registry.current_root(message.source_id, message.generation) {
@@ -401,44 +490,124 @@ fn run(app: AppHandle, rx: Receiver<Message>) {
             false
         });
 
-        // The folder itself went away (an unplugged drive): stop watching it
-        // and reconcile everything, which marks its tracks missing.
-        for (id, batch) in &mut due {
-            if let Some(watch) = registry.watches.get_mut(id) {
-                if watch.watcher.is_some() && !watch.root.root.is_dir() {
-                    lost(watch, *id);
-                    *batch = Batch::All;
-                }
-            }
-        }
-
+        // The folder itself may have gone away (an unplugged drive, a dropped
+        // share): then stop watching it and reconcile everything, which marks
+        // its tracks missing. A due source's folder is looked at now; the
+        // others every `RETRY`. Looking can stall, so the registry is unlocked
+        // meanwhile: a status poll mustn't wait on a dead share.
         let check_roots = now >= next_check;
         if check_roots {
             next_check = now + RETRY;
         }
-        let tx = registry.tx.clone();
+        let mut to_look = Vec::new();
+        let mut to_retry = Vec::new();
         for (&id, watch) in registry.watches.iter_mut() {
+            let target = (id, watch.generation, watch.root.root.clone());
             if watch.watcher.is_some() {
-                if check_roots && !watch.root.root.is_dir() {
-                    lost(watch, id);
-                    due.push((id, Batch::All));
+                if check_roots || due.iter().any(|(due_id, _)| *due_id == id) {
+                    to_look.push(target);
                 }
             } else if now >= watch.retry_at {
                 watch.retry_at = now + RETRY;
-                if let Ok(watcher) = watch_folder(&watch.root, id, watch.generation, tx.clone()) {
-                    eprintln!(
-                        "source watch: watching {} again (source {id})",
-                        watch.root.root.display()
-                    );
-                    watch.watcher = Some(watcher);
-                    due.push((id, Batch::All));
-                }
+                to_retry.push(target);
             }
         }
+        let tx = registry.tx.clone();
+        drop(registry);
+
+        let looked = look_at_roots(&to_look);
+        let retried = retry_watches(to_retry, &tx);
+
+        let mut registry = lock(registry_lock);
+        apply_checks(&mut registry, &mut due, &looked, retried);
         drop(registry);
 
         for (id, batch) in due {
             reconcile_in_background(&app, &busy, id, batch);
+        }
+    }
+}
+
+/// Which of the watched `(source, generation, folder)`s still answer, looked
+/// at together (and so waited for together, if a share has dropped).
+fn look_at_roots(roots: &[(i64, u64, PathBuf)]) -> Vec<(i64, u64, Probed)> {
+    let paths: Vec<PathBuf> = roots.iter().map(|(_, _, root)| root.clone()).collect();
+    roots
+        .iter()
+        .zip(fs_probe::probe_dirs(&paths))
+        .map(|(&(id, generation, _), probed)| (id, generation, probed))
+        .collect()
+}
+
+/// A new watcher for each unwatched folder that answers again, started
+/// together.
+fn retry_watches(
+    roots: Vec<(i64, u64, PathBuf)>,
+    tx: &Sender<Message>,
+) -> Vec<(i64, u64, WatchRoot, RecommendedWatcher)> {
+    thread::scope(|scope| {
+        let handles: Vec<_> = roots
+            .into_iter()
+            .map(|(id, generation, root)| {
+                let tx = tx.clone();
+                scope.spawn(move || {
+                    try_watch(&root, id, generation, tx)
+                        .ok()
+                        .map(|(root, watcher)| (id, generation, root, watcher))
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .filter_map(|handle| handle.join().ok().flatten())
+            .collect()
+    })
+}
+
+/// Reconcile all of `source_id`, instead of what was due for it.
+fn require_full(due: &mut Vec<(i64, Batch)>, source_id: i64) {
+    match due.iter_mut().find(|(id, _)| *id == source_id) {
+        Some((_, batch)) => *batch = Batch::All,
+        None => due.push((source_id, Batch::All)),
+    }
+}
+
+/// Act on what [`look_at_roots`] and [`retry_watches`] found, skipping a
+/// source whose watch was replaced meanwhile: a watched folder that no longer
+/// answers is given up on, and an unwatched one that does is watched again;
+/// either way the whole source is reconciled.
+fn apply_checks(
+    registry: &mut Registry,
+    due: &mut Vec<(i64, Batch)>,
+    looked: &[(i64, u64, Probed)],
+    retried: Vec<(i64, u64, WatchRoot, RecommendedWatcher)>,
+) {
+    for &(id, generation, probed) in looked {
+        if probed.is_yes() {
+            continue;
+        }
+        if let Some(watch) = registry
+            .watches
+            .get_mut(&id)
+            .filter(|w| w.generation == generation && w.watcher.is_some())
+        {
+            lost(watch, id);
+            require_full(due, id);
+        }
+    }
+    for (id, generation, root, watcher) in retried {
+        if let Some(watch) = registry
+            .watches
+            .get_mut(&id)
+            .filter(|w| w.generation == generation && w.watcher.is_none())
+        {
+            eprintln!(
+                "source watch: watching {} again (source {id})",
+                watch.root.root.display()
+            );
+            watch.root = root;
+            watch.watcher = Some(watcher);
+            require_full(due, id);
         }
     }
 }
@@ -747,38 +916,165 @@ mod tests {
         assert!(seen, "no event for {}", file.display());
     }
 
-    #[test]
-    fn status_reports_watching_unreachable_and_unknown_sources() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-source-status-{}-{}",
-            std::process::id(),
-            Instant::now().elapsed().as_nanos()
-        ));
-        std::fs::create_dir_all(&dir).unwrap();
+    fn registry() -> Registry {
         let (tx, _rx) = mpsc::channel();
-        let mut registry = Registry {
+        Registry {
             watches: HashMap::new(),
             roots: roots("/nowhere/Spiral Library"),
             tx,
             next_generation: 0,
-        };
-        registry.attach(3, dir.clone());
-        registry.attach(4, "/definitely/not/here/spiral".into());
+        }
+    }
 
-        assert_eq!(registry.status(3), WatchStatus::Watching);
-        assert_eq!(registry.status(4), WatchStatus::Unreachable);
-        assert_eq!(registry.status(5), WatchStatus::NotWatching);
+    fn attach(registry: &mut Registry, id: i64, root: PathBuf) {
+        let generation = registry.next_generation();
+        let watch = new_watch(root, id, generation, registry.tx.clone());
+        registry.watches.insert(id, watch);
+    }
+
+    fn temp_dir(label: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "spiral-source-{label}-{}-{}",
+            std::process::id(),
+            Instant::now().elapsed().as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn status_of(registry: &Registry, id: i64) -> WatchStatus {
+        match registry.snapshot(id) {
+            None => WatchStatus::NotWatching,
+            Some((root, watching)) => status_from(watching, fs_probe::probe_dir(&root)),
+        }
+    }
+
+    #[test]
+    fn status_reports_watching_unreachable_and_unknown_sources() {
+        let dir = temp_dir("status");
+        let mut registry = registry();
+        attach(&mut registry, 3, dir.clone());
+        attach(&mut registry, 4, "/definitely/not/here/spiral".into());
+
+        assert_eq!(status_of(&registry, 3), WatchStatus::Watching);
+        assert_eq!(status_of(&registry, 4), WatchStatus::Unreachable);
+        assert_eq!(status_of(&registry, 5), WatchStatus::NotWatching);
 
         // Gone before the worker noticed, so it still has a watcher.
         std::fs::remove_dir_all(&dir).unwrap();
-        assert_eq!(registry.status(3), WatchStatus::Unreachable);
+        assert_eq!(status_of(&registry, 3), WatchStatus::Unreachable);
 
         std::fs::create_dir_all(&dir).unwrap();
         if let Some(watch) = registry.watches.get_mut(&3) {
             lost(watch, 3);
         }
-        assert_eq!(registry.status(3), WatchStatus::Unreachable);
+        assert_eq!(status_of(&registry, 3), WatchStatus::Unreachable);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_stalled_folder_reads_as_unreachable_even_with_a_watcher() {
+        assert_eq!(status_from(true, Probed::Yes), WatchStatus::Watching);
+        assert_eq!(status_from(true, Probed::No), WatchStatus::Unreachable);
+        assert_eq!(status_from(true, Probed::Stalled), WatchStatus::Unreachable);
+        assert_eq!(status_from(false, Probed::Yes), WatchStatus::Unreachable);
+    }
+
+    #[test]
+    fn a_stalled_share_reads_unreachable_at_once_and_recovers() {
+        let dir = temp_dir("status-stalled");
+        let mut registry = registry();
+        attach(&mut registry, 3, dir.clone());
+        assert_eq!(status_of(&registry, 3), WatchStatus::Watching);
+
+        let stall = fs_probe::stall_dir(&dir);
+        let started = Instant::now();
+        assert_eq!(status_of(&registry, 3), WatchStatus::Unreachable);
+        assert!(started.elapsed() < Duration::from_millis(500));
+
+        drop(stall);
+        assert_eq!(status_of(&registry, 3), WatchStatus::Watching);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn attaching_to_a_stalled_share_doesnt_wait_and_leaves_it_to_retry() {
+        let dir = temp_dir("attach-stalled");
+        let _stall = fs_probe::stall_dir(&dir);
+        let mut registry = registry();
+        let started = Instant::now();
+        attach(&mut registry, 3, dir.clone());
+        assert!(started.elapsed() < Duration::from_millis(500));
+        assert!(registry.watches[&3].watcher.is_none());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_watched_folder_that_stops_answering_is_given_up_and_reconciled_whole() {
+        let dir = temp_dir("apply-lost");
+        let mut registry = registry();
+        attach(&mut registry, 3, dir.clone());
+        let generation = registry.watches[&3].generation;
+        assert!(registry.watches[&3].watcher.is_some());
+
+        // A file change was already due for it: the whole source is now.
+        let mut due = vec![(3, Batch::Paths(vec![dir.join("a.mp3")]))];
+        apply_checks(
+            &mut registry,
+            &mut due,
+            &[(3, generation, Probed::Stalled)],
+            Vec::new(),
+        );
+        assert!(registry.watches[&3].watcher.is_none());
+        assert_eq!(due, vec![(3, Batch::All)]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_folder_that_answers_again_is_watched_again_and_reconciled_whole() {
+        let dir = temp_dir("apply-back");
+        let mut registry = registry();
+        // Unwatched, as when the share was down at startup.
+        attach(&mut registry, 3, "/definitely/not/here/spiral".into());
+        let generation = registry.watches[&3].generation;
+        assert!(registry.watches[&3].watcher.is_none());
+
+        let (root, watcher) = try_watch(&dir, 3, generation, registry.tx.clone()).unwrap();
+        let mut due = Vec::new();
+        apply_checks(
+            &mut registry,
+            &mut due,
+            &[],
+            vec![(3, generation, root, watcher)],
+        );
+        assert!(registry.watches[&3].watcher.is_some());
+        assert_eq!(due, vec![(3, Batch::All)]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn results_for_a_replaced_watch_are_ignored() {
+        let dir = temp_dir("apply-stale");
+        let mut registry = registry();
+        attach(&mut registry, 3, dir.clone());
+        let stale = registry.watches[&3].generation - 1;
+        let mut due = Vec::new();
+        apply_checks(
+            &mut registry,
+            &mut due,
+            &[(3, stale, Probed::No)],
+            Vec::new(),
+        );
+        assert!(registry.watches[&3].watcher.is_some());
+        assert!(due.is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn statuses_is_unknown_before_any_watcher_starts() {
+        // No registry yet in this process, or none for these ids.
+        let statuses = statuses(&[987_654]);
+        assert_eq!(statuses, vec![(987_654, WatchStatus::NotWatching)]);
     }
 
     #[test]

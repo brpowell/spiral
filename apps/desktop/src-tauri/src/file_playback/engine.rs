@@ -18,6 +18,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
 use super::decoder::StreamingDecoder;
+use crate::fs_probe::{self, Probed};
 use crate::native_audio::mixer::DeckShared;
 use crate::native_audio::{AudioOutput, DeckHandle};
 
@@ -33,6 +34,13 @@ const MAX_SESSIONS: usize = 2;
 /// main-thread stalls (window minimise, pack installs) without an underrun.
 /// Keep in step with `FILE_READ_AHEAD_SECONDS` in `canCrossfade.ts`.
 const RING_SECONDS: f64 = 2.0;
+/// How long opening a file may take. A file on a network share that dropped
+/// doesn't fail to open, it blocks, and nothing else can wait on that.
+const OPEN_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long stopping a session waits for its decode thread. A thread stuck
+/// reading a dead share can't see the stop request; it is left to finish (and
+/// then exit) on its own rather than blocking whoever stopped it.
+const STOP_WAIT: Duration = Duration::from_secs(2);
 /// Decode-thread nap when the ring is full or the stream is done.
 const IDLE_SLEEP: Duration = Duration::from_millis(5);
 const POSITION_EVENT_INTERVAL: Duration = Duration::from_millis(250);
@@ -106,9 +114,25 @@ fn shutdown_active(active: ActivePlayback) {
         .shared
         .playing
         .store(false, Ordering::Relaxed);
-    if let Err(err) = active.thread.join() {
+    if !join_within(active.thread, STOP_WAIT) {
+        eprintln!("file playback: decode thread is stuck on a read; leaving it to finish");
+    }
+}
+
+/// Join `thread`, giving up (and leaving it running) after `wait`. Whether it
+/// finished.
+fn join_within(thread: thread::JoinHandle<()>, wait: Duration) -> bool {
+    let deadline = Instant::now() + wait;
+    while !thread.is_finished() {
+        if Instant::now() >= deadline {
+            return false;
+        }
+        thread::sleep(Duration::from_millis(2));
+    }
+    if let Err(err) = thread.join() {
         eprintln!("file playback: thread join failed: {err:?}");
     }
+    true
 }
 
 static SESSIONS: LazyLock<Mutex<HashMap<u64, ActivePlayback>>> =
@@ -175,6 +199,14 @@ fn emit_event<T: Serialize + Clone>(app: Option<&AppHandle>, event: &str, payloa
     }
 }
 
+/// The error for a file whose folder doesn't answer (a dropped network share).
+fn not_responding(path: &str) -> String {
+    format!(
+        "{}: {path} is not responding; check the connection to its folder",
+        crate::sources::SOURCE_UNAVAILABLE
+    )
+}
+
 /// Start a paused session that plays through the native audio output.
 pub fn start(app: AppHandle, path: &str) -> Result<FilePlaybackStarted, String> {
     start_inner(Some(app), path, crate::native_audio::global().clone())
@@ -186,8 +218,10 @@ fn start_inner(
     output: AudioOutput,
 ) -> Result<FilePlaybackStarted, String> {
     let file_path = PathBuf::from(path);
-    if !file_path.is_file() {
-        return Err(format!("File not found: {path}"));
+    match fs_probe::probe_file(&file_path) {
+        Probed::Yes => {}
+        Probed::No => return Err(format!("File not found: {path}")),
+        Probed::Stalled => return Err(not_responding(path)),
     }
 
     let ext = file_path
@@ -209,7 +243,9 @@ fn start_inner(
         make_room_for_new_session(&mut sessions)?;
     }
 
-    let source = StreamingDecoder::open(&file_path)?;
+    let open_path = file_path.clone();
+    let source = fs_probe::run_within(OPEN_TIMEOUT, move || StreamingDecoder::open(&open_path))
+        .ok_or_else(|| not_responding(path))??;
     let duration_seconds = source.duration_seconds();
     let sample_rate = source.sample_rate();
     let channels = source.channels();
@@ -535,6 +571,49 @@ mod tests {
             thread::sleep(Duration::from_millis(2));
         }
         panic!("timed out waiting for {what}");
+    }
+
+    #[test]
+    fn starting_a_file_on_a_stalled_share_fails_fast_with_a_clear_error() {
+        with_clean_sessions(|| {
+            let path = std::env::temp_dir().join(format!(
+                "spiral-stalled-share-{}/track.flac",
+                std::process::id()
+            ));
+            let _stall = fs_probe::stall_file(&path);
+            let (output, _state) = fake_output();
+
+            let started = Instant::now();
+            let err = start_inner(None, path.to_str().unwrap(), output).unwrap_err();
+            assert!(err.starts_with(crate::sources::SOURCE_UNAVAILABLE), "{err}");
+            assert!(err.contains("not responding"), "{err}");
+            assert!(started.elapsed() < Duration::from_millis(500));
+            assert!(SESSIONS.lock().unwrap().is_empty());
+        });
+    }
+
+    #[test]
+    fn a_missing_file_is_still_reported_as_not_found() {
+        with_clean_sessions(|| {
+            let (output, _state) = fake_output();
+            let err = start_inner(None, "/definitely/not/here/track.flac", output).unwrap_err();
+            assert!(err.starts_with("File not found"), "{err}");
+        });
+    }
+
+    #[test]
+    fn join_within_waits_for_a_finishing_thread_but_not_a_stuck_one() {
+        let quick = thread::spawn(|| thread::sleep(Duration::from_millis(30)));
+        assert!(join_within(quick, Duration::from_secs(5)));
+
+        let (release, blocked) = mpsc::channel::<()>();
+        let stuck = thread::spawn(move || {
+            let _ = blocked.recv();
+        });
+        let started = Instant::now();
+        assert!(!join_within(stuck, Duration::from_millis(100)));
+        assert!(started.elapsed() < Duration::from_secs(2));
+        drop(release); // let the thread end
     }
 
     #[test]

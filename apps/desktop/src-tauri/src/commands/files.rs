@@ -75,12 +75,14 @@ pub async fn scan_folder(app: AppHandle, folder_path: String) -> Result<Vec<Stri
     .map_err(|e| e.to_string())?
 }
 
+/// A file on a network share that dropped reads as missing after a few
+/// seconds, instead of holding a worker thread for as long as the share stalls.
 #[tauri::command]
 pub async fn file_exists(app: AppHandle, path: String) -> bool {
     tauri::async_runtime::spawn_blocking(move || {
         let path =
             path_scope::resolved_network_uri(&app, &path).unwrap_or_else(|| PathBuf::from(&path));
-        is_known_path(&app, &path) && path.is_file()
+        is_known_path(&app, &path) && crate::fs_probe::probe_file(&path).is_yes()
     })
     .await
     .unwrap_or(false)
