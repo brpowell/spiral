@@ -472,12 +472,6 @@ export function PreferencesModal() {
           <div className="preferences__content">
             {activeSection === "library" && (
               <div className="preferences__panel">
-                {/* The folders Spiral plays from come first: they're what the
-                    library is. The Spiral folder itself is rarely changed. */}
-                <SourcesSection />
-
-                <Separator />
-
                 <FormField
                   label={t("preferences:library.location")}
                   description={t("preferences:library.locationDescription")}
@@ -515,6 +509,10 @@ export function PreferencesModal() {
                     </Button>
                   </div>
                 </FormField>
+
+                <Separator />
+
+                <SourcesSection />
               </div>
             )}
 
