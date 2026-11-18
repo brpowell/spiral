@@ -15,6 +15,7 @@ const tauri = vi.hoisted(() => ({
   pickMusicFolder: vi.fn(),
   addSource: vi.fn(),
   removeSource: vi.fn(),
+  rescanSource: vi.fn(),
   listSources: vi.fn(),
   setImportSource: vi.fn(),
   setSourceOrganize: vi.fn(),
@@ -79,6 +80,7 @@ describe("FoldersStep", () => {
     vi.clearAllMocks();
     player.library = [];
     tauri.setImportSource.mockResolvedValue(undefined);
+    tauri.rescanSource.mockResolvedValue({});
     useOnboardingStore.setState({
       addedSourceIds: [],
       placeholderSourceId: null,
@@ -193,9 +195,12 @@ describe("FoldersStep", () => {
     expect(
       within(dialog).getByRole("button", { name: "Add folder" }),
     ).toBeEnabled();
+    expect(tauri.rescanSource).not.toHaveBeenCalled();
     await confirmAdd(dialog);
     expect(tauri.removeSource).not.toHaveBeenCalled();
     expect(tauri.setSourceOrganize).not.toHaveBeenCalled();
+    // Confirming is what starts the folder's first scan.
+    expect(tauri.rescanSource).toHaveBeenCalledWith(3);
   });
 
   it("records organizing when it's turned on while adding", async () => {

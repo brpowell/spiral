@@ -82,15 +82,6 @@ fn emit_source_scan(app: &AppHandle, event: SourceScanEvent) {
     }
 }
 
-/// The first scan of a source just added, in the background.
-fn spawn_initial_scan(app: AppHandle, id: i64) {
-    tauri::async_runtime::spawn(async move {
-        if let Err(err) = reconcile_in_background(app, id).await {
-            eprintln!("initial scan of source {id}: {err}");
-        }
-    });
-}
-
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SourceChanged {
@@ -303,8 +294,10 @@ pub fn list_sources(state: State<DbState>) -> Result<Vec<Source>, String> {
     sources::list_sources(&conn).map_err(|e| e.to_string())
 }
 
-/// Add a folder the user picked as a source. It is indexed in the
-/// background; `library://tracks-changed` fires as its tracks land.
+/// Add a folder the user picked as a source. It isn't scanned yet: the Add
+/// dialog can still be cancelled, which removes it again. Once they confirm,
+/// `rescan_source` indexes it, and `library://tracks-changed` fires as its
+/// tracks land.
 ///
 /// Checking the path can be slow over a network source; keep it off the main thread.
 #[tauri::command]
@@ -330,8 +323,6 @@ pub async fn add_source(
     }
     emit_source_changed(&app, source.id);
     source_watch::sync(&app);
-
-    spawn_initial_scan(app, source.id);
     Ok(source)
 }
 

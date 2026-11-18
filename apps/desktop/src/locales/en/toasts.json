@@ -142,6 +142,7 @@
     "finding_one": "Found {{found}} track",
     "finding_other": "Found {{found}} tracks",
     "done": "“{{name}}” scanned",
+    "doneUnnamed": "Music source scanned",
     "noChanges": "No changes",
     "added": "{{count}} added",
     "updated": "{{count}} updated",

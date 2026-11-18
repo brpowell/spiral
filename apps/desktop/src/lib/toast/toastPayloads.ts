@@ -158,7 +158,9 @@ export function sourceScanPayload(
   ].filter(Boolean);
   return withOptionalDismiss(
     {
-      label: t("toasts:sourceScan.done", { name }),
+      label: name
+        ? t("toasts:sourceScan.done", { name })
+        : t("toasts:sourceScan.doneUnnamed"),
       detail:
         changes.length > 0
           ? changes.join(", ")

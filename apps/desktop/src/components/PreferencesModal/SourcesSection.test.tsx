@@ -695,18 +695,22 @@ describe("SourcesSection", () => {
       name: "Jazz",
       rootPath: "/Volumes/Big/Jazz",
     });
+    tauri.rescanSource.mockResolvedValue({});
     await renderSection();
     fireEvent.click(screen.getByRole("button", { name: /Add folder/ }));
     await waitFor(() =>
       expect(tauri.addSource).toHaveBeenCalledWith("/Volumes/Big/Jazz"),
     );
 
-    // Then its settings, to finish adding it as it is or adjusted.
+    // Then its settings, to finish adding it as it is or adjusted. Nothing
+    // is scanned until that's confirmed.
     const dialog = await screen.findByRole("dialog", {
       name: "Add music source",
     });
+    expect(tauri.rescanSource).not.toHaveBeenCalled();
     fireEvent.click(within(dialog).getByRole("button", { name: "Add folder" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(tauri.rescanSource).toHaveBeenCalledWith(4));
     expect(tauri.removeSource).not.toHaveBeenCalled();
   });
 
@@ -755,6 +759,8 @@ describe("SourcesSection", () => {
     });
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(tauri.removeSource).toHaveBeenCalledWith(4));
+    // A folder that was never confirmed is never scanned.
+    expect(tauri.rescanSource).not.toHaveBeenCalled();
   });
 
   it("confirms removal, saying the files stay on disk", async () => {

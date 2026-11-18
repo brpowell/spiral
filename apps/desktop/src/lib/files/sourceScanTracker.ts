@@ -33,7 +33,6 @@ function sourceName(sourceId: number): string {
 /** Show a background task for a scan that's running, settled by its result. */
 function startScanToast(sourceId: number): void {
   if (toastWaiters.has(sourceId)) return;
-  const name = sourceName(sourceId);
   void useBackgroundTasksStore.getState().runInBackground({
     key: `source-scan-${sourceId}`,
     label: t("toasts:sourceScan.running"),
@@ -65,7 +64,11 @@ function startScanToast(sourceId: number): void {
           toastWaiters.delete(sourceId);
           toastUpdaters.delete(sourceId);
           if (summary) {
-            ctx.settleAs(sourceScanSettleOptions(name, summary));
+            // Looked up now: a folder just added isn't in the store yet when its
+            // scan starts.
+            ctx.settleAs(
+              sourceScanSettleOptions(sourceName(sourceId), summary),
+            );
           } else {
             ctx.dismissSilently();
           }

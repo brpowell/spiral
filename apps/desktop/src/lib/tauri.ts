@@ -531,7 +531,10 @@ export async function listSources(): Promise<Source[]> {
   return invoke<Source[]>("list_sources");
 }
 
-/** Add a folder the user picked as a source; it is scanned in the background. */
+/**
+ * Add a folder the user picked as a source. It isn't scanned until the Add
+ * dialog is confirmed (then `rescanSource`), since cancelling removes it.
+ */
 export async function addSource(
   rootPath: string,
   name?: string,

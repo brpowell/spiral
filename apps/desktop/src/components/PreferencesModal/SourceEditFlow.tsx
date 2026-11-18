@@ -6,6 +6,7 @@ import {
 import { organizeInBackground } from "@/lib/files/organizeSource";
 import {
   relocateSource,
+  rescanSource,
   setSourceOrganize,
   setSourcePathFormat,
 } from "@/lib/tauri";
@@ -82,9 +83,15 @@ export function SourceEditFlow({
     const organize =
       current.autoOrganize && (edits.autoOrganize === true || formatChanged);
     if (organize && !deferOrganize) {
-      // A folder just added is still being scanned: finish that first, so
-      // every file it holds gets organized.
+      // A folder just added hasn't been scanned: do that first, so every file
+      // it holds gets organized.
       void organizeInBackground([{ source: current }], { scanFirst: adding });
+    } else if (adding && !edits.rootPath) {
+      // Confirming the add starts the folder's first scan (cancelling never
+      // scans it). Moving it to another folder scans it already.
+      void rescanSource(current.id).catch((err) =>
+        console.error("scan of the added source failed:", err),
+      );
     }
   };
 
