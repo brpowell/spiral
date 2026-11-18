@@ -5,7 +5,7 @@ each distinct license text once, with the packages that use it and their
 copyright notices. The same information is shown in the app under
 About Spiral -> Licenses.
 
-Generated: 2026-11-12T18:18:40.683Z
+Generated: 2026-11-18T15:00:25.808Z
 
 Source code
 -----------
@@ -220,7 +220,7 @@ whatwg-url@5.0.0 — MIT
 zustand@5.0.13 — MIT
 zwitch@2.0.4 — MIT
 
-=== Cargo (651) ===
+=== Cargo (652) ===
 
 adler2@2.0.1 — 0BSD OR MIT OR Apache-2.0
 ahash@0.8.12 — MIT OR Apache-2.0
@@ -671,6 +671,7 @@ syn@2.0.119 — MIT OR Apache-2.0
 syn@3.0.4 — MIT OR Apache-2.0
 sync_wrapper@1.0.2 — Apache-2.0
 synstructure@0.13.2 — MIT
+sys-locale@0.3.2 — MIT OR Apache-2.0
 system-configuration@0.7.0 — MIT OR Apache-2.0
 system-configuration-sys@0.6.0 — MIT OR Apache-2.0
 system-deps@6.2.2 — MIT OR Apache-2.0
@@ -878,7 +879,7 @@ License texts
 -------------
 
 ==============================================================================
-MIT License — used by 763 packages
+MIT License — used by 764 packages
 ==============================================================================
 
 adler2@2.0.1 (cargo)
@@ -1696,6 +1697,8 @@ syn@3.0.4 (cargo)
     Authors (from package metadata): David Tolnay
 synstructure@0.13.2 (cargo)
     Copyright 2016 Nika Layzell
+sys-locale@0.3.2 (cargo)
+    Copyright (c) 2021 1Password
 system-configuration@0.7.0 (cargo)
     Copyright (c) 2024 Mullvad VPN AB
 system-configuration-sys@0.6.0 (cargo)
@@ -2471,7 +2474,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
-Apache License 2.0 — used by 389 packages
+Apache License 2.0 — used by 390 packages
 ==============================================================================
 
 adler2@2.0.1 (cargo)
@@ -3012,6 +3015,8 @@ syn@2.0.119 (cargo)
 syn@3.0.4 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 sync_wrapper@1.0.2 (cargo)
+    (c) You must retain, in the Source form of any Derivative Works
+sys-locale@0.3.2 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 system-configuration@0.7.0 (cargo)
     (c) You must retain, in the Source form of any Derivative Works

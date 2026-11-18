@@ -43,6 +43,7 @@ mod linux_webgl_workers;
 mod linux_webkit_env;
 #[cfg(target_os = "linux")]
 mod linux_window_frame;
+mod locale_country;
 mod lyrics_fetch;
 mod lyrics_fetch_cache;
 mod lyrics_lrc;

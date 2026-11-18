@@ -213,6 +213,7 @@ fn lookup_with_preference(
     preference_mbid: Option<&str>,
     kind: LookupCacheKind,
 ) -> DiscMetadataLookup {
+    crate::locale_country::sort_by_system_country(&mut lookup.candidates);
     lookup.preferred = resolve_preferred(&lookup, preference_mbid);
     lookup.kind = kind;
     lookup
