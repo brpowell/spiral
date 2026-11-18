@@ -153,6 +153,12 @@ export class CrossfadeController {
   private userVolume = 1;
   private userMuted = false;
   private userBalance = 0;
+  /**
+   * The next track whose deck failed to read during this track's handoff
+   * (a dropped network share). Not preloaded again on every position tick;
+   * cleared when a track is loaded.
+   */
+  private failedIncomingTrackId: number | null = null;
   /** True while a dual-deck fade is frozen by pause (timers cleared, gains held). */
   private fadePaused = false;
 
@@ -292,6 +298,7 @@ export class CrossfadeController {
     this.userMuted = options.muted;
     this.userBalance = options.balance;
 
+    this.failedIncomingTrackId = null;
     const engine = this.getActiveEngine();
     await engine.load(source);
     this.applyUserMixToEngine(engine);
@@ -576,6 +583,7 @@ export class CrossfadeController {
   maybeScheduleCrossfade(ctx: CrossfadeScheduleContext): void {
     if (!this.controllerActive) return;
     if (this.fadeState !== "idle") return;
+    if (ctx.nextTrackId === this.failedIncomingTrackId) return;
     if (ctx.repeatMode === "one") return;
     if (ctx.nextTrackId === ctx.currentTrackId) return;
     if (!canCrossfade(ctx.currentSource, ctx.nextSource)) return;
@@ -598,6 +606,7 @@ export class CrossfadeController {
   maybeScheduleGapless(ctx: CrossfadeScheduleContext): void {
     if (!this.controllerActive) return;
     if (this.fadeState !== "idle") return;
+    if (ctx.nextTrackId === this.failedIncomingTrackId) return;
     if (ctx.repeatMode === "one") return;
     if (ctx.nextTrackId === ctx.currentTrackId) return;
     if (!canGapless(ctx.currentSource, ctx.nextSource)) return;
@@ -873,13 +882,28 @@ export class CrossfadeController {
     const deck: DeckId = engine === this.decks.a ? "a" : "b";
 
     if (deck !== this.activeDeck) {
-      if (this.fadeState === "idle") engine.release();
-      else this.cancelCrossfade();
+      if (this.fadeState === "idle") {
+        engine.release();
+        return;
+      }
+      if (!this.dominantTrackPromoted) {
+        this.failedIncomingTrackId =
+          this.activeFadeContext?.nextTrackId ?? this.pendingIncomingTrackId;
+      }
+      this.cancelCrossfade();
+      return;
+    }
+
+    if (this.fadeState === "gaplessPrimed" && this.fadeIncomingDeck !== null) {
+      // The incoming deck is gated, waiting for the mixer to splice it on
+      // when this one runs out, which it now never will: start it now.
+      this.engine(this.fadeIncomingDeck).forceGaplessStart();
+      this.completeGaplessHandoff();
       return;
     }
 
     if (
-      (this.fadeState === "fading" || this.fadeState === "gaplessPrimed") &&
+      this.fadeState === "fading" &&
       !this.dominantTrackPromoted &&
       this.fadeIncomingDeck !== null &&
       this.activeFadeContext

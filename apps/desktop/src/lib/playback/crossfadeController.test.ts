@@ -1068,6 +1068,15 @@ describe("CrossfadeController", () => {
       expect(deckA.release).not.toHaveBeenCalled();
       expect(controller.isCrossfadeInProgress()).toBe(false);
       expect(controller.getActiveEngine()).toBe(deckA);
+
+      // Not loaded again on the next position tick.
+      deckB.load.mockClear();
+      controller.maybeScheduleCrossfade(crossfadeScheduleArgs());
+      controller.maybeScheduleGapless(
+        crossfadeScheduleArgs({ positionSeconds: 179 }),
+      );
+      expect(controller.isCrossfadeInProgress()).toBe(false);
+      expect(deckB.load).not.toHaveBeenCalled();
     });
 
     it("drops an outgoing deck that fails after the handover", async () => {
@@ -1082,6 +1091,39 @@ describe("CrossfadeController", () => {
       expect(deckA.release).toHaveBeenCalled();
       expect(deckB.release).not.toHaveBeenCalled();
       expect(controller.getActiveEngine()).toBe(deckB);
+    });
+
+    it("starts a gapless next track at once when the current one fails", async () => {
+      const deckA = createMockEngine("a");
+      const deckB = createMockEngine("b");
+      const controller = new CrossfadeController(asDecks(deckA, deckB));
+      const onFileError = vi.fn();
+      controller.onFileError(onFileError);
+      await controller.loadAndPlay(
+        { kind: "file", path: "/a.wav" },
+        { volume: 1, muted: false, balance: 0 },
+      );
+      const onActiveTrackChange = vi.fn();
+      controller.maybeScheduleGapless(
+        crossfadeScheduleArgs({
+          positionSeconds: 179,
+          outgoingDuration: 180,
+          onActiveTrackChange,
+        }),
+      );
+      await vi.waitFor(() => {
+        expect(deckB.primeGaplessStart).toHaveBeenCalled();
+      });
+
+      // The splice waits on a deck that's gone: the next track mustn't sit
+      // gated and silent.
+      deckA.emitError();
+      expect(deckB.forceGaplessStart).toHaveBeenCalled();
+      expect(onActiveTrackChange).toHaveBeenCalledTimes(1);
+      expect(onFileError).not.toHaveBeenCalled();
+      expect(deckA.release).toHaveBeenCalled();
+      expect(controller.getActiveEngine()).toBe(deckB);
+      expect(controller.isCrossfadeInProgress()).toBe(false);
     });
 
     it("hands over early when the current track fails mid-fade", async () => {
