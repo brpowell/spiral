@@ -692,7 +692,7 @@ mod tests {
 
     #[test]
     fn a_read_that_times_out_says_the_folder_is_unavailable() {
-        let timed_out = std::io::Error::from_raw_os_error(libc::ETIMEDOUT);
+        let timed_out = std::io::Error::from(std::io::ErrorKind::TimedOut);
         assert!(read_failure(&timed_out).starts_with(crate::sources::SOURCE_UNAVAILABLE));
         let bad = std::io::Error::from(std::io::ErrorKind::InvalidData);
         assert!(read_failure(&bad).starts_with("read failed"));

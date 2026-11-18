@@ -135,7 +135,19 @@ pub fn is_network_failure(err: &std::io::Error) -> bool {
             | ConnectionReset
             | ConnectionAborted
             | StaleNetworkFileHandle
-    ) || matches!(err.raw_os_error(), Some(code) if code == libc::EHOSTDOWN || code == libc::ETIMEDOUT)
+    ) || is_network_errno(err)
+}
+
+/// Codes the standard error kinds don't cover (`EHOSTDOWN` on macOS).
+#[cfg(unix)]
+fn is_network_errno(err: &std::io::Error) -> bool {
+    matches!(err.raw_os_error(), Some(code) if code == libc::EHOSTDOWN || code == libc::ETIMEDOUT)
+}
+
+/// Windows reports these through the standard error kinds.
+#[cfg(not(unix))]
+fn is_network_errno(_err: &std::io::Error) -> bool {
+    false
 }
 
 /// Whether `path` is a folder that can be listed, without waiting on a
@@ -270,12 +282,15 @@ mod tests {
     fn network_errors_are_told_apart_from_file_errors() {
         use std::io::{Error, ErrorKind};
         assert!(is_network_failure(&Error::from(ErrorKind::TimedOut)));
-        assert!(is_network_failure(&Error::from_raw_os_error(
-            libc::ETIMEDOUT
-        )));
-        assert!(is_network_failure(&Error::from_raw_os_error(
-            libc::EHOSTDOWN
-        )));
+        #[cfg(unix)]
+        {
+            assert!(is_network_failure(&Error::from_raw_os_error(
+                libc::ETIMEDOUT
+            )));
+            assert!(is_network_failure(&Error::from_raw_os_error(
+                libc::EHOSTDOWN
+            )));
+        }
         assert!(is_network_failure(&Error::from(ErrorKind::NotConnected)));
         assert!(!is_network_failure(&Error::from(ErrorKind::NotFound)));
         assert!(!is_network_failure(&Error::from(
