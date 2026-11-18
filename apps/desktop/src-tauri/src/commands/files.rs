@@ -75,17 +75,25 @@ pub async fn scan_folder(app: AppHandle, folder_path: String) -> Result<Vec<Stri
     .map_err(|e| e.to_string())?
 }
 
-/// A file on a network share that dropped reads as missing after a few
-/// seconds, instead of holding a worker thread for as long as the share stalls.
+/// A file on a network share that dropped reads as missing after
+/// [`crate::fs_probe::ACCESS_TIMEOUT`], instead of holding a worker thread for
+/// as long as the share stalls.
 #[tauri::command]
 pub async fn file_exists(app: AppHandle, path: String) -> bool {
     tauri::async_runtime::spawn_blocking(move || {
         let path =
             path_scope::resolved_network_uri(&app, &path).unwrap_or_else(|| PathBuf::from(&path));
-        is_known_path(&app, &path) && crate::fs_probe::probe_file(&path).is_yes()
+        known_file_exists(&path, |path| is_known_path(&app, path))
     })
     .await
     .unwrap_or(false)
+}
+
+/// Whether `path` is a file that `is_known` allows. The file is checked first,
+/// with a bounded probe: the scope check resolves the path, which on a dead
+/// share blocks with nothing to bound it.
+fn known_file_exists(path: &Path, is_known: impl FnOnce(&Path) -> bool) -> bool {
+    crate::fs_probe::probe_file(path).is_yes() && is_known(path)
 }
 
 /// File size in bytes. Stat-ing and resolving the path can be slow over a
@@ -185,7 +193,33 @@ pub fn pick_library_paths(app: AppHandle) -> Result<Vec<String>, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::directory_size_bytes;
+    #[test]
+    fn a_file_on_a_stalled_share_is_missing_without_resolving_its_path() {
+        let path = std::env::temp_dir().join(format!(
+            "spiral-file-exists-stalled-{}/track.flac",
+            std::process::id()
+        ));
+        let _stall = crate::fs_probe::stall_file(&path);
+        let started = std::time::Instant::now();
+        assert!(!known_file_exists(&path, |_| unreachable!(
+            "the scope check would block on the dead share"
+        )));
+        assert!(started.elapsed() < std::time::Duration::from_millis(500));
+    }
+
+    #[test]
+    fn a_file_is_there_only_when_it_exists_and_is_known() {
+        let dir = std::env::temp_dir().join(format!("spiral-file-exists-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("a.mp3");
+        std::fs::write(&file, b"x").unwrap();
+        assert!(known_file_exists(&file, |_| true));
+        assert!(!known_file_exists(&file, |_| false));
+        assert!(!known_file_exists(&dir.join("gone.mp3"), |_| true));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    use super::{directory_size_bytes, known_file_exists};
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
