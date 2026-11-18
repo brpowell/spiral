@@ -38,7 +38,7 @@ use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::time::UNIX_EPOCH;
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
 /// What reconciling needs to know about the app, gathered once per run.
 #[derive(Debug, Clone)]
@@ -85,6 +85,28 @@ impl ReconcileSummary {
 }
 
 const MAX_ERRORS: usize = 20;
+
+/// Where a reconcile is, for showing its progress.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase", tag = "phase")]
+pub enum ScanProgress {
+    /// Listing the audio files in the folder; the total isn't known yet.
+    Walking { found: usize },
+    /// Comparing each file with the library, reading the new and changed
+    /// ones. `path` is the file being looked at.
+    Reading {
+        current: usize,
+        total: usize,
+        path: String,
+    },
+}
+
+/// Receives progress while a reconcile runs. Called often: throttle in the
+/// receiver.
+pub type ProgressFn<'a> = &'a mut dyn FnMut(ScanProgress);
+
+/// Least time between the walk's progress reports.
+const WALK_REPORT_EVERY: Duration = Duration::from_millis(150);
 
 /// Which part of a source to look at.
 #[derive(Debug, Clone, Copy)]
@@ -314,6 +336,17 @@ pub fn reconcile_source(
     source_id: i64,
     scope: ReconcileScope<'_>,
 ) -> Result<ReconcileSummary, String> {
+    reconcile_source_with_progress(db, ctx, source_id, scope, None)
+}
+
+/// [`reconcile_source`], reporting progress to `progress` as it goes.
+pub fn reconcile_source_with_progress(
+    db: &Mutex<Connection>,
+    ctx: &ScanContext,
+    source_id: i64,
+    scope: ReconcileScope<'_>,
+    progress: Option<ProgressFn<'_>>,
+) -> Result<ReconcileSummary, String> {
     let _serial = lock(&RECONCILE_LOCK);
     let source = sources::get_source(&lock(db), source_id)
         .map_err(|e| e.to_string())?
@@ -321,24 +354,27 @@ pub fn reconcile_source(
     // A source whose folder isn't known (inside an unknown Spiral folder)
     // has nothing to compare against, so it is left alone.
     match source.root_path.as_deref() {
-        Some(root) => reconcile_watched(db, ctx, source_id, root, scope),
+        Some(root) => reconcile_watched(db, ctx, source_id, root, scope, progress),
         None => Ok(ReconcileSummary::new(source_id)),
     }
 }
 
-/// Reconcile every source: merge rows that name the same file, then a full
-/// pass over each source's folder. Used at startup to catch what changed
-/// while Spiral was closed.
-pub fn reconcile_all(db: &Mutex<Connection>, ctx: &ScanContext) -> Vec<ReconcileSummary> {
-    // Rows an earlier scan duplicated under another spelling of a path.
-    {
-        let _serial = lock(&RECONCILE_LOCK);
-        match track_identity::merge_duplicate_tracks(&lock(db)) {
-            Ok(0) => {}
-            Ok(n) => eprintln!("merged {n} duplicate track rows"),
-            Err(err) => eprintln!("merge duplicate tracks: {err}"),
-        }
+/// Merge rows an earlier scan duplicated under another spelling of a path.
+pub fn merge_duplicate_rows(db: &Mutex<Connection>) {
+    let _serial = lock(&RECONCILE_LOCK);
+    match track_identity::merge_duplicate_tracks(&lock(db)) {
+        Ok(0) => {}
+        Ok(n) => eprintln!("merged {n} duplicate track rows"),
+        Err(err) => eprintln!("merge duplicate tracks: {err}"),
     }
+}
+
+/// Reconcile every source: merge rows that name the same file, then a full
+/// pass over each source's folder. Catches what changed while Spiral was
+/// closed. (The app does this per source, to report progress.)
+#[cfg(test)]
+pub fn reconcile_all(db: &Mutex<Connection>, ctx: &ScanContext) -> Vec<ReconcileSummary> {
+    merge_duplicate_rows(db);
     let ids = match sources::list_sources(&lock(db)) {
         Ok(list) => list.into_iter().map(|s| s.id).collect::<Vec<_>>(),
         Err(err) => {
@@ -366,6 +402,7 @@ fn reconcile_watched(
     source_id: i64,
     root: &str,
     scope: ReconcileScope<'_>,
+    mut progress: Option<ProgressFn<'_>>,
 ) -> Result<ReconcileSummary, String> {
     let root = PathBuf::from(root);
     // Knowing every source's folder, the walk skips one nested in this one.
@@ -381,11 +418,16 @@ fn reconcile_watched(
 
     // An unreachable root (an unplugged drive) yields no files, so every track
     // in scope is marked missing until it comes back.
-    let mut found: Vec<String> = coverage
-        .dirs
-        .iter()
-        .flat_map(|dir| audio_files_in_source(dir, &root, &roots))
-        .collect();
+    let mut found: Vec<String> = Vec::new();
+    for dir in &coverage.dirs {
+        let base = found.len();
+        let mut report = |n: usize| {
+            if let Some(p) = progress.as_mut() {
+                p(ScanProgress::Walking { found: base + n });
+            }
+        };
+        found.extend(audio_files_in_source(dir, &root, &roots, &mut report));
+    }
     found.extend(
         coverage
             .files
@@ -402,7 +444,15 @@ fn reconcile_watched(
     let mut rows = None;
     let mut matched = HashSet::new();
 
-    for path in found {
+    let total = found.len();
+    for (index, path) in found.into_iter().enumerate() {
+        if let Some(p) = progress.as_mut() {
+            p(ScanProgress::Reading {
+                current: index + 1,
+                total,
+                path: path.clone(),
+            });
+        }
         let Some(stat) = file_stat(Path::new(&path)) else {
             continue;
         };
@@ -502,21 +552,36 @@ pub(crate) fn is_hidden_below(path: &Path, root: &Path) -> bool {
 /// descending into hidden folders, the Spiral folder's data (a source may
 /// contain the Spiral folder) or another source nested in it. Empty when
 /// `dir` is not a folder.
-fn audio_files_in_source(dir: &Path, root: &Path, roots: &LibraryRoots) -> Vec<String> {
-    walkdir::WalkDir::new(dir)
+fn audio_files_in_source(
+    dir: &Path,
+    root: &Path,
+    roots: &LibraryRoots,
+    on_found: &mut dyn FnMut(usize),
+) -> Vec<String> {
+    let mut files = Vec::new();
+    let mut last_report = Instant::now();
+    on_found(0);
+    let entries = walkdir::WalkDir::new(dir)
         .follow_links(false)
         .into_iter()
         .filter_entry(|e| {
             !(is_hidden_below(e.path(), root)
                 || e.file_type().is_dir() && sources::is_outside_source_walk(e.path(), root, roots))
         })
-        .filter_map(Result::ok)
+        .filter_map(Result::ok);
+    for e in entries {
         // `is_file` follows symlinks to files, as `file_scan` does.
-        .filter(|e| {
-            !e.file_type().is_dir() && e.path().is_file() && is_supported_audio_file(e.path())
-        })
-        .map(|e| e.path().to_string_lossy().into_owned())
-        .collect()
+        if !e.file_type().is_dir() && e.path().is_file() && is_supported_audio_file(e.path()) {
+            files.push(e.path().to_string_lossy().into_owned());
+        }
+        // A slow (network) folder can take long to walk even when it has few
+        // audio files, so report by time, not by count.
+        if last_report.elapsed() >= WALK_REPORT_EVERY {
+            last_report = Instant::now();
+            on_found(files.len());
+        }
+    }
+    files
 }
 
 fn read_track(ctx: &ScanContext, path: &str) -> Result<crate::models::TrackInput, String> {
@@ -774,6 +839,36 @@ mod tests {
             moved,
             ..summary(source_id, 0, 0, 0, 0)
         }
+    }
+
+    #[test]
+    fn reports_each_file_it_reads_with_the_total() {
+        let fx = Fixture::new("progress");
+        let id = fx.watch("Collection");
+        let a = fx.wav("Collection/a.wav");
+        let b = fx.wav("Collection/Artist/b.wav");
+        fs::write(fx.path("Collection/notes.txt"), b"hi").unwrap();
+
+        let mut seen = Vec::new();
+        let mut report = |p: ScanProgress| seen.push(p);
+        reconcile_source_with_progress(&fx.db, &fx.ctx, id, ReconcileScope::All, Some(&mut report))
+            .unwrap();
+
+        // The walk reports before the reads do.
+        assert_eq!(seen.first(), Some(&ScanProgress::Walking { found: 0 }));
+        let reading: Vec<_> = seen
+            .into_iter()
+            .filter_map(|p| match p {
+                ScanProgress::Reading {
+                    current,
+                    total,
+                    path,
+                } => Some((current, total, path)),
+                ScanProgress::Walking { .. } => None,
+            })
+            .collect();
+        // Files are read in sorted path order.
+        assert_eq!(reading, vec![(1, 2, s(&b)), (2, 2, s(&a))]);
     }
 
     #[test]

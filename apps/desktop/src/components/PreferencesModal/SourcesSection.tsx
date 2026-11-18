@@ -4,7 +4,6 @@ import { useShortenHomePath } from "@/lib/files/homePath";
 import {
   countTracksBySource,
   describeSourceError,
-  sourceDisplayName,
 } from "@/lib/files/sourceAccess";
 import {
   addSource,
@@ -14,8 +13,6 @@ import {
   revealPathInFileManager,
   setImportSource,
 } from "@/lib/tauri";
-import { sourceScanPayload } from "@/lib/toast/toastPayloads";
-import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { useSourcesStore } from "@/store/useSourcesStore";
 import type { Source } from "@/types/source";
@@ -47,7 +44,6 @@ export function SourcesSection() {
   const displayPath = useShortenHomePath();
 
   const [busyId, setBusyId] = useState<number | "add" | "managed" | null>(null);
-  const [rescanningId, setRescanningId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Source | null>(null);
   // The folder just added, whose dialog finishes adding it (Cancel undoes).
@@ -107,18 +103,12 @@ export function SourcesSection() {
       await usePlayerStore.getState().loadLibrary({ preservePlayback: true });
     });
 
+  // The scan's progress and result toast come from its events, so they
+  // outlive this section (see `sourceScanTracker`).
   const rescan = (source: Source) =>
     run(source.id, async () => {
-      setRescanningId(source.id);
-      try {
-        const summary = await rescanSource(source.id);
-        useBackgroundTasksStore
-          .getState()
-          .showToast(sourceScanPayload(sourceDisplayName(source), summary));
-        await loadStatuses();
-      } finally {
-        setRescanningId(null);
-      }
+      await rescanSource(source.id);
+      await loadStatuses();
     });
 
   const reveal = async (source: Source) => {
@@ -171,7 +161,6 @@ export function SourcesSection() {
               source={source}
               count={counts.get(source.id) ?? { total: 0, missing: 0 }}
               offline={isOffline(source)}
-              rescanning={rescanningId === source.id}
               busy={busy}
               onEdit={() => {
                 setError(null);

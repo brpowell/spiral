@@ -17,6 +17,7 @@ import {
   IconRefresh,
 } from "@/components/icons";
 import { MenuButton } from "@/components/MenuButton/MenuButton";
+import { useSourceScansStore } from "@/store/useSourceScansStore";
 import "./SourcesSection.css";
 
 interface SourceCardProps {
@@ -24,8 +25,6 @@ interface SourceCardProps {
   /** Its tracks, and how many of those are missing. */
   count: { total: number; missing: number };
   offline?: boolean;
-  /** Shows "Scanning…" in place of the counts. */
-  rescanning?: boolean;
   /** Disables the menu while another action runs. */
   busy?: boolean;
   /** Each action shows in the menu only when it's given. */
@@ -47,7 +46,6 @@ export function SourceCard({
   source,
   count,
   offline = false,
-  rescanning = false,
   busy = false,
   onEdit,
   onMakeDefault,
@@ -60,13 +58,27 @@ export function SourceCard({
   const displayPath = useShortenHomePath();
   // The path is what identifies a folder; the name only labels its menu.
   const name = sourceDisplayName(source);
+  // A scan in progress (first scan or rescan) shows in place of the counts.
+  const rescanning = useSourceScansStore((s) => s.scanning.has(source.id));
+  const progress = useSourceScansStore((s) => s.progress[source.id]);
 
   /** Track count, then default, missing and offline inline after it. */
   const renderMeta = () => {
     if (rescanning) {
       return (
         <p className="sources-section__meta" role="status">
-          {t("preferences:sources.rescanning")}
+          {progress?.phase === "walking"
+            ? progress.found > 0
+              ? t("preferences:sources.finding", {
+                  found: progress.found.toLocaleString(),
+                })
+              : t("preferences:sources.findingStart")
+            : progress?.phase === "reading"
+              ? t("preferences:sources.scanProgress", {
+                  current: progress.current.toLocaleString(),
+                  total: progress.total.toLocaleString(),
+                })
+              : t("preferences:sources.rescanning")}
         </p>
       );
     }

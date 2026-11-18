@@ -50,6 +50,7 @@ import {
   ITEM_UPDATES_CHANGED_EVENT,
 } from "./lib/windows/appearanceWindow";
 import { openAboutWindow } from "./lib/windows/aboutWindow";
+import { startSourceScanTracking } from "./lib/files/sourceScanTracker";
 import { LIBRARY_TRACKS_CHANGED_EVENT } from "./lib/tauri";
 import { useSourcesStore } from "./store/useSourcesStore";
 import { openEqualizerWindow } from "./lib/equalizer/equalizerWindow";
@@ -221,9 +222,11 @@ function App() {
       if (cancelled) fn();
       else unlisten = fn;
     });
+    const stopScanTracking = startSourceScanTracking();
     return () => {
       cancelled = true;
       unlisten?.();
+      stopScanTracking();
     };
   }, []);
 

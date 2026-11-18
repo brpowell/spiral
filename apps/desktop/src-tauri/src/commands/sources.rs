@@ -1,16 +1,95 @@
 use crate::commands::library::DbState;
 use crate::path_scope;
 use crate::settings;
-use crate::source_scan::{self, ReconcileScope, ReconcileSummary, ScanContext};
+use crate::source_scan::{self, ReconcileScope, ReconcileSummary, ScanContext, ScanProgress};
 use crate::source_watch;
 use crate::sources::{self, LibraryRoots, Source};
 use std::path::Path;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 /// Emitted after a source's tracks changed on disk or the source itself was
 /// added, moved or removed, so the library view reloads. The payload is the
 /// [`ReconcileSummary`] for reconcile passes and `{ sourceId }` otherwise.
 pub const LIBRARY_TRACKS_CHANGED_EVENT: &str = "library://tracks-changed";
+
+/// Emitted as a source's scan (the first one after adding it, or a rescan)
+/// starts, reports progress and ends, so the UI can show it in progress.
+pub const SOURCE_SCAN_EVENT: &str = "library://source-scan";
+
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SourceScanEvent {
+    source_id: i64,
+    /// `started`, `progress`, or `finished` (with `summary` unless the scan
+    /// errored).
+    phase: &'static str,
+    summary: Option<ReconcileSummary>,
+    progress: Option<ScanProgress>,
+    /// True for the startup pass, which nobody asked for.
+    background: bool,
+}
+
+/// Least time between progress events while reading files.
+const PROGRESS_EVERY: Duration = Duration::from_millis(100);
+
+/// A scan that's running now, for a window that opened after it started
+/// (the startup scan begins before the UI is listening).
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveScan {
+    source_id: i64,
+    background: bool,
+    progress: Option<ScanProgress>,
+}
+
+static ACTIVE_SCANS: Mutex<Vec<ActiveScan>> = Mutex::new(Vec::new());
+
+fn track_active_scan(event: &SourceScanEvent) {
+    let mut active = ACTIVE_SCANS.lock().unwrap_or_else(|e| e.into_inner());
+    match event.phase {
+        "started" => {
+            active.retain(|a| a.source_id != event.source_id);
+            active.push(ActiveScan {
+                source_id: event.source_id,
+                background: event.background,
+                progress: None,
+            });
+        }
+        "progress" => {
+            if let Some(a) = active.iter_mut().find(|a| a.source_id == event.source_id) {
+                a.progress = event.progress.clone();
+            }
+        }
+        _ => active.retain(|a| a.source_id != event.source_id),
+    }
+}
+
+/// The scans running now, with how far each has got.
+#[tauri::command]
+pub fn get_active_scans() -> Vec<ActiveScan> {
+    ACTIVE_SCANS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+}
+
+fn emit_source_scan(app: &AppHandle, event: SourceScanEvent) {
+    track_active_scan(&event);
+    if let Err(err) = app.emit(SOURCE_SCAN_EVENT, event) {
+        eprintln!("emit {SOURCE_SCAN_EVENT}: {err}");
+    }
+}
+
+/// The first scan of a source just added, in the background.
+fn spawn_initial_scan(app: AppHandle, id: i64) {
+    tauri::async_runtime::spawn(async move {
+        if let Err(err) = reconcile_in_background(app, id).await {
+            eprintln!("initial scan of source {id}: {err}");
+        }
+    });
+}
 
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,15 +133,77 @@ pub fn reconcile_and_notify(
     Ok(summary)
 }
 
+/// Reconcile a whole source, announcing its start, progress and end to the UI.
+/// `background` marks a scan the user didn't ask for (the startup pass), which
+/// the UI shows on the folder's card but doesn't announce with a toast unless
+/// it runs long. Blocking.
+fn scan_source_with_events(
+    app: &AppHandle,
+    source_id: i64,
+    background: bool,
+) -> Result<ReconcileSummary, String> {
+    emit_source_scan(
+        app,
+        SourceScanEvent {
+            source_id,
+            phase: "started",
+            summary: None,
+            progress: None,
+            background,
+        },
+    );
+    let result = (|| {
+        let ctx = scan_context(app)?;
+        let state = app.state::<DbState>();
+        let mut last = Instant::now() - PROGRESS_EVERY;
+        let mut report = |progress: ScanProgress| {
+            let reading = matches!(progress, ScanProgress::Reading { .. });
+            if reading && last.elapsed() < PROGRESS_EVERY {
+                return;
+            }
+            last = Instant::now();
+            emit_source_scan(
+                app,
+                SourceScanEvent {
+                    source_id,
+                    phase: "progress",
+                    summary: None,
+                    progress: Some(progress),
+                    background,
+                },
+            );
+        };
+        let summary = source_scan::reconcile_source_with_progress(
+            &state.0,
+            &ctx,
+            source_id,
+            ReconcileScope::All,
+            Some(&mut report),
+        )?;
+        emit_if_changed(app, &summary);
+        Ok(summary)
+    })();
+    emit_source_scan(
+        app,
+        SourceScanEvent {
+            source_id,
+            phase: "finished",
+            summary: result.as_ref().ok().cloned(),
+            progress: None,
+            background,
+        },
+    );
+    result
+}
+
 async fn reconcile_in_background(
     app: AppHandle,
     source_id: i64,
 ) -> Result<ReconcileSummary, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        reconcile_and_notify(&app, source_id, ReconcileScope::All)
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || scan_source_with_events(&app, source_id, false))
+        .await
+        .map_err(|e| e.to_string())
+        .and_then(|r| r)
 }
 
 /// Startup, and after the library is switched or moved: let the webview reach
@@ -86,16 +227,21 @@ pub fn init(app: &AppHandle) {
 
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let ctx = match scan_context(&app) {
-            Ok(ctx) => ctx,
+        let state = app.state::<DbState>();
+        source_scan::merge_duplicate_rows(&state.0);
+        let ids = match sources::list_sources(&state.0.lock().unwrap_or_else(|e| e.into_inner())) {
+            Ok(list) => list.into_iter().map(|s| s.id).collect::<Vec<_>>(),
             Err(err) => {
-                eprintln!("startup reconcile: {err}");
+                eprintln!("reconcile sources: {err}");
                 return;
             }
         };
-        let state = app.state::<DbState>();
-        for summary in source_scan::reconcile_all(&state.0, &ctx) {
-            emit_if_changed(&app, &summary);
+        // Each source's scan shows its progress, so one the last run didn't
+        // finish picks up where it left off: files already read are skipped.
+        for id in ids {
+            if let Err(err) = scan_source_with_events(&app, id, true) {
+                eprintln!("reconcile source {id}: {err}");
+            }
         }
     });
 }
@@ -179,12 +325,7 @@ pub async fn add_source(
     emit_source_changed(&app, source.id);
     source_watch::sync(&app);
 
-    let id = source.id;
-    tauri::async_runtime::spawn(async move {
-        if let Err(err) = reconcile_in_background(app, id).await {
-            eprintln!("initial scan of source {id}: {err}");
-        }
-    });
+    spawn_initial_scan(app, source.id);
     Ok(source)
 }
 

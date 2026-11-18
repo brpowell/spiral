@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
+import { useSourceScansStore } from "@/store/useSourceScansStore";
 import { useSourcesStore } from "@/store/useSourcesStore";
 import type { LibrarySettings } from "@/types/library";
 import type { FilePlanSummary, Source } from "@/types/source";
@@ -259,29 +260,17 @@ describe("SourcesSection", () => {
   });
 
   it("rescans from the menu", async () => {
-    const original = useBackgroundTasksStore.getState().showToast;
-    const showToast = vi.fn();
-    useBackgroundTasksStore.setState({ showToast });
-    tauri.rescanSource.mockResolvedValue({
-      added: 1,
-      updated: 0,
-      moved: 2,
-      missing: 0,
-      restored: 0,
-      failed: 0,
-    });
+    tauri.rescanSource.mockResolvedValue({});
     await renderSection();
     chooseFromMenu("Music", /Rescan/);
     await waitFor(() => expect(tauri.rescanSource).toHaveBeenCalledWith(3));
-    await waitFor(() =>
-      expect(showToast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          label: "“Music” scanned",
-          detail: "1 added, 2 moved",
-        }),
-      ),
-    );
-    useBackgroundTasksStore.setState({ showToast: original });
+  });
+
+  it("shows a scan that's already running when it opens", async () => {
+    useSourceScansStore.getState().begin(3);
+    await renderSection();
+    expect(screen.getByRole("status").textContent).toContain("Scanning");
+    useSourceScansStore.getState().end(3);
   });
 
   it("has no writable switch or read-only badge", async () => {
