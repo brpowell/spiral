@@ -472,6 +472,11 @@ fn reconcile_watched(
     found.dedup();
 
     let mut known = known_tracks(&lock(db), source_id, Some(&coverage))?;
+    // Files the user removed from the library but left on disk: a file with
+    // no row that is one of these is not added back.
+    let removed = db::removed_tracks(&lock(db), source_id).map_err(|e| e.to_string())?;
+    let removed_keys: HashSet<&str> = removed.iter().map(|(_, key)| key.as_str()).collect();
+    let mut seen_removed: HashSet<String> = HashSet::new();
     let mut summary = ReconcileSummary::new(source_id);
     // Loaded the first time a file has no row under its exact path.
     let mut rows = None;
@@ -523,6 +528,14 @@ fn reconcile_watched(
             }
             if let Some(track) = &row {
                 matched.insert(track.id);
+            } else if !removed_keys.is_empty() {
+                let key = sources::relative_to(Path::new(&path), &root)
+                    .map(|rel| track_identity::path_key(&rel));
+                if let Some(key) = key.filter(|k| removed_keys.contains(k.as_str())) {
+                    seen_removed.insert(key);
+                    done += 1;
+                    continue;
+                }
             }
             // A NULL stat predates change tracking: record it and trust the
             // row, rather than re-reading every file once.
@@ -625,6 +638,23 @@ fn reconcile_watched(
             });
         }
     }
+
+    // A removed file that is gone from disk is forgotten, so a new file at
+    // that path is added like any other. Only a file that is certainly absent
+    // counts: one this pass didn't see because a read failed, or a folder
+    // wouldn't open, is still there, and forgetting it would let it come back.
+    let conn = lock(db);
+    for (rel_path, key) in &removed {
+        let path = sources::join_rel_path(&root, rel_path);
+        if !seen_removed.contains(key)
+            && coverage.contains(&path)
+            && std::fs::symlink_metadata(&path)
+                .is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound)
+        {
+            db::clear_removed_track(&conn, source_id, rel_path).map_err(|e| e.to_string())?;
+        }
+    }
+    drop(conn);
 
     let gone: Vec<i64> = known
         .values()
@@ -1603,5 +1633,83 @@ mod tests {
         assert_eq!(fx.tracks(keep), vec![(s(&k), "k".into(), false)]);
         // A reconcile of the removed source fails instead of recreating it.
         assert!(reconcile_source(&fx.db, &fx.ctx, id, ReconcileScope::All).is_err());
+    }
+
+    #[test]
+    fn removed_file_is_not_added_back_until_restored() {
+        let fx = Fixture::new("removed-skip");
+        let id = fx.watch("Music/Folder");
+        let song = fx.wav("Music/Folder/Sub/Song.wav");
+        fx.wav("Music/Folder/Other.wav");
+        fx.reconcile(id);
+        let track = fx.track_id(&song);
+
+        assert!(db::delete_track_keep_excluded(&lock(&fx.db), track)
+            .unwrap()
+            .is_some());
+        let summary = fx.reconcile(id);
+        assert_eq!(summary.added, 0);
+        assert_eq!(fx.tracks(id).len(), 1);
+        // Also by a watcher-style pass over just that file.
+        assert_eq!(fx.reconcile_paths(id, &[song.clone()]).added, 0);
+        assert_eq!(fx.tracks(id).len(), 1);
+
+        db::clear_removed_track(&lock(&fx.db), id, "Sub/Song.wav").unwrap();
+        assert_eq!(fx.reconcile(id).added, 1);
+        assert_eq!(fx.tracks(id).len(), 2);
+    }
+
+    #[test]
+    fn removed_file_is_forgotten_once_it_is_gone_from_disk() {
+        let fx = Fixture::new("removed-gone");
+        let id = fx.watch("Music/Folder");
+        let song = fx.wav("Music/Folder/Song.wav");
+        fx.reconcile(id);
+        let track = fx.track_id(&song);
+        db::delete_track_keep_excluded(&lock(&fx.db), track).unwrap();
+
+        fs::remove_file(&song).unwrap();
+        fx.reconcile(id);
+        assert!(db::removed_tracks(&lock(&fx.db), id).unwrap().is_empty());
+
+        // A new file at that path is added like any other.
+        fx.wav("Music/Folder/Song.wav");
+        assert_eq!(fx.reconcile(id).added, 1);
+    }
+
+    #[test]
+    fn removing_a_source_forgets_its_removed_files() {
+        let fx = Fixture::new("removed-cascade");
+        let id = fx.watch("Music/Folder");
+        fx.watch("Music/Keep");
+        let song = fx.wav("Music/Folder/Song.wav");
+        fx.reconcile(id);
+        let track = fx.track_id(&song);
+        db::delete_track_keep_excluded(&lock(&fx.db), track).unwrap();
+        assert_eq!(db::removed_tracks(&lock(&fx.db), id).unwrap().len(), 1);
+
+        sources::remove_source(&lock(&fx.db), id).unwrap();
+        let left: i64 = lock(&fx.db)
+            .query_row("SELECT COUNT(*) FROM removed_tracks", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(left, 0);
+    }
+
+    #[test]
+    fn removed_file_is_kept_when_a_scan_did_not_see_it_but_it_is_still_there() {
+        let fx = Fixture::new("removed-unseen");
+        let id = fx.watch("Music/Folder");
+        fx.wav("Music/Folder/Other.wav");
+        // Never walked (hidden folder), but on disk and within the scan.
+        fx.wav("Music/Folder/.hidden/Song.wav");
+        lock(&fx.db)
+            .execute(
+                "INSERT INTO removed_tracks (source_id, rel_path, path_key, removed_at)
+                 VALUES (?1, '.hidden/Song.wav', '.hidden/song.wav', 'now')",
+                params![id],
+            )
+            .unwrap();
+        fx.reconcile(id);
+        assert_eq!(db::removed_tracks(&lock(&fx.db), id).unwrap().len(), 1);
     }
 }

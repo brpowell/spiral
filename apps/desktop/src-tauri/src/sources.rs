@@ -125,7 +125,7 @@ pub fn spiral_folder(conn: &Connection) -> Result<Option<PathBuf>, rusqlite::Err
 
 /// `path` relative to `root`, with `/` separators, comparing each as given
 /// and with symlinks resolved. `None` when `path` is not strictly inside it.
-fn relative_to(path: &Path, root: &Path) -> Option<String> {
+pub(crate) fn relative_to(path: &Path, root: &Path) -> Option<String> {
     let roots = path_forms(root);
     let rel = path_forms(path).into_iter().find_map(|p| {
         roots

@@ -58,6 +58,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "genre_settings",
         up: genre_settings,
     },
+    Migration {
+        version: 6,
+        name: "removed_tracks",
+        up: removed_tracks,
+    },
 ];
 
 fn latest_version() -> i64 {
@@ -561,6 +566,20 @@ fn genre_settings(conn: &Connection) -> Result<(), rusqlite::Error> {
     )
 }
 
+/// Files a user removed from the library but left on disk, so rescans don't
+/// add them back. Deleted with their source.
+fn removed_tracks(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute_batch(
+        "CREATE TABLE removed_tracks (
+            source_id INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+            rel_path TEXT NOT NULL,
+            path_key TEXT NOT NULL,
+            removed_at TEXT NOT NULL,
+            PRIMARY KEY (source_id, path_key)
+        );",
+    )
+}
+
 fn library_sources(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.execute_batch(
         "CREATE TABLE sources (
@@ -1010,12 +1029,15 @@ mod tests {
             } else {
                 before
             };
-            // v4 and v5 add empty tables.
+            // v4, v5 and v6 add empty tables.
             if from < 4 {
                 expected.push(("track_lyrics_attempts".to_string(), 0));
             }
             if from < 5 {
                 expected.push(("genre_settings".to_string(), 0));
+            }
+            if from < 6 {
+                expected.push(("removed_tracks".to_string(), 0));
             }
             expected.sort();
 

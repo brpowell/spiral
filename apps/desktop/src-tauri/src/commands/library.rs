@@ -193,6 +193,13 @@ pub fn save_track(
         &LibraryRoots::from_settings(&library),
         Path::new(&track.file_path),
     )?;
+    // Importing a file on purpose brings back one the user removed earlier.
+    if let Ok(rel_path) = sources::SourceRoots::load(&conn)
+        .map_err(|e| e.to_string())
+        .and_then(|roots| roots.relative_path(source_id, Path::new(&track.file_path)))
+    {
+        db::clear_removed_track(&conn, source_id, &rel_path).map_err(|e| e.to_string())?;
+    }
     let id = db::save_track(&conn, &track, source_id).map_err(|e| {
         eprintln!("save_track error: {e}");
         e.to_string()
@@ -431,12 +438,28 @@ pub fn remove_track(
         let track = db::get_track_by_id(&conn, track_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("Track {track_id} not found"))?;
-        db::delete_track(&conn, track_id).map_err(|e| e.to_string())?;
+        // The file may stay on disk, so remember it as removed first: rescanning
+        // its source then doesn't add it back, even when trashing it fails.
+        // A track marked missing has no file to remember.
+        let remembered = if track.missing_since.is_some() {
+            db::delete_track(&conn, track_id)
+                .map(|_| None)
+                .map_err(|e| e.to_string())?
+        } else {
+            db::delete_track_keep_excluded(&conn, track_id).map_err(|e| e.to_string())?
+        };
         let file = if delete_from_disk {
             delete_removed_track_file(&conn, &track, settings::lyrics_sidecar_sync_enabled(&app))?
         } else {
             RemovedFile::NotRequested
         };
+        // The file is gone, so there is nothing left to skip.
+        if let (Some(rel_path), RemovedFile::Trashed | RemovedFile::NotFound) = (&remembered, &file)
+        {
+            if let Err(err) = db::clear_removed_track(&conn, track.source_id, rel_path) {
+                eprintln!("clear removed track after trashing: {err}");
+            }
+        }
         (track, file)
     };
 

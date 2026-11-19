@@ -693,6 +693,70 @@ pub fn delete_track(conn: &Connection, id: i64) -> Result<bool, rusqlite::Error>
     Ok(deleted > 0)
 }
 
+/// Remove a track and remember its file as removed from the library, so a
+/// rescan of its source doesn't add it back. Use when the file may stay on
+/// disk. Returns the file's path relative to its source, or `None` when
+/// there was no such track.
+pub fn delete_track_keep_excluded(
+    conn: &Connection,
+    id: i64,
+) -> Result<Option<String>, rusqlite::Error> {
+    let tx = conn.unchecked_transaction()?;
+    let row: Option<(i64, String)> = tx
+        .query_row(
+            "SELECT source_id, rel_path FROM tracks WHERE id = ?1",
+            params![id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?;
+    let Some((source_id, rel_path)) = row else {
+        return Ok(None);
+    };
+    tx.execute("DELETE FROM tracks WHERE id = ?1", params![id])?;
+    tx.execute(
+        "INSERT OR REPLACE INTO removed_tracks (source_id, rel_path, path_key, removed_at)
+         VALUES (?1, ?2, ?3, ?4)",
+        params![
+            source_id,
+            rel_path,
+            crate::track_identity::path_key(&rel_path),
+            Utc::now().to_rfc3339()
+        ],
+    )?;
+    tx.commit()?;
+    Ok(Some(rel_path))
+}
+
+/// The files of `source_id` the user removed from the library, oldest removal
+/// first, as `(path relative to the source, path_key of it)`.
+pub fn removed_tracks(
+    conn: &Connection,
+    source_id: i64,
+) -> Result<Vec<(String, String)>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT rel_path, path_key FROM removed_tracks
+         WHERE source_id = ?1 ORDER BY removed_at, rel_path",
+    )?;
+    let rows = stmt
+        .query_map(params![source_id], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .collect::<Result<_, _>>()?;
+    Ok(rows)
+}
+
+/// Forget that `rel_path` was removed from `source_id`, so it can be added
+/// again. Returns whether it was remembered.
+pub fn clear_removed_track(
+    conn: &Connection,
+    source_id: i64,
+    rel_path: &str,
+) -> Result<bool, rusqlite::Error> {
+    let cleared = conn.execute(
+        "DELETE FROM removed_tracks WHERE source_id = ?1 AND path_key = ?2",
+        params![source_id, crate::track_identity::path_key(rel_path)],
+    )?;
+    Ok(cleared > 0)
+}
+
 fn playlist_track_ids(conn: &Connection, playlist_id: i64) -> Result<Vec<i64>, rusqlite::Error> {
     let mut stmt = conn.prepare(
         "SELECT track_id FROM playlist_tracks
