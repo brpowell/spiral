@@ -717,7 +717,8 @@ mod tests {
     }
 
     fn with_clean_sessions<R>(f: impl FnOnce() -> R) -> R {
-        let _guard = TEST_LOCK.lock().expect("test lock poisoned");
+        // One failing test mustn't fail every other one with a poisoned lock.
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         stop_all();
         let result = f();
         stop_all();
@@ -817,8 +818,9 @@ mod tests {
                 assert!(Instant::now() < deadline, "live session never beat");
                 thread::sleep(Duration::from_millis(5));
             }
-            // Just past the stuck one's limit, within the live one's.
-            let later = at + STALL_AFTER.as_millis() as u64 + 1;
+            // Exactly at the stuck one's limit, so within the live one's: its
+            // last beat may be just 1ms newer.
+            let later = at + STALL_AFTER.as_millis() as u64;
 
             let reported = take_stalled(&mut SESSIONS.lock().unwrap(), later);
             assert_eq!(reported.len(), 1);
