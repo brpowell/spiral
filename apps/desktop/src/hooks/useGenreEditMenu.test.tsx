@@ -1,7 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Genre } from "@/lib/genres/genres";
+import { usePlaylistStore } from "@/store/usePlaylistStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
+import type { Playlist } from "@/types/playlist";
 import type { Track } from "@/types/track";
 import { useGenreEditMenu } from "./useGenreEditMenu";
 
@@ -64,5 +66,23 @@ describe("useGenreEditMenu", () => {
     openMenu();
     expect(screen.getByRole("menuitem", { name: "Edit Genre" })).toBeTruthy();
     expect(screen.queryByRole("menuitem", { name: "Play All" })).toBeNull();
+  });
+
+  it("adds all of the genre's tracks to a chosen playlist", async () => {
+    const addTracksToPlaylist = vi.fn().mockResolvedValue(undefined);
+    usePlayerStore.setState({ library: genre.tracks });
+    usePlaylistStore.setState({
+      playlists: [{ id: 9, title: "Mix", trackIds: [] } as unknown as Playlist],
+      addTracksToPlaylist,
+    });
+    render(<Harness value={genre} />);
+    openMenu();
+    fireEvent.mouseEnter(
+      screen.getByRole("menuitem", { name: /Add to Playlist/ }).parentElement!,
+    );
+    fireEvent.click(screen.getAllByRole("menuitem", { name: "Mix" })[0]);
+    await waitFor(() =>
+      expect(addTracksToPlaylist).toHaveBeenCalledWith(9, [7, 3, 9]),
+    );
   });
 });

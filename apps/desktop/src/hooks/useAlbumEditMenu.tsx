@@ -1,12 +1,15 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
+import { AddToPlaylistSubmenu } from "@/components/AddToPlaylistSubmenu/AddToPlaylistSubmenu";
 import {
   ContextMenu,
   ContextMenuItem,
+  ContextMenuSeparator,
 } from "@/components/ContextMenu/ContextMenu";
 import {
   IconAddToQueue,
   IconConvert,
   IconPencil,
+  IconPlay,
   IconRemoveFromQueue,
 } from "@/components/icons";
 import { openConvertForTrackIds } from "@/lib/files/convertTracks";
@@ -19,6 +22,7 @@ import { useContextMenu } from "./useContextMenu";
 export function useAlbumEditMenu(album: Album) {
   const manualQueueIds = usePlayerStore((s) => s.manualQueueIds);
   const openAlbumEditor = usePlayerStore((s) => s.openAlbumEditor);
+  const playTracks = usePlayerStore((s) => s.playTracks);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const removeFromQueue = usePlayerStore((s) => s.removeFromQueue);
 
@@ -33,9 +37,11 @@ export function useAlbumEditMenu(album: Album) {
     isTrackConvertible(track),
   ).length;
 
+  const submenuPanelRef = useRef<HTMLDivElement>(null);
   const { onContextMenu, closeMenu, open, anchor, position, menuRef } =
     useContextMenu({
       layoutDeps: [anyInQueue, trackCount, convertibleCount],
+      dismissExcludeRefs: [submenuPanelRef],
     });
 
   const openEditor = useCallback(() => {
@@ -55,6 +61,17 @@ export function useAlbumEditMenu(album: Album) {
         label={t("library:actions.editAlbum")}
         onClick={openEditor}
       />
+      {trackCount > 0 ? <ContextMenuSeparator /> : null}
+      {trackCount > 0 ? (
+        <ContextMenuItem
+          icon={<IconPlay />}
+          label={t("library:actions.playAll")}
+          onClick={() => {
+            closeMenu();
+            void playTracks(albumTrackIds, albumTrackIds[0]);
+          }}
+        />
+      ) : null}
       {trackCount > 0 ? (
         <ContextMenuItem
           icon={<IconAddToQueue />}
@@ -75,6 +92,14 @@ export function useAlbumEditMenu(album: Album) {
               if (manualQueueIds.includes(id)) removeFromQueue(id);
             }
           }}
+        />
+      ) : null}
+      {trackCount > 0 ? <ContextMenuSeparator /> : null}
+      {trackCount > 0 ? (
+        <AddToPlaylistSubmenu
+          trackIds={albumTrackIds}
+          closeMenu={closeMenu}
+          panelRef={submenuPanelRef}
         />
       ) : null}
       {convertibleCount > 0 ? (

@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/common/Button/Button";
-import { ContextMenuItem } from "@/components/ContextMenu/ContextMenu";
+import { AddToPlaylistSubmenu } from "@/components/AddToPlaylistSubmenu/AddToPlaylistSubmenu";
+import {
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from "@/components/ContextMenu/ContextMenu";
 import { MenuButton } from "@/components/MenuButton/MenuButton";
 import { TrackList } from "@/components/TrackList/TrackList";
 import {
@@ -13,10 +17,13 @@ import type { TrackListSortField } from "@/components/TrackList/types";
 import {
   IconAddToQueue,
   IconBack,
+  IconConvert,
   IconPencil,
   IconPlay,
 } from "@/components/icons";
 import { albumTotalDurationSeconds } from "@/lib/albums/albums";
+import { openConvertForTrackIds } from "@/lib/files/convertTracks";
+import { isTrackConvertible } from "@/lib/import/pendingImportTrack";
 import { formatDurationNatural } from "@/lib/format/format";
 import { GenreCover } from "@/components/GenreArt/GenreCover";
 import { useGenreLook } from "@/hooks/useGenreLook";
@@ -52,6 +59,7 @@ export function GenreDetailView({ genres, genreKey }: GenreDetailViewProps) {
   const updateTrackInLibrary = usePlayerStore((s) => s.updateTrackInLibrary);
   const look = useGenreLook(getGenreByKey(genres, genreKey) ?? EMPTY_GENRE);
   const [sort, setSort] = useState<SortState>(null);
+  const playlistSubmenuRef = useRef<HTMLDivElement>(null);
 
   const genre = getGenreByKey(genres, genreKey);
 
@@ -87,6 +95,10 @@ export function GenreDetailView({ genres, genreKey }: GenreDetailViewProps) {
   );
 
   if (!genre) return null;
+
+  const convertibleCount = tracks.filter((track) =>
+    isTrackConvertible(track),
+  ).length;
 
   const handlePlayAll = () => {
     const first = tracks[0];
@@ -137,7 +149,8 @@ export function GenreDetailView({ genres, genreKey }: GenreDetailViewProps) {
                 </Button>
                 <MenuButton
                   ariaLabel={t("views.genres.actionsAria")}
-                  layoutDeps={[tracks.length]}
+                  layoutDeps={[tracks.length, convertibleCount]}
+                  dismissExcludeRefs={[playlistSubmenuRef]}
                   size="sm"
                   triggerPlacement="below-start"
                   variant="secondary"
@@ -160,6 +173,24 @@ export function GenreDetailView({ genres, genreKey }: GenreDetailViewProps) {
                           addToQueue(trackIds);
                         }}
                       />
+                      <ContextMenuSeparator />
+                      <AddToPlaylistSubmenu
+                        trackIds={trackIds}
+                        closeMenu={close}
+                        panelRef={playlistSubmenuRef}
+                      />
+                      {convertibleCount > 0 ? (
+                        <ContextMenuItem
+                          icon={<IconConvert />}
+                          label={t("actions.convert", {
+                            count: convertibleCount,
+                          })}
+                          onClick={() => {
+                            close();
+                            openConvertForTrackIds(trackIds);
+                          }}
+                        />
+                      ) : null}
                     </>
                   )}
                 </MenuButton>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import {
   useContextMenu,
   type ContextMenuTriggerPlacement,
@@ -41,6 +41,8 @@ export interface MenuButtonProps {
   triggerPlacement?: ContextMenuTriggerPlacement;
   /** Called when the menu opens or closes (however it closes). */
   onOpenChange?: (open: boolean) => void;
+  /** Extra elements (e.g. a submenu flyout panel) that don't dismiss the menu when clicked. */
+  dismissExcludeRefs?: RefObject<HTMLElement | null>[];
 }
 
 export function MenuButton({
@@ -58,6 +60,7 @@ export function MenuButton({
   title,
   triggerPlacement = "below-end",
   onOpenChange,
+  dismissExcludeRefs = [],
 }: MenuButtonProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const {
@@ -70,7 +73,7 @@ export function MenuButton({
     closeMenu,
   } = useContextMenu({
     layoutDeps,
-    dismissExcludeRefs: [triggerRef],
+    dismissExcludeRefs: [triggerRef, ...dismissExcludeRefs],
     triggerPlacement,
   });
 
