@@ -8,6 +8,7 @@ import {
 import {
   IconAddToQueue,
   IconConvert,
+  IconDelete,
   IconPencil,
   IconPlay,
   IconRemoveFromQueue,
@@ -18,6 +19,7 @@ import { isTrackConvertible } from "@/lib/import/pendingImportTrack";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { Album } from "@/types/album";
 import { useContextMenu } from "./useContextMenu";
+import { useRemoveTracksDialog } from "./useRemoveTracksDialog";
 
 export function useAlbumEditMenu(album: Album) {
   const manualQueueIds = usePlayerStore((s) => s.manualQueueIds);
@@ -37,6 +39,9 @@ export function useAlbumEditMenu(album: Album) {
     isTrackConvertible(track),
   ).length;
 
+  const { openRemoveDialog, removeDialog } = useRemoveTracksDialog(
+    album.tracks,
+  );
   const submenuPanelRef = useRef<HTMLDivElement>(null);
   const { onContextMenu, closeMenu, open, anchor, position, menuRef } =
     useContextMenu({
@@ -50,69 +55,88 @@ export function useAlbumEditMenu(album: Album) {
   }, [closeMenu, openAlbumEditor, album.key]);
 
   const contextMenu = (
-    <ContextMenu
-      open={open}
-      anchor={anchor}
-      position={position}
-      menuRef={menuRef}
-    >
-      <ContextMenuItem
-        icon={<IconPencil />}
-        label={t("library:actions.editAlbum")}
-        onClick={openEditor}
-      />
-      {trackCount > 0 ? <ContextMenuSeparator /> : null}
-      {trackCount > 0 ? (
+    <>
+      <ContextMenu
+        open={open}
+        anchor={anchor}
+        position={position}
+        menuRef={menuRef}
+      >
         <ContextMenuItem
-          icon={<IconPlay />}
-          label={t("library:actions.playAll")}
-          onClick={() => {
-            closeMenu();
-            void playTracks(albumTrackIds, albumTrackIds[0]);
-          }}
+          icon={<IconPencil />}
+          label={t("library:actions.editAlbum")}
+          onClick={openEditor}
         />
-      ) : null}
-      {trackCount > 0 ? (
-        <ContextMenuItem
-          icon={<IconAddToQueue />}
-          label={t("library:actions.addToQueue", { count: trackCount })}
-          onClick={() => {
-            closeMenu();
-            addToQueue(albumTrackIds);
-          }}
-        />
-      ) : null}
-      {anyInQueue ? (
-        <ContextMenuItem
-          icon={<IconRemoveFromQueue />}
-          label={t("library:actions.removeFromQueue", { count: trackCount })}
-          onClick={() => {
-            closeMenu();
-            for (const id of albumTrackIds) {
-              if (manualQueueIds.includes(id)) removeFromQueue(id);
-            }
-          }}
-        />
-      ) : null}
-      {trackCount > 0 ? <ContextMenuSeparator /> : null}
-      {trackCount > 0 ? (
-        <AddToPlaylistSubmenu
-          trackIds={albumTrackIds}
-          closeMenu={closeMenu}
-          panelRef={submenuPanelRef}
-        />
-      ) : null}
-      {convertibleCount > 0 ? (
-        <ContextMenuItem
-          icon={<IconConvert />}
-          label={t("library:actions.convertAlbum", { count: convertibleCount })}
-          onClick={() => {
-            closeMenu();
-            openConvertForTrackIds(albumTrackIds);
-          }}
-        />
-      ) : null}
-    </ContextMenu>
+        {trackCount > 0 ? <ContextMenuSeparator /> : null}
+        {trackCount > 0 ? (
+          <ContextMenuItem
+            icon={<IconPlay />}
+            label={t("library:actions.playAll")}
+            onClick={() => {
+              closeMenu();
+              void playTracks(albumTrackIds, albumTrackIds[0]);
+            }}
+          />
+        ) : null}
+        {trackCount > 0 ? (
+          <ContextMenuItem
+            icon={<IconAddToQueue />}
+            label={t("library:actions.addToQueue", { count: trackCount })}
+            onClick={() => {
+              closeMenu();
+              addToQueue(albumTrackIds);
+            }}
+          />
+        ) : null}
+        {anyInQueue ? (
+          <ContextMenuItem
+            icon={<IconRemoveFromQueue />}
+            label={t("library:actions.removeFromQueue", { count: trackCount })}
+            onClick={() => {
+              closeMenu();
+              for (const id of albumTrackIds) {
+                if (manualQueueIds.includes(id)) removeFromQueue(id);
+              }
+            }}
+          />
+        ) : null}
+        {trackCount > 0 ? <ContextMenuSeparator /> : null}
+        {trackCount > 0 ? (
+          <AddToPlaylistSubmenu
+            trackIds={albumTrackIds}
+            closeMenu={closeMenu}
+            panelRef={submenuPanelRef}
+          />
+        ) : null}
+        {convertibleCount > 0 ? (
+          <ContextMenuItem
+            icon={<IconConvert />}
+            label={t("library:actions.convertAlbum", {
+              count: convertibleCount,
+            })}
+            onClick={() => {
+              closeMenu();
+              openConvertForTrackIds(albumTrackIds);
+            }}
+          />
+        ) : null}
+        {trackCount > 0 ? <ContextMenuSeparator /> : null}
+        {trackCount > 0 ? (
+          <ContextMenuItem
+            icon={<IconDelete />}
+            label={t("library:actions.removeFromLibrary", {
+              count: trackCount,
+            })}
+            className="context-menu__danger"
+            onClick={() => {
+              closeMenu();
+              openRemoveDialog();
+            }}
+          />
+        ) : null}
+      </ContextMenu>
+      {removeDialog}
+    </>
   );
 
   return { onContextMenu, openEditor, contextMenu };

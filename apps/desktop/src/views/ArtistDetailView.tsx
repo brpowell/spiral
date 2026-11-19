@@ -16,6 +16,7 @@ import {
   IconArtists,
   IconBack,
   IconConvert,
+  IconDelete,
   IconPencil,
   IconPlay,
 } from "@/components/icons";
@@ -28,6 +29,7 @@ import {
 import { openConvertForTrackIds } from "@/lib/files/convertTracks";
 import { isTrackConvertible } from "@/lib/import/pendingImportTrack";
 import { formatDurationNatural } from "@/lib/format/format";
+import { useRemoveTracksDialog } from "@/hooks/useRemoveTracksDialog";
 import { useDetailReturnLabel } from "@/hooks/useDetailReturnLabel";
 import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
@@ -64,6 +66,10 @@ export function ArtistDetailView({
   const artist = browseArtist ?? getArtistByKey(performerArtists, artistKey);
   const editorBrowseMode = browseArtist != null ? browseMode : "performers";
   const albumArtistsOnly = browseMode === "discography";
+  const { openRemoveDialog, removeDialog } = useRemoveTracksDialog(
+    artist?.tracks ?? [],
+    closeArtist,
+  );
   const backLabel = useDetailReturnLabel(artistReturnContext, artists);
   const discography = useMemo(
     () => (artist ? albumsForArtist(albums, artist, browseMode) : []),
@@ -110,6 +116,7 @@ export function ArtistDetailView({
 
   return (
     <div className="artist-detail">
+      {removeDialog}
       <div className="artist-detail__toolbar">
         <Button
           variant="ghost"
@@ -193,6 +200,20 @@ export function ArtistDetailView({
                       onClick={() => {
                         close();
                         openConvertForTrackIds(trackIds);
+                      }}
+                    />
+                  ) : null}
+                  {artist.tracks.length > 0 ? <ContextMenuSeparator /> : null}
+                  {artist.tracks.length > 0 ? (
+                    <ContextMenuItem
+                      icon={<IconDelete />}
+                      label={t("actions.removeFromLibrary", {
+                        count: artist.tracks.length,
+                      })}
+                      className="context-menu__danger"
+                      onClick={() => {
+                        close();
+                        openRemoveDialog();
                       }}
                     />
                   ) : null}

@@ -33,10 +33,12 @@ import {
   IconAddToQueue,
   IconBack,
   IconConvert,
+  IconDelete,
   IconDisc,
   IconPencil,
   IconPlay,
 } from "@/components/icons";
+import { useRemoveTracksDialog } from "@/hooks/useRemoveTracksDialog";
 import { useDetailReturnLabel } from "@/hooks/useDetailReturnLabel";
 import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
@@ -75,6 +77,9 @@ export function AlbumDetailView({
 
   const playlistSubmenuRef = useRef<HTMLDivElement>(null);
   const album = getAlbumByKey(albums, albumKey);
+  const { openRemoveDialog, removeDialog } = useRemoveTracksDialog(
+    album?.tracks ?? [],
+  );
   const backLabel = useDetailReturnLabel(albumReturnContext, artists);
   const libraryArtistKeys = useMemo(
     () => new Set(artists.map((artist) => artist.key)),
@@ -185,6 +190,7 @@ export function AlbumDetailView({
 
   return (
     <div className="album-detail detail-view">
+      {removeDialog}
       <div className="detail-view__body">
         <div className="detail-view__chrome">
           <div className="album-detail__toolbar">
@@ -280,6 +286,22 @@ export function AlbumDetailView({
                             openConvertForTrackIds(
                               album.tracks.map((track) => track.id),
                             );
+                          }}
+                        />
+                      ) : null}
+                      {album.tracks.length > 0 ? (
+                        <ContextMenuSeparator />
+                      ) : null}
+                      {album.tracks.length > 0 ? (
+                        <ContextMenuItem
+                          icon={<IconDelete />}
+                          label={t("actions.removeFromLibrary", {
+                            count: album.tracks.length,
+                          })}
+                          className="context-menu__danger"
+                          onClick={() => {
+                            close();
+                            openRemoveDialog();
                           }}
                         />
                       ) : null}

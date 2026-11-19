@@ -72,3 +72,25 @@ describe("useArtistEditMenu", () => {
     );
   });
 });
+
+describe("remove from library", () => {
+  it("confirms, then removes every track from the library", async () => {
+    const removeTracksFromLibrary = vi.fn().mockResolvedValue(undefined);
+    usePlayerStore.setState({ removeTracksFromLibrary });
+    render(<Harness value={artist} />);
+    fireEvent.contextMenu(screen.getByTestId("card"), {
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: /Remove .* from Library/ }),
+    );
+    expect(removeTracksFromLibrary).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove from library" }),
+    );
+    await waitFor(() =>
+      expect(removeTracksFromLibrary).toHaveBeenCalledWith([7, 3], false),
+    );
+  });
+});
