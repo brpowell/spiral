@@ -13,6 +13,7 @@
 //! Spiral folder itself and its data (database, artwork, packs) are never a
 //! source, and walks of a source around them skip them.
 
+use crate::fs_probe::{self, Probed};
 use crate::path_scope::path_forms;
 use crate::settings::{self, LibrarySettingsResponse};
 use chrono::Utc;
@@ -445,11 +446,17 @@ pub fn validate_source_root(
             root.display()
         ));
     }
-    if !root.is_dir() {
-        return Err(format!(
-            "{SOURCE_NOT_FOLDER}: {} is not a folder",
-            root.display()
-        ));
+    // The caller holds the database lock: the short check, so a dead share
+    // holds up every library query for as little as possible.
+    match fs_probe::probe_dir(root) {
+        Probed::Yes => {}
+        Probed::No => {
+            return Err(format!(
+                "{SOURCE_NOT_FOLDER}: {} is not a folder",
+                root.display()
+            ))
+        }
+        Probed::Stalled => return Err(not_responding(root)),
     }
     if same_folder(root, &roots.library_root) || is_spiral_data(root, &roots.library_root) {
         return Err(format!(
@@ -466,6 +473,15 @@ pub fn validate_source_root(
         ));
     }
     Ok(())
+}
+
+/// The error for a folder whose share doesn't answer (a dropped connection).
+/// It is [`SOURCE_UNAVAILABLE`], so callers treat it like an unplugged drive.
+pub fn not_responding(root: &Path) -> String {
+    format!(
+        "{SOURCE_UNAVAILABLE}: the folder {} is not responding; check the connection",
+        root.display()
+    )
 }
 
 fn not_found(id: i64) -> String {
@@ -575,7 +591,7 @@ pub fn remove_source(conn: &Connection, id: i64) -> Result<usize, String> {
         let next = source_roots(&tx)
             .map_err(|e| e.to_string())?
             .into_iter()
-            .find(|(_, root)| root.is_dir());
+            .find(|(_, root)| fs_probe::is_dir(root));
         if let Some((next, _)) = next {
             tx.execute(
                 "UPDATE sources SET import_target = 1 WHERE id = ?1",
@@ -695,7 +711,7 @@ pub fn import_target(conn: &Connection) -> Result<ImportTarget, rusqlite::Error>
     let copy_available = source
         .as_ref()
         .and_then(|s| s.root_path.as_deref())
-        .is_some_and(|root| Path::new(root).is_dir());
+        .is_some_and(|root| fs_probe::is_dir(Path::new(root)));
     Ok(ImportTarget {
         source,
         copy_available,
@@ -745,13 +761,15 @@ fn reachable_root(conn: &Connection, source_id: i64) -> Result<PathBuf, String> 
         .root(source_id)
         .ok_or_else(|| format!("{NO_SOURCE}: source {source_id} has no folder"))?
         .to_path_buf();
-    if !root.is_dir() {
-        return Err(format!(
+    // The caller holds the database lock: the short check (see above).
+    match fs_probe::probe_dir(&root) {
+        Probed::Yes => Ok(root),
+        Probed::No => Err(format!(
             "{SOURCE_UNAVAILABLE}: the folder {} is not available",
             root.display()
-        ));
+        )),
+        Probed::Stalled => Err(not_responding(&root)),
     }
-    Ok(root)
 }
 
 /// Where a new file for `source_id` goes. Fails with [`SOURCE_UNAVAILABLE`]
@@ -1551,5 +1569,29 @@ mod tests {
         assert_ne!(recreated.id, tracks.id);
         assert!(recreated.auto_organize && !recreated.import_target);
         assert_eq!(import_source_id(&conn).unwrap(), Some(rock.id));
+    }
+
+    #[test]
+    fn a_stalled_folder_is_unavailable_not_waited_on() {
+        let tmp = TempDir::new("stalled-root");
+        let (conn, roots) = library(&tmp);
+        let root = tmp.dir("Share");
+        let source = add(&conn, &roots, &root).unwrap();
+        set_import_source(&conn, source.id).unwrap();
+        let _stall = fs_probe::stall_dir(&root);
+
+        let started = std::time::Instant::now();
+        for err in [
+            write_target(&conn, source.id).unwrap_err(),
+            change_source_organize(&conn, source.id, true).unwrap_err(),
+            validate_source_root(&conn, &roots, &root).unwrap_err(),
+        ] {
+            assert!(err.starts_with(SOURCE_UNAVAILABLE), "{err}");
+            assert!(err.contains("not responding"), "{err}");
+        }
+        let target = import_target(&conn).unwrap();
+        assert!(target.source.is_some());
+        assert!(!target.copy_available);
+        assert!(started.elapsed() < std::time::Duration::from_millis(500));
     }
 }

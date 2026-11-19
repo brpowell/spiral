@@ -42,11 +42,20 @@ const SEEK_EVENT_QUIET_MS = 600;
  * The playhead is extrapolated from the last position Rust reported, which is
  * the position the mixer has actually consumed (not the decoder cursor).
  */
-/** A mid-track read failure reported by Rust (CD only today). */
+/**
+ * A mid-track read failure reported by Rust: a CD read error, or a library
+ * file that stopped answering (a dropped network share). `driveId` and
+ * `trackNumber` are a CD's; empty for a file.
+ */
 export interface NativePlaybackError {
   driveId: string;
   trackNumber: number;
   message: string;
+  /**
+   * A file's reads stopped coming back, rather than failing: its folder may
+   * only be slow to wake, so check it before calling it offline.
+   */
+  stalled?: boolean;
 }
 
 /**
@@ -212,6 +221,7 @@ export class NativePlaybackEngine {
           driveId: event.payload.driveId ?? "",
           trackNumber: event.payload.trackNumber ?? 0,
           message: event.payload.message ?? "Failed to read audio data",
+          ...(event.payload.stalled ? { stalled: true } : {}),
         });
       }),
     ];

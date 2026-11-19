@@ -69,14 +69,17 @@ export function playlistAddedPayload(
 
 // —— Playback ——
 
+/** A track's file wasn't found, or its music folder is offline (`sourceOffline`). */
 export function playbackFileMissingPayload(
-  track: { title: string },
+  track: { title: string; sourceOffline?: boolean },
   options?: { dismissMs?: number | null },
 ): ToastPayload {
   return withOptionalDismiss(
     {
       key: "playback-file-missing",
-      label: t("toasts:playback.fileMissing"),
+      label: track.sourceOffline
+        ? t("toasts:playback.sourceOffline")
+        : t("toasts:playback.fileMissing"),
       detail: track.title,
     },
     options?.dismissMs,
@@ -86,13 +89,15 @@ export function playbackFileMissingPayload(
 /** Several tracks skipped in a row; shares the single track's toast slot. */
 export function playbackFilesMissingPayload(
   count: number,
-  options?: { dismissMs?: number | null },
+  options?: { dismissMs?: number | null; allSourceOffline?: boolean },
 ): ToastPayload {
   return withOptionalDismiss(
     {
       key: "playback-file-missing",
       label: t("toasts:playback.filesMissing", { count }),
-      detail: t("toasts:playback.filesMissingDetail"),
+      detail: options?.allSourceOffline
+        ? t("toasts:playback.filesMissingOfflineDetail")
+        : t("toasts:playback.filesMissingDetail"),
     },
     options?.dismissMs,
   );

@@ -38,7 +38,7 @@
     "missingCount_one": "{{count}} missing",
     "missingCount_other": "{{count}} missing",
     "offline": "Offline",
-    "offlineHint": "Spiral can't reach this folder. Its tracks are marked missing until it's back, or you change its location.",
+    "offlineHint": "Spiral can't reach this folder. Its tracks can't play until it's back.",
     "defaultBadge": "Default",
     "defaultHint": "Music you add to Spiral is copied here.",
     "organize": "Automatically organize files",

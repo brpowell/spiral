@@ -86,6 +86,13 @@ export class PlaybackEngineManager {
     this.cdEngine.onError(callback);
   }
 
+  /** A library file stopped answering mid-track (a dropped network share). */
+  onFileError(
+    callback: Parameters<NativeFilePlaybackEngine["onError"]>[0],
+  ): void {
+    this.fileEngine.onError(callback);
+  }
+
   setVolume(volume: number): void {
     this.activeEngine.setVolume(volume);
   }

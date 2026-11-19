@@ -77,6 +77,9 @@ pub struct StreamingDecoder {
     samples_emitted: u64,
     /// Set for AAC when `iTunSMPB` is present; unused for MP3/Vorbis (packet trim).
     aac_trim: Option<AacPrimingTrim>,
+    /// Why the stream ended early: reading the file failed (see
+    /// [`StreamingDecoder::take_read_error`]), as opposed to reaching its end.
+    read_error: Option<String>,
 }
 
 impl StreamingDecoder {
@@ -124,6 +127,7 @@ impl StreamingDecoder {
             duration_seconds,
             samples_emitted: 0,
             aac_trim: None,
+            read_error: None,
         })
     }
 
@@ -133,7 +137,13 @@ impl StreamingDecoder {
             .and_then(|name| name.to_str())
             .unwrap_or("audio");
 
-        let file = File::open(path).map_err(|err| format!("Failed to open {label}: {err}"))?;
+        let file = File::open(path).map_err(|err| {
+            if crate::fs_probe::is_network_failure(&err) {
+                format!("{}: {label}: {err}", crate::sources::SOURCE_UNAVAILABLE)
+            } else {
+                format!("Failed to open {label}: {err}")
+            }
+        })?;
         let mss = MediaSourceStream::new(Box::new(file), Default::default());
 
         let mut hint = Hint::new();
@@ -259,6 +269,7 @@ impl StreamingDecoder {
             duration_seconds,
             samples_emitted: 0,
             aac_trim,
+            read_error: None,
         })
     }
 
@@ -435,6 +446,12 @@ impl StreamingDecoder {
         Some(sample)
     }
 
+    /// Why the stream ended early, if reading the file failed rather than it
+    /// reaching its end. Taken once.
+    pub fn take_read_error(&mut self) -> Option<String> {
+        self.read_error.take()
+    }
+
     pub fn next_sample(&mut self) -> Option<f32> {
         if self.aac_content_exhausted() {
             return None;
@@ -472,6 +489,7 @@ impl StreamingDecoder {
                 Ok(false) => return None,
                 Err(err) => {
                     eprintln!("file decode error: {err}");
+                    self.read_error = Some(err);
                     return None;
                 }
             }
@@ -496,6 +514,7 @@ impl StreamingDecoder {
                     {
                         return Ok(false);
                     }
+                    Err(SymphoniaError::IoError(err)) => return Err(read_failure(&err)),
                     Err(SymphoniaError::ResetRequired) => {
                         decoder.reset();
                         continue;
@@ -539,6 +558,7 @@ impl StreamingDecoder {
                     {
                         return Ok(false);
                     }
+                    Err(SymphoniaError::IoError(err)) => return Err(read_failure(&err)),
                     Err(_) => return Ok(false),
                 };
 
@@ -651,6 +671,16 @@ fn append_decoded(
     }
 }
 
+/// A read that failed partway through: `source_unavailable` when the file's
+/// folder stopped answering (a dropped network share).
+fn read_failure(err: &std::io::Error) -> String {
+    if crate::fs_probe::is_network_failure(err) {
+        format!("{}: {err}", crate::sources::SOURCE_UNAVAILABLE)
+    } else {
+        format!("read failed: {err}")
+    }
+}
+
 fn format_open_failure(label: &str, err: SymphoniaError) -> String {
     format!("Could not open {label}: {err}")
 }
@@ -659,6 +689,14 @@ fn format_open_failure(label: &str, err: SymphoniaError) -> String {
 mod tests {
     use super::*;
     use crate::test_fixtures::{m4a, wav};
+
+    #[test]
+    fn a_read_that_times_out_says_the_folder_is_unavailable() {
+        let timed_out = std::io::Error::from(std::io::ErrorKind::TimedOut);
+        assert!(read_failure(&timed_out).starts_with(crate::sources::SOURCE_UNAVAILABLE));
+        let bad = std::io::Error::from(std::io::ErrorKind::InvalidData);
+        assert!(read_failure(&bad).starts_with("read failed"));
+    }
 
     #[test]
     fn output_channels_caps_at_stereo() {

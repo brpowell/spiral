@@ -75,8 +75,10 @@ import { fileExists } from "@/lib/art/artPath";
 import {
   mergeLibraryClientState,
   isMissingFileError,
+  isSourceUnavailableError,
   isTrackMissingFile,
   withTrackMissingFile,
+  withTrackSourceOffline,
 } from "@/lib/tracks/missingFileTrack";
 import { showMissingTrackSkippedToast } from "@/lib/playback/playbackToast";
 import {
@@ -89,6 +91,7 @@ import {
   getNextSkippingKnownUnplayable,
   isTrackKnownUnplayable,
   type PlaybackNextIdFn,
+  isSourceUnavailable,
 } from "@/lib/playback/playbackSkip";
 import type { PlayableRef } from "@/types/playable";
 import type { PlaybackSource } from "@/lib/playback";
@@ -614,6 +617,49 @@ function handlePlaybackFileMissing(
   notifySkippedMissing(get, trackId);
 }
 
+/**
+ * A source's folder isn't answering: flag every track in it missing, as each
+ * would be found to be one by one, and tell the user `trackId` was skipped.
+ */
+function handleSourceUnavailable(
+  set: (
+    partial:
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+  get: () => PlayerState,
+  sourceId: number,
+  trackId: number,
+): void {
+  set((state) => ({
+    library: state.library.map((track) =>
+      track.sourceId === sourceId && !isTrackImporting(track)
+        ? withTrackSourceOffline(track)
+        : track,
+    ),
+  }));
+  notifySkippedMissing(get, trackId);
+}
+
+/**
+ * A source's folder answers again: clear the offline flag from its tracks.
+ * Their files are tested as they're played, like any other.
+ */
+function handleSourceAvailable(
+  set: (
+    partial:
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+  sourceId: number,
+): void {
+  set((state) => ({
+    library: state.library.map((track) =>
+      track.sourceId === sourceId && track.sourceOffline
+        ? withTrackMissingFile(track, false)
+        : track,
+    ),
+  }));
+}
+
 /** Skipping passes over importing tracks too, which aren't worth a mention. */
 function notifySkippedMissing(get: () => PlayerState, trackId: number): void {
   const track = get().library.find((item) => item.id === trackId);
@@ -630,6 +676,7 @@ async function advanceToPlayableInOrder(
   get: () => PlayerState,
   fromTrackId: number,
   getNextId: PlaybackNextIdFn,
+  offlineSourceIds: number[] = [],
 ): Promise<void> {
   const state = get();
   const order = getPlaybackOrder(get);
@@ -640,10 +687,14 @@ async function advanceToPlayableInOrder(
     state.library,
     getNextId,
     {
+      offlineSourceIds,
       onSkippedMissing: (trackId) => notifySkippedMissing(get, trackId),
       onDiscoveredMissing: (trackId) => {
         handlePlaybackFileMissing(set, get, trackId);
       },
+      onSourceUnavailable: (sourceId, trackId) =>
+        handleSourceUnavailable(set, get, sourceId, trackId),
+      onSourceAvailable: (sourceId) => handleSourceAvailable(set, sourceId),
     },
   );
 
@@ -664,6 +715,43 @@ async function advanceToPlayableInOrder(
   });
 }
 
+/**
+ * A track couldn't be played: find out why and flag it. Its source folder is
+ * tested first; if that's offline, every track in it is flagged offline.
+ * Otherwise the file itself is tested, and flagged missing if it's gone.
+ * False when both are there (the failure was something else).
+ *
+ * `error` is what playback reported. A folder that isn't responding (reads
+ * timing out) is offline even when the folder test passes: a dropped network
+ * share can keep answering that from a cache.
+ */
+async function flagUnplayableTrack(
+  set: (
+    partial:
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+  get: () => PlayerState,
+  trackId: number,
+  options: { fileKnownMissing?: boolean; error?: unknown } = {},
+): Promise<"source" | "file" | null> {
+  const track = get().library.find((item) => item.id === trackId);
+  if (!track) return null;
+  const folderNotResponding =
+    options.error !== undefined && isSourceUnavailableError(options.error);
+  if (
+    track.sourceId !== undefined &&
+    (folderNotResponding || (await isSourceUnavailable(track.sourceId)))
+  ) {
+    handleSourceUnavailable(set, get, track.sourceId, trackId);
+    return "source";
+  }
+  if (options.fileKnownMissing || !(await fileExists(track.filePath))) {
+    handlePlaybackFileMissing(set, get, trackId);
+    return "file";
+  }
+  return null;
+}
+
 async function handleMissingLibraryPlayback(
   set: (
     partial:
@@ -673,14 +761,23 @@ async function handleMissingLibraryPlayback(
   trackId: number,
   generation: number,
   options?: PlayResolvedPlayableOptions,
+  error?: unknown,
 ): Promise<void> {
-  handlePlaybackFileMissing(set, get, trackId);
+  // The folder may be what's gone (e.g. playback said it isn't responding).
+  const flagged = await flagUnplayableTrack(set, get, trackId, {
+    fileKnownMissing: true,
+    error,
+  });
   if (generation !== playResolvedGeneration) return;
+  // Just found offline: trust that over a folder test in the walk, which a
+  // dropped share can answer from its cache.
+  const sourceId = get().library.find((item) => item.id === trackId)?.sourceId;
   await advanceToPlayableInOrder(
     set,
     get,
     trackId,
     options?.getNextId ?? getManualNextId,
+    flagged === "source" && sourceId !== undefined ? [sourceId] : [],
   );
 }
 
@@ -716,6 +813,26 @@ async function playResolvedPlayable(
   const generation = ++playResolvedGeneration;
 
   if (source.kind === "file" && playable.type === "library") {
+    // Settle the track's folder first: if it isn't accessible, everything in
+    // it is offline, and its file needn't be tried. If it was flagged offline
+    // and answers again, its tracks are cleared and the file is tried.
+    const track = state.library.find((item) => item.id === playable.trackId);
+    const sourceId = track?.sourceId;
+    if (sourceId !== undefined) {
+      const offline = await isSourceUnavailable(sourceId);
+      if (generation !== playResolvedGeneration) return;
+      if (offline) {
+        handleSourceUnavailable(set, get, sourceId, playable.trackId);
+        await advanceToPlayableInOrder(
+          set,
+          get,
+          playable.trackId,
+          options?.getNextId ?? getManualNextId,
+        );
+        return;
+      }
+      if (track?.sourceOffline) handleSourceAvailable(set, sourceId);
+    }
     const exists = await fileExists(source.path);
     if (generation !== playResolvedGeneration) return;
     if (!exists) {
@@ -804,6 +921,7 @@ async function playResolvedPlayable(
         playable.trackId,
         generation,
         options,
+        err,
       );
       return;
     }
@@ -1170,6 +1288,34 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     }
 
     handleQueueEnd(set);
+  });
+
+  // A file stopped answering mid-track (a dropped network share): the audio
+  // has already run out. Stop, then flag the track (or its whole folder).
+  audio.onFileError((error) => {
+    const trackId = get().currentTrackId;
+    audio.unload();
+    stopPositionPoll(set);
+    set({
+      playbackState: "stopped",
+      seekPreviewRatio: null,
+    });
+    if (trackId === null) return;
+    // A read that failed says the folder is gone; one that just never came
+    // back may be a share slow to wake, so the folder is checked first.
+    void flagUnplayableTrack(
+      set,
+      get,
+      trackId,
+      error.stalled ? {} : { error: error.message },
+    ).then((flagged) => {
+      if (flagged) return;
+      reportUnexpectedError({
+        kind: "libraryPlayback",
+        err: error.message,
+        logMessage: `Playback failed: ${error.message}`,
+      });
+    });
   });
 
   audio.onCdError((error) => {

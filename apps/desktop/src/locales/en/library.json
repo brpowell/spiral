@@ -413,6 +413,7 @@
   "sources": {
     "missingSince": "File missing since {{date}}",
     "missingNow": "File missing",
+    "offlineNow": "Music folder offline",
     "errors": {
       "notFolder": "That folder doesn't exist or isn't a folder.",
       "spiralData": "That folder is the Spiral folder or holds its database, artwork or packs. Pick another folder.",

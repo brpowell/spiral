@@ -30,6 +30,7 @@ mod file_plan;
 mod file_playback;
 mod file_scan;
 mod fs_move;
+mod fs_probe;
 mod genre_settings;
 mod image_crop;
 mod import_files;
@@ -268,6 +269,7 @@ pub fn run() {
             commands::sources::get_import_source,
             commands::sources::create_managed_source,
             commands::sources::get_source_statuses,
+            commands::sources::get_unavailable_source_ids,
             commands::sources::get_active_scans,
             commands::lyrics::get_track_lyrics,
             commands::lyrics::mark_track_instrumental,

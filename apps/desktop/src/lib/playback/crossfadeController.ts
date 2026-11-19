@@ -12,6 +12,7 @@ import {
   type CdPlaybackStreamError,
 } from "./nativeCdPlaybackEngine";
 import { NativeFilePlaybackEngine } from "./nativeFilePlaybackEngine";
+import type { NativePlaybackError } from "./nativePlaybackEngine";
 import type { PlaybackSource } from "./types";
 
 const FADE_COMPLETE_BUFFER_MS = 50;
@@ -55,6 +56,8 @@ export interface DualDeckEngine {
   release(): void;
   destroy(): void;
   onEnd(callback: () => void): void;
+  /** A mid-track read failure (a file deck's dropped network share). */
+  onError?(callback: ((error: NativePlaybackError) => void) | null): void;
   primeGaplessStart(): Promise<void>;
   /** Give up on the sample-accurate splice and start now. */
   forceGaplessStart(): void;
@@ -144,10 +147,18 @@ export class CrossfadeController {
   private onEndCallback: (() => void) | null = null;
   private onCdErrorCallback: ((error: CdPlaybackStreamError) => void) | null =
     null;
+  private onFileErrorCallback: ((error: NativePlaybackError) => void) | null =
+    null;
   private controllerActive = false;
   private userVolume = 1;
   private userMuted = false;
   private userBalance = 0;
+  /**
+   * The next track whose deck failed to read during this track's handoff
+   * (a dropped network share). Not preloaded again on every position tick;
+   * cleared when a track is loaded.
+   */
+  private failedIncomingTrackId: number | null = null;
   /** True while a dual-deck fade is frozen by pause (timers cleared, gains held). */
   private fadePaused = false;
 
@@ -168,6 +179,10 @@ export class CrossfadeController {
       if (engine instanceof NativeCdPlaybackEngine) {
         engine.onError((error) => {
           this.onCdErrorCallback?.(error);
+        });
+      } else if (engine.onError) {
+        engine.onError((error) => {
+          this.handleDeckFileError(engine, error);
         });
       }
     }
@@ -242,6 +257,10 @@ export class CrossfadeController {
     this.onCdErrorCallback = callback;
   }
 
+  onFileError(callback: ((error: NativePlaybackError) => void) | null): void {
+    this.onFileErrorCallback = callback;
+  }
+
   getActiveEngine(): DualDeckEngine {
     return this.decks[this.activeDeck];
   }
@@ -279,6 +298,7 @@ export class CrossfadeController {
     this.userMuted = options.muted;
     this.userBalance = options.balance;
 
+    this.failedIncomingTrackId = null;
     const engine = this.getActiveEngine();
     await engine.load(source);
     this.applyUserMixToEngine(engine);
@@ -563,6 +583,7 @@ export class CrossfadeController {
   maybeScheduleCrossfade(ctx: CrossfadeScheduleContext): void {
     if (!this.controllerActive) return;
     if (this.fadeState !== "idle") return;
+    if (ctx.nextTrackId === this.failedIncomingTrackId) return;
     if (ctx.repeatMode === "one") return;
     if (ctx.nextTrackId === ctx.currentTrackId) return;
     if (!canCrossfade(ctx.currentSource, ctx.nextSource)) return;
@@ -585,6 +606,7 @@ export class CrossfadeController {
   maybeScheduleGapless(ctx: CrossfadeScheduleContext): void {
     if (!this.controllerActive) return;
     if (this.fadeState !== "idle") return;
+    if (ctx.nextTrackId === this.failedIncomingTrackId) return;
     if (ctx.repeatMode === "one") return;
     if (ctx.nextTrackId === ctx.currentTrackId) return;
     if (!canGapless(ctx.currentSource, ctx.nextSource)) return;
@@ -843,6 +865,67 @@ export class CrossfadeController {
     this.clearFadeSession();
     // Fade owned the outgoing end; clear so the next natural end can advance.
     this.handledEnd = false;
+  }
+
+  /**
+   * A deck's file stopped answering (a dropped network share). Only the deck
+   * holding the current track is the store's business: the outgoing deck of a
+   * fade that already handed over, or an incoming one still preloading or
+   * fading in, is dropped from the handoff and the current track plays on.
+   * The current track failing mid-fade hands over to the incoming one early.
+   */
+  private handleDeckFileError(
+    engine: DualDeckEngine,
+    error: NativePlaybackError,
+  ): void {
+    if (!this.controllerActive) return;
+    const deck: DeckId = engine === this.decks.a ? "a" : "b";
+
+    if (deck !== this.activeDeck) {
+      if (this.fadeState === "idle") {
+        engine.release();
+        return;
+      }
+      if (!this.dominantTrackPromoted) {
+        this.failedIncomingTrackId =
+          this.activeFadeContext?.nextTrackId ?? this.pendingIncomingTrackId;
+      }
+      // The current track already ran out and was waiting on this deck to
+      // splice in: with the handoff gone nothing else will move on from it.
+      const currentTrackEnded =
+        this.fadeState === "gaplessPrimed" && this.handledEnd;
+      this.cancelCrossfade();
+      if (currentTrackEnded) {
+        this.handledEnd = false;
+        this.onEndCallback?.();
+      }
+      return;
+    }
+
+    if (this.fadeState === "gaplessPrimed" && this.fadeIncomingDeck !== null) {
+      // The incoming deck is gated, waiting for the mixer to splice it on
+      // when this one runs out, which it now never will: start it now.
+      this.engine(this.fadeIncomingDeck).forceGaplessStart();
+      this.completeGaplessHandoff();
+      return;
+    }
+
+    if (
+      this.fadeState === "fading" &&
+      !this.dominantTrackPromoted &&
+      this.fadeIncomingDeck !== null &&
+      this.activeFadeContext
+    ) {
+      this.promoteIncomingToActive(
+        this.fadeIncomingDeck,
+        this.activeFadeContext,
+      );
+      this.cancelCrossfade();
+      return;
+    }
+
+    this.cancelCrossfade();
+    this.onFileErrorCallback?.(error);
   }
 
   private handleDeckEnd(engine: DualDeckEngine): void {

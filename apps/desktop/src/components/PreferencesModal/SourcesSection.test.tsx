@@ -152,6 +152,8 @@ describe("SourcesSection", () => {
   }
 
   it("lists every source with its path and counts", async () => {
+    // Both reachable, so a missing file shows in the counts.
+    tauri.getSourceStatuses.mockResolvedValue([]);
     await renderSection();
     // A labelled group inside Preferences → Library, not a section of its own.
     expect(screen.getByRole("group", { name: "Music folders" })).toBeTruthy();
@@ -177,6 +179,8 @@ describe("SourcesSection", () => {
       expect(within(item("Music")).getByText("Offline")).toBeTruthy(),
     );
     expect(within(item("Tracks")).queryByText("Offline")).toBeNull();
+    // Its tracks aren't missing, its folder is offline: only that shows.
+    expect(within(item("Music")).queryByText("1 missing")).toBeNull();
   });
 
   it("puts Default right after the track count", async () => {

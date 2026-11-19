@@ -30,7 +30,12 @@ import {
 import { sourceDisplayName } from "@/lib/files/sourceAccess";
 import { useSourcesStore } from "@/store/useSourcesStore";
 import { Checkbox } from "@/components/common/Checkbox/Checkbox";
-import { IconCheck, IconGrip, IconMissingFile } from "@/components/icons";
+import {
+  IconCheck,
+  IconDisconnected,
+  IconGrip,
+  IconMissingFile,
+} from "@/components/icons";
 import { ImportIndicator } from "@/components/import/ImportIndicator/ImportIndicator";
 import { PlayingIndicator } from "@/components/PlayingIndicator/PlayingIndicator";
 import { TrackItemTitle } from "@/components/TrackItemTitle/TrackItemTitle";
@@ -414,10 +419,18 @@ function TrackListRowComponent({
                     className="track-list__missing-file-host"
                     title={missingFileLabel(track)}
                   >
-                    <IconMissingFile
-                      className="track-list__missing-file"
-                      aria-label={missingFileLabel(track)}
-                    />
+                    {/* An offline folder isn't a missing file: say which. */}
+                    {track.sourceOffline ? (
+                      <IconDisconnected
+                        className="track-list__missing-file"
+                        aria-label={missingFileLabel(track)}
+                      />
+                    ) : (
+                      <IconMissingFile
+                        className="track-list__missing-file"
+                        aria-label={missingFileLabel(track)}
+                      />
+                    )}
                   </span>
                 ) : (
                   indexDisplay(track, displayIndex, indexColumn)

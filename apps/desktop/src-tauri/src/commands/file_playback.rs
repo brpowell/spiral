@@ -2,8 +2,9 @@ use crate::file_playback::{self, FilePlaybackPosition, FilePlaybackStarted};
 use tauri::AppHandle;
 
 /// Start a paused session; audio is decoded and mixed in Rust and played
-/// through the OS audio API.
-#[tauri::command]
+/// through the OS audio API. Opening the file can block on a network share, so
+/// this runs off the main thread.
+#[tauri::command(async)]
 pub fn start_file_playback(app: AppHandle, path: String) -> Result<FilePlaybackStarted, String> {
     file_playback::start(app, &path)
 }
@@ -29,7 +30,8 @@ pub fn seek_file_playback(session_id: u64, position_seconds: f64) -> Result<(), 
     file_playback::seek(session_id, position_seconds)
 }
 
-#[tauri::command]
+/// Waits briefly for the session's decode thread, which a dead share can block.
+#[tauri::command(async)]
 pub fn stop_file_playback(session_id: u64) {
     file_playback::stop(session_id)
 }

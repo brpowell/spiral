@@ -4,7 +4,12 @@ vi.mock("@/lib/art/artPath", () => ({
   fileExists: vi.fn().mockResolvedValue(true),
 }));
 
+vi.mock("@/lib/tauri", () => ({
+  getUnavailableSourceIds: vi.fn().mockResolvedValue([]),
+}));
+
 import { fileExists } from "@/lib/art/artPath";
+import { getUnavailableSourceIds } from "@/lib/tauri";
 import { cdTrackListId } from "@/lib/cd/cdTracks";
 import {
   getNextSkippingKnownUnplayable,
@@ -162,6 +167,145 @@ describe("findNextPlayableInOrder", () => {
     await expect(
       findNextPlayableInOrder([cd1, cd2], cd1, "off", [], getAutoplayNextId),
     ).resolves.toBe(cd2);
+  });
+});
+
+describe("findNextPlayableInOrder with an offline source", () => {
+  beforeEach(() => {
+    vi.mocked(fileExists).mockReset().mockResolvedValue(true);
+    vi.mocked(getUnavailableSourceIds).mockReset().mockResolvedValue([]);
+  });
+
+  const library = [
+    track(1, { sourceId: 1 }),
+    track(2, { sourceId: 2 }),
+    track(3, { sourceId: 2 }),
+    track(4, { sourceId: 1 }),
+    track(5, { sourceId: 2 }),
+  ];
+
+  it("passes over the whole source without trying its files", async () => {
+    vi.mocked(getUnavailableSourceIds).mockResolvedValue([2]);
+    const onSourceUnavailable = vi.fn();
+    const onSkippedMissing = vi.fn();
+
+    await expect(
+      findNextPlayableInOrder(
+        [1, 2, 3, 4, 5],
+        1,
+        "off",
+        library,
+        getAutoplayNextId,
+        { onSourceUnavailable, onSkippedMissing },
+      ),
+    ).resolves.toBe(4);
+
+    // Told once, at the first track reached; the rest are only passed over.
+    expect(onSourceUnavailable).toHaveBeenCalledTimes(1);
+    expect(onSourceUnavailable).toHaveBeenCalledWith(2, 2);
+    expect(onSkippedMissing).toHaveBeenCalledWith(3);
+    expect(fileExists).not.toHaveBeenCalledWith("/music/2.mp3");
+    expect(fileExists).not.toHaveBeenCalledWith("/music/3.mp3");
+    // Each source the walk reaches is looked at once, and only those.
+    expect(vi.mocked(getUnavailableSourceIds).mock.calls).toEqual([
+      [[2]],
+      [[1]],
+    ]);
+  });
+
+  it("ends the walk when every track is offline", async () => {
+    vi.mocked(getUnavailableSourceIds).mockResolvedValue([1, 2]);
+    await expect(
+      findNextPlayableInOrder([1, 2, 3], 1, "off", library, getAutoplayNextId),
+    ).resolves.toBeNull();
+    expect(fileExists).not.toHaveBeenCalled();
+  });
+
+  it("just tries each file when every source is reachable", async () => {
+    vi.mocked(fileExists).mockImplementation(
+      async (path) => !path.endsWith("/2.mp3"),
+    );
+    const onSourceUnavailable = vi.fn();
+    const onDiscoveredMissing = vi.fn();
+
+    await expect(
+      findNextPlayableInOrder([1, 2, 3], 1, "off", library, getAutoplayNextId, {
+        onSourceUnavailable,
+        onDiscoveredMissing,
+      }),
+    ).resolves.toBe(3);
+    expect(onSourceUnavailable).not.toHaveBeenCalled();
+    expect(onDiscoveredMissing).toHaveBeenCalledWith(2);
+  });
+
+  describe("once the folder may be back", () => {
+    const offline = {
+      missingFile: true as const,
+      sourceOffline: true as const,
+    };
+    const flagged = [
+      track(1, { sourceId: 1 }),
+      track(2, { sourceId: 2, ...offline }),
+      track(3, { sourceId: 2, ...offline }),
+    ];
+
+    it("tries a track flagged only offline rather than knowing it unplayable", () => {
+      expect(isPlaybackIdKnownUnplayable(2, flagged)).toBe(false);
+      // A file a scan found gone is still known unplayable.
+      const scanned = [
+        track(2, { ...offline, missingSince: "2026-10-01T12:00:00Z" }),
+      ];
+      expect(isPlaybackIdKnownUnplayable(2, scanned)).toBe(true);
+    });
+
+    it("clears the folder and plays its track when it answers again", async () => {
+      const onSourceAvailable = vi.fn();
+      await expect(
+        findNextPlayableInOrder(
+          [1, 2, 3],
+          1,
+          "off",
+          flagged,
+          getAutoplayNextId,
+          {
+            onSourceAvailable,
+          },
+        ),
+      ).resolves.toBe(2);
+      expect(onSourceAvailable).toHaveBeenCalledWith(2);
+      expect(fileExists).toHaveBeenCalledWith("/music/2.mp3");
+    });
+
+    it("passes its tracks over again while it's still offline", async () => {
+      vi.mocked(getUnavailableSourceIds).mockResolvedValue([2]);
+      const onSourceUnavailable = vi.fn();
+      const onSkippedMissing = vi.fn();
+      await expect(
+        findNextPlayableInOrder(
+          [1, 2, 3],
+          1,
+          "off",
+          flagged,
+          getAutoplayNextId,
+          {
+            onSourceUnavailable,
+            onSkippedMissing,
+          },
+        ),
+      ).resolves.toBeNull();
+      // Already flagged: only passed over, not flagged afresh.
+      expect(onSourceUnavailable).not.toHaveBeenCalled();
+      expect(onSkippedMissing.mock.calls).toEqual([[2], [3]]);
+      expect(fileExists).not.toHaveBeenCalled();
+    });
+  });
+
+  it("falls back to trying files when the check fails", async () => {
+    vi.mocked(getUnavailableSourceIds).mockRejectedValue(new Error("boom"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(
+      findNextPlayableInOrder([1, 2], 1, "off", library, getAutoplayNextId),
+    ).resolves.toBe(2);
   });
 });
 

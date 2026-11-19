@@ -8,8 +8,21 @@ export function isTrackMissingFile(track: Track): boolean {
   return track.missingFile === true || track.missingSince != null;
 }
 
-/** Tooltip for a missing track: since when, when a scan recorded it. */
-export function missingFileLabel(track: Pick<Track, "missingSince">): string {
+/**
+ * Flagged only because its source folder was offline when last tried (no
+ * scan found its file gone). Worth trying again: the folder may be back.
+ */
+export function isTrackOnlySourceOffline(
+  track: Pick<Track, "sourceOffline" | "missingSince">,
+): boolean {
+  return track.sourceOffline === true && !track.missingSince;
+}
+
+/** Tooltip for a missing track: its folder is offline, or since when, when a scan recorded it. */
+export function missingFileLabel(
+  track: Pick<Track, "missingSince" | "sourceOffline">,
+): string {
+  if (track.sourceOffline) return t("library:sources.offlineNow");
   return track.missingSince
     ? t("library:sources.missingSince", {
         date: formatDateAdded(track.missingSince),
@@ -19,9 +32,20 @@ export function missingFileLabel(track: Pick<Track, "missingSince">): string {
 
 export function isMissingFileError(err: unknown): boolean {
   const message = err instanceof Error ? err.message : String(err);
-  return /cannot stat file|enoent|not found|no such file|file not found/i.test(
+  // `source_unavailable` is the backend saying the file's folder isn't
+  // answering (a dropped network share): flagged like a file that's gone.
+  return /cannot stat file|enoent|not found|no such file|file not found|source_unavailable/i.test(
     message,
   );
+}
+
+/**
+ * The backend saying a file's folder isn't answering (a dropped network
+ * share, timed-out reads): the folder is offline, whatever a lookup says.
+ */
+export function isSourceUnavailableError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return message.includes("source_unavailable");
 }
 
 export function missingFileErrorDetail(track: Pick<Track, "title">): string {
@@ -57,9 +81,15 @@ export function withTrackMissingFile(track: Track, missing: boolean): Track {
     if (track.missingFile) return track;
     return { ...track, missingFile: true };
   }
-  if (!track.missingFile) return track;
-  const { missingFile: _removed, ...rest } = track;
+  if (!track.missingFile && !track.sourceOffline) return track;
+  const { missingFile: _removed, sourceOffline: _offline, ...rest } = track;
   return rest;
+}
+
+/** Flag a track missing because its source's folder isn't accessible. */
+export function withTrackSourceOffline(track: Track): Track {
+  if (track.missingFile && track.sourceOffline) return track;
+  return { ...track, missingFile: true, sourceOffline: true };
 }
 
 /**
@@ -74,8 +104,11 @@ export function mergeLibraryClientState(
   return loaded.map((track) => {
     const prior = priorById.get(track.id);
     const restoredByScan = prior?.missingSince != null && !track.missingSince;
+    // An offline folder is only a guess that holds until something looks
+    // again; a reload (as after a scan when it comes back) drops it.
     if (
       prior?.missingFile &&
+      !prior.sourceOffline &&
       prior.filePath === track.filePath &&
       !restoredByScan
     ) {

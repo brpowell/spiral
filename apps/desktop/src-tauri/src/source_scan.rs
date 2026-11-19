@@ -27,6 +27,7 @@ use crate::art_cache;
 use crate::artwork_organize;
 use crate::audio_formats::is_supported_audio_file;
 use crate::db;
+use crate::fs_probe::{self, Probed};
 use crate::lyrics_normalize;
 use crate::metadata_reader;
 use crate::sources::{self, LibraryRoots, SourceRoots};
@@ -418,6 +419,27 @@ fn reconcile_watched(
     progress: Option<ProgressFn<'_>>,
 ) -> Result<ReconcileSummary, String> {
     let root = PathBuf::from(root);
+    // A folder that isn't there (an unplugged drive) or doesn't answer (a
+    // dropped network share, which would stall a walk, and the lock every
+    // pass shares, indefinitely) is offline, not empty: say so and leave the
+    // rows as they are. Its tracks aren't missing; missing is for a file that's
+    // gone from a folder that's there.
+    //
+    // Only the root is checked up front. A share that drops partway through
+    // the walk below can still stall it (and the lock every pass shares)
+    // until the share's own timeout; bounding every read in the walk is out
+    // of scope here.
+    match fs_probe::probe_dir_before_use(&root) {
+        Probed::Yes => {}
+        Probed::No => {
+            return Err(format!(
+                "{}: the folder {} is not available",
+                sources::SOURCE_UNAVAILABLE,
+                root.display()
+            ))
+        }
+        Probed::Stalled => return Err(sources::not_responding(&root)),
+    }
     // Knowing every source's folder, the walk skips one nested in this one.
     let roots = ctx
         .roots
@@ -429,8 +451,6 @@ fn reconcile_watched(
         files: HashSet::new(),
     });
 
-    // An unreachable root (an unplugged drive) yields no files, so every track
-    // in scope is marked missing until it comes back.
     let mut found: Vec<String> = Vec::new();
     for dir in &coverage.dirs {
         let base = found.len();
@@ -1145,17 +1165,51 @@ mod tests {
         assert_eq!(track.missing_since, None);
     }
 
+    /// An unplugged drive's folder is offline, not empty: its tracks aren't
+    /// marked missing, and nothing changes when it's back.
     #[test]
-    fn unreachable_root_marks_everything_missing() {
+    fn an_unreachable_root_fails_and_keeps_its_tracks() {
         let fx = Fixture::new("unplugged");
         let id = fx.watch("Drive/Music");
-        fx.wav("Drive/Music/a.wav");
-        fx.wav("Drive/Music/b.wav");
+        let a = fx.wav("Drive/Music/a.wav");
+        let b = fx.wav("Drive/Music/b.wav");
         fx.reconcile(id);
         fs::rename(fx.path("Drive"), fx.path("Unplugged")).unwrap();
-        assert_eq!(fx.reconcile(id), summary(id, 0, 0, 2, 0));
+        let err = reconcile_source(&fx.db, &fx.ctx, id, ReconcileScope::All).unwrap_err();
+        assert!(err.starts_with(sources::SOURCE_UNAVAILABLE), "{err}");
+        assert_eq!(
+            fx.tracks(id),
+            vec![(s(&a), "a".into(), false), (s(&b), "b".into(), false)]
+        );
         fs::rename(fx.path("Unplugged"), fx.path("Drive")).unwrap();
-        assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 2));
+        assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 0));
+    }
+
+    /// A share whose connection dropped stalls instead of failing. The pass
+    /// reports it at once, without walking it, and leaves the rows alone (it may
+    /// be back in a moment), so a later pass restores nothing it didn't change.
+    #[test]
+    fn a_stalled_root_fails_fast_and_keeps_its_tracks() {
+        let fx = Fixture::new("stalled");
+        let id = fx.watch("Share/Music");
+        let a = fx.wav("Share/Music/a.wav");
+        fx.reconcile(id);
+
+        let stall = fs_probe::stall_dir(&fx.path("Share/Music"));
+        let started = Instant::now();
+        for scope in [
+            ReconcileScope::All,
+            ReconcileScope::Paths(std::slice::from_ref(&a)),
+        ] {
+            let err = reconcile_source(&fx.db, &fx.ctx, id, scope).unwrap_err();
+            assert!(err.starts_with(sources::SOURCE_UNAVAILABLE), "{err}");
+        }
+        assert!(started.elapsed() < Duration::from_millis(500));
+        assert_eq!(fx.tracks(id), vec![(s(&a), "a".into(), false)]);
+
+        // The share is back: scanning works again.
+        drop(stall);
+        assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 0));
     }
 
     #[test]

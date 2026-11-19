@@ -77,6 +77,7 @@ export const FILE_NATIVE_TRANSPORT: NativeTransport = {
     position: "file-playback-position",
     ended: "file-playback-ended",
     gaplessStarted: "file-playback-gapless-started",
+    error: "file-playback-error",
   },
 };
 
