@@ -236,7 +236,7 @@ pub enum WatchStatus {
 /// probe timeout and never while holding the registry lock, so a dropped
 /// network share reads as unreachable instead of hanging the caller.
 pub fn statuses(source_ids: &[i64]) -> Vec<(i64, WatchStatus)> {
-    let snapshot: Vec<(i64, Option<(PathBuf, bool)>)> = {
+    let snapshot: Vec<(i64, Option<(PathBuf, Attached)>)> = {
         let registry = REGISTRY.get().map(lock);
         source_ids
             .iter()
@@ -253,8 +253,8 @@ pub fn statuses(source_ids: &[i64]) -> Vec<(i64, WatchStatus)> {
         .map(|(id, watch)| {
             let status = match watch {
                 None => WatchStatus::NotWatching,
-                Some((_, watching)) => {
-                    status_from(watching, probed.next().unwrap_or(Probed::Stalled))
+                Some((_, attached)) => {
+                    status_from(attached, probed.next().unwrap_or(Probed::Stalled))
                 }
             };
             (id, status)
@@ -262,12 +262,24 @@ pub fn statuses(source_ids: &[i64]) -> Vec<(i64, WatchStatus)> {
         .collect()
 }
 
-/// A source with a watch is watched live only while its folder answers.
-fn status_from(has_watcher: bool, folder: Probed) -> WatchStatus {
-    if has_watcher && folder.is_yes() {
-        WatchStatus::Watching
-    } else {
-        WatchStatus::Unreachable
+/// Where a source's watcher is up to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Attached {
+    Watcher,
+    /// Starting in the background: not a sign the folder is gone.
+    Starting,
+    /// Failed to start; retried every [`RETRY`].
+    None,
+}
+
+/// A source with a watch is watched live only while its folder answers. One
+/// whose watcher is still starting isn't watched yet, but isn't offline either
+/// unless its folder says so.
+fn status_from(attached: Attached, folder: Probed) -> WatchStatus {
+    match (attached, folder.is_yes()) {
+        (_, false) | (Attached::None, true) => WatchStatus::Unreachable,
+        (Attached::Watcher, true) => WatchStatus::Watching,
+        (Attached::Starting, true) => WatchStatus::NotWatching,
     }
 }
 
@@ -467,12 +479,19 @@ impl Registry {
         self.next_generation
     }
 
-    /// A source's folder and whether it has a watcher, without looking at the
-    /// folder.
-    fn snapshot(&self, source_id: i64) -> Option<(PathBuf, bool)> {
-        self.watches
-            .get(&source_id)
-            .map(|watch| (watch.root.root.clone(), watch.watcher.is_some()))
+    /// A source's folder and where its watcher is up to, without looking at
+    /// the folder.
+    fn snapshot(&self, source_id: i64) -> Option<(PathBuf, Attached)> {
+        self.watches.get(&source_id).map(|watch| {
+            let attached = if watch.watcher.is_some() {
+                Attached::Watcher
+            } else if watch.starting {
+                Attached::Starting
+            } else {
+                Attached::None
+            };
+            (watch.root.root.clone(), attached)
+        })
     }
 
     /// The source's root when `generation` is still its current watcher.
@@ -1171,7 +1190,7 @@ mod tests {
     fn status_of(registry: &Registry, id: i64) -> WatchStatus {
         match registry.snapshot(id) {
             None => WatchStatus::NotWatching,
-            Some((root, watching)) => status_from(watching, fs_probe::probe_dir(&root)),
+            Some((root, attached)) => status_from(attached, fs_probe::probe_dir(&root)),
         }
     }
 
@@ -1200,10 +1219,29 @@ mod tests {
 
     #[test]
     fn a_stalled_folder_reads_as_unreachable_even_with_a_watcher() {
-        assert_eq!(status_from(true, Probed::Yes), WatchStatus::Watching);
-        assert_eq!(status_from(true, Probed::No), WatchStatus::Unreachable);
-        assert_eq!(status_from(true, Probed::Stalled), WatchStatus::Unreachable);
-        assert_eq!(status_from(false, Probed::Yes), WatchStatus::Unreachable);
+        let watcher = Attached::Watcher;
+        assert_eq!(status_from(watcher, Probed::Yes), WatchStatus::Watching);
+        assert_eq!(status_from(watcher, Probed::No), WatchStatus::Unreachable);
+        assert_eq!(
+            status_from(watcher, Probed::Stalled),
+            WatchStatus::Unreachable
+        );
+        assert_eq!(
+            status_from(Attached::None, Probed::Yes),
+            WatchStatus::Unreachable
+        );
+    }
+
+    #[test]
+    fn a_watcher_still_starting_is_not_called_offline() {
+        let dir = temp_dir("starting");
+        let mut registry = registry();
+        registry.watches.insert(6, placeholder(dir.clone(), 1));
+        assert_eq!(status_of(&registry, 6), WatchStatus::NotWatching);
+
+        // Unless its folder is gone too.
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(status_of(&registry, 6), WatchStatus::Unreachable);
     }
 
     #[test]

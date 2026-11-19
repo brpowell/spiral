@@ -80,6 +80,10 @@ pub struct FilePlaybackPosition {
 pub struct FilePlaybackError {
     pub session_id: u64,
     pub message: String,
+    /// The decode thread stopped coming round rather than failing a read: the
+    /// folder may only be slow to wake (a NAS spinning its disks up), so it's
+    /// for the frontend to check before calling it offline.
+    pub stalled: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -401,6 +405,7 @@ fn take_stalled(
                 FilePlaybackError {
                     session_id,
                     message: not_responding(&active.path),
+                    stalled: true,
                 },
             ))
         })
@@ -533,6 +538,7 @@ fn playback_thread(
                     FilePlaybackError {
                         session_id,
                         message,
+                        stalled: false,
                     },
                 );
                 return;
@@ -830,6 +836,8 @@ mod tests {
                 .message
                 .starts_with(crate::sources::SOURCE_UNAVAILABLE));
             assert!(error.message.contains(&ogg_path), "{}", error.message);
+            // For the frontend to check the folder before calling it offline.
+            assert!(error.stalled);
 
             // Ended there and then: gone from the sessions, its deck quiet,
             // so a read that returns later (the share is back) can't play on.

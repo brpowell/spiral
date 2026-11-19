@@ -890,7 +890,15 @@ export class CrossfadeController {
         this.failedIncomingTrackId =
           this.activeFadeContext?.nextTrackId ?? this.pendingIncomingTrackId;
       }
+      // The current track already ran out and was waiting on this deck to
+      // splice in: with the handoff gone nothing else will move on from it.
+      const currentTrackEnded =
+        this.fadeState === "gaplessPrimed" && this.handledEnd;
       this.cancelCrossfade();
+      if (currentTrackEnded) {
+        this.handledEnd = false;
+        this.onEndCallback?.();
+      }
       return;
     }
 

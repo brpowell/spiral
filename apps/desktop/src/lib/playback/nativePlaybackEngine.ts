@@ -51,6 +51,11 @@ export interface NativePlaybackError {
   driveId: string;
   trackNumber: number;
   message: string;
+  /**
+   * A file's reads stopped coming back, rather than failing: its folder may
+   * only be slow to wake, so check it before calling it offline.
+   */
+  stalled?: boolean;
 }
 
 /**
@@ -216,6 +221,7 @@ export class NativePlaybackEngine {
           driveId: event.payload.driveId ?? "",
           trackNumber: event.payload.trackNumber ?? 0,
           message: event.payload.message ?? "Failed to read audio data",
+          ...(event.payload.stalled ? { stalled: true } : {}),
         });
       }),
     ];

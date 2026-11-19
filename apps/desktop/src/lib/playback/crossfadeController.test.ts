@@ -1126,6 +1126,38 @@ describe("CrossfadeController", () => {
       expect(controller.isCrossfadeInProgress()).toBe(false);
     });
 
+    it("moves on when a gapless next track fails after the current one ended", async () => {
+      const deckA = createMockEngine("a");
+      const deckB = createMockEngine("b");
+      const controller = new CrossfadeController(asDecks(deckA, deckB));
+      const onFileError = vi.fn();
+      const onEnd = vi.fn();
+      controller.onFileError(onFileError);
+      controller.onEnd(onEnd);
+      await controller.loadAndPlay(
+        { kind: "file", path: "/a.wav" },
+        { volume: 1, muted: false, balance: 0 },
+      );
+      controller.maybeScheduleGapless(
+        crossfadeScheduleArgs({ positionSeconds: 179, outgoingDuration: 180 }),
+      );
+      await vi.waitFor(() => {
+        expect(deckB.primeGaplessStart).toHaveBeenCalled();
+      });
+
+      // The current track's buffered tail plays out, then the next one's
+      // first read fails before the splice is confirmed.
+      deckA.emitEnd();
+      deckB.emitError();
+      expect(onEnd).toHaveBeenCalledTimes(1);
+      expect(onFileError).not.toHaveBeenCalled();
+      expect(controller.isCrossfadeInProgress()).toBe(false);
+      expect(controller.consumeHandledEnd()).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(onEnd).toHaveBeenCalledTimes(1);
+    });
+
     it("hands over early when the current track fails mid-fade", async () => {
       const onActiveTrackChange = vi.fn();
       const { controller, deckA, deckB, onFileError } =

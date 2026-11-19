@@ -11,6 +11,7 @@ const { mockFileExists, mockUnavailable, playback } = vi.hoisted(() => ({
       message: string;
       driveId: string;
       trackNumber: number;
+      stalled?: boolean;
     }) => {},
   },
 }));
@@ -225,10 +226,16 @@ describe("skipping missing tracks", () => {
   });
 
   describe("a file that stops answering mid-track", () => {
+    const timedOut = {
+      message: "source_unavailable: /music/1.flac: Operation timed out",
+      driveId: "",
+      trackNumber: 0,
+    };
     const stalled = {
       message: "source_unavailable: /music/1.flac is not responding",
       driveId: "",
       trackNumber: 0,
+      stalled: true,
     };
 
     beforeEach(() => {
@@ -245,7 +252,7 @@ describe("skipping missing tracks", () => {
         ],
         1,
       );
-      playback.fileError(stalled);
+      playback.fileError(timedOut);
 
       expect(usePlayerStore.getState().playbackState).toBe("stopped");
       expect(audio.unload).toHaveBeenCalled();
@@ -260,10 +267,11 @@ describe("skipping missing tracks", () => {
       expect(mockFileExists).not.toHaveBeenCalled();
     });
 
-    it("trusts a not-responding error over a folder test that passes", async () => {
+    it("trusts a failed read over a folder test that passes", async () => {
+      // A dropped share can keep answering lookups from a cache.
       mockUnavailable.mockResolvedValue([]);
       setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 7 })], 1);
-      playback.fileError(stalled);
+      playback.fileError(timedOut);
       await vi.waitFor(() =>
         expect(
           usePlayerStore.getState().library.map((t) => !!t.sourceOffline),
@@ -271,9 +279,36 @@ describe("skipping missing tracks", () => {
       );
     });
 
+    it("flags the folder after a stall when the folder test fails", async () => {
+      mockUnavailable.mockResolvedValue([7]);
+      setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 7 })], 1);
+      playback.fileError(stalled);
+      await vi.waitFor(() =>
+        expect(
+          usePlayerStore.getState().library.map((t) => !!t.sourceOffline),
+        ).toEqual([true, true]),
+      );
+      expect(mockUnavailable).toHaveBeenCalledWith([7]);
+    });
+
+    it("doesn't call a folder offline over a stall when it answers", async () => {
+      // A NAS spinning its disks up after a long pause: slow, not gone.
+      mockUnavailable.mockResolvedValue([]);
+      mockFileExists.mockResolvedValue(true);
+      setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 7 })], 1);
+      playback.fileError(stalled);
+
+      expect(usePlayerStore.getState().playbackState).toBe("stopped");
+      await vi.waitFor(() => expect(mockFileExists).toHaveBeenCalled());
+      await Promise.resolve();
+      const library = usePlayerStore.getState().library;
+      expect(library.map((t) => !!t.sourceOffline)).toEqual([false, false]);
+      expect(library.map((t) => !!t.missingFile)).toEqual([false, false]);
+    });
+
     it("flags just the file when its folder is there", async () => {
       const readError = {
-        ...stalled,
+        ...timedOut,
         message: "Failed to read /music/1.flac: read failed: bad data",
       };
       mockFileExists.mockResolvedValue(false);

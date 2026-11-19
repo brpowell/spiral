@@ -1301,9 +1301,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       seekPreviewRatio: null,
     });
     if (trackId === null) return;
-    void flagUnplayableTrack(set, get, trackId, {
-      error: error.message,
-    }).then((flagged) => {
+    // A read that failed says the folder is gone; one that just never came
+    // back may be a share slow to wake, so the folder is checked first.
+    void flagUnplayableTrack(
+      set,
+      get,
+      trackId,
+      error.stalled ? {} : { error: error.message },
+    ).then((flagged) => {
       if (flagged) return;
       reportUnexpectedError({
         kind: "libraryPlayback",
