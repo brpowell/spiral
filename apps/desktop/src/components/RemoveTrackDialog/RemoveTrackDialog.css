@@ -1,24 +1,74 @@
+/* An inset well, so the affected tracks read apart from the title above. */
+.remove-track-dialog__panel {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
 .remove-track-dialog__list {
   margin: 0;
-  padding: 0;
+  padding: 0.75rem 1rem;
   list-style: none;
-  max-height: 12rem;
+  max-height: min(26rem, 55vh);
   overflow-y: auto;
+  --remove-fade-top: 0px;
+  --remove-fade-bottom: 0px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    black var(--remove-fade-top),
+    black calc(100% - var(--remove-fade-bottom)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    black var(--remove-fade-top),
+    black calc(100% - var(--remove-fade-bottom)),
+    transparent 100%
+  );
+}
+
+/* Fade only the edge with more rows hidden behind it. */
+.remove-track-dialog__list[data-scroll-top] {
+  --remove-fade-top: 1.75rem;
+}
+
+.remove-track-dialog__list[data-scroll-bottom] {
+  --remove-fade-bottom: 1.75rem;
 }
 
 .remove-track-dialog__track {
-  margin: 0 0 0.25rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin: 0 0 0.5rem;
   font-size: 0.9rem;
   line-height: 1.4;
 }
 
+.remove-track-dialog__track:last-child {
+  margin-bottom: 0;
+}
+
 .remove-track-dialog__track strong {
-  display: block;
-  margin-bottom: 0.15rem;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .remove-track-dialog__track span {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
   color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .remove-track-dialog__note {

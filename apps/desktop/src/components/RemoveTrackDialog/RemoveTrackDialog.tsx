@@ -1,14 +1,17 @@
 import { useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useScrollFade } from "@/hooks/useScrollFade";
 import { canDeleteFromDisk } from "@/lib/files/sourceAccess";
 import type { Track } from "@/types/track";
 import { Button } from "@/components/common/Button/Button";
 import {
   Modal,
   ModalBody,
+  ModalDescription,
   ModalFooter,
   ModalHeader,
+  ModalHeaderMain,
   ModalTitle,
 } from "@/components/common/Modal/Modal";
 import "./RemoveTrackDialog.css";
@@ -29,8 +32,10 @@ export function RemoveTrackDialog({
   const { t } = useTranslation("dialogs");
   const dialogRef = useRef<HTMLDivElement>(null);
   const removingRef = useRef(false);
+  const listRef = useRef<HTMLUListElement>(null);
 
   useFocusTrap(dialogRef, open);
+  useScrollFade(listRef, open);
 
   const handleRemove = useCallback(
     async (deleteFromDisk: boolean) => {
@@ -62,23 +67,28 @@ export function RemoveTrackDialog({
       labelledBy="remove-track-title"
     >
       <ModalHeader>
-        <ModalTitle id="remove-track-title">{heading}</ModalTitle>
+        <ModalHeaderMain>
+          <ModalTitle id="remove-track-title">{heading}</ModalTitle>
+          <ModalDescription>{t("removeTracks.description")}</ModalDescription>
+        </ModalHeaderMain>
       </ModalHeader>
 
       <ModalBody>
-        <ul className="remove-track-dialog__list">
-          {tracks.map((track) => {
-            const subtitle = [track.artist, track.album]
-              .filter(Boolean)
-              .join(" · ");
-            return (
-              <li key={track.id} className="remove-track-dialog__track">
-                <strong>{track.title}</strong>
-                {subtitle ? <span>{subtitle}</span> : null}
-              </li>
-            );
-          })}
-        </ul>
+        <div className="remove-track-dialog__panel">
+          <ul ref={listRef} className="remove-track-dialog__list">
+            {tracks.map((track) => {
+              const subtitle = [track.artist, track.album]
+                .filter(Boolean)
+                .join(" · ");
+              return (
+                <li key={track.id} className="remove-track-dialog__track">
+                  <strong>{track.title}</strong>
+                  {subtitle ? <span>{subtitle}</span> : null}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       </ModalBody>
 
       <ModalFooter onCancel={onClose}>

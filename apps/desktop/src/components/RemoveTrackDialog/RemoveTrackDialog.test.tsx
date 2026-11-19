@@ -18,6 +18,13 @@ function renderDialog(tracks: Track[]) {
 }
 
 describe("RemoveTrackDialog", () => {
+  it("warns that listening history and playlist entries are lost", () => {
+    renderDialog([track(1, 1)]);
+    expect(
+      screen.getByText("Listening history and playlist entries will be lost"),
+    ).toBeTruthy();
+  });
+
   it("offers deleting files in any source folder, with no note", () => {
     renderDialog([track(1, 1), track(2, 3)]);
     expect(
