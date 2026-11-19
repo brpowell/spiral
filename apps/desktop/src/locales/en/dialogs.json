@@ -2,6 +2,7 @@
   "removeTracks": {
     "title_one": "Remove from library?",
     "title_other": "Remove {{count}} tracks from library?",
+    "description": "Listening history and playlist entries will be lost",
     "removeFromLibrary": "Remove from library",
     "deleteFiles_one": "Remove and send to trash",
     "deleteFiles_other": "Remove and send to trash"

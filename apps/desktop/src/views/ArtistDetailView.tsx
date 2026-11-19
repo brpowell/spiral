@@ -1,16 +1,22 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { DiscographyTimeline } from "@/components/DiscographyTimeline/DiscographyTimeline";
 import { EntityArt } from "@/components/EntityArt/EntityArt";
 import { Button } from "@/components/common/Button/Button";
 import { Field, FieldLabel } from "@/components/common/Field/Field";
 import { Switch } from "@/components/common/Switch/Switch";
-import { ContextMenuItem } from "@/components/ContextMenu/ContextMenu";
+import { AddToPlaylistSubmenu } from "@/components/AddToPlaylistSubmenu/AddToPlaylistSubmenu";
+import {
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from "@/components/ContextMenu/ContextMenu";
 import { MenuButton } from "@/components/MenuButton/MenuButton";
 import {
   IconAddToQueue,
   IconArtists,
   IconBack,
+  IconConvert,
+  IconDelete,
   IconPencil,
   IconPlay,
 } from "@/components/icons";
@@ -20,7 +26,10 @@ import {
   artistTotalDurationSeconds,
   getArtistByKey,
 } from "@/lib/artists/artists";
+import { openConvertForTrackIds } from "@/lib/files/convertTracks";
+import { isTrackConvertible } from "@/lib/import/pendingImportTrack";
 import { formatDurationNatural } from "@/lib/format/format";
+import { useRemoveTracksDialog } from "@/hooks/useRemoveTracksDialog";
 import { useDetailReturnLabel } from "@/hooks/useDetailReturnLabel";
 import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
@@ -48,6 +57,7 @@ export function ArtistDetailView({
   const closeArtist = useNavigationStore((s) => s.closeArtist);
   const artistReturnContext = useNavigationStore((s) => s.artistReturnContext);
   const setArtistBrowseMode = useNavigationStore((s) => s.setArtistBrowseMode);
+  const playlistSubmenuRef = useRef<HTMLDivElement>(null);
   const playTracks = usePlayerStore((s) => s.playTracks);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const openArtistEditor = usePlayerStore((s) => s.openArtistEditor);
@@ -56,6 +66,10 @@ export function ArtistDetailView({
   const artist = browseArtist ?? getArtistByKey(performerArtists, artistKey);
   const editorBrowseMode = browseArtist != null ? browseMode : "performers";
   const albumArtistsOnly = browseMode === "discography";
+  const { openRemoveDialog, removeDialog } = useRemoveTracksDialog(
+    artist?.tracks ?? [],
+    closeArtist,
+  );
   const backLabel = useDetailReturnLabel(artistReturnContext, artists);
   const discography = useMemo(
     () => (artist ? albumsForArtist(albums, artist, browseMode) : []),
@@ -80,6 +94,9 @@ export function ArtistDetailView({
   }
 
   const trackIds = artist.tracks.map((t) => t.id);
+  const convertibleCount = artist.tracks.filter((track) =>
+    isTrackConvertible(track),
+  ).length;
   const totalDuration = artistTotalDurationSeconds(artist.tracks);
   const discographySectionTitle = albumArtistsOnly
     ? t("views.artists.discography")
@@ -99,6 +116,7 @@ export function ArtistDetailView({
 
   return (
     <div className="artist-detail">
+      {removeDialog}
       <div className="artist-detail__toolbar">
         <Button
           variant="ghost"
@@ -141,12 +159,22 @@ export function ArtistDetailView({
             <MenuButton
               triggerPlacement="below-start"
               ariaLabel={t("views.artists.actionsAria")}
-              layoutDeps={[artist.tracks.length]}
+              layoutDeps={[artist.tracks.length, convertibleCount]}
               size="sm"
               variant="secondary"
+              dismissExcludeRefs={[playlistSubmenuRef]}
             >
               {(close) => (
                 <>
+                  <ContextMenuItem
+                    icon={<IconPlay />}
+                    label={t("actions.playAll")}
+                    disabled={artist.tracks.length === 0}
+                    onClick={() => {
+                      close();
+                      handlePlayAll();
+                    }}
+                  />
                   {artist.tracks.length > 0 ? (
                     <ContextMenuItem
                       icon={<IconAddToQueue />}
@@ -157,15 +185,38 @@ export function ArtistDetailView({
                       }}
                     />
                   ) : null}
-                  <ContextMenuItem
-                    icon={<IconPlay />}
-                    label={t("actions.playAll")}
-                    disabled={artist.tracks.length === 0}
-                    onClick={() => {
-                      close();
-                      handlePlayAll();
-                    }}
-                  />
+                  {artist.tracks.length > 0 ? <ContextMenuSeparator /> : null}
+                  {artist.tracks.length > 0 ? (
+                    <AddToPlaylistSubmenu
+                      trackIds={trackIds}
+                      closeMenu={close}
+                      panelRef={playlistSubmenuRef}
+                    />
+                  ) : null}
+                  {convertibleCount > 0 ? (
+                    <ContextMenuItem
+                      icon={<IconConvert />}
+                      label={t("actions.convert", { count: convertibleCount })}
+                      onClick={() => {
+                        close();
+                        openConvertForTrackIds(trackIds);
+                      }}
+                    />
+                  ) : null}
+                  {artist.tracks.length > 0 ? <ContextMenuSeparator /> : null}
+                  {artist.tracks.length > 0 ? (
+                    <ContextMenuItem
+                      icon={<IconDelete />}
+                      label={t("actions.removeFromLibrary", {
+                        count: artist.tracks.length,
+                      })}
+                      className="context-menu__danger"
+                      onClick={() => {
+                        close();
+                        openRemoveDialog();
+                      }}
+                    />
+                  ) : null}
                 </>
               )}
             </MenuButton>

@@ -1,18 +1,24 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   albumTotalDurationSeconds,
   getAlbumByKey,
   groupAlbumTracksByDisc,
 } from "@/lib/albums/albums";
+import { openConvertForTrackIds } from "@/lib/files/convertTracks";
+import { isTrackConvertible } from "@/lib/import/pendingImportTrack";
 import { confirmAndApplyTrackRatings } from "@/lib/tracks/applyTrackRating";
 import { formatDurationNatural } from "@/lib/format/format";
 import { linkableArtistKey } from "@/lib/tracks/trackNavigation";
 import type { CanonicalRating } from "@/lib/tracks/trackRating";
 import { DetailArtistLink } from "@/components/DetailArtistLink/DetailArtistLink";
 import { EntityArt } from "@/components/EntityArt/EntityArt";
+import { AddToPlaylistSubmenu } from "@/components/AddToPlaylistSubmenu/AddToPlaylistSubmenu";
 import { Button } from "@/components/common/Button/Button";
-import { ContextMenuItem } from "@/components/ContextMenu/ContextMenu";
+import {
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from "@/components/ContextMenu/ContextMenu";
 import { MenuButton } from "@/components/MenuButton/MenuButton";
 import { TrackList } from "@/components/TrackList/TrackList";
 import {
@@ -26,10 +32,13 @@ import { POPULARITY_COLUMN_PROFILE } from "@/lib/popularity/profiles";
 import {
   IconAddToQueue,
   IconBack,
+  IconConvert,
+  IconDelete,
   IconDisc,
   IconPencil,
   IconPlay,
 } from "@/components/icons";
+import { useRemoveTracksDialog } from "@/hooks/useRemoveTracksDialog";
 import { useDetailReturnLabel } from "@/hooks/useDetailReturnLabel";
 import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
@@ -66,7 +75,11 @@ export function AlbumDetailView({
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const updateTrackInLibrary = usePlayerStore((s) => s.updateTrackInLibrary);
 
+  const playlistSubmenuRef = useRef<HTMLDivElement>(null);
   const album = getAlbumByKey(albums, albumKey);
+  const { openRemoveDialog, removeDialog } = useRemoveTracksDialog(
+    album?.tracks ?? [],
+  );
   const backLabel = useDetailReturnLabel(albumReturnContext, artists);
   const libraryArtistKeys = useMemo(
     () => new Set(artists.map((artist) => artist.key)),
@@ -137,6 +150,9 @@ export function AlbumDetailView({
   }
 
   const trackIds = sortedTracks.map((t) => t.id);
+  const convertibleCount = album.tracks.filter((track) =>
+    isTrackConvertible(track),
+  ).length;
   const totalDuration = albumTotalDurationSeconds(album.tracks);
 
   const handlePlayAll = () => {
@@ -174,6 +190,7 @@ export function AlbumDetailView({
 
   return (
     <div className="album-detail detail-view">
+      {removeDialog}
       <div className="detail-view__body">
         <div className="detail-view__chrome">
           <div className="album-detail__toolbar">
@@ -221,13 +238,23 @@ export function AlbumDetailView({
                 </Button>
                 <MenuButton
                   ariaLabel={t("views.albums.actionsAria")}
-                  layoutDeps={[album.tracks.length]}
+                  layoutDeps={[album.tracks.length, convertibleCount]}
                   size="sm"
                   triggerPlacement="below-start"
                   variant="secondary"
+                  dismissExcludeRefs={[playlistSubmenuRef]}
                 >
                   {(close) => (
                     <>
+                      <ContextMenuItem
+                        icon={<IconPlay />}
+                        label={t("actions.playAll")}
+                        disabled={album.tracks.length === 0}
+                        onClick={() => {
+                          close();
+                          handlePlayAll();
+                        }}
+                      />
                       {album.tracks.length > 0 ? (
                         <ContextMenuItem
                           icon={<IconAddToQueue />}
@@ -238,15 +265,46 @@ export function AlbumDetailView({
                           }}
                         />
                       ) : null}
-                      <ContextMenuItem
-                        icon={<IconPlay />}
-                        label={t("actions.playAll")}
-                        disabled={album.tracks.length === 0}
-                        onClick={() => {
-                          close();
-                          handlePlayAll();
-                        }}
-                      />
+                      {album.tracks.length > 0 ? (
+                        <ContextMenuSeparator />
+                      ) : null}
+                      {album.tracks.length > 0 ? (
+                        <AddToPlaylistSubmenu
+                          trackIds={trackIds}
+                          closeMenu={close}
+                          panelRef={playlistSubmenuRef}
+                        />
+                      ) : null}
+                      {convertibleCount > 0 ? (
+                        <ContextMenuItem
+                          icon={<IconConvert />}
+                          label={t("actions.convertAlbum", {
+                            count: convertibleCount,
+                          })}
+                          onClick={() => {
+                            close();
+                            openConvertForTrackIds(
+                              album.tracks.map((track) => track.id),
+                            );
+                          }}
+                        />
+                      ) : null}
+                      {album.tracks.length > 0 ? (
+                        <ContextMenuSeparator />
+                      ) : null}
+                      {album.tracks.length > 0 ? (
+                        <ContextMenuItem
+                          icon={<IconDelete />}
+                          label={t("actions.removeFromLibrary", {
+                            count: album.tracks.length,
+                          })}
+                          className="context-menu__danger"
+                          onClick={() => {
+                            close();
+                            openRemoveDialog();
+                          }}
+                        />
+                      ) : null}
                     </>
                   )}
                 </MenuButton>

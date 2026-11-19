@@ -2,12 +2,11 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ContextMenu,
-  ContextMenuHeading,
   ContextMenuItem,
   ContextMenuSeparator,
-  ContextMenuSubmenu,
 } from "@/components/ContextMenu/ContextMenu";
 import { ContextMenuRatingItem } from "@/components/ContextMenu/ContextMenuRatingItem";
+import { AddToPlaylistSubmenu } from "@/components/AddToPlaylistSubmenu/AddToPlaylistSubmenu";
 import { RemoveTrackDialog } from "@/components/RemoveTrackDialog/RemoveTrackDialog";
 import {
   IconAddToQueue,
@@ -16,8 +15,6 @@ import {
   IconConvert,
   IconDelete,
   IconOpenFolder,
-  IconPlaylistAdd,
-  IconPlaylists,
   IconRemoveFromPlaylist,
   IconRemoveFromQueue,
   IconInfo,
@@ -34,13 +31,6 @@ import {
   filterConvertibleTrackIds,
 } from "@/lib/files/convertTracks";
 import { isTrackMissingFile } from "@/lib/tracks/missingFileTrack";
-import {
-  PlaylistContextMenuIcon,
-  usePlaylistTracksById,
-} from "@/components/PlaylistArt/PlaylistContextMenuIcon";
-import { showPlaylistAddedToast } from "@/lib/playlists/playlistToast";
-import { recentPlaylists, sortedPlaylists } from "@/lib/playlists/playlists";
-import type { Playlist } from "@/types/playlist";
 import { tracksForContextAction } from "@/lib/tracks/trackSelection";
 import { albumKey } from "@/lib/albums/albums";
 import {
@@ -79,18 +69,12 @@ export function useTrackMenu(
   const artistBrowseMode = useNavigationStore((s) => s.artistBrowseMode);
 
   const playlists = usePlaylistStore((s) => s.playlists);
-  const addTracksToPlaylist = usePlaylistStore((s) => s.addTracksToPlaylist);
   const removeTracksFromPlaylist = usePlaylistStore(
     (s) => s.removeTracksFromPlaylist,
   );
-  const openPlaylistEditor = usePlaylistStore((s) => s.openPlaylistEditor);
 
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
   const submenuPanelRef = useRef<HTMLDivElement>(null);
-
-  const recent = useMemo(() => recentPlaylists(playlists), [playlists]);
-  const allSorted = useMemo(() => sortedPlaylists(playlists), [playlists]);
-  const playlistTracksById = usePlaylistTracksById(playlists, library);
 
   const libraryIdSet = useMemo(
     () => new Set(library.map((t) => t.id)),
@@ -137,8 +121,6 @@ export function useTrackMenu(
         convertibleCount,
         playlistId,
         playlists.length,
-        recent.length,
-        allSorted.length,
         hasNavigableArtist(track),
         hasNavigableAlbum(track),
         artistBrowseMode,
@@ -153,24 +135,6 @@ export function useTrackMenu(
     openTrackEditor(contextTrackIds);
   }, [closeMenu, openTrackEditor, contextTrackIds]);
 
-  const handleAddToPlaylist = useCallback(
-    (targetPlaylistId: number) => {
-      const playlist = playlists.find((p) => p.id === targetPlaylistId);
-      closeMenu();
-      void addTracksToPlaylist(targetPlaylistId, contextTrackIds).then(() => {
-        if (playlist) {
-          showPlaylistAddedToast(contextTrackIds, library, playlist);
-        }
-      });
-    },
-    [closeMenu, addTracksToPlaylist, contextTrackIds, library, playlists],
-  );
-
-  const handleNewPlaylist = useCallback(() => {
-    closeMenu();
-    openPlaylistEditor("new", contextTrackIds);
-  }, [closeMenu, openPlaylistEditor, contextTrackIds]);
-
   const handleRatingChange = useCallback(
     (rating: CanonicalRating) => {
       closeMenu();
@@ -181,20 +145,6 @@ export function useTrackMenu(
       );
     },
     [closeMenu, contextTracks, updateTrackInLibrary],
-  );
-
-  const renderPlaylistItem = (playlist: Playlist) => (
-    <ContextMenuItem
-      key={playlist.id}
-      icon={
-        <PlaylistContextMenuIcon
-          playlist={playlist}
-          tracks={playlistTracksById.get(playlist.id) ?? []}
-        />
-      }
-      label={playlist.title}
-      onClick={() => handleAddToPlaylist(playlist.id)}
-    />
   );
 
   const contextMenu = open ? (
@@ -273,35 +223,11 @@ export function useTrackMenu(
         />
       ) : null}
       <ContextMenuSeparator />
-      <ContextMenuSubmenu
-        label={t("library:actions.addToPlaylist")}
-        icon={<IconPlaylists />}
+      <AddToPlaylistSubmenu
+        trackIds={contextTrackIds}
+        closeMenu={closeMenu}
         panelRef={submenuPanelRef}
-      >
-        <ContextMenuItem
-          icon={<IconPlaylistAdd />}
-          label={t("library:actions.newPlaylist")}
-          onClick={handleNewPlaylist}
-        />
-        {recent.length > 0 ? (
-          <>
-            <ContextMenuSeparator />
-            <ContextMenuHeading>
-              {t("library:actions.recentPlaylists")}
-            </ContextMenuHeading>
-            {recent.map(renderPlaylistItem)}
-          </>
-        ) : null}
-        {allSorted.length > 0 ? (
-          <>
-            <ContextMenuSeparator />
-            <ContextMenuHeading>
-              {t("library:actions.allPlaylists")}
-            </ContextMenuHeading>
-            {allSorted.map(renderPlaylistItem)}
-          </>
-        ) : null}
-      </ContextMenuSubmenu>
+      />
       {playlistId != null ? (
         <ContextMenuItem
           icon={<IconRemoveFromPlaylist />}
