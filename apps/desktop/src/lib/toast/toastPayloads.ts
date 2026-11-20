@@ -67,6 +67,28 @@ export function playlistAddedPayload(
   );
 }
 
+// —— Library ——
+
+/**
+ * Removed tracks whose files couldn't be trashed because their music folder
+ * didn't answer. They stay out of the library; the files are untouched.
+ */
+export function removedFilesUnreachablePayload(
+  count: number,
+  options?: { dismissMs?: number | null },
+): ToastPayload | null {
+  if (count <= 0) return null;
+  return withOptionalDismiss(
+    {
+      key: "remove-files-unreachable",
+      status: "warning",
+      label: t("toasts:library.trashUnreachable", { count }),
+      detail: t("toasts:library.trashUnreachableDetail", { count }),
+    },
+    options?.dismissMs,
+  );
+}
+
 // —— Playback ——
 
 /** A track's file wasn't found, or its music folder is offline (`sourceOffline`). */

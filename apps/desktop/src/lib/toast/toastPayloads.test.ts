@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { sourceScanPayload } from "./toastPayloads";
+import {
+  removedFilesUnreachablePayload,
+  sourceScanPayload,
+} from "./toastPayloads";
 
 const none = {
   added: 0,
@@ -29,5 +32,21 @@ describe("sourceScanPayload", () => {
     expect(
       sourceScanPayload("Music", { ...none, restored: 3, failed: 1 }),
     ).toMatchObject({ detail: "3 found again, 1 failed", status: "warning" });
+  });
+});
+
+describe("removedFilesUnreachablePayload", () => {
+  it("says nothing when every file was handled", () => {
+    expect(removedFilesUnreachablePayload(0)).toBeNull();
+  });
+
+  it("warns that files in an offline folder were left alone", () => {
+    expect(removedFilesUnreachablePayload(1)).toMatchObject({
+      label: "Couldn't send a file to the trash",
+      status: "warning",
+    });
+    expect(removedFilesUnreachablePayload(3)?.label).toBe(
+      "Couldn't send 3 files to the trash",
+    );
   });
 });

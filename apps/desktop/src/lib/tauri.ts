@@ -488,9 +488,16 @@ export async function getConvertProfileOptions(
 /**
  * What became of a removed track's file. Only `trashed` means it left its
  * folder; the `kept*` outcomes mean deleting it was refused.
+ * `keptUnreachable` means its music folder didn't answer: the file is left
+ * alone and stays remembered as removed, so a rescan won't add it back.
  */
 export type RemovedFile =
-  "notRequested" | "trashed" | "notFound" | "keptMissing" | "keptShared";
+  | "notRequested"
+  | "trashed"
+  | "notFound"
+  | "keptMissing"
+  | "keptShared"
+  | "keptUnreachable";
 
 export async function removeTrack(
   trackId: number,

@@ -3,6 +3,7 @@ use crate::audio_properties;
 use crate::db;
 use crate::encoding_profiles;
 use crate::fs_move;
+use crate::fs_probe::{self, Probed};
 use crate::import_files;
 use crate::library_organize::{self, OrganizeMetadata};
 use crate::lyrics_normalize;
@@ -424,44 +425,22 @@ pub enum RemovedFile {
     KeptMissing,
     /// Another track still uses the file.
     KeptShared,
+    /// The file's folder didn't answer (an unplugged drive, a dropped
+    /// share), so whether the file is there is unknown. It is left alone and
+    /// stays remembered as removed, so a later rescan doesn't add it back.
+    KeptUnreachable,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn remove_track(
     app: AppHandle,
     state: State<DbState>,
     track_id: i64,
     delete_from_disk: bool,
 ) -> Result<RemovedFile, String> {
-    let (track, file) = {
-        let conn = state.0.lock().map_err(|e| e.to_string())?;
-        let track = db::get_track_by_id(&conn, track_id)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| format!("Track {track_id} not found"))?;
-        // The file may stay on disk, so remember it as removed first: rescanning
-        // its source then doesn't add it back, even when trashing it fails.
-        // A track marked missing has no file to remember.
-        let remembered = if track.missing_since.is_some() {
-            db::delete_track(&conn, track_id)
-                .map(|_| None)
-                .map_err(|e| e.to_string())?
-        } else {
-            db::delete_track_keep_excluded(&conn, track_id).map_err(|e| e.to_string())?
-        };
-        let file = if delete_from_disk {
-            delete_removed_track_file(&conn, &track, settings::lyrics_sidecar_sync_enabled(&app))?
-        } else {
-            RemovedFile::NotRequested
-        };
-        // The file is gone, so there is nothing left to skip.
-        if let (Some(rel_path), RemovedFile::Trashed | RemovedFile::NotFound) = (&remembered, &file)
-        {
-            if let Err(err) = db::clear_removed_track(&conn, track.source_id, rel_path) {
-                eprintln!("clear removed track after trashing: {err}");
-            }
-        }
-        (track, file)
-    };
+    let sidecar_enabled = settings::lyrics_sidecar_sync_enabled(&app);
+    let (track, file) =
+        remove_track_and_file(&state.0, track_id, delete_from_disk, sidecar_enabled)?;
 
     let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
 
@@ -481,27 +460,115 @@ pub fn remove_track(
     Ok(file)
 }
 
-/// Move a removed track's file and lyrics sidecar to the Trash. The file is
-/// kept when the track was marked missing, or when another track row names
-/// the same file (compared on disk, not by path string).
-fn delete_removed_track_file(
+/// Remove a track's row and, when asked, its file. The database is only
+/// locked around database work: the file sits in a source folder that may be
+/// on a network share, and a call that stalls on it while holding the lock
+/// would freeze every library command.
+fn remove_track_and_file(
+    db: &Mutex<rusqlite::Connection>,
+    track_id: i64,
+    delete_from_disk: bool,
+    sidecar_enabled: bool,
+) -> Result<(Track, RemovedFile), String> {
+    let (track, remembered, removal) = {
+        let conn = db.lock().map_err(|e| e.to_string())?;
+        let track = db::get_track_by_id(&conn, track_id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("Track {track_id} not found"))?;
+        // The file may stay on disk, so remember it as removed first: rescanning
+        // its source then doesn't add it back, even when trashing it fails.
+        // A track marked missing has no file to remember.
+        let remembered = if track.missing_since.is_some() {
+            db::delete_track(&conn, track_id)
+                .map(|_| None)
+                .map_err(|e| e.to_string())?
+        } else {
+            db::delete_track_keep_excluded(&conn, track_id).map_err(|e| e.to_string())?
+        };
+        let removal = if delete_from_disk {
+            Some(plan_file_removal(&conn, &track).map_err(|e| e.to_string())?)
+        } else {
+            None
+        };
+        (track, remembered, removal)
+    };
+
+    let file = match removal {
+        None => RemovedFile::NotRequested,
+        Some(None) => RemovedFile::KeptMissing,
+        Some(Some(plan)) => remove_file_from_disk(&plan, sidecar_enabled)?,
+    };
+
+    // The file is gone, so there is nothing left to skip. Only when that is
+    // known: a folder that didn't answer keeps the file remembered.
+    if let (Some(rel_path), RemovedFile::Trashed | RemovedFile::NotFound) = (&remembered, file) {
+        let conn = db.lock().map_err(|e| e.to_string())?;
+        if let Err(err) = db::clear_removed_track(&conn, track.source_id, rel_path) {
+            eprintln!("clear removed track after trashing: {err}");
+        }
+    }
+    Ok((track, file))
+}
+
+/// What deleting a removed track's file needs, read from the database so the
+/// disk can be looked at after its lock is released.
+#[derive(Debug)]
+struct FileRemoval {
+    audio_path: PathBuf,
+    /// The track's source folder, checked first so a folder that isn't
+    /// answering isn't taken to mean the file is gone.
+    source_root: Option<PathBuf>,
+    /// Other rows whose file name matches, confirmed on disk before trashing.
+    namesakes: Vec<(i64, PathBuf)>,
+}
+
+/// `None` when the track was marked missing: its path can't be trusted to name
+/// its own file (it may be another track's, under another spelling), so the
+/// file is kept. Reads only the database.
+fn plan_file_removal(
     conn: &rusqlite::Connection,
     track: &Track,
-    sidecar_enabled: bool,
-) -> Result<RemovedFile, String> {
+) -> rusqlite::Result<Option<FileRemoval>> {
     if track.missing_since.is_some() {
-        return Ok(RemovedFile::KeptMissing);
+        return Ok(None);
     }
-    let audio_path = Path::new(&track.file_path);
-    if !audio_path.is_file() {
-        if sidecar_enabled {
-            trash_sidecar(audio_path)?;
+    let audio_path = PathBuf::from(&track.file_path);
+    let source_root = sources::SourceRoots::load(conn)?
+        .root(track.source_id)
+        .map(Path::to_path_buf);
+    let namesakes = track_identity::rows_named_like(conn, &audio_path, track.id)?;
+    Ok(Some(FileRemoval {
+        audio_path,
+        source_root,
+        namesakes,
+    }))
+}
+
+/// Move a removed track's file and lyrics sidecar to the Trash. The file is
+/// kept when another track row names the same file (compared on disk, not by
+/// path string), and when its folder doesn't answer. Never call this while
+/// holding the database lock.
+fn remove_file_from_disk(plan: &FileRemoval, sidecar_enabled: bool) -> Result<RemovedFile, String> {
+    if let Some(root) = &plan.source_root {
+        if !fs_probe::probe_dir_before_use(root).is_yes() {
+            return Ok(RemovedFile::KeptUnreachable);
         }
-        return Ok(RemovedFile::NotFound);
     }
-    let sharing = track_identity::other_rows_for_file(conn, audio_path, track.id)
-        .map_err(|e| e.to_string())?;
-    if !sharing.is_empty() {
+    let audio_path = plan.audio_path.as_path();
+    match fs_probe::probe_file_before_use(audio_path) {
+        Probed::Yes => {}
+        Probed::Stalled => return Ok(RemovedFile::KeptUnreachable),
+        Probed::No => {
+            if !confirmed_absent(audio_path) {
+                return Ok(RemovedFile::KeptUnreachable);
+            }
+            if sidecar_enabled {
+                trash_sidecar(audio_path)?;
+            }
+            return Ok(RemovedFile::NotFound);
+        }
+    }
+    if !track_identity::same_file_rows(&plan.namesakes, audio_path).is_empty() {
         return Ok(RemovedFile::KeptShared);
     }
     if sidecar_enabled {
@@ -509,6 +576,21 @@ fn delete_removed_track_file(
     }
     fs_move::move_to_trash(audio_path)?;
     Ok(RemovedFile::Trashed)
+}
+
+/// Whether nothing is at `path`, as the filesystem says outright. An error
+/// other than "not found", or no answer in time, isn't taken as absence.
+fn confirmed_absent(path: &Path) -> bool {
+    let owned = path.to_path_buf();
+    match fs_probe::run_within(fs_probe::ACCESS_TIMEOUT, move || {
+        fs::symlink_metadata(&owned)
+    }) {
+        // Something that isn't a regular file (a folder, a dangling link) is
+        // no track's file either.
+        Some(Ok(meta)) => !meta.is_file(),
+        Some(Err(err)) => err.kind() == std::io::ErrorKind::NotFound,
+        None => false,
+    }
 }
 
 fn trash_sidecar(audio_path: &Path) -> Result<(), String> {
@@ -1155,6 +1237,106 @@ mod tests {
             let track = track_in(conn, id);
             db::delete_track(conn, id).unwrap();
             track
+        }
+
+        /// The disk half of `remove_track`'s delete, as it runs after the row
+        /// is gone and the lock released.
+        fn delete_removed_track_file(
+            conn: &rusqlite::Connection,
+            track: &Track,
+            sidecar_enabled: bool,
+        ) -> Result<RemovedFile, String> {
+            match plan_file_removal(conn, track).unwrap() {
+                None => Ok(RemovedFile::KeptMissing),
+                Some(plan) => remove_file_from_disk(&plan, sidecar_enabled),
+            }
+        }
+
+        fn remembered(db: &Mutex<rusqlite::Connection>, source: i64) -> Vec<String> {
+            db::removed_tracks(&db.lock().unwrap(), source)
+                .unwrap()
+                .into_iter()
+                .map(|(rel_path, _)| rel_path)
+                .collect()
+        }
+
+        #[test]
+        fn a_trashed_file_is_no_longer_remembered_as_removed() {
+            let tmp = TempDir::new("remove-trashed");
+            let db = Mutex::new(conn());
+            let (audio, sidecar) = audio_with_sidecar(&tmp.0, "song");
+            let source = add_user_source(&db.lock().unwrap(), &tmp.0);
+            let id = insert_track(&db.lock().unwrap(), "song.mp3", source);
+
+            let (_, file) = remove_track_and_file(&db, id, true, true).unwrap();
+            assert_eq!(file, RemovedFile::Trashed);
+            assert!(!audio.exists() && !sidecar.exists());
+            assert!(remembered(&db, source).is_empty());
+        }
+
+        #[test]
+        fn a_file_confirmed_gone_is_no_longer_remembered_as_removed() {
+            let tmp = TempDir::new("remove-gone");
+            let db = Mutex::new(conn());
+            let source = add_user_source(&db.lock().unwrap(), &tmp.0);
+            let id = insert_track(&db.lock().unwrap(), "gone.mp3", source);
+
+            let (_, file) = remove_track_and_file(&db, id, true, true).unwrap();
+            assert_eq!(file, RemovedFile::NotFound);
+            assert!(remembered(&db, source).is_empty());
+        }
+
+        #[test]
+        fn a_file_in_an_offline_folder_stays_remembered_as_removed() {
+            let tmp = TempDir::new("remove-offline");
+            let db = Mutex::new(conn());
+            let (audio, sidecar) = audio_with_sidecar(&tmp.0, "song");
+            let source = add_user_source(&db.lock().unwrap(), &tmp.0);
+            let id = insert_track(&db.lock().unwrap(), "song.mp3", source);
+
+            let started = std::time::Instant::now();
+            let (_, file) = {
+                let _stall = crate::fs_probe::stall_dir(&tmp.0);
+                remove_track_and_file(&db, id, true, true).unwrap()
+            };
+            assert!(started.elapsed() < std::time::Duration::from_millis(500));
+            assert_eq!(file, RemovedFile::KeptUnreachable);
+            assert!(audio.is_file() && sidecar.is_file());
+            assert_eq!(remembered(&db, source), ["song.mp3"]);
+            assert!(db::get_track_by_id(&db.lock().unwrap(), id)
+                .unwrap()
+                .is_none());
+        }
+
+        #[test]
+        fn a_file_that_stalls_stays_remembered_as_removed() {
+            let tmp = TempDir::new("remove-stalled-file");
+            let db = Mutex::new(conn());
+            let (audio, _) = audio_with_sidecar(&tmp.0, "song");
+            let source = add_user_source(&db.lock().unwrap(), &tmp.0);
+            let id = insert_track(&db.lock().unwrap(), "song.mp3", source);
+
+            let (_, file) = {
+                let _stall = crate::fs_probe::stall_file(&audio);
+                remove_track_and_file(&db, id, true, true).unwrap()
+            };
+            assert_eq!(file, RemovedFile::KeptUnreachable);
+            assert!(audio.is_file());
+            assert_eq!(remembered(&db, source), ["song.mp3"]);
+        }
+
+        #[test]
+        fn removing_only_the_row_keeps_the_file_remembered() {
+            let tmp = TempDir::new("remove-row-only");
+            let db = Mutex::new(conn());
+            let (audio, _) = audio_with_sidecar(&tmp.0, "song");
+            let source = add_user_source(&db.lock().unwrap(), &tmp.0);
+            let id = insert_track(&db.lock().unwrap(), "song.mp3", source);
+
+            let (_, file) = remove_track_and_file(&db, id, false, true).unwrap();
+            assert_eq!(file, RemovedFile::NotRequested);
+            assert!(audio.is_file());
+            assert_eq!(remembered(&db, source), ["song.mp3"]);
         }
 
         #[test]
