@@ -1,0 +1,12 @@
+twemoji-country-flags.woff2
+
+"Twemoji Country Flags" font, from the country-flag-emoji-polyfill project
+(https://github.com/talkjs/country-flag-emoji-polyfill, MIT, Copyright (c) 2022 TalkJS).
+
+The flag artwork inside the font comes from Twemoji
+(https://github.com/twitter/twemoji), Copyright 2020 Twitter, Inc and other contributors,
+used and redistributed under the Creative Commons Attribution 4.0 International license
+(CC BY 4.0): https://creativecommons.org/licenses/by/4.0/legalcode
+
+The font is bundled unmodified. It is used only for flag characters (regional indicator
+symbols), so flags look the same on every operating system.

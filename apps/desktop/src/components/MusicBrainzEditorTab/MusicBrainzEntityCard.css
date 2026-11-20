@@ -141,6 +141,8 @@
 
 .musicbrainz-entity-facts__value {
   margin: 0;
+  /* Flags only: the bundled face covers just the regional indicator range. */
+  font-family: "Twemoji Country Flags", var(--font-ui);
   font-size: 0.75rem;
   font-weight: var(--weight-medium);
   font-variant-numeric: tabular-nums;
