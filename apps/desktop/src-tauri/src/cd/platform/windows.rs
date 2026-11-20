@@ -476,8 +476,9 @@ pub fn probe_disc_presence_try(drive_id: &str) -> Option<Result<bool, String>> {
 }
 
 pub fn eject_disc(drive_id: &str) -> Result<(), String> {
+    // `is_optical_disc_volume` asks GetDriveTypeW about the `X:\` root for the normalized id.
     let drive_id =
-        normalize_drive_id(drive_id).ok_or_else(|| format!("Invalid drive id: {drive_id}"))?;
+        super::resolve_ejectable_drive(drive_id, normalize_drive_id, is_optical_disc_volume)?;
 
     crate::cd::playback::stop_for_drive(&drive_id);
 
