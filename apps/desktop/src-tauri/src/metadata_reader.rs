@@ -369,6 +369,13 @@ pub struct ParsedTrack {
     art: Option<PendingArt>,
 }
 
+impl ParsedTrack {
+    /// Bytes of embedded picture held until [`place_embedded_art`] writes it.
+    pub fn art_len(&self) -> usize {
+        self.art.as_ref().map_or(0, |a| a.bytes.len())
+    }
+}
+
 struct PendingArt {
     bytes: Vec<u8>,
     mime: String,
