@@ -95,6 +95,38 @@ describe("ThirdPartyLicenses", () => {
     expect(screen.getByText("serde")).toBeInTheDocument();
   });
 
+  it("lists a bundled asset that no package manager provides", async () => {
+    const withAsset: ThirdPartyLicenseData = {
+      packageCount: 1,
+      groups: [
+        {
+          id: "twemoji",
+          title: "Creative Commons Attribution 4.0 (Twemoji flags)",
+          kind: "license",
+          text: "Flag artwork is from Twemoji",
+          packages: [
+            {
+              name: "Twemoji Country Flags",
+              version: "0.1.10",
+              ecosystem: "asset",
+              copyright: ["Copyright 2020 Twitter, Inc"],
+            },
+          ],
+        },
+      ],
+    };
+    render(<ThirdPartyLicenses loadData={() => Promise.resolve(withAsset)} />);
+    const title = await screen.findByText(/Twemoji flags/);
+    const details = title.closest("details") as HTMLDetailsElement;
+    details.open = true;
+    fireEvent(details, new Event("toggle"));
+
+    expect(
+      await screen.findByText("Twemoji Country Flags 0.1.10"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Copyright 2020 Twitter, Inc")).toBeInTheDocument();
+  });
+
   it("lists the first three packages and how many more", async () => {
     const pkg = data.groups[0].packages[0];
     const many = ["a", "b", "c", "d", "e"].map((name) => ({ ...pkg, name }));

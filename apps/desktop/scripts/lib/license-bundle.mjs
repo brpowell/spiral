@@ -14,11 +14,11 @@ import { createHash } from "node:crypto";
 /**
  * @typedef {{ kind: 'license' | 'notice', name: string, text: string }} LicenseFile
  * @typedef {{
- *   name: string, version: string, ecosystem: 'npm' | 'cargo', license: string,
+ *   name: string, version: string, ecosystem: 'npm' | 'cargo' | 'asset', license: string,
  *   authors?: string[], repository?: string, files: LicenseFile[]
  * }} BundlePackage
  * @typedef {{
- *   name: string, version: string, ecosystem: 'npm' | 'cargo',
+ *   name: string, version: string, ecosystem: 'npm' | 'cargo' | 'asset',
  *   copyright: string[], synthesized: boolean
  * }} GroupMember
  * @typedef {{

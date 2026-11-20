@@ -53,3 +53,17 @@
   src: url("../assets/fonts/m-plus-rounded-1c-latin-800-normal.woff2")
     format("woff2");
 }
+
+/*
+ * Country flags (CC BY 4.0 Twemoji art; attribution in src/assets/fonts). Windows
+ * ships no flag emoji, so flags would render as bare letters. The unicode-range
+ * limits this face to the regional indicator symbols, so no other text uses it.
+ */
+@font-face {
+  font-family: "Twemoji Country Flags";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0062-E007F;
+  src: url("../assets/fonts/twemoji-country-flags.woff2") format("woff2");
+}

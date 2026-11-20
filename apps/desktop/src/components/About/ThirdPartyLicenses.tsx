@@ -6,7 +6,8 @@ import { SearchField } from "@/components/SearchField/SearchField";
 export interface LicensePackage {
   name: string;
   version: string;
-  ecosystem: "npm" | "cargo";
+  /** `asset` is a file bundled in the app that no package manager provides. */
+  ecosystem: "npm" | "cargo" | "asset";
   /** The package's own copyright lines, or its authors when it states none. */
   copyright: string[];
 }

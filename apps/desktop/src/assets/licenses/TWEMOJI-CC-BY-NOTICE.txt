@@ -1,0 +1,17 @@
+Twemoji flag artwork, licensed under CC BY 4.0
+
+The country flags shown in the app come from the "Twemoji Country Flags" font
+(src/assets/fonts/twemoji-country-flags.woff2). The font is bundled unmodified from
+the country-flag-emoji-polyfill project (https://github.com/talkjs/country-flag-emoji-polyfill),
+whose code is MIT licensed, Copyright (c) 2022 TalkJS.
+
+The flag artwork in the font is from Twemoji (https://github.com/twitter/twemoji),
+Copyright 2020 Twitter, Inc and other contributors, and is licensed under the
+Creative Commons Attribution 4.0 International license (CC BY 4.0).
+
+You are free to share (copy and redistribute the material in any medium or format) and to
+adapt (remix, transform and build upon the material for any purpose, even commercially),
+provided you give appropriate credit, provide a link to the license, and indicate if changes
+were made. The font is used here without changes.
+
+Full license text: https://creativecommons.org/licenses/by/4.0/legalcode
