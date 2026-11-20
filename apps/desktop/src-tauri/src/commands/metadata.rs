@@ -515,6 +515,11 @@ pub fn write_track_metadata(
 ) -> Result<Track, String> {
     let library = settings::resolved_library_settings(&app);
     let library_root = PathBuf::from(&library.library_root);
+    // Store what a later re-read of the file would produce.
+    (metadata.artist, metadata.album_artist) = crate::artist_tags::split_artist_fields(
+        metadata.artist.as_deref(),
+        metadata.album_artist.as_deref(),
+    );
 
     let (existing, organize) = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;

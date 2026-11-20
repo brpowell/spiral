@@ -63,6 +63,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "removed_tracks",
         up: removed_tracks,
     },
+    Migration {
+        version: 7,
+        name: "reread_joined_artists",
+        up: reread_joined_artists,
+    },
 ];
 
 fn latest_version() -> i64 {
@@ -577,6 +582,19 @@ fn removed_tracks(conn: &Connection) -> Result<(), rusqlite::Error> {
             removed_at TEXT NOT NULL,
             PRIMARY KEY (source_id, path_key)
         );",
+    )
+}
+
+/// Tracks whose artists may still be joined with `\0` or `/` (read before
+/// those were split) get a stat no file has, so the next scan re-reads them.
+/// Missing tracks keep their stat: they can't be re-read, a returning file is
+/// re-read anyway, and the stat is what lets a scan find them if they moved.
+fn reread_joined_artists(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute_batch(
+        "UPDATE tracks SET file_size = -1, file_mtime_ms = -1
+         WHERE missing_since IS NULL
+           AND (instr(artist, char(0)) > 0 OR instr(artist, '/') > 0
+                OR instr(album_artist, char(0)) > 0 OR instr(album_artist, '/') > 0);",
     )
 }
 
@@ -1389,6 +1407,48 @@ mod tests {
             })
             .unwrap();
         assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn v7_marks_tracks_with_joined_artists_for_rereading() {
+        let conn = mem();
+        apply_pending(&conn, 0, 6).unwrap();
+        conn.execute_batch(
+            "INSERT INTO sources (id, name, root_path, created_at)
+               VALUES (1, 'Music', '/music', '2024-01-01T00:00:00Z');
+             INSERT INTO tracks (id, title, artist, album_artist, source_id, rel_path,
+                                 date_added, file_size, file_mtime_ms)
+               VALUES (1, 'Plain', 'A; B', 'A', 1, '1.mp3', '2024-01-01T00:00:00Z', 10, 20),
+                      (2, 'Slash', 'A/B', 'A', 1, '2.m4a', '2024-01-01T00:00:00Z', 10, 20),
+                      (3, 'Null', 'A' || char(0) || 'B', 'A', 1, '3.mp3',
+                       '2024-01-01T00:00:00Z', 10, 20),
+                      (4, 'Album', 'A', 'A/B', 1, '4.flac', '2024-01-01T00:00:00Z', NULL, NULL);
+             INSERT INTO tracks (id, title, artist, source_id, rel_path, date_added,
+                                 file_size, file_mtime_ms, missing_since)
+               VALUES (5, 'Gone', 'A/B', 1, '5.m4a', '2024-01-01T00:00:00Z', 10, 20,
+                       '2024-01-02T00:00:00Z');",
+        )
+        .unwrap();
+
+        run(&conn, None).unwrap();
+
+        let stats: Vec<(i64, Option<i64>, Option<i64>)> = conn
+            .prepare("SELECT id, file_size, file_mtime_ms FROM tracks ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            stats,
+            vec![
+                (1, Some(10), Some(20)),
+                (2, Some(-1), Some(-1)),
+                (3, Some(-1), Some(-1)),
+                (4, Some(-1), Some(-1)),
+                (5, Some(10), Some(20)),
+            ]
+        );
     }
 
     #[test]
