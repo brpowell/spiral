@@ -553,7 +553,7 @@ fn reconcile_watched(
         }
 
         // 2. Read the files that are new or changed, without the database
-        // lock, a few at a time. Then place their pictures, one at a time: they
+        // lock, a few at a time, and place their pictures, one at a time: they
         // share the artwork folders.
         let wanted: Vec<Option<&str>> = jobs
             .iter()
@@ -572,21 +572,7 @@ fn reconcile_watched(
                 });
             }
         };
-        let reads: Vec<Option<Result<crate::models::TrackInput, String>>> =
-            read_tracks(ctx, &wanted, &on_read)
-                .into_iter()
-                .map(|read| {
-                    read.map(|result| {
-                        result.map(|parsed| {
-                            metadata_reader::place_embedded_art(
-                                &ctx.app_data_dir,
-                                Some(&ctx.roots.library_root),
-                                parsed,
-                            )
-                        })
-                    })
-                })
-                .collect();
+        let reads = read_tracks(ctx, &wanted, &on_read);
 
         // 3. Apply the chunk's changes in one transaction: a commit per track
         // costs a disk sync each.
@@ -735,39 +721,112 @@ fn read_threads() -> usize {
 
 /// Run `f` over `items` on a few threads, keeping their order.
 fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> {
+    par_map_while(items, f, || true)
+}
+
+/// Like [`par_map`], but no item is started once `go_on` is false. The items
+/// started are always a prefix of `items`, and that prefix's results are
+/// returned. At least one item is started when `go_on` starts out true.
+fn par_map_while<T: Sync, R: Send>(
+    items: &[T],
+    f: impl Fn(&T) -> R + Sync,
+    go_on: impl Fn() -> bool + Sync,
+) -> Vec<R> {
     let next = AtomicUsize::new(0);
     let out: Vec<Mutex<Option<R>>> = items.iter().map(|_| Mutex::new(None)).collect();
     std::thread::scope(|scope| {
         for _ in 0..read_threads().min(items.len().max(1)) {
             scope.spawn(|| loop {
+                if !go_on() {
+                    break;
+                }
                 let i = next.fetch_add(1, Ordering::Relaxed);
                 let Some(item) = items.get(i) else { break };
                 *lock(&out[i]) = Some(f(item));
             });
         }
     });
+    let started = next.into_inner().min(items.len());
     out.into_iter()
+        .take(started)
         .map(|m| {
             m.into_inner()
                 .unwrap_or_else(|e| e.into_inner())
-                .expect("every item was mapped")
+                .expect("every started item was mapped")
         })
         .collect()
 }
 
-/// Read `paths` (the `Some` ones) on a few threads, keeping their order.
+/// How many bytes of embedded pictures a scan holds, read but not yet placed,
+/// before it stops reading and places them. Each read keeps its picture until
+/// it's placed, and pictures can be any size, so without this a batch of files
+/// with huge art could hold gigabytes. Reads already under way when the budget
+/// is crossed still finish, so up to [`READ_THREADS`] pictures more can be
+/// held. Ordinary art (well under 1 MB a track) never reaches it, so a batch
+/// is read in one go, as before.
+const ART_BUDGET: usize = 256 * 1024 * 1024;
+
+/// Read `items` (the `Some` ones) on a few threads and `place` each result, in
+/// order. Reading stops, for the results so far to be placed, whenever their
+/// `held` bytes reach `budget`, then carries on with the rest.
+fn read_in_rounds<T: Sync, R: Send, P>(
+    items: &[Option<T>],
+    read: impl Fn(&T) -> R + Sync,
+    held: impl Fn(&R) -> usize + Sync,
+    mut place: impl FnMut(R) -> P,
+    budget: usize,
+) -> Vec<Option<P>> {
+    let mut placed = Vec::with_capacity(items.len());
+    let mut start = 0;
+    while start < items.len() {
+        let pending = AtomicUsize::new(0);
+        let reads = par_map_while(
+            &items[start..],
+            |item| {
+                item.as_ref().map(|item| {
+                    let result = read(item);
+                    pending.fetch_add(held(&result), Ordering::Relaxed);
+                    result
+                })
+            },
+            // A zero budget still reads one item a round.
+            || pending.load(Ordering::Relaxed) < budget.max(1),
+        );
+        start += reads.len();
+        placed.extend(reads.into_iter().map(|read| read.map(&mut place)));
+    }
+    placed
+}
+
+/// Read `paths` (the `Some` ones) on a few threads, keeping their order, and
+/// place their pictures, holding about [`ART_BUDGET`] bytes of them at most.
 fn read_tracks(
     ctx: &ScanContext,
     paths: &[Option<&str>],
     on_read: &(dyn Fn() + Sync),
-) -> Vec<Option<Result<metadata_reader::ParsedTrack, String>>> {
-    par_map(paths, |path| {
-        let read = path.map(|p| read_track(ctx, p));
-        if read.is_some() {
+) -> Vec<Option<Result<crate::models::TrackInput, String>>> {
+    read_in_rounds(
+        paths,
+        |path| {
+            let read = read_track(ctx, path);
             on_read();
-        }
-        read
-    })
+            read
+        },
+        |read| {
+            read.as_ref()
+                .map_or(0, metadata_reader::ParsedTrack::art_len)
+        },
+        |read| {
+            read.map(|parsed| {
+                metadata_reader::place_embedded_art(
+                    &ctx.app_data_dir,
+                    Some(&ctx.roots.library_root),
+                    parsed,
+                )
+            })
+        },
+        ART_BUDGET,
+    )
 }
 
 /// Save a track read from a source's folder and make sure it belongs to it (a
@@ -1058,6 +1117,75 @@ mod tests {
         let t = Instant::now();
         fx.reconcile(id);
         println!("second pass (no-op): {:?}", t.elapsed());
+    }
+
+    /// Reads `items` as `read_in_rounds` would for a scan, each holding
+    /// `weight` bytes. Returns what was placed, the most bytes held unplaced
+    /// at once, and how many rounds it took.
+    fn rounds(
+        items: &[Option<usize>],
+        weight: usize,
+        budget: usize,
+    ) -> (Vec<Option<usize>>, usize, usize) {
+        let held = AtomicUsize::new(0);
+        let most = AtomicUsize::new(0);
+        let reads_since_place = AtomicUsize::new(0);
+        let mut rounds = 0;
+        let placed = read_in_rounds(
+            items,
+            |&i| {
+                let now = held.fetch_add(weight, Ordering::SeqCst) + weight;
+                most.fetch_max(now, Ordering::SeqCst);
+                reads_since_place.fetch_add(1, Ordering::SeqCst);
+                i
+            },
+            |_| weight,
+            |i| {
+                // The first place after some reads starts a new round.
+                if reads_since_place.swap(0, Ordering::SeqCst) > 0 {
+                    rounds += 1;
+                }
+                held.fetch_sub(weight, Ordering::SeqCst);
+                i
+            },
+            budget,
+        );
+        (placed, most.into_inner(), rounds)
+    }
+
+    #[test]
+    fn reading_stops_to_place_art_once_the_budget_is_crossed() {
+        let items: Vec<Option<usize>> = (0..WRITE_BATCH)
+            .map(|i| (i % 7 != 3).then_some(i))
+            .collect();
+        let weight = 10;
+        let budget = 25;
+        let (placed, most, rounds) = rounds(&items, weight, budget);
+
+        // Everything is read and placed, in order, none dropped.
+        assert_eq!(placed, items);
+        // Art was placed before the whole batch was read...
+        assert!(rounds > 1, "read in {rounds} round(s)");
+        let all = items.iter().flatten().count() * weight;
+        assert!(most < all, "held {most} of {all} bytes at once");
+        // ...holding at most the budget plus the reads already under way.
+        assert!(most <= budget + read_threads() * weight, "held {most}");
+    }
+
+    #[test]
+    fn small_art_reads_a_batch_in_one_go() {
+        let items: Vec<Option<usize>> = (0..WRITE_BATCH).map(Some).collect();
+        let (placed, most, rounds) = rounds(&items, 10, ART_BUDGET);
+        assert_eq!(placed, items);
+        assert_eq!(rounds, 1);
+        assert_eq!(most, WRITE_BATCH * 10);
+    }
+
+    #[test]
+    fn a_zero_budget_still_reads_everything() {
+        let items: Vec<Option<usize>> = (0..10).map(Some).collect();
+        let (placed, _, _) = rounds(&items, 10, 0);
+        assert_eq!(placed, items);
     }
 
     #[test]
