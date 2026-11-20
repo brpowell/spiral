@@ -368,6 +368,15 @@ fn read_disc_tracks_user(drive_id: &str) -> Result<Vec<(u32, f64)>, String> {
 }
 
 pub fn eject_disc(drive_id: &str) -> Result<(), String> {
+    // Only drives DiscRecording lists are optical; anything else (a USB disk's BSD name)
+    // would otherwise reach `diskutil eject` below.
+    let drive_id = super::resolve_ejectable_drive(
+        drive_id,
+        |id| Some(id.to_string()),
+        optical_drive_connected,
+    )?;
+    let drive_id = drive_id.as_str();
+
     // Playback holds the cddafs volume open — release it before unmounting.
     crate::cd::playback::stop_for_drive(drive_id);
 
