@@ -39,6 +39,10 @@ const uiOutPath = path.join(root, "src/assets/licenses/third-party.json");
 const templatesDir = path.join(__dirname, "license-templates");
 const overridesPath = path.join(__dirname, "license-overrides.json");
 const fdkNoticePath = path.join(root, "src/assets/licenses/FDK-AAC-NOTICE.txt");
+const twemojiNoticePath = path.join(
+  root,
+  "src/assets/licenses/TWEMOJI-CC-BY-NOTICE.txt",
+);
 
 /** @typedef {import("./lib/license-bundle.mjs").BundlePackage} BundlePackage */
 
@@ -438,6 +442,38 @@ function addFdkGroup(groups, packages) {
   );
 }
 
+/**
+ * The country flag font is a file bundled in the app, not a package, and its artwork
+ * (Twemoji) is CC BY 4.0, which requires attribution. It is listed as an `asset`.
+ * @param {import("./lib/license-bundle.mjs").LicenseGroup[]} groups
+ */
+function addTwemojiGroup(groups) {
+  groups.push({
+    id: "twemoji-cc-by-4-0",
+    title: "Creative Commons Attribution 4.0 (Twemoji flags)",
+    kind: "license",
+    text: fs.readFileSync(twemojiNoticePath, "utf8").trim(),
+    packages: [
+      {
+        name: "Twemoji Country Flags",
+        version: "0.1.10",
+        ecosystem: "asset",
+        copyright: [
+          "Flag artwork Copyright 2020 Twitter, Inc and other contributors",
+          "Font packaging Copyright (c) 2022 TalkJS",
+        ],
+        synthesized: false,
+      },
+    ],
+  });
+  groups.sort(
+    (a, b) =>
+      (a.kind === b.kind ? 0 : a.kind === "license" ? -1 : 1) ||
+      b.packages.length - a.packages.length ||
+      a.title.localeCompare(b.title),
+  );
+}
+
 function main() {
   const { check } = parseArgs(process.argv.slice(2));
   const packages = dedupe([
@@ -455,6 +491,7 @@ function main() {
 
   const { groups, unresolved } = buildGroups(packages, loadTemplates());
   addFdkGroup(groups, packages);
+  addTwemojiGroup(groups);
   if (unresolved.length > 0) {
     console.error(
       `Could not find a license text for ${unresolved.length} package(s):\n`,
