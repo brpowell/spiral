@@ -96,7 +96,8 @@ pub(crate) fn path_forms(path: &Path) -> Vec<PathBuf> {
     forms
 }
 
-fn is_plain_absolute(path: &Path) -> bool {
+/// Absolute, with no `..` or `.` parts.
+pub(crate) fn is_plain_absolute(path: &Path) -> bool {
     path.is_absolute()
         && path
             .components()
@@ -291,6 +292,15 @@ pub fn ensure_allowed(app: &AppHandle, path: &str) -> Result<PathBuf, String> {
     } else {
         Err(outside_scope_error(&path))
     }
+}
+
+/// A scope check with only `dir` allowed, the way [`is_allowed`] answers. For
+/// tests of commands that check paths.
+#[cfg(test)]
+pub(crate) fn test_dir_scope(dir: &Path) -> impl Fn(&Path) -> bool {
+    let mut set = ScopeSet::default();
+    set.allow_dir(dir);
+    move |path| set.contains(path)
 }
 
 pub fn outside_scope_error(path: &Path) -> String {
