@@ -81,6 +81,8 @@ import {
   withTrackSourceOffline,
 } from "@/lib/tracks/missingFileTrack";
 import { showMissingTrackSkippedToast } from "@/lib/playback/playbackToast";
+import { removedFilesUnreachablePayload } from "@/lib/toast/toastPayloads";
+import { useBackgroundTasksStore } from "./useBackgroundTasksStore";
 import {
   errorMessageFromUnknown,
   reportCdPlaybackFailure,
@@ -2018,8 +2020,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const unique = [...new Set(ids)];
       if (unique.length === 0) return;
 
+      let unreachable = 0;
       for (const id of unique) {
-        await removeTrack(id, deleteFromDisk);
+        if ((await removeTrack(id, deleteFromDisk)) === "keptUnreachable") {
+          unreachable += 1;
+        }
+      }
+      const unreachableToast = removedFilesUnreachablePayload(unreachable);
+      if (unreachableToast) {
+        useBackgroundTasksStore.getState().showToast(unreachableToast);
       }
 
       const state = get();

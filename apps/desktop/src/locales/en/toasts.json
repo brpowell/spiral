@@ -27,6 +27,10 @@
     "failedDetail": "Something went wrong. Try again, or check the logs for details."
   },
   "library": {
+    "trashUnreachable_one": "Couldn't send a file to the trash",
+    "trashUnreachable_other": "Couldn't send {{count}} files to the trash",
+    "trashUnreachableDetail_one": "Its music folder isn't answering. The track is removed from your library and won't be added back.",
+    "trashUnreachableDetail_other": "Their music folder isn't answering. The tracks are removed from your library and won't be added back.",
     "loadFailed": "Couldn't load library",
     "loadFailedDetail": "Something went wrong. Try again, or check the logs for details."
   },

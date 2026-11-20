@@ -9,7 +9,7 @@
 use crate::sources::SourceRoots;
 use rusqlite::{params, Connection};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use unicode_normalization::UnicodeNormalization;
 
 /// A key equal for every spelling of a path a case- and
@@ -34,6 +34,18 @@ pub fn other_rows_for_file(
     if !path.exists() {
         return Ok(Vec::new());
     }
+    let candidates = rows_named_like(conn, path, except)?;
+    Ok(same_file_rows(&candidates, path))
+}
+
+/// Track rows other than `except` whose file name matches `path`'s, with the
+/// path each resolves to. Reads only the database, so it is safe to call while
+/// holding its lock; [`same_file_rows`] then confirms them on disk.
+pub fn rows_named_like(
+    conn: &Connection,
+    path: &Path,
+    except: i64,
+) -> rusqlite::Result<Vec<(i64, PathBuf)>> {
     // Rows only match by file name, so a source root reached another way (a
     // symlink, another spelling of a folder) still compares by inode.
     let name_key = path.file_name().map(|n| path_key(&n.to_string_lossy()));
@@ -46,17 +58,26 @@ pub fn other_rows_for_file(
             row.get::<_, String>(2)?,
         ))
     })?;
-    let mut ids = Vec::new();
+    let mut candidates = Vec::new();
     for row in rows {
         let (id, source_id, rel_path) = row?;
-        let other = roots.resolve(source_id, &rel_path);
-        let other = Path::new(&other);
+        let other = PathBuf::from(roots.resolve(source_id, &rel_path));
         let other_name = other.file_name().map(|n| path_key(&n.to_string_lossy()));
-        if other_name == name_key && same_file(other, path) {
-            ids.push(id);
+        if other_name == name_key {
+            candidates.push((id, other));
         }
     }
-    Ok(ids)
+    Ok(candidates)
+}
+
+/// The ids of `candidates` (from [`rows_named_like`]) that are `path`'s file
+/// on disk.
+pub fn same_file_rows(candidates: &[(i64, PathBuf)], path: &Path) -> Vec<i64> {
+    candidates
+        .iter()
+        .filter(|(_, other)| same_file(other, path))
+        .map(|(id, _)| *id)
+        .collect()
 }
 
 struct Row {
