@@ -36,6 +36,11 @@ pub struct BasicTagReport {
     pub artist: Option<String>,
     pub album: Option<String>,
     pub album_artist: Option<String>,
+    /// The artist tag before Spiral split it, when that differs.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub raw_artist: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub raw_album_artist: Option<String>,
     pub track_number: Option<i32>,
     pub total_tracks: Option<i32>,
     pub disc_number: Option<i32>,
@@ -206,6 +211,8 @@ pub fn inspect_path(path: &Path) -> TagFileReport {
                 artist: None,
                 album: None,
                 album_artist: None,
+                raw_artist: None,
+                raw_album_artist: None,
                 track_number: None,
                 total_tracks: None,
                 disc_number: None,
@@ -232,6 +239,8 @@ pub fn inspect_path(path: &Path) -> TagFileReport {
                 artist: None,
                 album: None,
                 album_artist: None,
+                raw_artist: None,
+                raw_album_artist: None,
                 track_number: None,
                 total_tracks: None,
                 disc_number: None,
@@ -248,6 +257,9 @@ pub fn inspect_path(path: &Path) -> TagFileReport {
     }
 
     let tags = metadata_reader::read_basic_tags(path);
+    let (raw_artist, raw_album_artist) = metadata_reader::read_raw_artist_fields(path);
+    let raw_artist = raw_artist.filter(|raw| Some(raw) != tags.artist.as_ref());
+    let raw_album_artist = raw_album_artist.filter(|raw| Some(raw) != tags.album_artist.as_ref());
     let raw_lyrics_tags = raw_lyrics_tags_for_path(path, &extension);
 
     TagFileReport {
@@ -259,6 +271,8 @@ pub fn inspect_path(path: &Path) -> TagFileReport {
             title: tags.title,
             artist: tags.artist,
             album: tags.album,
+            raw_artist,
+            raw_album_artist,
             album_artist: tags.album_artist,
             track_number: tags.track_number,
             total_tracks: tags.total_tracks,
@@ -319,8 +333,10 @@ pub fn print_human_report(report: &TagFileReport) {
     let tags = &report.tags;
     print_field("title", tags.title.as_deref());
     print_field("artist", tags.artist.as_deref());
+    print_raw_field("  raw", tags.raw_artist.as_deref());
     print_field("album", tags.album.as_deref());
     print_field("album artist", tags.album_artist.as_deref());
+    print_raw_field("  raw", tags.raw_album_artist.as_deref());
     print_number("track", tags.track_number);
     print_number("total tracks", tags.total_tracks);
     print_number("disc", tags.disc_number);
@@ -385,6 +401,11 @@ fn print_field(label: &str, value: Option<&str>) {
     if let Some(value) = value {
         println!("{label:<13}{value}");
     }
+}
+
+/// A raw tag value with its ID3v2.4 null separators made visible.
+fn print_raw_field(label: &str, value: Option<&str>) {
+    print_field(label, value.map(|v| v.replace('\0', "\\0")).as_deref());
 }
 
 fn print_number(label: &str, value: Option<i32>) {

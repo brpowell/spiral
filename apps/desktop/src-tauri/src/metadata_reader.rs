@@ -1,5 +1,5 @@
 use crate::art_cache;
-use crate::artist_tags::join_artist_field;
+use crate::artist_tags::{join_artist_field, split_artist_fields};
 use crate::audio_properties;
 use crate::lyrics_normalize;
 use crate::lyrics_sidecar;
@@ -238,9 +238,9 @@ fn read_mp4_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
     };
 
     tags.title = tag.title().map(|s| s.to_string());
-    tags.artist = tag.artist().map(|s| s.to_string());
+    tags.artist = join_artist_field(tag.artists());
     tags.album = tag.album().map(|s| s.to_string());
-    tags.album_artist = tag.album_artist().map(|s| s.to_string());
+    tags.album_artist = join_artist_field(tag.album_artists());
     tags.track_number = tag.track_number().map(|n| n as i32);
     tags.total_tracks = tag.total_tracks().map(|n| n as i32);
     tags.disc_number = tag.disc_number().map(|n| n as i32);
@@ -312,29 +312,45 @@ pub fn read_basic_tags(path: &Path) -> BasicTags {
         None => return BasicTags::default(),
     };
 
-    let (tags, _) = match ext.as_str() {
+    read_tags(path, &ext).0
+}
+
+/// Tags and embedded picture for a file of type `ext`, with multi-artist
+/// fields split the way the library stores them.
+fn read_tags(path: &Path, ext: &str) -> (BasicTags, Option<(Vec<u8>, String)>) {
+    let (mut tags, art) = read_unsplit_tags(path, ext);
+    normalize_artists(&mut tags);
+    (tags, art)
+}
+
+/// Artist and album artist exactly as the file stores them, before splitting
+/// (ID3v2.4 nulls included). For diagnosing how a tag was parsed.
+pub fn read_raw_artist_fields(path: &Path) -> (Option<String>, Option<String>) {
+    let ext = audio_extension(path).unwrap_or_default();
+    let (tags, _) = read_unsplit_tags(path, &ext);
+    (tags.artist, tags.album_artist)
+}
+
+fn read_unsplit_tags(path: &Path, ext: &str) -> (BasicTags, Option<(Vec<u8>, String)>) {
+    match ext {
         "mp3" => read_mp3_tags(path),
         "flac" => read_flac_tags(path),
         "m4a" | "aac" | "mp4" => read_mp4_tags(path),
         "wav" => read_wav_tags(path),
         "ogg" | "opus" => crate::vorbis_container::read_vorbis_container_tags(path),
         _ => (BasicTags::default(), None),
-    };
+    }
+}
 
-    tags
+/// Split joined artists (`\0`, `;`, confirmed `/`) and store them `; `-joined.
+fn normalize_artists(tags: &mut BasicTags) {
+    (tags.artist, tags.album_artist) =
+        split_artist_fields(tags.artist.as_deref(), tags.album_artist.as_deref());
 }
 
 pub fn read_embedded_art_bytes(path: &Path) -> Option<(Vec<u8>, String)> {
     let ext = audio_extension(path)?;
-    let (_, art) = match ext.as_str() {
-        "mp3" => read_mp3_tags(path),
-        "flac" => read_flac_tags(path),
-        "m4a" | "aac" | "mp4" => read_mp4_tags(path),
-        "wav" => read_wav_tags(path),
-        "ogg" | "opus" => crate::vorbis_container::read_vorbis_container_tags(path),
-        _ => return None,
-    };
-    art
+    read_tags(path, &ext).1
 }
 
 pub fn parse_track_metadata(
@@ -371,14 +387,7 @@ pub fn read_track_metadata(
     }
 
     let ext = audio_extension(&path).unwrap_or_default();
-    let (tags, art) = match ext.as_str() {
-        "mp3" => read_mp3_tags(&path),
-        "flac" => read_flac_tags(&path),
-        "m4a" | "aac" | "mp4" => read_mp4_tags(&path),
-        "wav" => read_wav_tags(&path),
-        "ogg" | "opus" => crate::vorbis_container::read_vorbis_container_tags(&path),
-        _ => (BasicTags::default(), None),
-    };
+    let (tags, art) = read_tags(&path, &ext);
 
     let title_fallback = filename_title(&path);
     let art_len = art.as_ref().map_or(0, |(bytes, _)| bytes.len());
@@ -772,5 +781,52 @@ mod tests {
         assert!(result.lyrics.is_none());
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn id3v24_null_separated_artists_are_split() {
+        use id3::{Tag, TagLike, Version};
+
+        let dir = std::env::temp_dir().join(format!("spiral-meta-nul-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let audio = crate::test_fixtures::mp3::copy_minimal(&dir, "feat.mp3");
+        let mut tag = Tag::new();
+        tag.set_artist("Beyonc\u{e9}\u{0}Jack White");
+        tag.set_album_artist("Beyonc\u{e9}");
+        tag.write_to_path(&audio, Version::Id3v24).unwrap();
+
+        let tags = read_basic_tags(&audio);
+        assert_eq!(tags.artist.as_deref(), Some("Beyonc\u{e9}; Jack White"));
+        assert_eq!(tags.album_artist.as_deref(), Some("Beyonc\u{e9}"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn slash_joined_artists_split_only_when_confirmed() {
+        let dir = std::env::temp_dir().join(format!("spiral-meta-slash-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let m4a = crate::test_fixtures::m4a::copy_moov_before_mdat(&dir, "loyalty.m4a");
+        let mut tag = Mp4Tag::read_from_path(&m4a).unwrap();
+        tag.set_artist("Kendrick Lamar/Rihanna");
+        tag.set_album_artist("Kendrick Lamar");
+        tag.write_to_path(&m4a).unwrap();
+        let tags = read_basic_tags(&m4a);
+        assert_eq!(tags.artist.as_deref(), Some("Kendrick Lamar; Rihanna"));
+
+        let flac = dir.join("tnt.flac");
+        fs::copy(crate::test_fixtures::flac::minimal_fixture_path(), &flac).unwrap();
+        let mut tag = FlacTag::read_from_path(&flac).unwrap();
+        tag.set_vorbis("ARTIST", vec!["AC/DC"]);
+        tag.set_vorbis("ALBUMARTIST", vec!["AC/DC"]);
+        tag.save().unwrap();
+        let tags = read_basic_tags(&flac);
+        assert_eq!(tags.artist.as_deref(), Some("AC/DC"));
+        assert_eq!(tags.album_artist.as_deref(), Some("AC/DC"));
+
+        let _ = fs::remove_dir_all(&dir);
     }
 }
