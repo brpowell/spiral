@@ -21,6 +21,54 @@ fn is_known_path(app: &AppHandle, path: &Path) -> bool {
     db::has_track_file_path(&conn, &path.to_string_lossy()).unwrap_or(false)
 }
 
+/// Whether the webview may have `path` opened for decoding (playback, tag
+/// reads). Today that means a known root (the library, a source, an app-owned
+/// folder such as the one sound packs live in), a library track's file, or a
+/// file the user picked or dropped this session; see [`is_known_path`].
+///
+/// Seam for playing a one-off file without adding it to a source: the
+/// backend-owned allow-list is the picked-files set in [`path_scope`], filled
+/// only by [`path_scope::allow_user_paths`] from what the OS itself reported
+/// (a native file dialog, a native drop). To accept another such source, such
+/// as files the OS opened the app with, call `allow_user_paths` for them from
+/// that Rust handler; this check then admits them unchanged. Never add a path
+/// the webview sends.
+pub(crate) fn playable_path_allowed(app: &AppHandle, path: &Path) -> bool {
+    path_scope::is_plain_absolute(path) && is_known_path(app, path)
+}
+
+/// The path to open for playback, or `Err` when [`playable_path_allowed`]
+/// says no. `path` may be a network-location URI the OS already reported (see
+/// [`path_scope::resolved_network_uri`]).
+pub(crate) fn ensure_playable_path(app: &AppHandle, path: &str) -> Result<PathBuf, String> {
+    let path = path_scope::resolved_network_uri(app, path).unwrap_or_else(|| PathBuf::from(path));
+    check_playable(path, |path| playable_path_allowed(app, path))
+}
+
+/// Shape of [`ensure_playable_path`]: a relative or `..` path is refused with
+/// no disk access. Otherwise the file is probed first, with a bound, because
+/// the scope check resolves the path and that blocks on a dead share with
+/// nothing to bound it. A missing file outside scope gets the same error as
+/// one that exists, so the reply doesn't tell the webview what is on disk.
+fn check_playable(path: PathBuf, allowed: impl FnOnce(&Path) -> bool) -> Result<PathBuf, String> {
+    if !path_scope::is_plain_absolute(&path) {
+        return Err(path_scope::outside_scope_error(&path));
+    }
+    let probed = crate::fs_probe::probe_file_before_use(&path);
+    if probed == crate::fs_probe::Probed::Stalled {
+        return Err(crate::file_playback::not_responding(
+            &path.to_string_lossy(),
+        ));
+    }
+    if !allowed(&path) {
+        return Err(path_scope::outside_scope_error(&path));
+    }
+    if probed == crate::fs_probe::Probed::No {
+        return Err(format!("File not found: {}", path.display()));
+    }
+    Ok(path)
+}
+
 /// The resolved path to use for the actual file operation, when `path` is in
 /// scope or is a library track's file. `path` may be a network-location URI;
 /// it only resolves to a local path here if it matches one the OS already
@@ -220,8 +268,85 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    use super::{directory_size_bytes, known_file_exists};
+    fn playable_root(name: &str) -> std::path::PathBuf {
+        let root =
+            std::env::temp_dir().join(format!("spiral-playable-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("library")).unwrap();
+        fs::write(root.join("library/a.mp3"), b"x").unwrap();
+        fs::write(root.join("x.mp3"), b"x").unwrap();
+        root
+    }
+
+    #[test]
+    fn plays_a_file_inside_a_known_root() {
+        let root = playable_root("in");
+        let scope = crate::path_scope::test_dir_scope(&root.join("library"));
+        let file = root.join("library/a.mp3");
+        assert_eq!(check_playable(file.clone(), &scope), Ok(file));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn refuses_a_file_outside_every_known_root() {
+        let root = playable_root("out");
+        let scope = crate::path_scope::test_dir_scope(&root.join("library"));
+        let err = check_playable(root.join("x.mp3"), &scope).unwrap_err();
+        assert!(err.starts_with("path is outside the library"), "{err}");
+        // A missing file outside scope says the same, so the reply doesn't
+        // reveal what exists on disk.
+        let err = check_playable(root.join("gone.mp3"), &scope).unwrap_err();
+        assert!(err.starts_with("path is outside the library"), "{err}");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_missing_file_inside_a_known_root_is_not_found() {
+        let root = playable_root("missing");
+        let scope = crate::path_scope::test_dir_scope(&root.join("library"));
+        let err = check_playable(root.join("library/gone.mp3"), &scope).unwrap_err();
+        assert!(err.starts_with("File not found"), "{err}");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn refuses_dot_dot_and_relative_paths_without_asking_the_scope() {
+        let root = playable_root("dotdot");
+        let never = |_: &Path| -> bool { unreachable!("refused before the scope check") };
+        for path in [
+            root.join("library/../x.mp3"),
+            std::path::PathBuf::from("library/a.mp3"),
+            std::path::PathBuf::from("../x.mp3"),
+        ] {
+            let err = check_playable(path.clone(), never).unwrap_err();
+            assert!(
+                err.starts_with("path is outside the library"),
+                "{}: {err}",
+                path.display()
+            );
+        }
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_file_on_a_stalled_share_is_not_responding_without_resolving_its_path() {
+        let path = std::env::temp_dir().join(format!(
+            "spiral-playable-stalled-{}/track.flac",
+            std::process::id()
+        ));
+        let _stall = crate::fs_probe::stall_file(&path);
+        let started = std::time::Instant::now();
+        let err = check_playable(path, |_| {
+            unreachable!("the scope check would block on the dead share")
+        })
+        .unwrap_err();
+        assert!(err.starts_with(crate::sources::SOURCE_UNAVAILABLE), "{err}");
+        assert!(started.elapsed() < std::time::Duration::from_millis(500));
+    }
+
+    use super::{check_playable, directory_size_bytes, known_file_exists};
     use std::fs;
+    use std::path::Path;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]

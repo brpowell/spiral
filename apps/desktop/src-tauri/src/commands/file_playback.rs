@@ -3,10 +3,12 @@ use tauri::AppHandle;
 
 /// Start a paused session; audio is decoded and mixed in Rust and played
 /// through the OS audio API. Opening the file can block on a network share, so
-/// this runs off the main thread.
+/// this runs off the main thread. Only a path the webview may play (see
+/// [`super::files::playable_path_allowed`]) is opened.
 #[tauri::command(async)]
 pub fn start_file_playback(app: AppHandle, path: String) -> Result<FilePlaybackStarted, String> {
-    file_playback::start(app, &path)
+    let path = super::files::ensure_playable_path(&app, &path)?;
+    file_playback::start(app, &path.to_string_lossy())
 }
 
 /// Current position of a session, or `None` once it has ended.

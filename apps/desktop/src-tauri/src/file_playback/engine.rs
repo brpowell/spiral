@@ -236,7 +236,7 @@ fn emit_event<T: Serialize + Clone>(app: Option<&AppHandle>, event: &str, payloa
 }
 
 /// The error for a file whose folder doesn't answer (a dropped network share).
-fn not_responding(path: &str) -> String {
+pub(crate) fn not_responding(path: &str) -> String {
     format!(
         "{}: {path} is not responding; check the connection to its folder",
         crate::sources::SOURCE_UNAVAILABLE
