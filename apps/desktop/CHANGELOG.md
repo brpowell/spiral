@@ -1,5 +1,45 @@
 # Changelog
 
+## [1.2.0](https://github.com/brpowell/spiral/compare/desktop-v1.1.0...desktop-v1.2.0) (2026-11-20)
+
+
+### Features
+
+* **desktop:** add a track popularity score and a Popularity column ([#162](https://github.com/brpowell/spiral/issues/162)) ([f19f319](https://github.com/brpowell/spiral/commit/f19f319f4e32b7456ea3ed01cc3a5d90acacb11f))
+* **desktop:** add genres view ([#165](https://github.com/brpowell/spiral/issues/165)) ([50a8224](https://github.com/brpowell/spiral/commit/50a822455c58fe750910eaa299e0190fb6b76957))
+* **desktop:** add to playlist and remove from library for albums, artists and genres ([#181](https://github.com/brpowell/spiral/issues/181)) ([02f2b26](https://github.com/brpowell/spiral/commit/02f2b26c5a213fa608af200c9af103d4aed7b4d6))
+* **desktop:** genre view database follow up ([#166](https://github.com/brpowell/spiral/issues/166)) ([0ea8bad](https://github.com/brpowell/spiral/commit/0ea8bad22fe88592eed24713a43b8eb17b01af31))
+* **desktop:** link the artist name on album cards to the artist page ([#167](https://github.com/brpowell/spiral/issues/167)) ([097a6f1](https://github.com/brpowell/spiral/commit/097a6f1c42359fb48554540b706ef6908b9e758c))
+* **desktop:** prefer releases from the user's region in MusicBrainz results ([#176](https://github.com/brpowell/spiral/issues/176)) ([852ee6d](https://github.com/brpowell/spiral/commit/852ee6d2366ea7a9175607a2b51adcbf78b37c4f))
+
+
+### Bug Fixes
+
+* **desktop:** cap memory used by embedded art during scans ([#185](https://github.com/brpowell/spiral/issues/185)) ([857c769](https://github.com/brpowell/spiral/commit/857c769c01b68587698e85430880ca7d7d0f417e))
+* **desktop:** format playlist total duration as hours and minutes ([#164](https://github.com/brpowell/spiral/issues/164)) ([a54a1a8](https://github.com/brpowell/spiral/commit/a54a1a815662092aebed7f14d9e2967c4b183403))
+* **desktop:** handle damaged CD discs gracefully ([#170](https://github.com/brpowell/spiral/issues/170)) ([455f940](https://github.com/brpowell/spiral/commit/455f94029be011f2743f5c2041ed550e914abd08))
+* **desktop:** keep removed tracks from coming back on rescan ([#182](https://github.com/brpowell/spiral/issues/182)) ([5df4662](https://github.com/brpowell/spiral/commit/5df46623364ac473b9451d121dbedc344ff5b2c2))
+* **desktop:** keep removed tracks remembered when their folder is offline ([#187](https://github.com/brpowell/spiral/issues/187)) ([c1cf655](https://github.com/brpowell/spiral/commit/c1cf655c7f3c8b340dd51ec2a30dc4b61e46cd19))
+* **desktop:** keep ripping and the playhead correct while the window is hidden ([#168](https://github.com/brpowell/spiral/issues/168)) ([4e4c3e1](https://github.com/brpowell/spiral/commit/4e4c3e194226b29f18bec64c74c10dd7ac5b2603))
+* **desktop:** keep the app responsive when a network music folder stops answering ([#180](https://github.com/brpowell/spiral/issues/180)) ([ad4b8d7](https://github.com/brpowell/spiral/commit/ad4b8d7359c9cdcf69d859febbfe08076129dfdc))
+* **desktop:** keep the audio stream alive across ALSA underruns ([#177](https://github.com/brpowell/spiral/issues/177)) ([77bdc65](https://github.com/brpowell/spiral/commit/77bdc65c0b30c00e3c980caa54fad5096f59dc24))
+* **desktop:** keep the Source column hidden and scroll the column menus ([#161](https://github.com/brpowell/spiral/issues/161)) ([5f1615e](https://github.com/brpowell/spiral/commit/5f1615e5aef1a519f4c8a68fc088e48314a1ff81))
+* **desktop:** lock and dismount the volume before ejecting a disc on Windows ([#172](https://github.com/brpowell/spiral/issues/172)) ([7407bdd](https://github.com/brpowell/spiral/commit/7407bdd9ece79319f13f8675f12e73ce196533a7))
+* **desktop:** make context menu separators visible on all themes ([#173](https://github.com/brpowell/spiral/issues/173)) ([86da3d8](https://github.com/brpowell/spiral/commit/86da3d817bf247767c06e891bc7f77b948c6fa79))
+* **desktop:** only eject optical drives ([#186](https://github.com/brpowell/spiral/issues/186)) ([1627c08](https://github.com/brpowell/spiral/commit/1627c08131a6304891096616e2e48c098d7a91a3))
+* **desktop:** only play files within library scope ([#188](https://github.com/brpowell/spiral/issues/188)) ([d5c7d7f](https://github.com/brpowell/spiral/commit/d5c7d7fe5a03027c7fa6f300f56de6e2b6ae9a5e))
+* **desktop:** refine music source removal, editing and empty-folder scans ([#179](https://github.com/brpowell/spiral/issues/179)) ([97e8236](https://github.com/brpowell/spiral/commit/97e8236c583bc6a0b9b0fb9d6eecc6c3c990e251))
+* **desktop:** reset CD import checkmarks when the disc changes ([#169](https://github.com/brpowell/spiral/issues/169)) ([af69cf7](https://github.com/brpowell/spiral/commit/af69cf73804d785ba0f962919a2c87d6d7a4655c))
+* **desktop:** shorten the onboarding Finish countdown to 12 seconds ([#174](https://github.com/brpowell/spiral/issues/174)) ([07d5e43](https://github.com/brpowell/spiral/commit/07d5e43c34787a4818cb56bc5baac6a22fe9c877))
+* **desktop:** show country flags on Windows by bundling a flag font ([#184](https://github.com/brpowell/spiral/issues/184)) ([6006f7c](https://github.com/brpowell/spiral/commit/6006f7cbb461b2d80ee9c1f092761f212112e4bb))
+* **desktop:** sort genre and album detail pages properly ([#175](https://github.com/brpowell/spiral/issues/175)) ([5d36156](https://github.com/brpowell/spiral/commit/5d361568cc7e2b15ba24fd9bc9ae41e00823ce95))
+* **desktop:** split multi-artist tags joined with "/" or ID3v2.4 nulls ([#183](https://github.com/brpowell/spiral/issues/183)) ([bdf43d9](https://github.com/brpowell/spiral/commit/bdf43d98d7149d3462358b84363a360fb8167907))
+
+
+### Performance Improvements
+
+* **desktop:** speed up music source scans and show their progress ([#178](https://github.com/brpowell/spiral/issues/178)) ([551e222](https://github.com/brpowell/spiral/commit/551e222af7bc67e28c1442cc29d09477e41181d7))
+
 ## [1.1.0](https://github.com/brpowell/spiral/compare/desktop-v1.0.0...desktop-v1.1.0) (2026-11-12)
 
 
