@@ -598,6 +598,280 @@ fn reread_joined_artists(conn: &Connection) -> Result<(), rusqlite::Error> {
     )
 }
 
+// DRAFT v8 (`uuid_ids`): not in `MIGRATIONS` yet, so it never runs. Register it
+// only in the same change that switches the app code to text ids; the plan is in
+// `apps/desktop/docs/plans/uuid-ids.md`.
+
+/// Tracks, playlists and listen events get UUIDv7 text ids, the same value in
+/// SQL, the app and the sync protocol. Each existing row's id carries its
+/// creation time (`date_added`, `date_created`, `started_at`), so ids still
+/// sort in the order rows were made.
+///
+/// - `playlist_tracks.position` and `playlists.position` (sidebar order) become
+///   fractional position keys, so moving a track or a playlist rewrites only its
+///   own row. `playlist_tracks` stays keyed by (playlist, track): a track is in a
+///   playlist at most once.
+/// - No old → new id map is kept. The saved playback queue
+///   (`playback-session.json`) holds old track ids and is dropped on first read.
+/// - Sources keep integer ids: they are local to one machine.
+#[allow(dead_code)] // DRAFT: see the note above.
+fn uuid_ids(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute_batch(
+        "CREATE TEMP TABLE track_id_map (old_id INTEGER PRIMARY KEY, id TEXT NOT NULL);
+        CREATE TEMP TABLE playlist_id_map (old_id INTEGER PRIMARY KEY, id TEXT NOT NULL);
+        CREATE TEMP TABLE event_id_map (old_id INTEGER PRIMARY KEY, id TEXT NOT NULL);",
+    )?;
+    fill_uuid_map(
+        conn,
+        "track_id_map",
+        "SELECT id, date_added FROM tracks ORDER BY id",
+    )?;
+    fill_uuid_map(
+        conn,
+        "playlist_id_map",
+        "SELECT id, date_created FROM playlists ORDER BY id",
+    )?;
+    fill_uuid_map(
+        conn,
+        "event_id_map",
+        "SELECT id, started_at FROM listen_events ORDER BY id",
+    )?;
+
+    conn.execute_batch(
+        "CREATE TABLE tracks_new (
+            id TEXT PRIMARY KEY NOT NULL,
+            title TEXT NOT NULL,
+            artist TEXT,
+            album TEXT,
+            album_artist TEXT,
+            track_number INTEGER,
+            total_tracks INTEGER,
+            disc_number INTEGER,
+            total_discs INTEGER,
+            year INTEGER,
+            genre TEXT,
+            duration_seconds REAL,
+            sample_rate INTEGER,
+            bitrate INTEGER,
+            codec TEXT,
+            source_id INTEGER NOT NULL REFERENCES sources(id),
+            rel_path TEXT NOT NULL,
+            art_path TEXT,
+            date_added TEXT NOT NULL,
+            play_count INTEGER NOT NULL DEFAULT 0,
+            last_played_at TEXT,
+            rating INTEGER NOT NULL DEFAULT 0,
+            recording_mbid TEXT,
+            release_mbid TEXT,
+            artist_mbids TEXT,
+            album_artist_mbids TEXT,
+            missing_since TEXT,
+            file_size INTEGER,
+            file_mtime_ms INTEGER,
+            UNIQUE (source_id, rel_path)
+        );
+        INSERT INTO tracks_new
+            SELECT m.id, t.title, t.artist, t.album, t.album_artist, t.track_number,
+                   t.total_tracks, t.disc_number, t.total_discs, t.year, t.genre,
+                   t.duration_seconds, t.sample_rate, t.bitrate, t.codec, t.source_id,
+                   t.rel_path, t.art_path, t.date_added, t.play_count, t.last_played_at,
+                   t.rating, t.recording_mbid, t.release_mbid, t.artist_mbids,
+                   t.album_artist_mbids, t.missing_since, t.file_size, t.file_mtime_ms
+            FROM tracks t JOIN track_id_map m ON m.old_id = t.id;
+
+        CREATE TABLE listen_events_new (
+            id TEXT PRIMARY KEY NOT NULL,
+            track_id TEXT NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+            started_at TEXT NOT NULL,
+            ended_at TEXT NOT NULL,
+            listened_seconds REAL NOT NULL,
+            library_listened_seconds REAL NOT NULL DEFAULT 0,
+            skin_listened_seconds REAL NOT NULL DEFAULT 0,
+            track_duration_seconds REAL,
+            completion TEXT NOT NULL,
+            source TEXT NOT NULL DEFAULT 'library',
+            ui_mode TEXT NOT NULL DEFAULT 'library',
+            theme_id TEXT,
+            theme_name TEXT,
+            skin_id TEXT,
+            skin_name TEXT,
+            visualizer_id TEXT,
+            visualizer_name TEXT
+        );
+        INSERT INTO listen_events_new
+            SELECT e.id, t.id, l.started_at, l.ended_at, l.listened_seconds,
+                   l.library_listened_seconds, l.skin_listened_seconds,
+                   l.track_duration_seconds, l.completion, l.source, l.ui_mode,
+                   l.theme_id, l.theme_name, l.skin_id, l.skin_name,
+                   l.visualizer_id, l.visualizer_name
+            FROM listen_events l
+            JOIN event_id_map e ON e.old_id = l.id
+            JOIN track_id_map t ON t.old_id = l.track_id;
+
+        CREATE TABLE playlists_new (
+            id TEXT PRIMARY KEY NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            date_created TEXT NOT NULL,
+            last_used_at TEXT NOT NULL,
+            image_mode TEXT NOT NULL DEFAULT 'generated',
+            custom_image_path TEXT,
+            cover_background TEXT,
+            cover_background_end TEXT,
+            cover_icon TEXT,
+            position TEXT NOT NULL
+        );
+        -- Position keys are filled in below, in the current sidebar order.
+        INSERT INTO playlists_new
+            SELECT m.id, p.title, p.description, p.date_created, p.last_used_at,
+                   p.image_mode, p.custom_image_path, p.cover_background,
+                   p.cover_background_end, p.cover_icon, ''
+            FROM playlists p JOIN playlist_id_map m ON m.old_id = p.id;
+
+        CREATE TABLE playlist_tracks_new (
+            playlist_id TEXT NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+            track_id TEXT NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+            position TEXT NOT NULL,
+            PRIMARY KEY (playlist_id, track_id)
+        );
+
+        CREATE TABLE track_lyrics_new (
+            track_id TEXT PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
+            format TEXT NOT NULL DEFAULT 'plain',
+            source TEXT,
+            lines_json TEXT NOT NULL,
+            plain_text TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL
+        );
+        INSERT INTO track_lyrics_new
+            SELECT m.id, l.format, l.source, l.lines_json, l.plain_text, l.updated_at
+            FROM track_lyrics l JOIN track_id_map m ON m.old_id = l.track_id;
+
+        CREATE TABLE track_lyrics_attempts_new (
+            track_id TEXT NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+            lrclib_id INTEGER NOT NULL,
+            applied_at TEXT NOT NULL,
+            PRIMARY KEY (track_id, lrclib_id)
+        );
+        INSERT INTO track_lyrics_attempts_new
+            SELECT m.id, a.lrclib_id, a.applied_at
+            FROM track_lyrics_attempts a JOIN track_id_map m ON m.old_id = a.track_id;",
+    )?;
+
+    // Position keys follow each playlist's current order.
+    let rows: Vec<(String, String)> = conn
+        .prepare(
+            "SELECT p.id, t.id FROM playlist_tracks pt
+             JOIN playlist_id_map p ON p.old_id = pt.playlist_id
+             JOIN track_id_map t ON t.old_id = pt.track_id
+             ORDER BY pt.playlist_id, pt.position, pt.track_id",
+        )?
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .collect::<Result<_, _>>()?;
+    let mut insert = conn.prepare(
+        "INSERT INTO playlist_tracks_new (playlist_id, track_id, position)
+         VALUES (?1, ?2, ?3)",
+    )?;
+    let mut index_in_playlist = 0;
+    for (i, (playlist_id, track_id)) in rows.iter().enumerate() {
+        if i > 0 && rows[i - 1].0 != *playlist_id {
+            index_in_playlist = 0;
+        }
+        insert.execute(params![
+            playlist_id,
+            track_id,
+            migration_position_key(index_in_playlist),
+        ])?;
+        index_in_playlist += 1;
+    }
+
+    let playlists_in_order: Vec<String> = conn
+        .prepare(
+            "SELECT m.id FROM playlists p JOIN playlist_id_map m ON m.old_id = p.id
+             ORDER BY p.position, p.id",
+        )?
+        .query_map([], |row| row.get(0))?
+        .collect::<Result<_, _>>()?;
+    let mut set_position = conn.prepare("UPDATE playlists_new SET position = ?1 WHERE id = ?2")?;
+    for (index, playlist_id) in playlists_in_order.iter().enumerate() {
+        set_position.execute(params![migration_position_key(index), playlist_id])?;
+    }
+
+    conn.execute_batch(
+        "DROP TABLE playlist_tracks;
+        DROP TABLE track_lyrics_attempts;
+        DROP TABLE track_lyrics;
+        DROP TABLE listen_events;
+        DROP TABLE playlists;
+        DROP TABLE tracks;
+        ALTER TABLE tracks_new RENAME TO tracks;
+        ALTER TABLE playlists_new RENAME TO playlists;
+        ALTER TABLE playlist_tracks_new RENAME TO playlist_tracks;
+        ALTER TABLE listen_events_new RENAME TO listen_events;
+        ALTER TABLE track_lyrics_new RENAME TO track_lyrics;
+        ALTER TABLE track_lyrics_attempts_new RENAME TO track_lyrics_attempts;
+        CREATE INDEX idx_listen_events_ended_at ON listen_events(ended_at);
+        CREATE INDEX idx_listen_events_track_id ON listen_events(track_id);
+        CREATE INDEX idx_playlist_tracks_order ON playlist_tracks(playlist_id, position, track_id);
+        CREATE INDEX idx_playlist_tracks_track ON playlist_tracks(track_id);
+        DROP TABLE temp.track_id_map;
+        DROP TABLE temp.playlist_id_map;
+        DROP TABLE temp.event_id_map;",
+    )
+}
+
+/// Fill `map_table (old_id, id)` with a UUIDv7 per row of `select_sql`, which
+/// returns `(old integer id, RFC 3339 creation time)`. A time that doesn't
+/// parse falls back to now.
+#[allow(dead_code)] // DRAFT: see `uuid_ids`.
+fn fill_uuid_map(
+    conn: &Connection,
+    map_table: &str,
+    select_sql: &str,
+) -> Result<(), rusqlite::Error> {
+    let rows: Vec<(i64, String)> = conn
+        .prepare(select_sql)?
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .collect::<Result<_, _>>()?;
+    let mut insert = conn.prepare(&format!(
+        "INSERT INTO {map_table} (old_id, id) VALUES (?1, ?2)"
+    ))?;
+    for (old_id, created_at) in rows {
+        let created = chrono::DateTime::parse_from_rfc3339(&created_at)
+            .map(|t| t.with_timezone(&Utc))
+            .unwrap_or_else(|_| Utc::now());
+        let ts = uuid::Timestamp::from_unix(
+            uuid::NoContext,
+            created.timestamp().max(0) as u64,
+            created.timestamp_subsec_nanos(),
+        );
+        insert.execute(params![old_id, uuid::Uuid::new_v7(ts).to_string()])?;
+    }
+    Ok(())
+}
+
+/// The `index`th key of a run of fractional position keys, in the format of
+/// the `fractional-indexing` library (base 62, a head letter giving the integer
+/// part's length: `a0`…`az`, then `b00`…). Spelled out here so later changes to
+/// the app's key generator can't alter what migration 8 does.
+#[allow(dead_code)] // DRAFT: see `uuid_ids`.
+fn migration_position_key(index: usize) -> String {
+    const DIGITS: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    let mut remaining = index;
+    let mut len = 1u32;
+    while remaining >= 62usize.pow(len) {
+        remaining -= 62usize.pow(len);
+        len += 1;
+    }
+    let mut digits = vec![b'0'; len as usize];
+    for slot in digits.iter_mut().rev() {
+        *slot = DIGITS[remaining % 62];
+        remaining /= 62;
+    }
+    let head = (b'a' + (len - 1) as u8) as char;
+    format!("{head}{}", String::from_utf8(digits).expect("ascii digits"))
+}
+
 fn library_sources(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.execute_batch(
         "CREATE TABLE sources (
@@ -993,6 +1267,85 @@ mod tests {
             ddl.join(";\n")
         );
         std::fs::write(fixtures_dir().join(format!("v{version}.sql")), out).unwrap();
+    }
+
+    /// DRAFT v8: un-ignore when `uuid_ids` is registered in `MIGRATIONS`.
+    #[test]
+    #[ignore = "uuid_ids is a draft, not yet registered"]
+    fn uuid_ids_keeps_every_row_and_link() {
+        let conn = mem();
+        conn.execute_batch(&std::fs::read_to_string(fixtures_dir().join("v7.sql")).unwrap())
+            .unwrap();
+        let before = table_counts(&conn);
+        conn.execute_batch("PRAGMA foreign_keys = OFF;").unwrap();
+        uuid_ids(&conn).unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        check_foreign_keys(&conn).unwrap();
+
+        let count = |table: &str| -> i64 { before.iter().find(|(t, _)| t == table).unwrap().1 };
+        let after = table_counts(&conn);
+        let now = |table: &str| -> i64 { after.iter().find(|(t, _)| t == table).unwrap().1 };
+        for table in [
+            "tracks",
+            "playlists",
+            "listen_events",
+            "track_lyrics",
+            "track_lyrics_attempts",
+            "playlist_tracks",
+        ] {
+            assert_eq!(now(table), count(table), "{table}");
+        }
+
+        // Ids are UUIDv7 and still sort by creation time.
+        let ids: Vec<String> = conn
+            .prepare("SELECT id FROM tracks ORDER BY date_added")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        let mut sorted = ids.clone();
+        sorted.sort();
+        assert_eq!(ids, sorted);
+        for id in &ids {
+            assert_eq!(uuid::Uuid::parse_str(id).unwrap().get_version_num(), 7);
+        }
+
+        // Favourites keeps its order: Song A, Song B, Song C.
+        let titles: Vec<String> = conn
+            .prepare(
+                "SELECT t.title FROM playlist_tracks pt
+                 JOIN playlists p ON p.id = pt.playlist_id
+                 JOIN tracks t ON t.id = pt.track_id
+                 WHERE p.title = 'Favourites' ORDER BY pt.position, pt.track_id",
+            )
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(titles, ["Song A", "Song B", "Song C"]);
+
+        // The sidebar keeps its order too.
+        let playlists: Vec<String> = conn
+            .prepare("SELECT title FROM playlists ORDER BY position, id")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(playlists, ["Favourites", "Another", "Empty"]);
+    }
+
+    #[test]
+    fn migration_position_keys_sort_in_order() {
+        assert_eq!(migration_position_key(0), "a0");
+        assert_eq!(migration_position_key(61), "az");
+        assert_eq!(migration_position_key(62), "b00");
+        let keys: Vec<String> = (0..5000).map(migration_position_key).collect();
+        let mut sorted = keys.clone();
+        sorted.sort();
+        assert_eq!(keys, sorted);
     }
 
     #[test]
