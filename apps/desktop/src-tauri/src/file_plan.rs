@@ -811,36 +811,25 @@ fn finish_move(
             .map_or(0, |d| d.as_millis() as i64);
         (m.len() as i64, mtime)
     });
+    if let Some(app_data) = &ctx.app_data_dir {
+        // Library art is in the artwork registry; only the app's path-keyed
+        // cache follows the file.
+        let _ = library_organize::migrate_art_cache(
+            app_data,
+            &from.path.to_string_lossy(),
+            &to.path.to_string_lossy(),
+        );
+    }
     {
         let conn = lock(db);
-        let art_path: Option<String> = conn
-            .query_row(
-                "SELECT art_path FROM tracks WHERE id = ?1",
-                params![track_id],
-                |row| row.get(0),
-            )
-            .optional()
-            .map_err(|e| e.to_string())?
-            .flatten();
-        let art_path = match &ctx.app_data_dir {
-            Some(app_data) => library_organize::migrate_art_cache(
-                app_data,
-                &from.path.to_string_lossy(),
-                &to.path.to_string_lossy(),
-                art_path.as_deref(),
-            )
-            .unwrap_or(art_path),
-            None => art_path,
-        };
         // The stat keeps a later reconcile from reading the file again.
         conn.execute(
-            "UPDATE tracks SET source_id = ?1, rel_path = ?2, art_path = ?3,
-                    file_size = COALESCE(?4, file_size), file_mtime_ms = COALESCE(?5, file_mtime_ms)
-             WHERE id = ?6",
+            "UPDATE tracks SET source_id = ?1, rel_path = ?2,
+                    file_size = COALESCE(?3, file_size), file_mtime_ms = COALESCE(?4, file_mtime_ms)
+             WHERE id = ?5",
             params![
                 to.source_id,
                 to.rel_path,
-                art_path,
                 stat.map(|s| s.0),
                 stat.map(|s| s.1),
                 track_id
@@ -1638,7 +1627,7 @@ mod tests {
     }
 
     #[test]
-    fn moves_follow_the_legacy_art_cache() {
+    fn moves_carry_the_art_cache_and_keep_art_links() {
         let fx = Fixture::new("art");
         let src = fx.source("Collection");
         let id = fx.track(src, "Collection/a.wav", "Band", "Album", "Song");
@@ -1652,10 +1641,10 @@ mod tests {
         ));
         fs::write(&cached, b"art").unwrap();
         lock(&fx.db)
-            .execute(
-                "UPDATE tracks SET art_path = ?1 WHERE id = ?2",
-                params![cached.to_string_lossy(), id],
-            )
+            .execute_batch(&format!(
+                "INSERT INTO artwork (hash, mime, byte_size) VALUES ('h', 'image/jpeg', 3);
+                 INSERT INTO track_artwork VALUES ('{id}', 'front', 'h');"
+            ))
             .unwrap();
 
         let plan = fx.plan(src);
@@ -1664,16 +1653,26 @@ mod tests {
             ..fx.ctx()
         };
         apply(&fx.db, &ctx, &plan, |_| {}).unwrap();
-        let art: String = lock(&fx.db)
-            .query_row(
-                "SELECT art_path FROM tracks WHERE id = ?1",
-                params![id],
-                |r| r.get(0),
-            )
+        let track = crate::db::get_track_by_id(&lock(&fx.db), &id)
+            .unwrap()
             .unwrap();
-        assert_ne!(art, cached.to_string_lossy());
-        assert!(Path::new(&art).is_file());
+        let moved = cache.join(format!(
+            "{}.jpg",
+            crate::art_cache::art_cache_key(&track.file_path)
+        ));
+        assert_ne!(moved, cached);
+        assert!(moved.is_file());
         assert!(!cached.exists());
+        assert_eq!(
+            crate::artwork_registry::track_art(
+                &lock(&fx.db),
+                &id,
+                crate::artwork_registry::ArtworkKind::Front
+            )
+            .unwrap()
+            .as_deref(),
+            Some("h")
+        );
     }
 
     #[test]

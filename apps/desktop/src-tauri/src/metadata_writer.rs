@@ -483,6 +483,15 @@ pub fn write_lyrics_projection(
     }
 }
 
+/// Whether Spiral can write a cover picture into this file's tags. Art for a
+/// file that can't hold one lives only in the library's `Artwork/` folder.
+pub fn can_embed_art(path: &Path) -> bool {
+    matches!(
+        audio_extension(path).as_deref(),
+        Some("mp3" | "flac" | "m4a" | "aac" | "mp4" | "wav" | "ogg" | "opus")
+    )
+}
+
 pub fn write_track_metadata(
     path: &Path,
     metadata: &TrackMetadataUpdate,

@@ -85,27 +85,6 @@ fn cache_embedded_art(
         .map(|p| p.to_string_lossy().into_owned())
 }
 
-fn library_embedded_art(
-    library_root: &Path,
-    tags: &BasicTags,
-    title_fallback: &str,
-    bytes: &[u8],
-    mime: &str,
-) -> Option<String> {
-    crate::artwork_extract::assign_track_art_on_import(
-        library_root,
-        tags.album_artist.as_deref(),
-        tags.artist.as_deref(),
-        tags.album.as_deref(),
-        tags.title.as_deref().unwrap_or(title_fallback),
-        tags.track_number,
-        Some(bytes),
-        mime,
-    )
-    .ok()
-    .flatten()
-}
-
 fn read_mp3_duration(path: &Path) -> Option<f64> {
     mp3_duration::from_path(path)
         .ok()
@@ -353,17 +332,25 @@ pub fn read_embedded_art_bytes(path: &Path) -> Option<(Vec<u8>, String)> {
     read_tags(path, &ext).1
 }
 
+/// Read a file's metadata, with its embedded picture in the app's art cache
+/// (`art_path`) for showing before the track is in the library.
 pub fn parse_track_metadata(
     app_data_dir: &Path,
     file_path: &str,
     lyrics_sidecar_enabled: bool,
 ) -> Result<TrackInput, String> {
-    parse_track_metadata_for_library(app_data_dir, file_path, lyrics_sidecar_enabled, None)
+    let parsed = read_track_metadata(file_path, lyrics_sidecar_enabled)?;
+    Ok(place_embedded_art(
+        app_data_dir,
+        ArtPlacement::Cache,
+        parsed,
+    ))
 }
 
 /// A track's metadata, read from its file, with its embedded picture held
 /// back. Reading touches only the file, so many can be read at once; placing
-/// the picture writes to the shared artwork folders, so that's done one at a time.
+/// the picture writes it to disk, so a scan places pictures as it goes to
+/// bound how many it holds.
 pub struct ParsedTrack {
     pub input: TrackInput,
     art: Option<PendingArt>,
@@ -379,8 +366,16 @@ impl ParsedTrack {
 struct PendingArt {
     bytes: Vec<u8>,
     mime: String,
-    tags: BasicTags,
-    title_fallback: String,
+}
+
+/// Where [`place_embedded_art`] puts a picture.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArtPlacement {
+    /// The app's art cache, keyed by file path: `art_path` names the file.
+    Cache,
+    /// Staged for the library (`staged_front`), to be linked when the track is
+    /// saved ([`crate::artwork_extract::adopt_staged_front`]).
+    Library,
 }
 
 /// Read a file's metadata. The picture is placed by [`place_embedded_art`].
@@ -436,46 +431,33 @@ pub fn read_track_metadata(
         release_mbid: tags.release_mbid.clone(),
         artist_mbids: tags.artist_mbids.clone(),
         album_artist_mbids: tags.album_artist_mbids.clone(),
+        staged_front: None,
     };
-    let art = art.map(|(bytes, mime)| PendingArt {
-        bytes,
-        mime,
-        tags,
-        title_fallback,
-    });
+    let art = art.map(|(bytes, mime)| PendingArt { bytes, mime });
     Ok(ParsedTrack { input, art })
 }
 
-/// Write a parsed track's embedded picture where it belongs and record the
-/// path: under the library's `Artwork/` when `library_root` is set (no-clobber),
-/// else in the app's art cache.
+/// Write a parsed track's embedded picture to disk and let go of its bytes:
+/// staged for the library, or in the app's art cache (see [`ArtPlacement`]).
 pub fn place_embedded_art(
     app_data_dir: &Path,
-    library_root: Option<&Path>,
+    placement: ArtPlacement,
     parsed: ParsedTrack,
 ) -> TrackInput {
     let ParsedTrack { mut input, art } = parsed;
-    input.art_path = art.and_then(|a| {
-        if let Some(root) = library_root {
-            library_embedded_art(root, &a.tags, &a.title_fallback, &a.bytes, &a.mime)
-        } else {
-            cache_embedded_art(app_data_dir, &input.file_path, &a.bytes, &a.mime)
+    if let Some(art) = art {
+        match placement {
+            ArtPlacement::Cache => {
+                input.art_path =
+                    cache_embedded_art(app_data_dir, &input.file_path, &art.bytes, &art.mime);
+            }
+            ArtPlacement::Library => {
+                input.staged_front = crate::artwork_extract::stage_front(app_data_dir, &art.bytes);
+            }
         }
-    });
+    }
     input
 }
-
-/// When `library_root` is set, embedded art is written under `Artwork/` (no-clobber).
-pub fn parse_track_metadata_for_library(
-    app_data_dir: &Path,
-    file_path: &str,
-    lyrics_sidecar_enabled: bool,
-    library_root: Option<&Path>,
-) -> Result<TrackInput, String> {
-    let parsed = read_track_metadata(file_path, lyrics_sidecar_enabled)?;
-    Ok(place_embedded_art(app_data_dir, library_root, parsed))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

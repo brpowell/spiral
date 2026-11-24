@@ -233,6 +233,9 @@ pub struct TrackInput {
     pub bitrate: Option<u32>,
     pub codec: Option<String>,
     pub file_path: String,
+    /// An image file for the track from the caller (a CD rip's cover, or art
+    /// read into the app's art cache). Saving takes front art from the file's
+    /// embedded picture, and from this image only when the file has none.
     pub art_path: Option<String>,
     pub rating: Option<u8>,
     pub lyrics: Option<TrackLyricsInput>,
@@ -244,6 +247,9 @@ pub struct TrackInput {
     pub artist_mbids: Vec<String>,
     #[serde(default)]
     pub album_artist_mbids: Vec<String>,
+    /// The embedded front picture a library scan read, held for saving.
+    #[serde(skip)]
+    pub staged_front: Option<crate::artwork_extract::StagedFront>,
 }
 
 /// Append-only listen history row written when a library play closes.
