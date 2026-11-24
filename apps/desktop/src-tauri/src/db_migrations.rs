@@ -891,6 +891,20 @@ fn fill_uuid_map(
 ///   last played (caches recomputed from events), `playlists.last_used_at`, and
 ///   this machine's scan state (`source_id`, `rel_path`, `missing_since`).
 ///
+/// Each logged table gets three triggers (insert, update, delete). For example,
+/// on `playlists` the update trigger is:
+///
+/// ```sql
+/// CREATE TRIGGER change_log_playlists_update AFTER UPDATE ON playlists
+/// WHEN OLD.title IS NOT NEW.title OR OLD.description IS NOT NEW.description OR ...
+/// BEGIN
+///     UPDATE library_meta SET rev = rev + 1;
+///     DELETE FROM change_log WHERE entity = 'playlist' AND entity_id = NEW.id;
+///     INSERT INTO change_log (rev, entity, entity_id, op)
+///         SELECT rev, 'playlist', NEW.id, 'upsert' FROM library_meta;
+/// END;
+/// ```
+///
 /// Nothing is backfilled: a client's first sync is a snapshot plus the current
 /// `rev`, which starts at 0.
 fn library_meta_change_log(conn: &Connection) -> Result<(), rusqlite::Error> {
@@ -911,6 +925,14 @@ fn library_meta_change_log(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.execute(
         "INSERT INTO library_meta (id, library_id, rev) VALUES (1, ?1, 0)",
         [uuid::Uuid::now_v7().to_string()],
+    )?;
+    // The change triggers read `rev` from this row. Without it they would log
+    // nothing and say nothing, so refuse to delete it.
+    conn.execute_batch(
+        "CREATE TRIGGER library_meta_keep_row BEFORE DELETE ON library_meta
+        BEGIN
+            SELECT RAISE(ABORT, 'library_meta must keep its one row');
+        END;",
     )?;
 
     // (table, entity, id of a row as `<row>.` prefixed SQL, columns whose change counts)
@@ -1727,6 +1749,18 @@ mod tests {
                 []
             )
             .is_err());
+    }
+
+    #[test]
+    fn the_library_meta_row_cannot_be_deleted() {
+        let conn = logged_fixture();
+        assert!(conn.execute("DELETE FROM library_meta", []).is_err());
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM library_meta", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
     }
 
     #[test]
