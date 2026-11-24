@@ -37,16 +37,16 @@ function track(partial: Partial<Track> & Pick<Track, "id">): Track {
 describe("sharedArtistField", () => {
   it("returns shared semicolon-joined artist field", () => {
     const tracks = [
-      track({ id: 1, artist: "A; B" }),
-      track({ id: 2, artist: "A; B" }),
+      track({ id: "1", artist: "A; B" }),
+      track({ id: "2", artist: "A; B" }),
     ];
     expect(sharedArtistField(tracks, (t) => t.artist)).toBe("A; B");
   });
 
   it("returns empty when artist sets differ", () => {
     const tracks = [
-      track({ id: 1, artist: "A" }),
-      track({ id: 2, artist: "B" }),
+      track({ id: "1", artist: "A" }),
+      track({ id: "2", artist: "B" }),
     ];
     expect(sharedArtistField(tracks, (t) => t.artist)).toBe("");
   });
@@ -55,24 +55,24 @@ describe("sharedArtistField", () => {
 describe("isTrackEditorFieldMixed", () => {
   it("artist mixed when delimiter conventions differ", () => {
     const tracks = [
-      track({ id: 1, artist: "A / B" }),
-      track({ id: 2, artist: "A; B" }),
+      track({ id: "1", artist: "A / B" }),
+      track({ id: "2", artist: "A; B" }),
     ];
     expect(isTrackEditorFieldMixed(tracks, "artist")).toBe(true);
   });
 
   it("artist mixed when names differ", () => {
     const tracks = [
-      track({ id: 1, artist: "A" }),
-      track({ id: 2, artist: "B" }),
+      track({ id: "1", artist: "A" }),
+      track({ id: "2", artist: "B" }),
     ];
     expect(isTrackEditorFieldMixed(tracks, "artist")).toBe(true);
   });
 
   it("recording MBID mixed when values differ", () => {
     const tracks = [
-      track({ id: 1, recordingMbid: "550e8400-e29b-41d4-a716-446655440000" }),
-      track({ id: 2, recordingMbid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }),
+      track({ id: "1", recordingMbid: "550e8400-e29b-41d4-a716-446655440000" }),
+      track({ id: "2", recordingMbid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }),
     ];
     expect(isTrackEditorFieldMixed(tracks, "recordingMbid")).toBe(true);
     const form = tracksToForm(tracks);
@@ -86,7 +86,7 @@ describe("isTrackEditorFieldMixed", () => {
 describe("buildTrackMetadataFromForm", () => {
   it("writes total tracks and discs when changed", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       title: "Song",
       trackNumber: 3,
       totalTracks: 10,
@@ -111,7 +111,7 @@ describe("buildTrackMetadataFromForm", () => {
   });
 
   it("includes lyrics payload when lyrics changed", () => {
-    const editedTrack = track({ id: 1, title: "Song" });
+    const editedTrack = track({ id: "1", title: "Song" });
     const initial = trackToForm(editedTrack);
     const edited = { ...initial, lyrics: "Line one\nLine two" };
 
@@ -132,7 +132,7 @@ describe("buildTrackMetadataFromForm", () => {
   });
 
   it("includes line-synced lyrics payload when pasted LRC changes", () => {
-    const editedTrack = track({ id: 1, title: "Song" });
+    const editedTrack = track({ id: "1", title: "Song" });
     const initial = trackToForm(editedTrack);
     const syncedLines = [{ text: "Synced line", startMs: 12_500 }];
     const edited = {
@@ -159,7 +159,7 @@ describe("buildTrackMetadataFromForm", () => {
   });
 
   it("preserves line-synced lyrics when LRC has repeated lines", () => {
-    const editedTrack = track({ id: 1, title: "Song" });
+    const editedTrack = track({ id: "1", title: "Song" });
     const initial = trackToForm(editedTrack);
     const syncedLines = [
       { text: "Bob your head, rag top", startMs: 205_540 },
@@ -189,7 +189,7 @@ describe("buildTrackMetadataFromForm", () => {
   });
 
   it("detects pasted LRC text on save without stored synced lines", () => {
-    const editedTrack = track({ id: 1, title: "Song" });
+    const editedTrack = track({ id: "1", title: "Song" });
     const initial = trackToForm(editedTrack);
     const edited = {
       ...initial,
@@ -213,7 +213,7 @@ describe("buildTrackMetadataFromForm", () => {
   });
 
   it("clears lyrics when edited to empty", () => {
-    const editedTrack = track({ id: 1, title: "Song" });
+    const editedTrack = track({ id: "1", title: "Song" });
     const initial = {
       ...trackToForm(editedTrack),
       lyrics: "Old lyrics",
@@ -234,7 +234,7 @@ describe("buildTrackMetadataFromForm", () => {
   });
 
   it("marks instrumental when toggled on", () => {
-    const editedTrack = track({ id: 1, title: "Song" });
+    const editedTrack = track({ id: "1", title: "Song" });
     const initial = {
       ...trackToForm(editedTrack),
       lyrics: "Old lyrics",
@@ -266,7 +266,7 @@ describe("buildTrackMetadataFromForm", () => {
 
   it("clears instrumental mark when toggled off", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       title: "Song",
       lyricsFormat: "instrumental",
     });
@@ -297,14 +297,14 @@ describe("buildTrackMetadataFromForm", () => {
 describe("recording MBID form", () => {
   it("loads a shared recording MBID", () => {
     const form = tracksToForm([
-      track({ id: 1, recordingMbid: "550e8400-e29b-41d4-a716-446655440000" }),
-      track({ id: 2, recordingMbid: "550e8400-e29b-41d4-a716-446655440000" }),
+      track({ id: "1", recordingMbid: "550e8400-e29b-41d4-a716-446655440000" }),
+      track({ id: "2", recordingMbid: "550e8400-e29b-41d4-a716-446655440000" }),
     ]);
     expect(form.recordingMbid).toBe("550e8400-e29b-41d4-a716-446655440000");
   });
 
   it("applies a recording MBID override from release rematch", () => {
-    const editedTrack = track({ id: 1, title: "Song" });
+    const editedTrack = track({ id: "1", title: "Song" });
     const initial = trackToForm(editedTrack);
     const edited = { ...initial };
 
@@ -322,12 +322,12 @@ describe("recording MBID form", () => {
 
   it("preserves per-track recording MBIDs when the bulk field is unchanged", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       recordingMbid: "550e8400-e29b-41d4-a716-446655440000",
     });
     const initial = tracksToForm([
       editedTrack,
-      track({ id: 2, recordingMbid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }),
+      track({ id: "2", recordingMbid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }),
     ]);
     const edited = { ...initial, title: "New Title" };
 
@@ -345,7 +345,7 @@ describe("recording MBID form", () => {
 
   it("clears the recording MBID when rematch returns null", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       recordingMbid: "550e8400-e29b-41d4-a716-446655440000",
     });
     const initial = trackToForm(editedTrack);
@@ -364,7 +364,7 @@ describe("recording MBID form", () => {
   });
 
   it("treats recording MBID as a form equality field", () => {
-    const a = trackToForm(track({ id: 1 }));
+    const a = trackToForm(track({ id: "1" }));
     expect(trackEditorFormsEqual(a, { ...a })).toBe(true);
     expect(
       trackEditorFormsEqual(a, {
@@ -378,23 +378,26 @@ describe("recording MBID form", () => {
 describe("tracksToForm lyrics instrumental", () => {
   it("marks instrumental when every track is instrumental", () => {
     const form = tracksToForm([
-      track({ id: 1, lyricsFormat: "instrumental" }),
-      track({ id: 2, lyricsFormat: "instrumental" }),
+      track({ id: "1", lyricsFormat: "instrumental" }),
+      track({ id: "2", lyricsFormat: "instrumental" }),
     ]);
     expect(form.lyricsInstrumental).toBe(true);
   });
 
   it("leaves instrumental off when any track is not", () => {
     const tracks = [
-      track({ id: 1, lyricsFormat: "instrumental" }),
-      track({ id: 2, lyricsFormat: "plain" }),
+      track({ id: "1", lyricsFormat: "instrumental" }),
+      track({ id: "2", lyricsFormat: "plain" }),
     ];
     expect(tracksToForm(tracks).lyricsInstrumental).toBe(false);
     expect(isLyricsInstrumentalMixed(tracks)).toBe(true);
   });
 
   it("leaves instrumental off when none are instrumental", () => {
-    const tracks = [track({ id: 1, lyricsFormat: "plain" }), track({ id: 2 })];
+    const tracks = [
+      track({ id: "1", lyricsFormat: "plain" }),
+      track({ id: "2" }),
+    ];
     expect(tracksToForm(tracks).lyricsInstrumental).toBe(false);
     expect(isLyricsInstrumentalMixed(tracks)).toBe(false);
   });

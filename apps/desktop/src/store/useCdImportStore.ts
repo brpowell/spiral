@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { usePlayerStore } from "./usePlayerStore";
-import type { Track } from "@/types/track";
+import type { Track, TrackListId } from "@/types/track";
 
 export interface CdImportProgress {
   driveId: string;
@@ -20,15 +20,15 @@ export function cdImportPendingTrackNumbers(
 }
 
 export interface CdImportRowIndicators {
-  importingTrackIds?: ReadonlySet<number>;
-  activeTrackId: number | null;
-  completedTrackIds?: ReadonlySet<number>;
+  importingTrackIds?: ReadonlySet<TrackListId>;
+  activeTrackId: TrackListId | null;
+  completedTrackIds?: ReadonlySet<TrackListId>;
 }
 
 export function cdImportRowIndicators(
   progress: CdImportProgress | null,
   completedDisplay: number[] | undefined,
-  toListId: (trackNumber: number) => number,
+  toListId: (trackNumber: number) => TrackListId,
 ): CdImportRowIndicators {
   const completedNumbers =
     progress?.completedTrackNumbers ?? completedDisplay ?? [];

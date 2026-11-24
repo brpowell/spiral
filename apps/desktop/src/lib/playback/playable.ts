@@ -4,18 +4,18 @@ import {
   isCdTrackListId,
 } from "@/lib/cd/cdTracks";
 import type { PlayableRef } from "@/types/playable";
-import type { Track } from "@/types/track";
+import type { Track, TrackListId } from "@/types/track";
 import type { PlaybackSource } from "./types";
 
 export { isCdTrackListId, cdTrackNumberFromListId };
 
-export function trackListIdForPlayable(playable: PlayableRef): number {
+export function trackListIdForPlayable(playable: PlayableRef): TrackListId {
   if (playable.type === "library") return playable.trackId;
   return cdTrackListId(playable.trackNumber);
 }
 
 export function playableRefFromTrackListId(
-  id: number,
+  id: TrackListId,
   cdDriveId: string | null,
 ): PlayableRef | null {
   if (isCdTrackListId(id)) {

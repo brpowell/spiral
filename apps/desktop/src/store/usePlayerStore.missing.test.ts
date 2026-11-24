@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Track } from "@/types/track";
+import type { Track, TrackListId } from "@/types/track";
 
 const { mockFileExists, mockUnavailable, playback } = vi.hoisted(() => ({
   mockFileExists: vi.fn(),
@@ -48,14 +48,15 @@ import * as audio from "@/lib/playback";
 import { useBackgroundTasksStore } from "./useBackgroundTasksStore";
 import { usePlayerStore } from "./usePlayerStore";
 
-function track(id: number, overrides: Partial<Track> = {}): Track {
+function track(n: number, overrides: Partial<Track> = {}): Track {
+  const id = String(n);
   return {
     id,
     title: `Track ${id}`,
     artist: "Artist",
     album: "Album",
     albumArtist: "Artist",
-    trackNumber: id,
+    trackNumber: n,
     totalTracks: null,
     discNumber: 1,
     totalDiscs: null,
@@ -83,7 +84,7 @@ function toasts() {
     .tasks.map(({ label, detail }) => ({ label, detail }));
 }
 
-function setQueue(library: Track[], currentTrackId: number | null = null) {
+function setQueue(library: Track[], currentTrackId: TrackListId | null = null) {
   usePlayerStore.setState({
     library,
     playContextIds: library.map((item) => item.id),
@@ -127,9 +128,9 @@ describe("skipping missing tracks", () => {
 
   it("starting on a missing track plays the next one and says so", async () => {
     setQueue([track(1, missing), track(2)]);
-    await usePlayerStore.getState().playTrack(1);
+    await usePlayerStore.getState().playTrack("1");
 
-    expect(usePlayerStore.getState().currentTrackId).toBe(2);
+    expect(usePlayerStore.getState().currentTrackId).toBe("2");
     expect(usePlayerStore.getState().playbackState).toBe("playing");
     expect(toasts()).toEqual([{ label: "File not found", detail: "Track 1" }]);
   });
@@ -137,8 +138,8 @@ describe("skipping missing tracks", () => {
   it("starting on a missing track with no set list builds one first", async () => {
     setQueue([track(1, missing), track(2)]);
     usePlayerStore.setState({ playContextIds: [] });
-    await usePlayerStore.getState().playTrack(1);
-    expect(usePlayerStore.getState().currentTrackId).toBe(2);
+    await usePlayerStore.getState().playTrack("1");
+    expect(usePlayerStore.getState().currentTrackId).toBe("2");
   });
 
   it("starting on a track whose file just went does the same", async () => {
@@ -146,9 +147,9 @@ describe("skipping missing tracks", () => {
       async (path: string) => path !== "/music/1.flac",
     );
     setQueue([track(1), track(2)]);
-    await usePlayerStore.getState().playTrack(1);
+    await usePlayerStore.getState().playTrack("1");
 
-    expect(usePlayerStore.getState().currentTrackId).toBe(2);
+    expect(usePlayerStore.getState().currentTrackId).toBe("2");
     expect(toasts()).toEqual([{ label: "File not found", detail: "Track 1" }]);
     expect(usePlayerStore.getState().library[0].missingFile).toBe(true);
   });
@@ -162,10 +163,10 @@ describe("skipping missing tracks", () => {
       track(4, { sourceId: 7 }),
     ];
     setQueue(library);
-    await usePlayerStore.getState().playTrack(1);
+    await usePlayerStore.getState().playTrack("1");
 
     const state = usePlayerStore.getState();
-    expect(state.currentTrackId).toBe(3);
+    expect(state.currentTrackId).toBe("3");
     expect(state.library.map((t) => !!t.missingFile)).toEqual([
       true,
       true,
@@ -189,7 +190,7 @@ describe("skipping missing tracks", () => {
   it("a single offline track's toast names the folder", async () => {
     mockUnavailable.mockResolvedValue([7]);
     setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 1 })]);
-    await usePlayerStore.getState().playTrack(1);
+    await usePlayerStore.getState().playTrack("1");
     expect(toasts()).toEqual([
       { label: "Music folder offline", detail: "Track 1" },
     ]);
@@ -200,7 +201,7 @@ describe("skipping missing tracks", () => {
       async (path: string) => path !== "/music/1.flac",
     );
     setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 7 })]);
-    await usePlayerStore.getState().playTrack(1);
+    await usePlayerStore.getState().playTrack("1");
     expect(toasts()).toEqual([{ label: "File not found", detail: "Track 1" }]);
     expect(usePlayerStore.getState().library[0].sourceOffline).toBeUndefined();
   });
@@ -210,18 +211,18 @@ describe("skipping missing tracks", () => {
       async (path: string) => path !== "/music/1.flac",
     );
     setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 7 })]);
-    await usePlayerStore.getState().playTrack(1);
+    await usePlayerStore.getState().playTrack("1");
 
     const state = usePlayerStore.getState();
-    expect(state.currentTrackId).toBe(2);
+    expect(state.currentTrackId).toBe("2");
     expect(state.library.map((t) => !!t.missingFile)).toEqual([true, false]);
   });
 
   it("only looks at the folder of the track being played", async () => {
     setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 8 })]);
-    await usePlayerStore.getState().playTrack(1);
+    await usePlayerStore.getState().playTrack("1");
 
-    expect(usePlayerStore.getState().currentTrackId).toBe(1);
+    expect(usePlayerStore.getState().currentTrackId).toBe("1");
     expect(mockUnavailable.mock.calls).toEqual([[[7]]]);
   });
 
@@ -250,7 +251,7 @@ describe("skipping missing tracks", () => {
           track(2, { sourceId: 7 }),
           track(3, { sourceId: 1 }),
         ],
-        1,
+        "1",
       );
       playback.fileError(timedOut);
 
@@ -270,7 +271,7 @@ describe("skipping missing tracks", () => {
     it("trusts a failed read over a folder test that passes", async () => {
       // A dropped share can keep answering lookups from a cache.
       mockUnavailable.mockResolvedValue([]);
-      setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 7 })], 1);
+      setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 7 })], "1");
       playback.fileError(timedOut);
       await vi.waitFor(() =>
         expect(
@@ -281,7 +282,7 @@ describe("skipping missing tracks", () => {
 
     it("flags the folder after a stall when the folder test fails", async () => {
       mockUnavailable.mockResolvedValue([7]);
-      setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 7 })], 1);
+      setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 7 })], "1");
       playback.fileError(stalled);
       await vi.waitFor(() =>
         expect(
@@ -295,7 +296,7 @@ describe("skipping missing tracks", () => {
       // A NAS spinning its disks up after a long pause: slow, not gone.
       mockUnavailable.mockResolvedValue([]);
       mockFileExists.mockResolvedValue(true);
-      setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 7 })], 1);
+      setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 7 })], "1");
       playback.fileError(stalled);
 
       expect(usePlayerStore.getState().playbackState).toBe("stopped");
@@ -312,7 +313,7 @@ describe("skipping missing tracks", () => {
         message: "Failed to read /music/1.flac: read failed: bad data",
       };
       mockFileExists.mockResolvedValue(false);
-      setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 7 })], 1);
+      setQueue([track(1, { sourceId: 7 }), track(2, { sourceId: 7 })], "1");
       playback.fileError(readError);
 
       await vi.waitFor(() =>
@@ -340,7 +341,7 @@ describe("skipping missing tracks", () => {
       track(2, { sourceId: 7 }),
       track(3, { sourceId: 1 }),
     ]);
-    await usePlayerStore.getState().playTrack(1);
+    await usePlayerStore.getState().playTrack("1");
 
     const state = usePlayerStore.getState();
     expect(state.library.map((t) => !!t.sourceOffline)).toEqual([
@@ -349,7 +350,7 @@ describe("skipping missing tracks", () => {
       false,
     ]);
     // Its folder's other track is passed over; the next folder's plays.
-    expect(state.currentTrackId).toBe(3);
+    expect(state.currentTrackId).toBe("3");
   });
 
   describe("a folder flagged offline", () => {
@@ -364,10 +365,10 @@ describe("skipping missing tracks", () => {
         track(2, { sourceId: 7, ...offline }),
         track(3, { sourceId: 1 }),
       ]);
-      await usePlayerStore.getState().playTrack(1);
+      await usePlayerStore.getState().playTrack("1");
 
       const state = usePlayerStore.getState();
-      expect(state.currentTrackId).toBe(1);
+      expect(state.currentTrackId).toBe("1");
       expect(state.playbackState).toBe("playing");
       expect(
         state.library.map((t) => !!t.missingFile || !!t.sourceOffline),
@@ -382,10 +383,10 @@ describe("skipping missing tracks", () => {
         track(2, { sourceId: 7, ...offline }),
         track(3, { sourceId: 1 }),
       ]);
-      await usePlayerStore.getState().playTrack(1);
+      await usePlayerStore.getState().playTrack("1");
 
       const state = usePlayerStore.getState();
-      expect(state.currentTrackId).toBe(3);
+      expect(state.currentTrackId).toBe("3");
       expect(state.library.map((t) => !!t.sourceOffline)).toEqual([
         true,
         true,
@@ -402,22 +403,22 @@ describe("skipping missing tracks", () => {
         track(1, { sourceId: 7, ...offline }),
         track(2, { sourceId: 7, ...offline }),
       ]);
-      await usePlayerStore.getState().playTrack(1);
+      await usePlayerStore.getState().playTrack("1");
 
       const [first, second] = usePlayerStore.getState().library;
       expect(first.missingFile).toBe(true);
       expect(first.sourceOffline).toBeUndefined();
       expect(second.missingFile).toBeUndefined();
-      expect(usePlayerStore.getState().currentTrackId).toBe(2);
+      expect(usePlayerStore.getState().currentTrackId).toBe("2");
     });
   });
 
   it("Next says which track it passed over", async () => {
-    setQueue([track(1), track(2, missing), track(3)], 1);
+    setQueue([track(1), track(2, missing), track(3)], "1");
     usePlayerStore.getState().nextTrack();
 
     await vi.waitFor(() =>
-      expect(usePlayerStore.getState().currentTrackId).toBe(3),
+      expect(usePlayerStore.getState().currentTrackId).toBe("3"),
     );
     expect(toasts()).toEqual([{ label: "File not found", detail: "Track 2" }]);
   });
@@ -435,12 +436,12 @@ describe("skipping missing tracks", () => {
         track(5, missing),
         track(6),
       ],
-      1,
+      "1",
     );
     usePlayerStore.getState().nextTrack();
 
     await vi.waitFor(() =>
-      expect(usePlayerStore.getState().currentTrackId).toBe(6),
+      expect(usePlayerStore.getState().currentTrackId).toBe("6"),
     );
     expect(toasts()).toEqual([
       { label: "4 tracks skipped", detail: "Their files weren't found" },
@@ -448,11 +449,11 @@ describe("skipping missing tracks", () => {
   });
 
   it("the track ending moves past missing tracks and says so", async () => {
-    setQueue([track(1), track(2, missing), track(3, missing), track(4)], 1);
+    setQueue([track(1), track(2, missing), track(3, missing), track(4)], "1");
     playback.trackEnded();
 
     await vi.waitFor(() =>
-      expect(usePlayerStore.getState().currentTrackId).toBe(4),
+      expect(usePlayerStore.getState().currentTrackId).toBe("4"),
     );
     expect(toasts()).toEqual([
       { label: "2 tracks skipped", detail: "Their files weren't found" },
@@ -461,7 +462,7 @@ describe("skipping missing tracks", () => {
 
   it("stops when every remaining track is missing", async () => {
     setQueue([track(1, missing), track(2, missing)]);
-    await usePlayerStore.getState().playTrack(1);
+    await usePlayerStore.getState().playTrack("1");
 
     expect(startPlayback).not.toHaveBeenCalled();
     expect(usePlayerStore.getState().playbackState).toBe("stopped");
@@ -473,7 +474,7 @@ describe("skipping missing tracks", () => {
   it("doesn't loop when repeat wraps around an all-missing list", async () => {
     setQueue([track(1, missing), track(2, missing)]);
     usePlayerStore.setState({ repeatMode: "all" });
-    await usePlayerStore.getState().playTrack(2);
+    await usePlayerStore.getState().playTrack("2");
 
     expect(startPlayback).not.toHaveBeenCalled();
     expect(usePlayerStore.getState().playbackState).toBe("stopped");
@@ -482,16 +483,16 @@ describe("skipping missing tracks", () => {
   it("repeat-one still moves off a missing track the user started", async () => {
     setQueue([track(1, missing), track(2)]);
     usePlayerStore.setState({ repeatMode: "one" });
-    await usePlayerStore.getState().playTrack(1);
-    expect(usePlayerStore.getState().currentTrackId).toBe(2);
+    await usePlayerStore.getState().playTrack("1");
+    expect(usePlayerStore.getState().currentTrackId).toBe("2");
   });
 
   it("leaves what's playing alone when nothing after a missing track can play", async () => {
     vi.mocked(audio.isPlaying).mockReturnValue(true);
-    setQueue([track(1), track(2, missing)], 1);
-    await usePlayerStore.getState().playTrack(2);
+    setQueue([track(1), track(2, missing)], "1");
+    await usePlayerStore.getState().playTrack("2");
 
-    expect(usePlayerStore.getState().currentTrackId).toBe(1);
+    expect(usePlayerStore.getState().currentTrackId).toBe("1");
     expect(usePlayerStore.getState().playbackState).toBe("playing");
     expect(toasts()).toEqual([{ label: "File not found", detail: "Track 2" }]);
   });

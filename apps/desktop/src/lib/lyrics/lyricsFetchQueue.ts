@@ -13,6 +13,7 @@ import {
   type LyricsFetchParams,
 } from "./lyricsFetchRunner";
 import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
+import type { TrackId } from "@/types/track";
 
 export const LYRICS_FETCH_BULK_KEY = "lyrics-fetch-bulk";
 
@@ -29,7 +30,7 @@ type LyricsFetchToastContext = Pick<
 type LyricsFetchPriority = "manual" | "auto";
 
 type QueueItem = {
-  trackId: number;
+  trackId: TrackId;
   displayTitle: string;
   params: LyricsFetchParams;
   respectMissCache?: boolean;
@@ -47,8 +48,8 @@ type ProcessorState = {
     failed: number;
   };
   errorLines: string[];
-  ambiguousTrackIds: number[];
-  soloAmbiguous: { trackId: number; displayTitle: string } | null;
+  ambiguousTrackIds: TrackId[];
+  soloAmbiguous: { trackId: TrackId; displayTitle: string } | null;
   dismissSilently: boolean;
 };
 
@@ -67,11 +68,11 @@ function queueSize(): number {
   return manualQueue.length + autoQueue.length;
 }
 
-function isTrackInFlight(trackId: number): boolean {
+function isTrackInFlight(trackId: TrackId): boolean {
   return useLyricsFetchStore.getState().fetchingTrackIds.has(trackId);
 }
 
-function setTrackQueued(trackId: number, isQueued: boolean): void {
+function setTrackQueued(trackId: TrackId, isQueued: boolean): void {
   useLyricsFetchStore.getState().setQueued(trackId, isQueued);
 }
 
@@ -106,7 +107,7 @@ function popNextItem(): QueueItem | undefined {
   return undefined;
 }
 
-function findQueueIndex(queue: QueueItem[], trackId: number): number {
+function findQueueIndex(queue: QueueItem[], trackId: TrackId): number {
   return queue.findIndex((item) => item.trackId === trackId);
 }
 
@@ -307,7 +308,7 @@ function ensureProcessorRunning(): void {
 }
 
 export function enqueueLyricsFetch(
-  trackId: number,
+  trackId: TrackId,
   displayTitle: string,
   params: LyricsFetchParams,
   options: {

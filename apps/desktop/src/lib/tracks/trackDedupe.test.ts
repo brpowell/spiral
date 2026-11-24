@@ -53,7 +53,7 @@ describe("tracksAreMetadataDuplicates", () => {
     expect(
       tracksAreMetadataDuplicates(
         input({ filePath: "/incoming/airbag.flac" }),
-        libraryTrack({ id: 1, filePath: "/library/airbag.mp3" }),
+        libraryTrack({ id: "1", filePath: "/library/airbag.mp3" }),
       ),
     ).toBe(true);
   });
@@ -62,7 +62,7 @@ describe("tracksAreMetadataDuplicates", () => {
     expect(
       tracksAreMetadataDuplicates(
         input({ title: "Airbag" }),
-        libraryTrack({ id: 1, title: "Paranoid Android" }),
+        libraryTrack({ id: "1", title: "Paranoid Android" }),
       ),
     ).toBe(false);
   });
@@ -71,7 +71,7 @@ describe("tracksAreMetadataDuplicates", () => {
     expect(
       tracksAreMetadataDuplicates(
         input({ trackNumber: 1 }),
-        libraryTrack({ id: 1, trackNumber: 2 }),
+        libraryTrack({ id: "1", trackNumber: 2 }),
       ),
     ).toBe(false);
   });
@@ -80,7 +80,7 @@ describe("tracksAreMetadataDuplicates", () => {
     expect(
       tracksAreMetadataDuplicates(
         input({ durationSeconds: 240 }),
-        libraryTrack({ id: 1, durationSeconds: 300 }),
+        libraryTrack({ id: "1", durationSeconds: 300 }),
       ),
     ).toBe(false);
   });
@@ -89,7 +89,7 @@ describe("tracksAreMetadataDuplicates", () => {
     expect(
       tracksAreMetadataDuplicates(
         input({ durationSeconds: null }),
-        libraryTrack({ id: 1, durationSeconds: 240 }),
+        libraryTrack({ id: "1", durationSeconds: 240 }),
       ),
     ).toBe(true);
   });
@@ -97,13 +97,13 @@ describe("tracksAreMetadataDuplicates", () => {
 
 describe("findLibraryDuplicate", () => {
   it("returns a persisted library match", () => {
-    const existing = libraryTrack({ id: 42 });
+    const existing = libraryTrack({ id: "42" });
     const match = findLibraryDuplicate(input(), [existing]);
-    expect(match?.id).toBe(42);
+    expect(match?.id).toBe("42");
   });
 
   it("ignores pending tracks", () => {
-    const pending = libraryTrack({ id: -1 });
+    const pending = libraryTrack({ id: "pending:1" });
     const match = findLibraryDuplicate(input(), [pending]);
     expect(match).toBeUndefined();
   });
@@ -112,17 +112,17 @@ describe("findLibraryDuplicate", () => {
 describe("findTrackAtSourcePath", () => {
   it("returns the library row for the exact file being imported", () => {
     const existing = libraryTrack({
-      id: 7,
+      id: "7",
       filePath: "/library/airbag.mp3",
     });
     expect(findTrackAtSourcePath("/library/airbag.mp3", [existing])?.id).toBe(
-      7,
+      "7",
     );
   });
 
   it("ignores a copy at a different path", () => {
     const existing = libraryTrack({
-      id: 7,
+      id: "7",
       filePath: "/library/airbag.mp3",
     });
     expect(
@@ -133,7 +133,7 @@ describe("findTrackAtSourcePath", () => {
 
 describe("countRemainingBatchDuplicates", () => {
   it("counts only remaining duplicate entries in the batch", () => {
-    const library = [libraryTrack({ id: 1 })];
+    const library = [libraryTrack({ id: "1" })];
     const entries = [
       { sourcePath: "/in/new.flac", metadata: input({ title: "New Song" }) },
       {
@@ -154,7 +154,7 @@ describe("countRemainingBatchDuplicates", () => {
     const shared = input({ title: "Shared", trackNumber: 1 });
     const library = [
       libraryTrack({
-        id: 1,
+        id: "1",
         title: "Shared",
         trackNumber: 1,
         filePath: "/in/a.flac",

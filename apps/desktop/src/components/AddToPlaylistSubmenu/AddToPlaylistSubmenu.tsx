@@ -16,9 +16,10 @@ import { recentPlaylists, sortedPlaylists } from "@/lib/playlists/playlists";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";
 import type { Playlist } from "@/types/playlist";
+import type { TrackId } from "@/types/track";
 
 interface AddToPlaylistSubmenuProps {
-  trackIds: number[];
+  trackIds: TrackId[];
   /** Closes the parent menu once a choice is made. */
   closeMenu: () => void;
   /** Pass the same ref to the parent menu's `dismissExcludeRefs`. */

@@ -1,3 +1,4 @@
+use crate::ids::PlaylistId;
 use crate::library_organize::sanitize_filename;
 use crate::settings::ARTWORK_DIR_NAME;
 use std::fs;
@@ -94,12 +95,16 @@ pub fn artist_artwork_dir(library_root: &Path, artist_key: &str) -> PathBuf {
         .join(sanitize_filename(artist_key.trim()))
 }
 
-pub fn playlist_artwork_filename(playlist_id: i64, title: &str) -> String {
+pub fn playlist_artwork_filename(playlist_id: &PlaylistId, title: &str) -> String {
     let safe = sanitize_filename(title.trim());
     format!("{playlist_id}-{safe}")
 }
 
-pub fn playlist_artwork_path_stem(library_root: &Path, playlist_id: i64, title: &str) -> PathBuf {
+pub fn playlist_artwork_path_stem(
+    library_root: &Path,
+    playlist_id: &PlaylistId,
+    title: &str,
+) -> PathBuf {
     artwork_root(library_root)
         .join(PLAYLISTS_DIR)
         .join(playlist_artwork_filename(playlist_id, title))

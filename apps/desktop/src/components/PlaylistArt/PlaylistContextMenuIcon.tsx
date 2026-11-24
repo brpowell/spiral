@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Playlist } from "@/types/playlist";
+import type { Playlist, PlaylistId } from "@/types/playlist";
 import type { Track } from "@/types/track";
 import { PlaylistArt } from "./PlaylistArt";
 
@@ -27,7 +27,7 @@ export function PlaylistContextMenuIcon({
 export function usePlaylistTracksById(
   playlists: Playlist[],
   library: Track[],
-): Map<number, Track[]> {
+): Map<PlaylistId, Track[]> {
   return useMemo(() => {
     const byId = new Map(library.map((t) => [t.id, t]));
     return new Map(

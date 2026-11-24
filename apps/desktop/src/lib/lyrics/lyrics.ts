@@ -5,6 +5,7 @@ import type {
   TrackLyrics,
   TrackLyricsInput,
 } from "@/types/lyrics";
+import type { TrackId } from "@/types/track";
 import { t } from "@/lib/i18n/i18n";
 import {
   createTrackLyricsInputFromText,
@@ -67,7 +68,7 @@ export function normalizeTrackLyricsInput(
   raw: Record<string, unknown>,
 ): TrackLyricsInput {
   const normalized = normalizeTrackLyrics({
-    trackId: 0,
+    trackId: "",
     updatedAt: "",
     ...raw,
   });
@@ -94,9 +95,9 @@ export function normalizeTrackLyrics(
 
   return {
     trackId:
-      (raw.trackId as number | undefined) ??
-      (raw.track_id as number | undefined) ??
-      0,
+      (raw.trackId as string | undefined) ??
+      (raw.track_id as string | undefined) ??
+      "",
     format,
     source: parseLyricsSource(raw.source),
     lines,
@@ -249,7 +250,7 @@ export function parseEditorLyricsChange(
 }
 
 export function createPlainTrackLyrics(
-  trackId: number,
+  trackId: TrackId,
   plainText: string,
   source: LyricsSource = "manual",
   updatedAt = new Date().toISOString(),

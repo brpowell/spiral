@@ -21,7 +21,7 @@ describe("resolveSkinTooltip", () => {
     const state = minimalBindState({
       positionSeconds: 83,
       currentTrack: {
-        id: 1,
+        id: "1",
         title: "Track",
         artist: "Artist",
         album: "Album",
@@ -84,7 +84,7 @@ describe("resolveSkinTooltip", () => {
     const state = minimalBindState({
       positionSeconds: 83,
       currentTrack: {
-        id: 1,
+        id: "1",
         title: "Track",
         artist: "Artist",
         album: "Album",

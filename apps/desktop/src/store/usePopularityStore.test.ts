@@ -7,6 +7,7 @@ vi.mock("@/lib/tauri", () => ({
 }));
 
 import { usePopularityStore } from "./usePopularityStore";
+import type { TrackId } from "@/types/track";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -23,7 +24,7 @@ describe("usePopularityStore", () => {
   });
 
   it("loads a profile with its params and caches it per version", async () => {
-    getTrackPopularity.mockResolvedValue([{ trackId: 1, score: 2 }]);
+    getTrackPopularity.mockResolvedValue([{ trackId: "1", score: 2 }]);
     const { load } = usePopularityStore.getState();
 
     await load("trending");
@@ -31,7 +32,7 @@ describe("usePopularityStore", () => {
 
     expect(getTrackPopularity).toHaveBeenCalledTimes(1);
     expect(getTrackPopularity).toHaveBeenCalledWith({ halfLifeDays: 45 });
-    expect(usePopularityStore.getState().scores.trending?.get(1)).toBe(2);
+    expect(usePopularityStore.getState().scores.trending?.get("1")).toBe(2);
   });
 
   it("passes a null half-life through for the all-time profile", async () => {
@@ -41,23 +42,23 @@ describe("usePopularityStore", () => {
   });
 
   it("reloads after invalidate and keeps old scores meanwhile", async () => {
-    getTrackPopularity.mockResolvedValueOnce([{ trackId: 1, score: 1 }]);
+    getTrackPopularity.mockResolvedValueOnce([{ trackId: "1", score: 1 }]);
     await usePopularityStore.getState().load("trending");
 
     usePopularityStore.getState().invalidate();
-    const next = deferred<{ trackId: number; score: number }[]>();
+    const next = deferred<{ trackId: TrackId; score: number }[]>();
     getTrackPopularity.mockReturnValueOnce(next.promise);
     const pending = usePopularityStore.getState().load("trending");
 
-    expect(usePopularityStore.getState().scores.trending?.get(1)).toBe(1);
+    expect(usePopularityStore.getState().scores.trending?.get("1")).toBe(1);
 
-    next.resolve([{ trackId: 1, score: 5 }]);
+    next.resolve([{ trackId: "1", score: 5 }]);
     await pending;
-    expect(usePopularityStore.getState().scores.trending?.get(1)).toBe(5);
+    expect(usePopularityStore.getState().scores.trending?.get("1")).toBe(5);
   });
 
   it("does not start a duplicate request while one is in flight", async () => {
-    const first = deferred<{ trackId: number; score: number }[]>();
+    const first = deferred<{ trackId: TrackId; score: number }[]>();
     getTrackPopularity.mockReturnValueOnce(first.promise);
     const { load } = usePopularityStore.getState();
 
@@ -70,12 +71,12 @@ describe("usePopularityStore", () => {
   });
 
   it("discards a response that was superseded by an invalidate", async () => {
-    const stale = deferred<{ trackId: number; score: number }[]>();
+    const stale = deferred<{ trackId: TrackId; score: number }[]>();
     getTrackPopularity.mockReturnValueOnce(stale.promise);
     const pending = usePopularityStore.getState().load("trending");
 
     usePopularityStore.getState().invalidate();
-    stale.resolve([{ trackId: 1, score: 99 }]);
+    stale.resolve([{ trackId: "1", score: 99 }]);
     await pending;
 
     expect(usePopularityStore.getState().scores.trending).toBeUndefined();

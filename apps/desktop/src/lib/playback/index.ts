@@ -11,6 +11,7 @@ import {
 } from "./crossfadeController";
 import { PlaybackEngineManager } from "./playbackEngineManager";
 import type { PlaybackSource } from "./types";
+import type { TrackListId } from "@/types/track";
 
 export type {
   PlaybackCapabilities,
@@ -55,7 +56,7 @@ export function isCrossfadeInProgress(): boolean {
   return crossfadeController.isCrossfadeInProgress();
 }
 
-export function getCrossfadeIncomingTrackId(): number | null {
+export function getCrossfadeIncomingTrackId(): TrackListId | null {
   return crossfadeController.getCrossfadeIncomingTrackId();
 }
 

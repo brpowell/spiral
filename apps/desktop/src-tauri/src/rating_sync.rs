@@ -1,4 +1,5 @@
 use crate::activity_log::{self, LogLevel};
+use crate::ids::TrackId;
 use crate::metadata_writer::MetadataWriteError;
 use crate::rating_tags;
 use std::collections::HashMap;
@@ -21,7 +22,7 @@ struct PendingWrite {
 }
 
 struct RatingSyncInner {
-    pending: HashMap<i64, PendingWrite>,
+    pending: HashMap<TrackId, PendingWrite>,
 }
 
 #[derive(Clone)]
@@ -47,15 +48,16 @@ impl RatingSync {
 pub fn schedule_rating_file_write(
     app: AppHandle,
     sync: &RatingSync,
-    track_id: i64,
+    track_id: &TrackId,
     file_path: String,
     canonical: u8,
 ) {
     let generation = GENERATION.fetch_add(1, Ordering::Relaxed) + 1;
+    let track_id = track_id.clone();
     {
         let mut guard = sync.0.lock().expect("rating sync mutex poisoned");
         guard.pending.insert(
-            track_id,
+            track_id.clone(),
             PendingWrite {
                 file_path: PathBuf::from(file_path),
                 canonical,
@@ -82,13 +84,13 @@ pub fn schedule_rating_file_write(
             return;
         };
 
-        run_file_write(&app, track_id, &write.file_path, write.canonical, false);
+        run_file_write(&app, &track_id, &write.file_path, write.canonical, false);
     });
 }
 
 fn run_file_write(
     app: &AppHandle,
-    track_id: i64,
+    track_id: &TrackId,
     file_path: &PathBuf,
     canonical: u8,
     is_retry: bool,
@@ -120,9 +122,10 @@ fn run_file_write(
             if !is_retry {
                 let app = app.clone();
                 let file_path = file_path.clone();
+                let track_id = track_id.clone();
                 thread::spawn(move || {
                     thread::sleep(Duration::from_millis(RETRY_DELAY_MS));
-                    run_file_write(&app, track_id, &file_path, canonical, true);
+                    run_file_write(&app, &track_id, &file_path, canonical, true);
                 });
             }
         }

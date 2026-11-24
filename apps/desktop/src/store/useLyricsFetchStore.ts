@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { LyricsSearchCandidate } from "@/types/lyrics";
 import type { LyricsFetchFeedback } from "@/lib/lyrics/lyricsFetch";
+import type { TrackId, TrackListId } from "@/types/track";
 
 export type TrackLyricsFetchUI = {
   feedback: LyricsFetchFeedback | null;
@@ -8,22 +9,22 @@ export type TrackLyricsFetchUI = {
 };
 
 interface LyricsFetchState {
-  pendingByTrackId: Record<number, TrackLyricsFetchUI>;
-  fetchingTrackIds: Set<number>;
-  queuedTrackIds: Set<number>;
+  pendingByTrackId: Record<TrackId, TrackLyricsFetchUI>;
+  fetchingTrackIds: Set<TrackId>;
+  queuedTrackIds: Set<TrackListId>;
   /** Ordered track IDs for the post-fetch candidate review pass. */
-  reviewQueueTrackIds: number[];
+  reviewQueueTrackIds: TrackId[];
   reviewQueueIndex: number;
-  applyOutcome: (trackId: number, ui: TrackLyricsFetchUI) => void;
-  takePending: (trackId: number) => TrackLyricsFetchUI | null;
-  clearPending: (trackId: number) => void;
-  setFetching: (trackId: number, isFetching: boolean) => void;
-  setQueued: (trackId: number, isQueued: boolean) => void;
+  applyOutcome: (trackId: TrackId, ui: TrackLyricsFetchUI) => void;
+  takePending: (trackId: TrackId) => TrackLyricsFetchUI | null;
+  clearPending: (trackId: TrackId) => void;
+  setFetching: (trackId: TrackId, isFetching: boolean) => void;
+  setQueued: (trackId: TrackId, isQueued: boolean) => void;
   /**
    * Start a review pass over tracks that still have pending candidates.
    * Empty after filtering → no-op (queue stays closed).
    */
-  openReviewQueue: (trackIds: number[]) => void;
+  openReviewQueue: (trackIds: TrackId[]) => void;
   /**
    * Drop the current track's pending candidates and advance.
    * Clears the queue when past the last item.

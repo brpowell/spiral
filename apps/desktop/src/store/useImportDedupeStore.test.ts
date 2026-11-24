@@ -26,7 +26,7 @@ function trackInput(overrides: Partial<TrackInput> = {}): TrackInput {
   };
 }
 
-function existingTrack(id: number): Track {
+function existingTrack(id: string): Track {
   return {
     id,
     title: "Airbag",
@@ -54,8 +54,8 @@ function duplicateContext(
 ): ImportDuplicateContext {
   return {
     incoming: trackInput(),
-    existing: existingTrack(1),
-    pendingId: -1,
+    existing: existingTrack("1"),
+    pendingId: "pending:1",
     sourcePath: "/incoming/airbag.flac",
     remainingDuplicates: 2,
     hasLyricsConflict: false,

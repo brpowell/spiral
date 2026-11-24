@@ -18,6 +18,7 @@
 //! listen of a track is scaled by `repeat_falloff^(n - 1)`. The final score is floored at zero.
 
 use crate::db::listen_qualifies;
+use crate::ids::TrackId;
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -56,14 +57,14 @@ impl Default for PopularityParams {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackPopularity {
-    pub track_id: i64,
+    pub track_id: TrackId,
     pub score: f64,
 }
 
 /// The fields of a stored listen that scoring needs.
 #[derive(Debug, Clone)]
 pub struct ListenSample {
-    pub track_id: i64,
+    pub track_id: TrackId,
     pub ended_at: DateTime<Utc>,
     pub listened_seconds: f64,
     pub track_duration_seconds: Option<f64>,
@@ -105,11 +106,11 @@ pub fn score_samples(
     mut samples: Vec<ListenSample>,
     now: DateTime<Utc>,
     params: &PopularityParams,
-) -> HashMap<i64, f64> {
+) -> HashMap<TrackId, f64> {
     samples.sort_by_key(|s| s.ended_at);
 
-    let mut totals: HashMap<i64, f64> = HashMap::new();
-    let mut positives_today: HashMap<(i64, chrono::NaiveDate), u32> = HashMap::new();
+    let mut totals: HashMap<TrackId, f64> = HashMap::new();
+    let mut positives_today: HashMap<(TrackId, chrono::NaiveDate), u32> = HashMap::new();
 
     for sample in &samples {
         let age_days = (now - sample.ended_at).num_milliseconds() as f64 / 1000.0 / SECONDS_PER_DAY;
@@ -120,13 +121,13 @@ pub fn score_samples(
         let mut weight = event_weight(sample, params.skip_penalty);
         if weight > 0.0 {
             let seen = positives_today
-                .entry((sample.track_id, sample.ended_at.date_naive()))
+                .entry((sample.track_id.clone(), sample.ended_at.date_naive()))
                 .or_insert(0);
             weight *= params.repeat_falloff.powi(*seen as i32);
             *seen += 1;
         }
 
-        *totals.entry(sample.track_id).or_insert(0.0) +=
+        *totals.entry(sample.track_id.clone()).or_insert(0.0) +=
             weight * decay_factor(age_days, params.half_life_days);
     }
 
@@ -160,7 +161,7 @@ pub fn track_popularity(
     )?;
     let rows = events.query_map([], |row| {
         Ok((
-            row.get::<_, i64>(0)?,
+            row.get::<_, TrackId>(0)?,
             row.get::<_, String>(1)?,
             row.get::<_, f64>(2)?,
             row.get::<_, Option<f64>>(3)?,
@@ -190,7 +191,7 @@ pub fn track_popularity(
     )?;
     let rows = legacy.query_map(params![], |row| {
         Ok((
-            row.get::<_, i64>(0)?,
+            row.get::<_, TrackId>(0)?,
             row.get::<_, u32>(1)?,
             row.get::<_, String>(2)?,
         ))
@@ -226,7 +227,13 @@ pub fn track_popularity(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ids::EventId;
     use chrono::Duration;
+
+    /// A readable test id.
+    fn tid(n: i64) -> TrackId {
+        TrackId::from(n.to_string().as_str())
+    }
 
     fn now() -> DateTime<Utc> {
         DateTime::parse_from_rfc3339("2026-11-16T12:00:00Z")
@@ -236,7 +243,7 @@ mod tests {
 
     fn sample(track_id: i64, days_ago: f64, completion: &str, listened: f64) -> ListenSample {
         ListenSample {
-            track_id,
+            track_id: tid(track_id),
             ended_at: now() - Duration::milliseconds((days_ago * SECONDS_PER_DAY * 1000.0) as i64),
             listened_seconds: listened,
             track_duration_seconds: Some(200.0),
@@ -295,9 +302,9 @@ mod tests {
             now(),
             &params,
         );
-        approx(scores[&1], 1.0);
-        approx(scores[&2], 0.5);
-        approx(scores[&3], 0.25);
+        approx(scores[&tid(1)], 1.0);
+        approx(scores[&tid(2)], 0.5);
+        approx(scores[&tid(3)], 0.25);
     }
 
     #[test]
@@ -310,7 +317,7 @@ mod tests {
             now(),
             &no_decay(),
         );
-        approx(scores[&1], 2.0);
+        approx(scores[&tid(1)], 2.0);
     }
 
     #[test]
@@ -328,8 +335,8 @@ mod tests {
             now(),
             &params,
         );
-        approx(scores[&1], 1.0);
-        assert!(!scores.contains_key(&2));
+        approx(scores[&tid(1)], 1.0);
+        assert!(!scores.contains_key(&tid(2)));
     }
 
     #[test]
@@ -350,7 +357,7 @@ mod tests {
             now(),
             &params,
         );
-        approx(scores[&1], 1.875);
+        approx(scores[&tid(1)], 1.875);
     }
 
     #[test]
@@ -368,7 +375,7 @@ mod tests {
             now(),
             &params,
         );
-        approx(scores[&1], 2.0);
+        approx(scores[&tid(1)], 2.0);
     }
 
     #[test]
@@ -383,8 +390,8 @@ mod tests {
             now(),
             &no_decay(),
         );
-        approx(scores[&1], 0.75);
-        approx(scores[&2], 0.0);
+        approx(scores[&tid(1)], 0.75);
+        approx(scores[&tid(2)], 0.0);
     }
 
     fn test_conn() -> Connection {
@@ -403,7 +410,7 @@ mod tests {
         conn.execute(
             "INSERT INTO tracks (id, title, rel_path, date_added, play_count, last_played_at, source_id)
              VALUES (?1, 'T', ?2, '2026-01-01T00:00:00Z', ?3, ?4, 1)",
-            params![id, format!("{id}.mp3"), play_count, last_played],
+            params![tid(id), format!("{id}.mp3"), play_count, last_played],
         )
         .unwrap();
     }
@@ -411,9 +418,10 @@ mod tests {
     fn insert_event(conn: &Connection, track_id: i64, ended_at: &str, completion: &str) {
         conn.execute(
             "INSERT INTO listen_events
-               (track_id, started_at, ended_at, listened_seconds, track_duration_seconds, completion)
-             VALUES (?1, ?2, ?2, 200.0, 200.0, ?3)",
-            params![track_id, ended_at, completion],
+               (id, track_id, started_at, ended_at, listened_seconds, track_duration_seconds,
+                completion)
+             VALUES (?1, ?2, ?3, ?3, 200.0, 200.0, ?4)",
+            params![EventId::new(), tid(track_id), ended_at, completion],
         )
         .unwrap();
     }
@@ -430,8 +438,11 @@ mod tests {
 
         let ranked = track_popularity(&conn, &no_decay(), now()).unwrap();
         assert_eq!(
-            ranked.iter().map(|t| t.track_id).collect::<Vec<_>>(),
-            vec![2, 1]
+            ranked
+                .iter()
+                .map(|t| t.track_id.clone())
+                .collect::<Vec<_>>(),
+            vec![tid(2), tid(1)]
         );
 
         // A short half-life flips it: the single recent play beats three stale ones.
@@ -440,7 +451,7 @@ mod tests {
             ..no_decay()
         };
         let ranked = track_popularity(&conn, &trending, now()).unwrap();
-        assert_eq!(ranked[0].track_id, 1);
+        assert_eq!(ranked[0].track_id, tid(1));
     }
 
     #[test]
@@ -458,11 +469,11 @@ mod tests {
             ranked,
             vec![
                 TrackPopularity {
-                    track_id: 1,
+                    track_id: tid(1),
                     score: 5.0
                 },
                 TrackPopularity {
-                    track_id: 2,
+                    track_id: tid(2),
                     score: 1.0
                 },
             ]

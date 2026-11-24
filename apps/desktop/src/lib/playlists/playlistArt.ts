@@ -1,4 +1,4 @@
-import type { Playlist, PlaylistImageMode } from "@/types/playlist";
+import type { Playlist, PlaylistId, PlaylistImageMode } from "@/types/playlist";
 import type { Track } from "@/types/track";
 import { albumKey } from "@/lib/albums/albums";
 import { resolveIconId } from "@/lib/iconLibrary";
@@ -6,7 +6,7 @@ import { defaultPlaylistDesignCover } from "./playlistCoverPresets";
 
 /** Stable cache key for playlist cover art in Artwork/playlists/. */
 export function playlistArtCacheKey(
-  playlistId: number,
+  playlistId: PlaylistId,
   title?: string,
 ): string {
   const safe = (title ?? "playlist").trim() || "playlist";

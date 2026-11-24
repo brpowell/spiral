@@ -28,6 +28,7 @@ use crate::artwork_organize;
 use crate::audio_formats::is_supported_audio_file;
 use crate::db;
 use crate::fs_probe::{self, Probed};
+use crate::ids::TrackId;
 use crate::lyrics_normalize;
 use crate::metadata_reader;
 use crate::sources::{self, LibraryRoots, SourceRoots};
@@ -143,7 +144,7 @@ fn file_stat(path: &Path) -> Option<(i64, i64)> {
 
 #[derive(Clone)]
 struct KnownTrack {
-    id: i64,
+    id: TrackId,
     stat: Option<(i64, i64)>,
     missing: bool,
 }
@@ -160,7 +161,7 @@ struct ScanJob {
     /// The row's file moved here.
     moved: bool,
     /// The row to point at this path first (a move or respelling).
-    repoint: Option<i64>,
+    repoint: Option<TrackId>,
     /// The row's file changed since it was read.
     read: bool,
 }
@@ -278,7 +279,7 @@ fn source_rows(conn: &Connection, source_id: i64) -> Result<SourceRows, String> 
 /// skipping rows already matched in this pass.
 fn equivalent_track(
     by_key: &mut HashMap<String, Vec<(String, KnownTrack)>>,
-    matched: &HashSet<i64>,
+    matched: &HashSet<TrackId>,
     path: &str,
 ) -> Option<(String, KnownTrack)> {
     let rows = by_key.get_mut(&track_identity::path_key(path))?;
@@ -295,7 +296,7 @@ fn equivalent_track(
 /// could be either file, so neither is picked.
 fn moved_track(
     by_stat: &HashMap<(i64, i64), Vec<(String, KnownTrack)>>,
-    matched: &HashSet<i64>,
+    matched: &HashSet<TrackId>,
     stat: (i64, i64),
 ) -> Option<(String, KnownTrack)> {
     let mut gone = by_stat.get(&stat)?.iter().filter(|(stored, track)| {
@@ -306,7 +307,7 @@ fn moved_track(
 }
 
 /// Point a track at the path its file is at now.
-fn set_path(conn: &Connection, source_id: i64, id: i64, path: &str) -> Result<(), String> {
+fn set_path(conn: &Connection, source_id: i64, id: &TrackId, path: &str) -> Result<(), String> {
     let rel = SourceRoots::load(conn)
         .map_err(|e| e.to_string())?
         .relative_path(source_id, Path::new(path))?;
@@ -318,7 +319,7 @@ fn set_path(conn: &Connection, source_id: i64, id: i64, path: &str) -> Result<()
     .map_err(|e| e.to_string())
 }
 
-fn set_missing(conn: &Connection, id: i64, missing: bool) -> Result<(), String> {
+fn set_missing(conn: &Connection, id: &TrackId, missing: bool) -> Result<(), String> {
     let since = missing.then(|| Utc::now().to_rfc3339());
     conn.execute(
         "UPDATE tracks SET missing_since = ?1 WHERE id = ?2",
@@ -328,7 +329,7 @@ fn set_missing(conn: &Connection, id: i64, missing: bool) -> Result<(), String> 
     .map_err(|e| e.to_string())
 }
 
-fn set_present(conn: &Connection, id: i64, stat: (i64, i64)) -> Result<(), String> {
+fn set_present(conn: &Connection, id: &TrackId, stat: (i64, i64)) -> Result<(), String> {
     conn.execute(
         "UPDATE tracks SET file_size = ?1, file_mtime_ms = ?2, missing_since = NULL WHERE id = ?3",
         params![stat.0, stat.1, id],
@@ -522,12 +523,12 @@ fn reconcile_watched(
                 moved = relocated.is_some();
                 if let Some((stored, track)) = respelled.or(relocated) {
                     known.remove(&stored);
-                    repoint = Some(track.id);
+                    repoint = Some(track.id.clone());
                     row = Some(track);
                 }
             }
             if let Some(track) = &row {
-                matched.insert(track.id);
+                matched.insert(track.id.clone());
             } else if !removed_keys.is_empty() {
                 let key = sources::relative_to(Path::new(&path), &root)
                     .map(|rel| track_identity::path_key(&rel));
@@ -584,7 +585,7 @@ fn reconcile_watched(
         done += finished_reads.load(Ordering::Relaxed);
         for (job, read) in jobs.into_iter().zip(reads) {
             if let Some(track_id) = job.repoint {
-                set_path(&tx, source_id, track_id, &job.path)?;
+                set_path(&tx, source_id, &track_id, &job.path)?;
             }
             match job.row {
                 Some(track) => {
@@ -603,13 +604,13 @@ fn reconcile_watched(
                         summary.restored += 1;
                     }
                     if job.read || track.missing || track.stat != Some(job.stat) {
-                        set_present(&tx, track.id, job.stat)?;
+                        set_present(&tx, &track.id, job.stat)?;
                     }
                 }
                 None => match read.expect("new files are read") {
                     Ok(input) => {
                         let id = save(&tx, &input, source_id)?;
-                        set_present(&tx, id, job.stat)?;
+                        set_present(&tx, &id, job.stat)?;
                         summary.added += 1;
                     }
                     Err(err) => summary.fail(&job.path, err),
@@ -642,13 +643,13 @@ fn reconcile_watched(
     }
     drop(conn);
 
-    let gone: Vec<i64> = known
+    let gone: Vec<TrackId> = known
         .values()
         .filter(|t| !t.missing)
-        .map(|t| t.id)
+        .map(|t| t.id.clone())
         .collect();
     let conn = lock(db);
-    for id in gone {
+    for id in &gone {
         set_missing(&conn, id, true)?;
         summary.missing += 1;
     }
@@ -835,10 +836,10 @@ fn save(
     conn: &Connection,
     input: &crate::models::TrackInput,
     source_id: i64,
-) -> Result<i64, String> {
+) -> Result<TrackId, String> {
     let id = db::save_track(conn, input, source_id).map_err(|e| e.to_string())?;
-    db::set_track_source(conn, id, source_id).map_err(|e| e.to_string())?;
-    lyrics_normalize::persist_import_lyrics(conn, id, &input.lyrics).map_err(|e| e.to_string())?;
+    db::set_track_source(conn, &id, source_id).map_err(|e| e.to_string())?;
+    lyrics_normalize::persist_import_lyrics(conn, &id, &input.lyrics).map_err(|e| e.to_string())?;
     Ok(id)
 }
 
@@ -952,24 +953,29 @@ mod tests {
         }
 
         /// Give a track a play count and a playlist entry.
-        fn listen_and_list(&self, track: i64) {
+        fn listen_and_list(&self, track: &TrackId) {
             let conn = lock(&self.db);
             conn.execute(
                 "UPDATE tracks SET play_count = 3 WHERE id = ?1",
                 params![track],
             )
             .unwrap();
-            conn.execute_batch(&format!(
-                "INSERT INTO playlists (title, date_created, last_used_at)
-                 VALUES ('Mix', '2026-01-01', '2026-01-01');
-                 INSERT INTO playlist_tracks (playlist_id, track_id, position)
-                 VALUES (last_insert_rowid(), {track}, 0);"
-            ))
+            let playlist = db::create_playlist(
+                &conn,
+                "Mix",
+                None,
+                crate::models::PlaylistImageMode::Generated,
+                None,
+                None,
+                None,
+                None,
+            )
             .unwrap();
+            db::add_tracks_to_playlist(&conn, &playlist, std::slice::from_ref(track)).unwrap();
         }
 
         /// A track's play count and how many playlist entries it has.
-        fn listens_and_lists(&self, track: i64) -> (i64, i64) {
+        fn listens_and_lists(&self, track: &TrackId) -> (i64, i64) {
             lock(&self.db)
                 .query_row(
                     "SELECT play_count,
@@ -990,7 +996,7 @@ mod tests {
                 .unwrap();
         }
 
-        fn track_id(&self, path: &Path) -> i64 {
+        fn track_id(&self, path: &Path) -> TrackId {
             db::track_id_for_path(&lock(&self.db), &path.to_string_lossy())
                 .unwrap()
                 .unwrap()
@@ -1271,11 +1277,11 @@ mod tests {
         assert_eq!(
             before
                 .iter()
-                .map(|t| (t.id, &t.file_path, &t.title))
+                .map(|t| (&t.id, &t.file_path, &t.title))
                 .collect::<Vec<_>>(),
             after
                 .iter()
-                .map(|t| (t.id, &t.file_path, &t.title))
+                .map(|t| (&t.id, &t.file_path, &t.title))
                 .collect::<Vec<_>>()
         );
     }
@@ -1289,11 +1295,11 @@ mod tests {
         fx.reconcile(id);
         let a_id = fx.track_id(&a);
         // Rate it, so we can check the row is updated rather than replaced.
-        db::set_track_rating(&lock(&fx.db), a_id, 4).unwrap();
+        db::set_track_rating(&lock(&fx.db), &a_id, 4).unwrap();
 
         fs::copy(wav::tagged_fixture_path(), &a).unwrap();
         assert_eq!(fx.reconcile(id), summary(id, 0, 1, 0, 0));
-        let track = db::get_track_by_id(&lock(&fx.db), a_id).unwrap().unwrap();
+        let track = db::get_track_by_id(&lock(&fx.db), &a_id).unwrap().unwrap();
         assert_eq!(track.title, "WAV Title");
         assert_eq!(track.rating, 4);
         assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 0));
@@ -1310,7 +1316,7 @@ mod tests {
 
         fs::remove_file(&a).unwrap();
         assert_eq!(fx.reconcile(id), summary(id, 0, 0, 1, 0));
-        let track = db::get_track_by_id(&lock(&fx.db), a_id).unwrap().unwrap();
+        let track = db::get_track_by_id(&lock(&fx.db), &a_id).unwrap().unwrap();
         assert!(track.missing_since.is_some());
         assert_eq!(fx.tracks(id).len(), 2, "rows are never deleted");
         assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 0));
@@ -1319,7 +1325,7 @@ mod tests {
         // (An identical rewrite can match the stored size and mtime: no change.)
         fs::copy(wav::tagged_fixture_path(), &a).unwrap();
         assert_eq!(fx.reconcile(id), summary(id, 0, 1, 0, 1));
-        let track = db::get_track_by_id(&lock(&fx.db), a_id).unwrap().unwrap();
+        let track = db::get_track_by_id(&lock(&fx.db), &a_id).unwrap().unwrap();
         assert_eq!(track.missing_since, None);
     }
 
@@ -1443,7 +1449,7 @@ mod tests {
         let old = fx.wav("Collection/a.wav");
         fx.reconcile(id);
         let track = fx.track_id(&old);
-        fx.listen_and_list(track);
+        fx.listen_and_list(&track);
 
         let new = fx.path("Collection/Sorted/renamed.wav");
         fs::create_dir_all(new.parent().unwrap()).unwrap();
@@ -1452,7 +1458,7 @@ mod tests {
         assert_eq!(fx.reconcile(id), moved(id, 1));
         assert_eq!(fx.tracks(id), vec![(s(&new), "a".into(), false)]);
         assert_eq!(fx.track_id(&new), track);
-        assert_eq!(fx.listens_and_lists(track), (3, 1));
+        assert_eq!(fx.listens_and_lists(&track), (3, 1));
         assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 0));
     }
 
@@ -1464,7 +1470,7 @@ mod tests {
         let away = fx.path("Collection/b.wav");
         fx.reconcile(id);
         let track = fx.track_id(&home);
-        fx.listen_and_list(track);
+        fx.listen_and_list(&track);
 
         fs::rename(&home, &away).unwrap();
         assert_eq!(fx.reconcile(id), moved(id, 1));
@@ -1473,7 +1479,7 @@ mod tests {
 
         assert_eq!(fx.tracks(id), vec![(s(&home), "a".into(), false)]);
         assert_eq!(fx.track_id(&home), track);
-        assert_eq!(fx.listens_and_lists(track), (3, 1));
+        assert_eq!(fx.listens_and_lists(&track), (3, 1));
     }
 
     #[test]
@@ -1715,7 +1721,7 @@ mod tests {
             fx.reconcile_paths(music, &[fx.path("Music")]),
             summary(music, 0, 0, 0, 0)
         );
-        let track = db::get_track_by_id(&lock(&fx.db), managed_id)
+        let track = db::get_track_by_id(&lock(&fx.db), &managed_id)
             .unwrap()
             .unwrap();
         assert_eq!((track.source_id, track.missing_since), (tracks, None));
@@ -1772,7 +1778,7 @@ mod tests {
         fx.reconcile(id);
         let track = fx.track_id(&song);
 
-        assert!(db::delete_track_keep_excluded(&lock(&fx.db), track)
+        assert!(db::delete_track_keep_excluded(&lock(&fx.db), &track)
             .unwrap()
             .is_some());
         let summary = fx.reconcile(id);
@@ -1794,7 +1800,7 @@ mod tests {
         let song = fx.wav("Music/Folder/Song.wav");
         fx.reconcile(id);
         let track = fx.track_id(&song);
-        db::delete_track_keep_excluded(&lock(&fx.db), track).unwrap();
+        db::delete_track_keep_excluded(&lock(&fx.db), &track).unwrap();
 
         fs::remove_file(&song).unwrap();
         fx.reconcile(id);
@@ -1813,7 +1819,7 @@ mod tests {
         let song = fx.wav("Music/Folder/Song.wav");
         fx.reconcile(id);
         let track = fx.track_id(&song);
-        db::delete_track_keep_excluded(&lock(&fx.db), track).unwrap();
+        db::delete_track_keep_excluded(&lock(&fx.db), &track).unwrap();
         assert_eq!(db::removed_tracks(&lock(&fx.db), id).unwrap().len(), 1);
 
         sources::remove_source(&lock(&fx.db), id).unwrap();

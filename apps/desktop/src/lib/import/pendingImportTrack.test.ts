@@ -9,14 +9,14 @@ import {
 } from "./pendingImportTrack";
 
 describe("pendingImportTrack", () => {
-  it("allocates decreasing negative ids", () => {
+  it("allocates sequential pending ids", () => {
     resetPendingTrackIds();
-    expect(allocPendingTrackId()).toBe(-1);
-    expect(allocPendingTrackId()).toBe(-2);
+    expect(allocPendingTrackId()).toBe("pending:1");
+    expect(allocPendingTrackId()).toBe("pending:2");
   });
 
   it("marks staged tracks as non-interactive", () => {
-    const track = pendingTrackFromInput(-1, "/music/a.mp3", {
+    const track = pendingTrackFromInput("pending:1", "/music/a.mp3", {
       title: "Song",
       artist: null,
       album: null,
@@ -41,7 +41,7 @@ describe("pendingImportTrack", () => {
   });
 
   it("copies MusicBrainz IDs from TrackInput onto the pending row", () => {
-    const track = pendingTrackFromInput(-1, "/music/a.mp3", {
+    const track = pendingTrackFromInput("pending:1", "/music/a.mp3", {
       title: "Song",
       artist: null,
       album: null,

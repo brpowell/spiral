@@ -27,13 +27,14 @@ import {
   ModalTitle,
 } from "@/components/common/Modal/Modal";
 import "./LyricsCandidatePicker.css";
+import type { TrackId } from "@/types/track";
 
 export type LyricsCandidatePickerProps = {
   open: boolean;
   candidates: LyricsSearchCandidate[];
   libraryTrack?: LyricsLibraryTrackRef | null;
   /** Library track these results are for; results applied to it before are marked. */
-  trackId?: number | null;
+  trackId?: TrackId | null;
   onSelect: (candidate: LyricsSearchCandidate) => void;
   /** Backdrop / Escape / X — leave remaining work intact when used from a queue. */
   onClose: () => void;

@@ -28,7 +28,7 @@ import {
 } from "@/store/useImportDedupeStore";
 import type { BackgroundTaskSettleAsOptions } from "@/store/useBackgroundTasksStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
-import type { Track, TrackInput } from "@/types/track";
+import type { Track, TrackInput, TrackListId } from "@/types/track";
 import { BackgroundTaskCancelledError } from "@/lib/activity/backgroundTaskCancel";
 import { formatPeerOutcomeTitle } from "@/lib/toast/toastPeerOutcomes";
 
@@ -46,7 +46,7 @@ export interface ImportResult {
 export interface ParsedImportEntry {
   sourcePath: string;
   metadata: TrackInput;
-  pendingId: number;
+  pendingId: TrackListId;
 }
 
 export interface CommitImportOptions {
@@ -54,18 +54,18 @@ export interface CommitImportOptions {
   /** Copies go into this source; the import source when unset. */
   destinationSourceId?: number | null;
   /** Pre-resolved duplicate actions keyed by pending import id. */
-  duplicateActions?: ReadonlyMap<number, ImportDedupeResolution>;
-  onTrackActivated?: (pendingId: number, track: Track) => void;
-  onTrackFailed?: (pendingId: number) => void;
-  onTrackSkipped?: (pendingId: number) => void;
-  onTrackReplaced?: (pendingId: number, track: Track) => void;
+  duplicateActions?: ReadonlyMap<TrackListId, ImportDedupeResolution>;
+  onTrackActivated?: (pendingId: TrackListId, track: Track) => void;
+  onTrackFailed?: (pendingId: TrackListId) => void;
+  onTrackSkipped?: (pendingId: TrackListId) => void;
+  onTrackReplaced?: (pendingId: TrackListId, track: Track) => void;
   /** When set, throw BackgroundTaskCancelledError if cancel is requested mid-loop. */
   isCancelRequested?: () => boolean;
 }
 
 export interface ResolveImportDuplicatesResult {
-  duplicateActions: ReadonlyMap<number, ImportDedupeResolution>;
-  skippedPendingIds: ReadonlySet<number>;
+  duplicateActions: ReadonlyMap<TrackListId, ImportDedupeResolution>;
+  skippedPendingIds: ReadonlySet<TrackListId>;
 }
 
 export interface ResolveImportDuplicatesOptions {
@@ -202,8 +202,8 @@ export async function resolveImportDuplicates(
   entries: ParsedImportEntry[],
   options: ResolveImportDuplicatesOptions = {},
 ): Promise<ResolveImportDuplicatesResult> {
-  const duplicateActions = new Map<number, ImportDedupeResolution>();
-  const skippedPendingIds = new Set<number>();
+  const duplicateActions = new Map<TrackListId, ImportDedupeResolution>();
+  const skippedPendingIds = new Set<TrackListId>();
   const library = usePlayerStore.getState().library;
 
   for (let i = 0; i < entries.length; i++) {

@@ -4,7 +4,7 @@ import { t } from "@/lib/i18n/i18n";
 import { getPlaylistById } from "@/lib/playlists/playlists";
 import { useCdStore } from "@/store/useCdStore";
 import type { Artist } from "@/types/artist";
-import type { Playlist } from "@/types/playlist";
+import type { Playlist, PlaylistId } from "@/types/playlist";
 import type { NavView } from "@/store/useNavigationStore";
 
 export type DetailReturnContext =
@@ -12,7 +12,7 @@ export type DetailReturnContext =
   | { kind: "album"; albumKey: string; title: string }
   | { kind: "artist"; artistKey: string }
   | { kind: "genre"; genreKey: string; title: string }
-  | { kind: "playlist"; playlistId: number; title: string }
+  | { kind: "playlist"; playlistId: PlaylistId; title: string }
   | { kind: "cd"; driveId: string; title: string };
 
 /** Album keys are `${title}\0${albumArtist}` — title is enough for back labels. */
@@ -31,7 +31,7 @@ export interface NavigationSnapshot {
   genreKey?: string | null;
   /** Display name for `genreKey`, used for back labels. */
   genreTitle?: string | null;
-  playlistId: number | null;
+  playlistId: PlaylistId | null;
   cdDriveId: string | null;
 }
 

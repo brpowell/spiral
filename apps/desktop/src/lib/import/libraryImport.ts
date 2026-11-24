@@ -42,6 +42,7 @@ import {
 import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
+import type { TrackListId } from "@/types/track";
 
 interface ResolvedImportPaths {
   audioPaths: string[];
@@ -258,7 +259,7 @@ export function startLibraryImport(paths: string[]): void {
         ctx.setLabel(t("toasts:import.importing", { count: entries.length }));
 
         let result;
-        const removePending = (pendingId: number) => {
+        const removePending = (pendingId: TrackListId) => {
           queuePendingImportRemoval(pendingId);
         };
 

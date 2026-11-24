@@ -14,7 +14,7 @@ import { pickImageFile, storeCroppedPlaylistArt } from "@/lib/tauri";
 import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";
-import type { Playlist, PlaylistImageMode } from "@/types/playlist";
+import type { Playlist, PlaylistId, PlaylistImageMode } from "@/types/playlist";
 import { CoverArtLayout } from "@/components/CoverDesign/CoverArtLayout";
 import { CoverDesignFields } from "@/components/CoverDesign/CoverDesignFields";
 import { EditorDiscardOverlay } from "@/components/EditorDiscardOverlay/EditorDiscardOverlay";
@@ -121,7 +121,7 @@ export function PlaylistEditorModal() {
   const isNew = editingPlaylistId === "new";
   const existing = useMemo(
     () =>
-      typeof editingPlaylistId === "number"
+      editingPlaylistId !== null && editingPlaylistId !== "new"
         ? getPlaylistById(playlists, editingPlaylistId)
         : undefined,
     [editingPlaylistId, playlists],
@@ -240,7 +240,7 @@ export function PlaylistEditorModal() {
       coverIcon,
     );
     return {
-      id: existing?.id ?? 0,
+      id: existing?.id ?? "",
       title: title.trim() || t("common:untitledPlaylist"),
       description: description.trim() || null,
       dateCreated: existing?.dateCreated ?? "",
@@ -343,7 +343,7 @@ export function PlaylistEditorModal() {
   );
 
   const resolveImageForSave = useCallback(
-    async (playlistId: number) => {
+    async (playlistId: PlaylistId) => {
       const design = resolvePlaylistDesignFields(
         committedImageMode,
         coverBackground,
@@ -424,7 +424,7 @@ export function PlaylistEditorModal() {
         const image = await resolveImageForSave(id);
         await updatePlaylist(id, trimmedTitle, desc, image);
         openPlaylist(id);
-      } else if (typeof editingPlaylistId === "number") {
+      } else if (editingPlaylistId !== null) {
         const image = await resolveImageForSave(editingPlaylistId);
         await updatePlaylist(editingPlaylistId, trimmedTitle, desc, image);
       }

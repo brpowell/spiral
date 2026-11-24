@@ -73,7 +73,7 @@ describe("buildImportPlans", () => {
 
 describe("pendingTrackFromInput", () => {
   it("uses TrackInput.rating when provided", () => {
-    const pending = pendingTrackFromInput(-1, "/tmp/a.flac", {
+    const pending = pendingTrackFromInput("pending:1", "/tmp/a.flac", {
       title: "T",
       artist: "A",
       album: "Al",

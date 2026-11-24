@@ -27,7 +27,7 @@ import { useLibrarySettingsStore } from "@/store/useLibrarySettingsStore";
 import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { LyricsSearchCandidate, TrackLyrics } from "@/types/lyrics";
-import type { Track } from "@/types/track";
+import type { Track, TrackId } from "@/types/track";
 import {
   AlbumArtLightbox,
   albumArtLayoutTransition,
@@ -85,7 +85,7 @@ export function NowPlayingMetadata({ className }: NowPlayingMetadataProps) {
   const [artOpen, setArtOpen] = useState(false);
   const [trackLyrics, setTrackLyrics] = useState<TrackLyrics | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(false);
-  const autoFetchedTrackIdRef = useRef<number | null>(null);
+  const autoFetchedTrackIdRef = useRef<TrackId | null>(null);
 
   const displayTrackId = displayTrack?.id ?? null;
   const lyricsRevision = usePlayerStore((s) =>

@@ -47,7 +47,12 @@ vi.mock("framer-motion", () => ({
 }));
 
 const track = (id: number, genre: string) =>
-  ({ id, title: `t${id}`, genre, filePath: `/m/${id}.mp3` }) as Track;
+  ({
+    id: String(id),
+    title: `t${id}`,
+    genre,
+    filePath: `/m/${id}.mp3`,
+  }) as Track;
 
 describe("GenreEditor", () => {
   beforeEach(() => {

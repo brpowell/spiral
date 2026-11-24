@@ -19,14 +19,15 @@ import {
 import { getAutoplayNextId, getManualPreviousId } from "./playbackQueue";
 import type { Track } from "@/types/track";
 
-function track(id: number, overrides: Partial<Track> = {}): Track {
+function track(n: number, overrides: Partial<Track> = {}): Track {
+  const id = String(n);
   return {
     id,
     title: `Track ${id}`,
     artist: "Artist",
     album: "Album",
     albumArtist: "Artist",
-    trackNumber: id,
+    trackNumber: n,
     totalTracks: null,
     discNumber: 1,
     totalDiscs: null,
@@ -52,33 +53,33 @@ describe("getNextSkippingKnownUnplayable", () => {
   it("skips tracks flagged missing", () => {
     expect(
       getNextSkippingKnownUnplayable(
-        [1, 2, 3],
-        1,
+        ["1", "2", "3"],
+        "1",
         "off",
         library,
         getAutoplayNextId,
       ),
-    ).toBe(3);
+    ).toBe("3");
   });
 
   it("reports each track it passes over", () => {
-    const skipped: number[] = [];
+    const skipped: string[] = [];
     getNextSkippingKnownUnplayable(
-      [1, 2, 3],
-      1,
+      ["1", "2", "3"],
+      "1",
       "off",
       library,
       getAutoplayNextId,
       (id) => skipped.push(id),
     );
-    expect(skipped).toEqual([2]);
+    expect(skipped).toEqual(["2"]);
   });
 
   it("returns null when only missing tracks remain", () => {
     expect(
       getNextSkippingKnownUnplayable(
-        [1, 2],
-        1,
+        ["1", "2"],
+        "1",
         "off",
         [track(1), track(2, { missingFile: true })],
         getAutoplayNextId,
@@ -90,13 +91,13 @@ describe("getNextSkippingKnownUnplayable", () => {
     const library = [track(1), track(2, { missingFile: true }), track(3)];
     expect(
       getNextSkippingKnownUnplayable(
-        [1, 2, 3],
-        3,
+        ["1", "2", "3"],
+        "3",
         "off",
         library,
         getManualPreviousId,
       ),
-    ).toBe(1);
+    ).toBe("1");
   });
 
   it("advances to CD list ids that are not in the library", () => {
@@ -121,7 +122,7 @@ describe("isPlaybackIdKnownUnplayable", () => {
 
   it("flags missing library tracks as unplayable", () => {
     expect(
-      isPlaybackIdKnownUnplayable(2, [track(2, { missingFile: true })]),
+      isPlaybackIdKnownUnplayable("2", [track(2, { missingFile: true })]),
     ).toBe(true);
   });
 });
@@ -140,11 +141,18 @@ describe("findNextPlayableInOrder", () => {
     const onDiscoveredMissing = vi.fn();
 
     await expect(
-      findNextPlayableInOrder([1, 2, 3], 1, "off", library, getAutoplayNextId, {
-        onDiscoveredMissing,
-      }),
-    ).resolves.toBe(3);
-    expect(onDiscoveredMissing).toHaveBeenCalledWith(2);
+      findNextPlayableInOrder(
+        ["1", "2", "3"],
+        "1",
+        "off",
+        library,
+        getAutoplayNextId,
+        {
+          onDiscoveredMissing,
+        },
+      ),
+    ).resolves.toBe("3");
+    expect(onDiscoveredMissing).toHaveBeenCalledWith("2");
   });
 
   it("walks backward through missing tracks", async () => {
@@ -152,13 +160,13 @@ describe("findNextPlayableInOrder", () => {
 
     await expect(
       findNextPlayableInOrder(
-        [1, 2, 3],
-        3,
+        ["1", "2", "3"],
+        "3",
         "off",
         library,
         getManualPreviousId,
       ),
-    ).resolves.toBe(1);
+    ).resolves.toBe("1");
   });
 
   it("advances to CD list ids that are not in the library", async () => {
@@ -191,19 +199,19 @@ describe("findNextPlayableInOrder with an offline source", () => {
 
     await expect(
       findNextPlayableInOrder(
-        [1, 2, 3, 4, 5],
-        1,
+        ["1", "2", "3", "4", "5"],
+        "1",
         "off",
         library,
         getAutoplayNextId,
         { onSourceUnavailable, onSkippedMissing },
       ),
-    ).resolves.toBe(4);
+    ).resolves.toBe("4");
 
     // Told once, at the first track reached; the rest are only passed over.
     expect(onSourceUnavailable).toHaveBeenCalledTimes(1);
-    expect(onSourceUnavailable).toHaveBeenCalledWith(2, 2);
-    expect(onSkippedMissing).toHaveBeenCalledWith(3);
+    expect(onSourceUnavailable).toHaveBeenCalledWith(2, "2");
+    expect(onSkippedMissing).toHaveBeenCalledWith("3");
     expect(fileExists).not.toHaveBeenCalledWith("/music/2.mp3");
     expect(fileExists).not.toHaveBeenCalledWith("/music/3.mp3");
     // Each source the walk reaches is looked at once, and only those.
@@ -216,7 +224,13 @@ describe("findNextPlayableInOrder with an offline source", () => {
   it("ends the walk when every track is offline", async () => {
     vi.mocked(getUnavailableSourceIds).mockResolvedValue([1, 2]);
     await expect(
-      findNextPlayableInOrder([1, 2, 3], 1, "off", library, getAutoplayNextId),
+      findNextPlayableInOrder(
+        ["1", "2", "3"],
+        "1",
+        "off",
+        library,
+        getAutoplayNextId,
+      ),
     ).resolves.toBeNull();
     expect(fileExists).not.toHaveBeenCalled();
   });
@@ -229,13 +243,20 @@ describe("findNextPlayableInOrder with an offline source", () => {
     const onDiscoveredMissing = vi.fn();
 
     await expect(
-      findNextPlayableInOrder([1, 2, 3], 1, "off", library, getAutoplayNextId, {
-        onSourceUnavailable,
-        onDiscoveredMissing,
-      }),
-    ).resolves.toBe(3);
+      findNextPlayableInOrder(
+        ["1", "2", "3"],
+        "1",
+        "off",
+        library,
+        getAutoplayNextId,
+        {
+          onSourceUnavailable,
+          onDiscoveredMissing,
+        },
+      ),
+    ).resolves.toBe("3");
     expect(onSourceUnavailable).not.toHaveBeenCalled();
-    expect(onDiscoveredMissing).toHaveBeenCalledWith(2);
+    expect(onDiscoveredMissing).toHaveBeenCalledWith("2");
   });
 
   describe("once the folder may be back", () => {
@@ -250,20 +271,20 @@ describe("findNextPlayableInOrder with an offline source", () => {
     ];
 
     it("tries a track flagged only offline rather than knowing it unplayable", () => {
-      expect(isPlaybackIdKnownUnplayable(2, flagged)).toBe(false);
+      expect(isPlaybackIdKnownUnplayable("2", flagged)).toBe(false);
       // A file a scan found gone is still known unplayable.
       const scanned = [
         track(2, { ...offline, missingSince: "2026-10-01T12:00:00Z" }),
       ];
-      expect(isPlaybackIdKnownUnplayable(2, scanned)).toBe(true);
+      expect(isPlaybackIdKnownUnplayable("2", scanned)).toBe(true);
     });
 
     it("clears the folder and plays its track when it answers again", async () => {
       const onSourceAvailable = vi.fn();
       await expect(
         findNextPlayableInOrder(
-          [1, 2, 3],
-          1,
+          ["1", "2", "3"],
+          "1",
           "off",
           flagged,
           getAutoplayNextId,
@@ -271,7 +292,7 @@ describe("findNextPlayableInOrder with an offline source", () => {
             onSourceAvailable,
           },
         ),
-      ).resolves.toBe(2);
+      ).resolves.toBe("2");
       expect(onSourceAvailable).toHaveBeenCalledWith(2);
       expect(fileExists).toHaveBeenCalledWith("/music/2.mp3");
     });
@@ -282,8 +303,8 @@ describe("findNextPlayableInOrder with an offline source", () => {
       const onSkippedMissing = vi.fn();
       await expect(
         findNextPlayableInOrder(
-          [1, 2, 3],
-          1,
+          ["1", "2", "3"],
+          "1",
           "off",
           flagged,
           getAutoplayNextId,
@@ -295,7 +316,7 @@ describe("findNextPlayableInOrder with an offline source", () => {
       ).resolves.toBeNull();
       // Already flagged: only passed over, not flagged afresh.
       expect(onSourceUnavailable).not.toHaveBeenCalled();
-      expect(onSkippedMissing.mock.calls).toEqual([[2], [3]]);
+      expect(onSkippedMissing.mock.calls).toEqual([["2"], ["3"]]);
       expect(fileExists).not.toHaveBeenCalled();
     });
   });
@@ -304,8 +325,14 @@ describe("findNextPlayableInOrder with an offline source", () => {
     vi.mocked(getUnavailableSourceIds).mockRejectedValue(new Error("boom"));
     vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(
-      findNextPlayableInOrder([1, 2], 1, "off", library, getAutoplayNextId),
-    ).resolves.toBe(2);
+      findNextPlayableInOrder(
+        ["1", "2"],
+        "1",
+        "off",
+        library,
+        getAutoplayNextId,
+      ),
+    ).resolves.toBe("2");
   });
 });
 
@@ -317,27 +344,33 @@ describe("tracks a scan marked missing", () => {
   ];
 
   it("are known unplayable", () => {
-    expect(isPlaybackIdKnownUnplayable(2, library)).toBe(true);
-    expect(isPlaybackIdKnownUnplayable(3, library)).toBe(false);
+    expect(isPlaybackIdKnownUnplayable("2", library)).toBe(true);
+    expect(isPlaybackIdKnownUnplayable("3", library)).toBe(false);
   });
 
   it("are skipped when advancing the queue", () => {
     expect(
       getNextSkippingKnownUnplayable(
-        [1, 2, 3],
-        1,
+        ["1", "2", "3"],
+        "1",
         "off",
         library,
         getAutoplayNextId,
       ),
-    ).toBe(3);
+    ).toBe("3");
   });
 
   it("are skipped without touching the disk on auto-advance", async () => {
     vi.mocked(fileExists).mockClear();
     await expect(
-      findNextPlayableInOrder([1, 2, 3], 1, "off", library, getAutoplayNextId),
-    ).resolves.toBe(3);
+      findNextPlayableInOrder(
+        ["1", "2", "3"],
+        "1",
+        "off",
+        library,
+        getAutoplayNextId,
+      ),
+    ).resolves.toBe("3");
     expect(fileExists).not.toHaveBeenCalledWith("/music/2.mp3");
   });
 });

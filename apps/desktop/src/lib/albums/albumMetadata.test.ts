@@ -43,7 +43,10 @@ function album(tracks: Track[], year: number | null = 1999) {
 describe("albumToForm", () => {
   it("uses a shared genre", () => {
     const form = albumToForm(
-      album([track({ id: 1, genre: "Rock" }), track({ id: 2, genre: "Rock" })]),
+      album([
+        track({ id: "1", genre: "Rock" }),
+        track({ id: "2", genre: "Rock" }),
+      ]),
     );
 
     expect(form.genre).toBe("Rock");
@@ -51,7 +54,10 @@ describe("albumToForm", () => {
 
   it("leaves a mixed genre empty", () => {
     const form = albumToForm(
-      album([track({ id: 1, genre: "Rock" }), track({ id: 2, genre: "Pop" })]),
+      album([
+        track({ id: "1", genre: "Rock" }),
+        track({ id: "2", genre: "Pop" }),
+      ]),
     );
 
     expect(form.genre).toBe("");
@@ -60,8 +66,8 @@ describe("albumToForm", () => {
   it("uses a shared release MBID", () => {
     const form = albumToForm(
       album([
-        track({ id: 1, releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b" }),
-        track({ id: 2, releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b" }),
+        track({ id: "1", releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b" }),
+        track({ id: "2", releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b" }),
       ]),
     );
     expect(form.releaseMbid).toBe("1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b");
@@ -70,8 +76,8 @@ describe("albumToForm", () => {
   it("leaves mixed release MBIDs empty", () => {
     const form = albumToForm(
       album([
-        track({ id: 1, releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b" }),
-        track({ id: 2, releaseMbid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }),
+        track({ id: "1", releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b" }),
+        track({ id: "2", releaseMbid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }),
       ]),
     );
     expect(form.releaseMbid).toBe("");
@@ -81,8 +87,8 @@ describe("albumToForm", () => {
 describe("albumMixedFieldPlaceholder", () => {
   it("shows mixed-values placeholder when the field is empty and mixed", () => {
     const tracks = [
-      track({ id: 1, genre: "Rock" }),
-      track({ id: 2, genre: "Pop" }),
+      track({ id: "1", genre: "Rock" }),
+      track({ id: "2", genre: "Pop" }),
     ];
     const form = albumToForm(album(tracks));
     expect(albumMixedFieldPlaceholder(tracks, "genre", form)).toBe(
@@ -92,8 +98,8 @@ describe("albumMixedFieldPlaceholder", () => {
 
   it("shows mixed-values placeholder for mixed release MBIDs", () => {
     const tracks = [
-      track({ id: 1, releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b" }),
-      track({ id: 2, releaseMbid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }),
+      track({ id: "1", releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b" }),
+      track({ id: "2", releaseMbid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }),
     ];
     const form = albumToForm(album(tracks));
     expect(albumMixedFieldPlaceholder(tracks, "releaseMbid", form)).toBe(
@@ -125,7 +131,7 @@ describe("albumFormsEqual", () => {
 describe("buildTrackAlbumMetadata", () => {
   it("writes genre when changed and leaves disc fields alone", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       title: "Song",
       genre: "Rock",
       totalTracks: 10,
@@ -153,7 +159,7 @@ describe("buildTrackAlbumMetadata", () => {
 
   it("preserves per-track genre and disc fields when genre is unchanged", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       title: "Song",
       genre: "Pop",
       totalTracks: 8,
@@ -161,8 +167,8 @@ describe("buildTrackAlbumMetadata", () => {
     });
     const initial = albumToForm(
       album([
-        track({ id: 1, genre: "Rock", totalTracks: 10, totalDiscs: 1 }),
-        track({ id: 2, genre: "Jazz", totalTracks: 12, totalDiscs: 2 }),
+        track({ id: "1", genre: "Rock", totalTracks: 10, totalDiscs: 1 }),
+        track({ id: "2", genre: "Jazz", totalTracks: 12, totalDiscs: 2 }),
       ]),
     );
     const edited = { ...initial, title: "New Title" };
@@ -182,7 +188,7 @@ describe("buildTrackAlbumMetadata", () => {
   });
 
   it("clears genre when the form field is emptied", () => {
-    const editedTrack = track({ id: 1, genre: "Rock" });
+    const editedTrack = track({ id: "1", genre: "Rock" });
     const initial = albumToForm(album([editedTrack]));
     const edited = { ...initial, genre: "" };
 
@@ -199,7 +205,7 @@ describe("buildTrackAlbumMetadata", () => {
 
   it("fans out a release MBID and stamps the matched recording", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       trackNumber: 1,
       discNumber: 1,
       recordingMbid: "550e8400-e29b-41d4-a716-446655440000",
@@ -235,7 +241,7 @@ describe("buildTrackAlbumMetadata", () => {
 
   it("clears recordings when the release MBID is cleared", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       recordingMbid: "550e8400-e29b-41d4-a716-446655440000",
       releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b",
     });
@@ -257,7 +263,7 @@ describe("buildTrackAlbumMetadata", () => {
 
   it("preserves recordings when the release MBID is unchanged", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       recordingMbid: "550e8400-e29b-41d4-a716-446655440000",
       releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b",
     });
@@ -278,7 +284,7 @@ describe("buildTrackAlbumMetadata", () => {
 
   it("backfills recordings when caller rematches an unchanged release", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       trackNumber: 1,
       discNumber: 1,
       recordingMbid: null,
@@ -311,13 +317,13 @@ describe("buildTrackAlbumMetadata", () => {
 
   it("preserves per-track release MBIDs when the field is unchanged", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       releaseMbid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
     });
     const initial = albumToForm(
       album([
-        track({ id: 1, releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b" }),
-        track({ id: 2, releaseMbid: "cccccccc-dddd-eeee-ffff-000000000000" }),
+        track({ id: "1", releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b" }),
+        track({ id: "2", releaseMbid: "cccccccc-dddd-eeee-ffff-000000000000" }),
       ]),
     );
     const edited = { ...initial, title: "New Title" };
@@ -336,7 +342,7 @@ describe("buildTrackAlbumMetadata", () => {
 
   it("clears the release MBID when the form field is emptied", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b",
     });
     const initial = albumToForm(album([editedTrack]));

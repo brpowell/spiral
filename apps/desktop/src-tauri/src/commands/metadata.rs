@@ -5,6 +5,7 @@ use crate::artist_art_fetch;
 use crate::cover_art_fetch::{self, CoverArtCandidate};
 use crate::db;
 use crate::disc_metadata_cache;
+use crate::ids::TrackId;
 use crate::library_organize;
 use crate::lyrics_fetch;
 use crate::lyrics_normalize;
@@ -509,10 +510,11 @@ fn write_track_file(
 pub fn write_track_metadata(
     app: AppHandle,
     state: State<DbState>,
-    track_id: i64,
+    track_id: TrackId,
     file_path: String,
     mut metadata: TrackMetadataUpdate,
 ) -> Result<Track, String> {
+    let track_id = &track_id;
     let library = settings::resolved_library_settings(&app);
     let library_root = PathBuf::from(&library.library_root);
     // Store what a later re-read of the file would produce.
@@ -731,7 +733,7 @@ mod tests {
         metadata_reader::read_basic_tags(path).title
     }
 
-    fn track(conn: &rusqlite::Connection, id: i64) -> Track {
+    fn track(conn: &rusqlite::Connection, id: &TrackId) -> Track {
         db::get_track_by_id(conn, id).unwrap().unwrap()
     }
 
@@ -765,7 +767,7 @@ mod tests {
             Path::new("/managed/m.ogg"),
             &tmp.0.join("Collection/u.ogg"),
         );
-        let user = track(&conn, t.user);
+        let user = track(&conn, &t.user);
         let user_root = tmp.0.join("Collection");
 
         // New user sources aren't organized.

@@ -41,13 +41,13 @@ describe("uniqueAlbumArtPaths", () => {
   it("uses a single tile when multiple tracks share an album but different art paths", () => {
     const tracks = [
       track({
-        id: 1,
+        id: "1",
         album: "OK Computer",
         albumArtist: "Radiohead",
         artPath: "/cache/art-a.png",
       }),
       track({
-        id: 2,
+        id: "2",
         album: "OK Computer",
         albumArtist: "Radiohead",
         artPath: "/cache/art-b.png",
@@ -60,19 +60,19 @@ describe("uniqueAlbumArtPaths", () => {
   it("keeps playlist order across distinct albums", () => {
     const tracks = [
       track({
-        id: 1,
+        id: "1",
         album: "Album A",
         albumArtist: "Artist",
         artPath: "/cache/a.png",
       }),
       track({
-        id: 2,
+        id: "2",
         album: "Album A",
         albumArtist: "Artist",
         artPath: "/cache/a2.png",
       }),
       track({
-        id: 3,
+        id: "3",
         album: "Album B",
         albumArtist: "Artist",
         artPath: "/cache/b.png",
@@ -88,13 +88,13 @@ describe("uniqueAlbumArtPaths", () => {
   it("skips tracks without art and still picks later art from that album", () => {
     const tracks = [
       track({
-        id: 1,
+        id: "1",
         album: "Album A",
         albumArtist: "Artist",
         artPath: null,
       }),
       track({
-        id: 2,
+        id: "2",
         album: "Album A",
         albumArtist: "Artist",
         artPath: "/cache/a.png",
@@ -106,11 +106,11 @@ describe("uniqueAlbumArtPaths", () => {
 
   it("limits to four unique albums", () => {
     const tracks = [
-      track({ id: 1, album: "A", artPath: "/a.png" }),
-      track({ id: 2, album: "B", artPath: "/b.png" }),
-      track({ id: 3, album: "C", artPath: "/c.png" }),
-      track({ id: 4, album: "D", artPath: "/d.png" }),
-      track({ id: 5, album: "E", artPath: "/e.png" }),
+      track({ id: "1", album: "A", artPath: "/a.png" }),
+      track({ id: "2", album: "B", artPath: "/b.png" }),
+      track({ id: "3", album: "C", artPath: "/c.png" }),
+      track({ id: "4", album: "D", artPath: "/d.png" }),
+      track({ id: "5", album: "E", artPath: "/e.png" }),
     ];
 
     expect(uniqueAlbumArtPaths(tracks)).toEqual([
@@ -124,13 +124,13 @@ describe("uniqueAlbumArtPaths", () => {
   it("treats different album artists as distinct albums", () => {
     const tracks = [
       track({
-        id: 1,
+        id: "1",
         album: "Greatest Hits",
         albumArtist: "Artist A",
         artPath: "/a.png",
       }),
       track({
-        id: 2,
+        id: "2",
         album: "Greatest Hits",
         albumArtist: "Artist B",
         artPath: "/b.png",

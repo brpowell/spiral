@@ -11,15 +11,16 @@ vi.mock("@tauri-apps/api/core", async (importOriginal) => {
 });
 
 /** Answer `remove_track` with `result(trackId)`. */
-function removeTrackAnswers(result: (trackId: number) => RemovedFile) {
+function removeTrackAnswers(result: (trackId: TrackId) => RemovedFile) {
   mockInvoke.mockImplementation(async (cmd, args) => {
     if (cmd !== "remove_track") throw new Error(`unexpected ${cmd}`);
-    return result((args as { trackId: number }).trackId);
+    return result((args as { trackId: TrackId }).trackId);
   });
 }
 
 import { useBackgroundTasksStore } from "./useBackgroundTasksStore";
 import { usePlayerStore } from "./usePlayerStore";
+import type { TrackId } from "@/types/track";
 
 describe("removeTracksFromLibrary", () => {
   let showToast: ReturnType<typeof vi.fn>;
@@ -34,8 +35,10 @@ describe("removeTracksFromLibrary", () => {
   });
 
   it("explains files left in an offline music folder", async () => {
-    removeTrackAnswers((id) => (id === 1 ? "trashed" : "keptUnreachable"));
-    await usePlayerStore.getState().removeTracksFromLibrary([1, 2, 3], true);
+    removeTrackAnswers((id) => (id === "1" ? "trashed" : "keptUnreachable"));
+    await usePlayerStore
+      .getState()
+      .removeTracksFromLibrary(["1", "2", "3"], true);
     expect(showToast).toHaveBeenCalledTimes(1);
     expect(showToast).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -47,7 +50,7 @@ describe("removeTracksFromLibrary", () => {
 
   it("stays quiet when every file was handled", async () => {
     removeTrackAnswers(() => "trashed");
-    await usePlayerStore.getState().removeTracksFromLibrary([1], true);
+    await usePlayerStore.getState().removeTracksFromLibrary(["1"], true);
     expect(showToast).not.toHaveBeenCalled();
   });
 });

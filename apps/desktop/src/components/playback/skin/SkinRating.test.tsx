@@ -73,10 +73,10 @@ beforeEach(() => {
 
 describe("SkinRating", () => {
   it("shows the current track rating and applies style.color", () => {
-    const current = track({ id: 1 });
+    const current = track({ id: "1" });
     usePlayerStore.setState({
       library: [current],
-      currentTrackId: 1,
+      currentTrackId: "1",
     });
 
     const { container } = render(<SkinRating node={node} />);
@@ -93,10 +93,10 @@ describe("SkinRating", () => {
   });
 
   it("writes the current track rating on pointer commit", () => {
-    const current = track({ id: 1 });
+    const current = track({ id: "1" });
     usePlayerStore.setState({
       library: [current],
-      currentTrackId: 1,
+      currentTrackId: "1",
     });
 
     render(<SkinRating node={node} />);

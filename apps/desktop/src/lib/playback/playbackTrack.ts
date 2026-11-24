@@ -1,11 +1,11 @@
-import type { Track } from "@/types/track";
+import type { Track, TrackListId } from "@/types/track";
 
 export interface PlaybackTrackLookup {
   library: Track[];
   playbackTracks: Track[];
   /** Ephemeral CD rows queued before playback starts. */
   cdQueueTracks?: Track[];
-  currentTrackId: number | null;
+  currentTrackId: TrackListId | null;
 }
 
 export type PlaybackTrackIndex = Omit<PlaybackTrackLookup, "currentTrackId">;
@@ -16,8 +16,8 @@ export type PlaybackTrackIndex = Omit<PlaybackTrackLookup, "currentTrackId">;
  */
 export function indexPlaybackTracks(
   lookup: PlaybackTrackIndex,
-): Map<number, Track> {
-  const map = new Map<number, Track>();
+): Map<TrackListId, Track> {
+  const map = new Map<TrackListId, Track>();
   for (const track of lookup.library) {
     map.set(track.id, track);
   }

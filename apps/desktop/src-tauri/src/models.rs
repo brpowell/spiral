@@ -1,9 +1,10 @@
+use crate::ids::{EventId, PlaylistId, TrackId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Track {
-    pub id: i64,
+    pub id: TrackId,
     pub title: String,
     pub artist: Option<String>,
     pub album: Option<String>,
@@ -85,12 +86,12 @@ pub enum PlaylistImageMode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Playlist {
-    pub id: i64,
+    pub id: PlaylistId,
     pub title: String,
     pub description: Option<String>,
     pub date_created: String,
     pub last_used_at: String,
-    pub track_ids: Vec<i64>,
+    pub track_ids: Vec<TrackId>,
     pub image_mode: PlaylistImageMode,
     pub custom_image_path: Option<String>,
     /// Solid fill or gradient start (`#rrggbb`). Used when `image_mode` is Design.
@@ -206,7 +207,7 @@ pub enum LyricsFetchOutcome {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackLyricsRecord {
-    pub track_id: i64,
+    pub track_id: TrackId,
     pub format: LyricsFormat,
     pub source: Option<LyricsSource>,
     pub lines: Vec<LyricsLine>,
@@ -249,7 +250,7 @@ pub struct TrackInput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListenEventInput {
-    pub track_id: i64,
+    pub track_id: TrackId,
     pub started_at: String,
     pub ended_at: String,
     pub listened_seconds: f64,
@@ -285,7 +286,7 @@ fn default_listen_ui_mode() -> String {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecordListenEventResult {
-    pub event_id: i64,
+    pub event_id: EventId,
     pub play_count: u32,
     pub last_played_at: String,
     /// True when this close qualified as a play and bumped `play_count`.

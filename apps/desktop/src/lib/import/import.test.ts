@@ -32,7 +32,7 @@ import {
 } from "@/lib/tauri";
 import { useImportDedupeStore } from "@/store/useImportDedupeStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
-import type { Track, TrackInput } from "@/types/track";
+import type { Track, TrackId, TrackInput } from "@/types/track";
 import type { TrackLyrics, TrackLyricsInput } from "@/types/lyrics";
 
 function trackInput(overrides: Partial<TrackInput> = {}): TrackInput {
@@ -63,7 +63,7 @@ function embeddedLyrics(plainText: string): TrackLyricsInput {
   };
 }
 
-function libraryLyrics(trackId: number, plainText: string): TrackLyrics {
+function libraryLyrics(trackId: TrackId, plainText: string): TrackLyrics {
   return {
     trackId,
     format: "plain",
@@ -230,14 +230,14 @@ describe("importCompletionSettleOptions", () => {
 describe("resolveImportDuplicates", () => {
   beforeEach(() => {
     useImportDedupeStore.getState().resetImportDedupeSession();
-    usePlayerStore.setState({ library: [libraryTrack({ id: 1 })] });
+    usePlayerStore.setState({ library: [libraryTrack({ id: "1" })] });
     vi.mocked(fileExists).mockResolvedValue(true);
     vi.mocked(getTrackLyrics).mockResolvedValue(null);
   });
 
   it("marks skipped pending ids when user chooses skip", async () => {
     const resolutionPromise = resolveImportDuplicates(
-      [{ sourcePath: "", metadata: trackInput(), pendingId: 10 }],
+      [{ sourcePath: "", metadata: trackInput(), pendingId: "10" }],
       { incomingPendingRip: true },
     );
 
@@ -249,46 +249,46 @@ describe("resolveImportDuplicates", () => {
       .resolveImportDedupe({ action: "skip" }, false);
 
     const result = await resolutionPromise;
-    expect(result.skippedPendingIds).toEqual(new Set([10]));
-    expect(result.duplicateActions.get(10)).toEqual({ action: "skip" });
+    expect(result.skippedPendingIds).toEqual(new Set(["10"]));
+    expect(result.duplicateActions.get("10")).toEqual({ action: "skip" });
   });
 
   it("uses batch rule without prompting", async () => {
     useImportDedupeStore.setState({ batchRule: { action: "replace" } });
 
     const result = await resolveImportDuplicates(
-      [{ sourcePath: "", metadata: trackInput(), pendingId: 10 }],
+      [{ sourcePath: "", metadata: trackInput(), pendingId: "10" }],
       { incomingPendingRip: true },
     );
 
     expect(result.skippedPendingIds.size).toBe(0);
-    expect(result.duplicateActions.get(10)).toEqual({ action: "replace" });
+    expect(result.duplicateActions.get("10")).toEqual({ action: "replace" });
   });
 
   it("auto-replaces when the library file is missing on disk", async () => {
     vi.mocked(fileExists).mockResolvedValue(false);
 
     const result = await resolveImportDuplicates(
-      [{ sourcePath: "", metadata: trackInput(), pendingId: 10 }],
+      [{ sourcePath: "", metadata: trackInput(), pendingId: "10" }],
       { incomingPendingRip: true },
     );
 
     expect(result.skippedPendingIds.size).toBe(0);
-    expect(result.duplicateActions.get(10)).toEqual({ action: "replace" });
+    expect(result.duplicateActions.get("10")).toEqual({ action: "replace" });
   });
 
   it("auto-replaces when the library track is flagged missing", async () => {
     usePlayerStore.setState({
-      library: [libraryTrack({ id: 1, missingFile: true })],
+      library: [libraryTrack({ id: "1", missingFile: true })],
     });
 
     const result = await resolveImportDuplicates(
-      [{ sourcePath: "", metadata: trackInput(), pendingId: 10 }],
+      [{ sourcePath: "", metadata: trackInput(), pendingId: "10" }],
       { incomingPendingRip: true },
     );
 
     expect(result.skippedPendingIds.size).toBe(0);
-    expect(result.duplicateActions.get(10)).toEqual({ action: "replace" });
+    expect(result.duplicateActions.get("10")).toEqual({ action: "replace" });
   });
 
   it("skips the exact library file without prompting", async () => {
@@ -296,13 +296,13 @@ describe("resolveImportDuplicates", () => {
       {
         sourcePath: "/library/airbag.mp3",
         metadata: trackInput({ filePath: "/library/airbag.mp3" }),
-        pendingId: 10,
+        pendingId: "10",
       },
     ]);
 
     expect(useImportDedupeStore.getState().prompt).toBeNull();
-    expect(result.skippedPendingIds).toEqual(new Set([10]));
-    expect(result.duplicateActions.get(10)).toEqual({ action: "skip" });
+    expect(result.skippedPendingIds).toEqual(new Set(["10"]));
+    expect(result.duplicateActions.get("10")).toEqual({ action: "skip" });
   });
 
   it("returns empty resolutions when there are no duplicates", async () => {
@@ -311,7 +311,7 @@ describe("resolveImportDuplicates", () => {
         {
           sourcePath: "",
           metadata: trackInput({ title: "Paranoid Android", trackNumber: 2 }),
-          pendingId: 11,
+          pendingId: "11",
         },
       ],
       { incomingPendingRip: true },
@@ -323,10 +323,10 @@ describe("resolveImportDuplicates", () => {
 
   it("flags lyrics conflict on the prompt context", async () => {
     usePlayerStore.setState({
-      library: [libraryTrack({ id: 1, lyricsFormat: "plain" })],
+      library: [libraryTrack({ id: "1", lyricsFormat: "plain" })],
     });
     vi.mocked(getTrackLyrics).mockResolvedValue(
-      libraryLyrics(1, "Library lyrics"),
+      libraryLyrics("1", "Library lyrics"),
     );
 
     const resolutionPromise = resolveImportDuplicates(
@@ -334,7 +334,7 @@ describe("resolveImportDuplicates", () => {
         {
           sourcePath: "",
           metadata: trackInput({ lyrics: embeddedLyrics("Incoming lyrics") }),
-          pendingId: 10,
+          pendingId: "10",
         },
       ],
       { incomingPendingRip: true },
@@ -352,7 +352,7 @@ describe("resolveImportDuplicates", () => {
       .resolveImportDedupe({ action: "replace", replaceLyrics: false }, false);
 
     const result = await resolutionPromise;
-    expect(result.duplicateActions.get(10)).toEqual({
+    expect(result.duplicateActions.get("10")).toEqual({
       action: "replace",
       replaceLyrics: false,
     });
@@ -365,17 +365,17 @@ describe("commitImportEntries", () => {
     usePlayerStore.setState({ library: [] });
     vi.mocked(prepareImportFile).mockResolvedValue("/library/imported.mp3");
     vi.mocked(saveTrack).mockResolvedValue(
-      libraryTrack({ id: 42, filePath: "/library/imported.mp3" }),
+      libraryTrack({ id: "42", filePath: "/library/imported.mp3" }),
     );
     vi.mocked(replaceTrackFromImport).mockResolvedValue(
-      libraryTrack({ id: 1, filePath: "/library/airbag.mp3" }),
+      libraryTrack({ id: "1", filePath: "/library/airbag.mp3" }),
     );
     vi.mocked(getTrackLyrics).mockResolvedValue(null);
   });
 
   it("skips the exact library file instead of replacing it", async () => {
     usePlayerStore.setState({
-      library: [libraryTrack({ id: 1, filePath: "/library/airbag.mp3" })],
+      library: [libraryTrack({ id: "1", filePath: "/library/airbag.mp3" })],
     });
 
     const result = await commitImportEntries(
@@ -383,7 +383,7 @@ describe("commitImportEntries", () => {
         {
           sourcePath: "/library/airbag.mp3",
           metadata: trackInput({ filePath: "/library/airbag.mp3" }),
-          pendingId: 10,
+          pendingId: "10",
         },
       ],
       {},
@@ -402,7 +402,7 @@ describe("commitImportEntries", () => {
     });
 
     const result = await commitImportEntries(
-      [{ sourcePath: "/incoming/song.mp3", metadata, pendingId: 1 }],
+      [{ sourcePath: "/incoming/song.mp3", metadata, pendingId: "1" }],
       {},
     );
 
@@ -441,8 +441,8 @@ describe("commitImportEntries", () => {
 
     const result = await commitImportEntries(
       [
-        { sourcePath: "/a.mp3", metadata: withSidecar, pendingId: 1 },
-        { sourcePath: "/b.mp3", metadata: without, pendingId: 2 },
+        { sourcePath: "/a.mp3", metadata: withSidecar, pendingId: "1" },
+        { sourcePath: "/b.mp3", metadata: without, pendingId: "2" },
       ],
       {},
     );
@@ -455,17 +455,17 @@ describe("commitImportEntries", () => {
 
   it("strips incoming lyrics on replace when replaceLyrics is false", async () => {
     usePlayerStore.setState({
-      library: [libraryTrack({ id: 1, lyricsFormat: "plain" })],
+      library: [libraryTrack({ id: "1", lyricsFormat: "plain" })],
     });
     const metadata = trackInput({
       lyrics: embeddedLyrics("Incoming lyrics"),
     });
 
     const result = await commitImportEntries(
-      [{ sourcePath: "/incoming/airbag.flac", metadata, pendingId: 10 }],
+      [{ sourcePath: "/incoming/airbag.flac", metadata, pendingId: "10" }],
       {
         duplicateActions: new Map([
-          [10, { action: "replace", replaceLyrics: false }],
+          ["10", { action: "replace", replaceLyrics: false }],
         ]),
       },
     );
@@ -473,7 +473,7 @@ describe("commitImportEntries", () => {
     expect(result.replaced).toBe(1);
     expect(result.lyricsFromTags).toBe(0);
     expect(replaceTrackFromImport).toHaveBeenCalledWith({
-      trackId: 1,
+      trackId: "1",
       sourcePath: "/incoming/airbag.flac",
       track: { ...metadata, lyrics: null },
     });
@@ -481,17 +481,17 @@ describe("commitImportEntries", () => {
 
   it("passes incoming lyrics on replace when replaceLyrics is true", async () => {
     usePlayerStore.setState({
-      library: [libraryTrack({ id: 1, lyricsFormat: "plain" })],
+      library: [libraryTrack({ id: "1", lyricsFormat: "plain" })],
     });
     const metadata = trackInput({
       lyrics: embeddedLyrics("Incoming lyrics"),
     });
 
     const result = await commitImportEntries(
-      [{ sourcePath: "/incoming/airbag.flac", metadata, pendingId: 10 }],
+      [{ sourcePath: "/incoming/airbag.flac", metadata, pendingId: "10" }],
       {
         duplicateActions: new Map([
-          [10, { action: "replace", replaceLyrics: true }],
+          ["10", { action: "replace", replaceLyrics: true }],
         ]),
       },
     );
@@ -499,7 +499,7 @@ describe("commitImportEntries", () => {
     expect(result.replaced).toBe(1);
     expect(result.lyricsFromTags).toBe(1);
     expect(replaceTrackFromImport).toHaveBeenCalledWith({
-      trackId: 1,
+      trackId: "1",
       sourcePath: "/incoming/airbag.flac",
       track: metadata,
     });

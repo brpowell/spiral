@@ -9,7 +9,7 @@ import {
 
 function track(overrides: Partial<Track> = {}): Track {
   return {
-    id: 1,
+    id: "1",
     title: "Track",
     artist: null,
     album: null,
@@ -36,10 +36,10 @@ function track(overrides: Partial<Track> = {}): Track {
 
 describe("compareTracks lyrics", () => {
   it("sorts lyrics formats ascending with missing lyrics last", () => {
-    const plain = track({ id: 1, lyricsFormat: "plain" });
-    const lineSynced = track({ id: 2, lyricsFormat: "line_synced" });
-    const wordSynced = track({ id: 3, lyricsFormat: "word_synced" });
-    const missing = track({ id: 4, lyricsFormat: null });
+    const plain = track({ id: "1", lyricsFormat: "plain" });
+    const lineSynced = track({ id: "2", lyricsFormat: "line_synced" });
+    const wordSynced = track({ id: "3", lyricsFormat: "word_synced" });
+    const missing = track({ id: "4", lyricsFormat: null });
 
     expect(compareTracks(plain, lineSynced, "lyrics", "asc")).toBeLessThan(0);
     expect(compareTracks(lineSynced, wordSynced, "lyrics", "asc")).toBeLessThan(
@@ -49,9 +49,9 @@ describe("compareTracks lyrics", () => {
   });
 
   it("sorts lyrics formats descending with missing lyrics last", () => {
-    const plain = track({ id: 1, lyricsFormat: "plain" });
-    const lineSynced = track({ id: 2, lyricsFormat: "line_synced" });
-    const missing = track({ id: 3, lyricsFormat: null });
+    const plain = track({ id: "1", lyricsFormat: "plain" });
+    const lineSynced = track({ id: "2", lyricsFormat: "line_synced" });
+    const missing = track({ id: "3", lyricsFormat: null });
 
     expect(compareTracks(lineSynced, plain, "lyrics", "desc")).toBeLessThan(0);
     expect(compareTracks(plain, missing, "lyrics", "desc")).toBeLessThan(0);
@@ -61,13 +61,13 @@ describe("compareTracks lyrics", () => {
 
 describe("compareTracks popularity", () => {
   const scores = new Map([
-    [1, 5],
-    [2, 1],
+    ["1", 5],
+    ["2", 1],
   ]);
-  const high = track({ id: 1, title: "High" });
-  const low = track({ id: 2, title: "Low" });
-  const unscoredA = track({ id: 3, title: "Alpha" });
-  const unscoredB = track({ id: 4, title: "Beta" });
+  const high = track({ id: "1", title: "High" });
+  const low = track({ id: "2", title: "Low" });
+  const unscoredA = track({ id: "3", title: "Alpha" });
+  const unscoredB = track({ id: "4", title: "Beta" });
 
   it("orders by score in either direction", () => {
     expect(compareTracks(low, high, "popularity", "asc", scores)).toBeLessThan(
@@ -103,9 +103,9 @@ describe("compareTracks popularity", () => {
 
 describe("compareTracks lastPlayedAt", () => {
   it("sorts by timestamp and keeps never-played last in both directions", () => {
-    const older = track({ id: 1, lastPlayedAt: "2026-01-01T00:00:00.000Z" });
-    const newer = track({ id: 2, lastPlayedAt: "2026-06-01T00:00:00.000Z" });
-    const never = track({ id: 3, lastPlayedAt: null });
+    const older = track({ id: "1", lastPlayedAt: "2026-01-01T00:00:00.000Z" });
+    const newer = track({ id: "2", lastPlayedAt: "2026-06-01T00:00:00.000Z" });
+    const never = track({ id: "3", lastPlayedAt: null });
 
     expect(compareTracks(older, newer, "lastPlayedAt", "asc")).toBeLessThan(0);
     expect(compareTracks(newer, older, "lastPlayedAt", "desc")).toBeLessThan(0);
@@ -122,9 +122,14 @@ describe("compareTracks lastPlayedAt", () => {
 
 describe("filterTracksBySearch", () => {
   const tracks = [
-    track({ id: 1, title: "Creep", artist: "Radiohead", album: "Pablo Honey" }),
     track({
-      id: 2,
+      id: "1",
+      title: "Creep",
+      artist: "Radiohead",
+      album: "Pablo Honey",
+    }),
+    track({
+      id: "2",
       title: "Windowlicker",
       artist: "Aphex Twin",
       albumArtist: "Richard D. James",
@@ -134,10 +139,10 @@ describe("filterTracksBySearch", () => {
   const ids = (q: string) => filterTracksBySearch(tracks, q).map((t) => t.id);
 
   it("searches title, artist, album and album artist with typo tolerance", () => {
-    expect(ids("crep")).toEqual([1]);
-    expect(ids("radiohed")).toEqual([1]);
-    expect(ids("pablo hony")).toEqual([1]);
-    expect(ids("richrd james")).toEqual([2]);
+    expect(ids("crep")).toEqual(["1"]);
+    expect(ids("radiohed")).toEqual(["1"]);
+    expect(ids("pablo hony")).toEqual(["1"]);
+    expect(ids("richrd james")).toEqual(["2"]);
   });
 
   it("does not search genre", () => {
@@ -145,26 +150,26 @@ describe("filterTracksBySearch", () => {
   });
 
   it("returns everything for an empty query, preserving order", () => {
-    expect(ids("  ")).toEqual([1, 2]);
+    expect(ids("  ")).toEqual(["1", "2"]);
   });
 });
 
 describe("scoreTracksBySearch", () => {
   const tracks = [
     track({
-      id: 1,
+      id: "1",
       title: "Song of Storms",
       artist: "Save Point",
       album: "Video Game Music",
     }),
     track({
-      id: 2,
+      id: "2",
       title: "Zelda's Lullaby",
       artist: "Save Point",
       album: "Video of Zelda",
     }),
     track({
-      id: 3,
+      id: "3",
       title: "tv off (feat. Lefty Gunplay)",
       artist: "Kendrick Lamar",
       album: "GNX",
@@ -173,7 +178,7 @@ describe("scoreTracksBySearch", () => {
 
   it("does not match short tokens across word boundaries", () => {
     expect(scoreTracksBySearch(tracks, "tv of").map((s) => s.item.id)).toEqual([
-      3,
+      "3",
     ]);
   });
 
@@ -182,31 +187,31 @@ describe("scoreTracksBySearch", () => {
       (a, b) => b.score - a.score,
     );
     expect(best[0].score).toBeGreaterThanOrEqual(best[best.length - 1].score);
-    expect(scoreTracksBySearch(tracks, "tv off")[0].item.id).toBe(3);
+    expect(scoreTracksBySearch(tracks, "tv off")[0].item.id).toBe("3");
   });
 });
 
 describe("track search field weighting", () => {
   const byTitle = track({
-    id: 1,
+    id: "1",
     title: "Radiohead Medley",
     artist: "Cover Band",
     album: "Tribute",
   });
   const byArtist = track({
-    id: 2,
+    id: "2",
     title: "Creep",
     artist: "Radiohead",
     album: "Pablo Honey",
   });
   const byAlbum = track({
-    id: 3,
+    id: "3",
     title: "Creep",
     artist: "Other",
     album: "Radiohead",
   });
   const byAlbumArtist = track({
-    id: 4,
+    id: "4",
     title: "Creep",
     artist: "Other",
     album: "Misc",
@@ -248,10 +253,10 @@ describe("nextSort", () => {
 describe("compareTracks source", () => {
   it("puts folders in the order added", () => {
     const tracks = [
-      track({ id: 1, sourceId: 2 }),
-      track({ id: 2, sourceId: 4 }),
-      track({ id: 3, sourceId: 1 }),
-      track({ id: 4, sourceId: 3 }),
+      track({ id: "1", sourceId: 2 }),
+      track({ id: "2", sourceId: 4 }),
+      track({ id: "3", sourceId: 1 }),
+      track({ id: "4", sourceId: 3 }),
     ];
     const asc = [...tracks].sort((a, b) =>
       compareTracks(a, b, "source", "asc"),

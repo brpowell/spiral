@@ -35,7 +35,7 @@ describe("albumArtistKey", () => {
   it("prefers album artist over track artist", () => {
     expect(
       albumArtistKey(
-        track({ id: 1, artist: "Performer", albumArtist: "Band" }),
+        track({ id: "1", artist: "Performer", albumArtist: "Band" }),
       ),
     ).toBe("Band");
   });
@@ -45,7 +45,7 @@ describe("performerKeysForTrack", () => {
   it("splits multi-artist track fields", () => {
     expect(
       performerKeysForTrack(
-        track({ id: 1, artist: "Alice; Bob", albumArtist: "Various" }),
+        track({ id: "1", artist: "Alice; Bob", albumArtist: "Various" }),
       ),
     ).toEqual(["Alice", "Bob"]);
   });
@@ -53,7 +53,7 @@ describe("performerKeysForTrack", () => {
   it("falls back to album artist when track artist is empty", () => {
     expect(
       performerKeysForTrack(
-        track({ id: 1, artist: null, albumArtist: "Band" }),
+        track({ id: "1", artist: null, albumArtist: "Band" }),
       ),
     ).toEqual(["Band"]);
   });
@@ -63,13 +63,13 @@ describe("groupTracksIntoArtists", () => {
   it("groups discography by album artist", () => {
     const library = [
       track({
-        id: 1,
+        id: "1",
         album: "Comp",
         artist: "Alice",
         albumArtist: "Various Artists",
       }),
       track({
-        id: 2,
+        id: "2",
         album: "Studio",
         artist: "Alice",
         albumArtist: "Alice",
@@ -86,13 +86,13 @@ describe("groupTracksIntoArtists", () => {
   it("groups performers by parsed track artist", () => {
     const library = [
       track({
-        id: 1,
+        id: "1",
         album: "Comp",
         artist: "Alice",
         albumArtist: "Various Artists",
       }),
       track({
-        id: 2,
+        id: "2",
         album: "Studio",
         artist: "Alice",
         albumArtist: "Alice",
@@ -107,7 +107,7 @@ describe("groupTracksIntoArtists", () => {
   it("does not split performer names on commas", () => {
     const library = [
       track({
-        id: 1,
+        id: "1",
         album: "IGOR",
         artist: "Tyler, the Creator",
         albumArtist: "Tyler, the Creator",
@@ -124,7 +124,7 @@ describe("albumsForArtist", () => {
   it("links performer albums by track credit", () => {
     const library = [
       track({
-        id: 1,
+        id: "1",
         album: "Comp",
         artist: "Alice",
         albumArtist: "Various Artists",

@@ -1,11 +1,11 @@
 import * as audio from "@/lib/playback";
 import { findPlaybackTrack } from "./playbackTrack";
-import type { Track } from "@/types/track";
+import type { Track, TrackListId } from "@/types/track";
 
 /** Map a 0–1 seek ratio to seconds using track metadata (works without local audio). */
 export function seekRatioToPositionSeconds(
   library: Track[],
-  currentTrackId: number | null,
+  currentTrackId: TrackListId | null,
   ratio: number,
   playbackTracks: Track[] = [],
 ): number {
@@ -22,7 +22,7 @@ export function seekRatioToPositionSeconds(
 /** True when a synced position matches a pending seek commit (avoids bridge race flashes). */
 export function seekPositionMatchesRatio(
   library: Track[],
-  currentTrackId: number | null,
+  currentTrackId: TrackListId | null,
   positionSeconds: number,
   ratio: number,
   toleranceSeconds = 1,

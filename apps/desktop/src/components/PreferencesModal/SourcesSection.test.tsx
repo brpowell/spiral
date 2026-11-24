@@ -65,7 +65,7 @@ const sources: Source[] = [
 
 const track = (id: number, sourceId: number, missingSince?: string) =>
   ({
-    id,
+    id: String(id),
     title: `T${id}`,
     filePath: `/x/T${id}.mp3`,
     sourceId,

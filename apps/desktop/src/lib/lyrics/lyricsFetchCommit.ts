@@ -11,7 +11,7 @@ import {
 } from "@/lib/tauri";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { LyricsFormat, LyricsLine } from "@/types/lyrics";
-import type { Track } from "@/types/track";
+import type { Track, TrackId } from "@/types/track";
 
 export type CommitFetchedLyricsResult =
   | { status: "ok" }
@@ -66,7 +66,7 @@ export async function commitFetchedLyricsForTrack(
 
 /** Persist instrumental marker in the library (DB only) so auto-fetch skips this track. */
 export async function commitInstrumentalMarkForTrack(
-  trackId: number,
+  trackId: TrackId,
 ): Promise<CommitFetchedLyricsResult> {
   try {
     const updated = await markTrackInstrumental(trackId);

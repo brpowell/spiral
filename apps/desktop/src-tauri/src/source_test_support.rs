@@ -1,6 +1,7 @@
 //! Databases and files for tests of code that treats sources differently.
 
 use crate::db_migrations;
+use crate::ids::TrackId;
 use rusqlite::{params, Connection};
 use std::path::{Path, PathBuf};
 
@@ -42,9 +43,9 @@ pub fn conn() -> Connection {
 pub struct SourceTracks {
     /// In an organized source that is the import target, like onboarding's
     /// `Tracks`.
-    pub managed: i64,
+    pub managed: TrackId,
     /// In a source the user added.
-    pub user: i64,
+    pub user: TrackId,
 }
 
 /// Add a user source rooted at `root`.
@@ -70,14 +71,15 @@ pub fn add_managed_source(conn: &Connection, root: &Path) -> i64 {
 }
 
 /// Insert a track stored as `rel_path`.
-pub fn insert_track(conn: &Connection, rel_path: &str, source_id: i64) -> i64 {
+pub fn insert_track(conn: &Connection, rel_path: &str, source_id: i64) -> TrackId {
+    let id = TrackId::new();
     conn.execute(
-        "INSERT INTO tracks (title, rel_path, date_added, source_id)
-         VALUES ('Song', ?1, '2024-01-01T00:00:00Z', ?2)",
-        params![rel_path, source_id],
+        "INSERT INTO tracks (id, title, rel_path, date_added, source_id)
+         VALUES (?1, 'Song', ?2, '2024-01-01T00:00:00Z', ?3)",
+        params![id, rel_path, source_id],
     )
     .unwrap();
-    conn.last_insert_rowid()
+    id
 }
 
 /// One track per kind of source, with files at the given paths. The managed

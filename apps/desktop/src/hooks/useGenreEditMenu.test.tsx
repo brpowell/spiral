@@ -10,7 +10,7 @@ import { useGenreEditMenu } from "./useGenreEditMenu";
 const genre: Genre = {
   key: "rock",
   name: "Rock",
-  tracks: [{ id: 7 }, { id: 3 }, { id: 9 }] as Track[],
+  tracks: [{ id: "7" }, { id: "3" }, { id: "9" }] as Track[],
 };
 
 function Harness({ value }: { value: Genre }) {
@@ -44,14 +44,14 @@ describe("useGenreEditMenu", () => {
     render(<Harness value={genre} />);
     openMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Play All" }));
-    expect(playTracks).toHaveBeenCalledWith([7, 3, 9], 7);
+    expect(playTracks).toHaveBeenCalledWith(["7", "3", "9"], "7");
   });
 
   it("queues the genre's tracks", () => {
     render(<Harness value={genre} />);
     openMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: /Add .*Queue/ }));
-    expect(addToQueue).toHaveBeenCalledWith([7, 3, 9]);
+    expect(addToQueue).toHaveBeenCalledWith(["7", "3", "9"]);
   });
 
   it("opens the genre editor for the genre's key", () => {
@@ -72,7 +72,9 @@ describe("useGenreEditMenu", () => {
     const addTracksToPlaylist = vi.fn().mockResolvedValue(undefined);
     usePlayerStore.setState({ library: genre.tracks });
     usePlaylistStore.setState({
-      playlists: [{ id: 9, title: "Mix", trackIds: [] } as unknown as Playlist],
+      playlists: [
+        { id: "9", title: "Mix", trackIds: [] } as unknown as Playlist,
+      ],
       addTracksToPlaylist,
     });
     render(<Harness value={genre} />);
@@ -82,7 +84,7 @@ describe("useGenreEditMenu", () => {
     );
     fireEvent.click(screen.getAllByRole("menuitem", { name: "Mix" })[0]);
     await waitFor(() =>
-      expect(addTracksToPlaylist).toHaveBeenCalledWith(9, [7, 3, 9]),
+      expect(addTracksToPlaylist).toHaveBeenCalledWith("9", ["7", "3", "9"]),
     );
   });
 });

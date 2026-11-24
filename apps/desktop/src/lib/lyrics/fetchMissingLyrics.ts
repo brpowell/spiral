@@ -19,7 +19,7 @@ import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
-import type { Track } from "@/types/track";
+import type { Track, TrackId } from "@/types/track";
 
 export const LYRICS_FETCH_MISSING_KEY = "lyrics-fetch-missing";
 
@@ -34,7 +34,7 @@ type FetchMissingLyricsSkipReason =
   | "cancelled";
 
 type FetchMissingLyricsTrackResult = {
-  trackId: number;
+  trackId: TrackId;
   title: string;
   artist: string | null;
   status: FetchMissingLyricsTrackStatus;
@@ -214,7 +214,7 @@ export function formatFetchMissingLyricsToastLabel(
   });
 }
 
-function ambiguousTrackIds(summary: FetchMissingLyricsSummary): number[] {
+function ambiguousTrackIds(summary: FetchMissingLyricsSummary): TrackId[] {
   return summary.tracks
     .filter((item) => item.status === "ambiguous")
     .map((item) => item.trackId);

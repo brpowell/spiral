@@ -24,25 +24,25 @@ describe("popularityFraction", () => {
   });
 });
 
-const tracks = (...ids: number[]) => ids.map((id) => ({ id }));
+const tracks = (...ids: number[]) => ids.map((id) => ({ id: String(id) }));
 
 describe("toTrackScores", () => {
   it("indexes rows by track id", () => {
     const scores = toTrackScores([
-      { trackId: 1, score: 3 },
-      { trackId: 2, score: 0.5 },
+      { trackId: "1", score: 3 },
+      { trackId: "2", score: 0.5 },
     ]);
-    expect(scores.get(1)).toBe(3);
-    expect(scores.get(2)).toBe(0.5);
-    expect(scores.get(3)).toBeUndefined();
+    expect(scores.get("1")).toBe(3);
+    expect(scores.get("2")).toBe(0.5);
+    expect(scores.get("3")).toBeUndefined();
   });
 });
 
 describe("aggregateScores", () => {
   const scores = toTrackScores([
-    { trackId: 1, score: 4 },
-    { trackId: 2, score: 9 },
-    { trackId: 3, score: 1 },
+    { trackId: "1", score: 4 },
+    { trackId: "2", score: 9 },
+    { trackId: "3", score: 1 },
   ]);
 
   it("returns 0 for an empty group", () => {
@@ -98,7 +98,7 @@ describe("aggregateScores", () => {
   });
 
   it("treats non-positive scores as no signal", () => {
-    const odd = toTrackScores([{ trackId: 1, score: -5 }]);
+    const odd = toTrackScores([{ trackId: "1", score: -5 }]);
     expect(aggregateScores(tracks(1), odd)).toBe(0);
   });
 });

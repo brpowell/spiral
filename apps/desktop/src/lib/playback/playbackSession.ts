@@ -1,5 +1,5 @@
 import type { PlaybackSession } from "@/types/playbackSession";
-import type { RepeatMode, Track } from "@/types/track";
+import type { RepeatMode, Track, TrackListId } from "@/types/track";
 import * as audio from "@/lib/playback";
 import { usePlayerStore } from "@/store/usePlayerStore";
 
@@ -42,7 +42,8 @@ export function prunePlaybackSession(
   library: Track[],
 ): PlaybackSession | null {
   const libraryIds = new Set(library.map((t) => t.id));
-  const filterIds = (ids: number[]) => ids.filter((id) => libraryIds.has(id));
+  const filterIds = (ids: TrackListId[]) =>
+    ids.filter((id) => libraryIds.has(id));
 
   const playContextIds = filterIds(session.playContextIds);
   const manualQueueIds = filterIds(session.manualQueueIds);

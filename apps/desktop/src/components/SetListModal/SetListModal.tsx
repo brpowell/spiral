@@ -15,7 +15,7 @@ import { buildPlaybackOrder } from "@/lib/playback/playbackOrder";
 import { isTrackKnownUnplayable } from "@/lib/playback/playbackSkip";
 import { indexPlaybackTracks } from "@/lib/playback/playbackTrack";
 import { usePlayerStore } from "@/store/usePlayerStore";
-import type { Track } from "@/types/track";
+import type { Track, TrackListId } from "@/types/track";
 import { Button } from "@/components/common/Button/Button";
 import {
   Modal,
@@ -77,7 +77,7 @@ export function SetListModal({ open, onClose }: SetListModalProps) {
   );
 
   const libraryById = useMemo(() => {
-    const map = new Map<number, Track>();
+    const map = new Map<TrackListId, Track>();
     for (const track of library) {
       map.set(track.id, track);
     }
@@ -95,12 +95,12 @@ export function SetListModal({ open, onClose }: SetListModalProps) {
   );
 
   const { nowPlaying, queuedTracks, laterTracks } = useMemo(() => {
-    const isPlayable = (id: number) => {
+    const isPlayable = (id: TrackListId) => {
       if (isCdTrackListId(id)) return true;
       return !isTrackKnownUnplayable(libraryById.get(id));
     };
 
-    const resolvePlayable = (ids: number[]) => {
+    const resolvePlayable = (ids: TrackListId[]) => {
       const tracks: Track[] = [];
       for (const id of ids) {
         if (!isPlayable(id)) continue;
@@ -110,7 +110,7 @@ export function SetListModal({ open, onClose }: SetListModalProps) {
       return tracks;
     };
 
-    const splitUpcoming = (ids: number[]) => {
+    const splitUpcoming = (ids: TrackListId[]) => {
       const upcoming = resolvePlayable(ids);
       const queued: Track[] = [];
       const later: Track[] = [];
@@ -146,7 +146,7 @@ export function SetListModal({ open, onClose }: SetListModalProps) {
   }, [activeIds, currentTrackId, libraryById, manualQueueSet, trackById]);
 
   const handlePlay = useCallback(
-    (id: number) => {
+    (id: TrackListId) => {
       void playTrack(id);
     },
     [playTrack],
@@ -255,8 +255,8 @@ function SetListStaticList({
 }: {
   tracks: Track[];
   removable?: boolean;
-  onPlay: (id: number) => void;
-  onRemoveFromQueue?: (id: number) => void;
+  onPlay: (id: TrackListId) => void;
+  onRemoveFromQueue?: (id: TrackListId) => void;
 }) {
   return (
     <ul className="set-list-modal__list">
@@ -281,7 +281,7 @@ function SetListUpcomingList({
 }: {
   tracks: Track[];
   scrollRef: RefObject<HTMLDivElement | null>;
-  onPlay: (id: number) => void;
+  onPlay: (id: TrackListId) => void;
 }) {
   const useVirtualRows = tracks.length > SET_LIST_VIRTUALIZE_AFTER;
   const listRef = useRef<HTMLUListElement>(null);
@@ -344,8 +344,8 @@ interface SetListRowProps {
   track: Track;
   playing?: boolean;
   showRemove?: boolean;
-  onPlay: (id: number) => void;
-  onRemoveFromQueue?: (id: number) => void;
+  onPlay: (id: TrackListId) => void;
+  onRemoveFromQueue?: (id: TrackListId) => void;
 }
 
 const SetListRow = memo(function SetListRow({

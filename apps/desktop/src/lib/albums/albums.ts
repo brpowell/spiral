@@ -130,7 +130,7 @@ function discArtistForMatch(disc: CdDisc): string | null {
 function syntheticDiscTrack(disc: CdDisc): Track {
   const first = disc.tracks[0];
   return {
-    id: 0,
+    id: "",
     title: "",
     artist: first?.artist ?? disc.artist ?? null,
     album: disc.album ?? null,

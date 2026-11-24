@@ -13,6 +13,7 @@ import {
   type DetailReturnContext,
 } from "@/lib/ui/navigationReturn";
 import { usePlaylistStore } from "./usePlaylistStore";
+import type { PlaylistId } from "@/types/playlist";
 
 export type NavView = "albums" | "library" | "artists" | "genres";
 
@@ -23,7 +24,7 @@ interface NavigationState {
   genreKey: string | null;
   genreTitle: string | null;
   artistBrowseMode: ArtistBrowseMode;
-  playlistId: number | null;
+  playlistId: PlaylistId | null;
   cdDriveId: string | null;
   albumReturnContext: DetailReturnContext | null;
   artistReturnContext: DetailReturnContext | null;
@@ -37,7 +38,7 @@ interface NavigationState {
   closeArtist: () => void;
   openGenre: (key: string, title: string) => void;
   closeGenre: () => void;
-  openPlaylist: (id: number) => void;
+  openPlaylist: (id: PlaylistId) => void;
   closePlaylist: () => void;
   openCdDrive: (id: string) => void;
   closeCdDrive: () => void;

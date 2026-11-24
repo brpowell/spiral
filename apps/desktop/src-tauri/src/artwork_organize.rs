@@ -6,6 +6,7 @@ use crate::artwork_paths::{
     ensure_inside_artist_artwork, find_portrait_image, playlist_artwork_path_stem,
     resolve_library_relative, to_library_relative,
 };
+use crate::ids::{PlaylistId, TrackId};
 use crate::library_organize;
 use rusqlite::Connection;
 use std::fs;
@@ -64,7 +65,7 @@ pub fn rename_album_artwork_dir(
 pub fn reconcile_track_album_artwork(
     conn: &Connection,
     library_root: &Path,
-    track_id: i64,
+    track_id: &TrackId,
     old_album_artist: Option<&str>,
     old_artist: Option<&str>,
     old_album: Option<&str>,
@@ -197,7 +198,7 @@ pub fn rename_artist_artwork_dir(
 
 pub fn rename_playlist_artwork_file(
     library_root: &Path,
-    playlist_id: i64,
+    playlist_id: &PlaylistId,
     old_title: &str,
     new_title: &str,
     current_relative_or_abs: Option<&str>,
@@ -257,7 +258,10 @@ fn rename_art_file(src: &Path, dest: &Path) -> Result<(), String> {
 
 /// Delete every cover file for this playlist. Names are `{id}-{title}.{ext}`, so the
 /// id prefix includes the hyphen and does not match a longer id (`1-` vs `10-`).
-pub fn remove_playlist_artwork(library_root: &Path, playlist_id: i64) -> Result<(), String> {
+pub fn remove_playlist_artwork(
+    library_root: &Path,
+    playlist_id: &PlaylistId,
+) -> Result<(), String> {
     let dir = artwork_paths::artwork_root(library_root).join(artwork_paths::PLAYLISTS_DIR);
     if !dir.is_dir() {
         return Ok(());
@@ -378,13 +382,13 @@ fn rewrite_art_path_prefix(conn: &Connection, old_rel: &str, new_rel: &str) -> R
     }
     let old_slash = old_rel.replace('\\', "/");
     let new_slash = new_rel.replace('\\', "/");
-    let rows: Vec<(i64, String)> = {
+    let rows: Vec<(TrackId, String)> = {
         let mut stmt = conn
             .prepare("SELECT id, art_path FROM tracks WHERE art_path IS NOT NULL")
             .map_err(|e| e.to_string())?;
         let iter = stmt
             .query_map([], |row| {
-                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+                Ok((row.get::<_, TrackId>(0)?, row.get::<_, String>(1)?))
             })
             .map_err(|e| e.to_string())?;
         iter.filter_map(|r| r.ok()).collect()
@@ -458,7 +462,7 @@ fn album_identity_key(
 
 fn count_other_tracks_with_album_identity(
     conn: &Connection,
-    exclude_id: i64,
+    exclude_id: &TrackId,
     album_artist: Option<&str>,
     artist: Option<&str>,
     album: Option<&str>,
@@ -627,7 +631,7 @@ mod tests {
         let new_rel = reconcile_track_album_artwork(
             &conn,
             &root,
-            1,
+            &TrackId::from("1"),
             Some("A"),
             Some("A"),
             Some("Album"),
@@ -740,7 +744,7 @@ mod tests {
             fs::write(dir.join(format!("{FRONT_STEM}.jpg")), b"front").unwrap();
 
             let removed = crate::models::Track {
-                id: 1,
+                id: TrackId::from("1"),
                 title: dots.to_string(),
                 artist: Some(dots.to_string()),
                 album: Some(dots.to_string()),
@@ -814,7 +818,7 @@ mod tests {
         fs::write(&own, b"one").unwrap();
         fs::write(&other, b"ten").unwrap();
 
-        remove_playlist_artwork(&root, 1).unwrap();
+        remove_playlist_artwork(&root, &PlaylistId::from("1")).unwrap();
 
         assert!(!own.exists());
         assert!(other.is_file(), "playlist 10 art must remain");

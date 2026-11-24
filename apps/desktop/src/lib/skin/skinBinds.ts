@@ -47,7 +47,7 @@ import type {
   SkinSetting,
   SlideshowPresentation,
 } from "@/types/skin";
-import type { Track } from "@/types/track";
+import type { Track, TrackListId } from "@/types/track";
 import type { Playlist } from "@/types/playlist";
 import type { ScrollStripStateMap } from "./skinScrollStrip";
 import type { SlideshowStateMap } from "./skinSlideshow";
@@ -68,7 +68,7 @@ export interface SkinBindState {
   canGoPrevious: boolean;
   canGoNext: boolean;
   activeQueueLength: number;
-  currentTrackId: number | null;
+  currentTrackId: TrackListId | null;
   alwaysOnTop: boolean;
   currentPlayable: PlayableRef | null;
   /** View ids with open auxiliary windows for the active skin. */
@@ -82,8 +82,8 @@ export interface SkinBindState {
   library: Track[];
   playbackTracks: Track[];
   cdQueueTracks?: Track[];
-  playContextIds: number[];
-  manualQueueIds: number[];
+  playContextIds: TrackListId[];
+  manualQueueIds: TrackListId[];
   eqEnabled: boolean;
   eqPresetId: string;
   eqBands: EqualizerBandGains;

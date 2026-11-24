@@ -1,9 +1,9 @@
-import type { RepeatMode } from "./track";
+import type { RepeatMode, TrackListId } from "./track";
 
 export interface PlaybackSession {
-  playContextIds: number[];
-  manualQueueIds: number[];
-  currentTrackId: number | null;
+  playContextIds: TrackListId[];
+  manualQueueIds: TrackListId[];
+  currentTrackId: TrackListId | null;
   positionSeconds: number;
   shuffle: boolean;
   repeatMode: RepeatMode;

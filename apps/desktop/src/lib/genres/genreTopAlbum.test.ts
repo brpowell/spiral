@@ -5,7 +5,7 @@ import { topAlbumForGenre } from "./genreTopAlbum";
 let nextId = 1;
 function track(album: string, artPath: string | null, id = nextId++): Track {
   return {
-    id,
+    id: String(id),
     title: `t${id}`,
     artist: "A",
     album,

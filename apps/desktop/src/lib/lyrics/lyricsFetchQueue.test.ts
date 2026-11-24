@@ -10,20 +10,20 @@ const {
   fetchingTrackIds,
   queuedTrackIds,
 } = vi.hoisted(() => {
-  const fetchingTrackIds = new Set<number>();
-  const queuedTrackIds = new Set<number>();
+  const fetchingTrackIds = new Set<string>();
+  const queuedTrackIds = new Set<string>();
   return {
     runInBackgroundMock: vi.fn(),
     runSingleLyricsFetchMock: vi.fn(),
     clearPendingMock: vi.fn(),
-    setFetchingMock: vi.fn((trackId: number, isFetching: boolean) => {
+    setFetchingMock: vi.fn((trackId: TrackId, isFetching: boolean) => {
       if (isFetching) {
         fetchingTrackIds.add(trackId);
       } else {
         fetchingTrackIds.delete(trackId);
       }
     }),
-    setQueuedMock: vi.fn((trackId: number, isQueued: boolean) => {
+    setQueuedMock: vi.fn((trackId: TrackId, isQueued: boolean) => {
       if (isQueued) {
         queuedTrackIds.add(trackId);
       } else {
@@ -73,6 +73,7 @@ import {
   LYRICS_FETCH_BULK_KEY,
   resetLyricsFetchQueueForTests,
 } from "./lyricsFetchQueue";
+import type { TrackId } from "@/types/track";
 
 const params = {
   artist: "Artist",
@@ -179,42 +180,42 @@ describe("enqueueLyricsFetch", () => {
   }
 
   it("processes manual items before auto items", async () => {
-    const order: number[] = [];
-    runSingleLyricsFetchMock.mockImplementation(async (trackId: number) => {
+    const order: string[] = [];
+    runSingleLyricsFetchMock.mockImplementation(async (trackId: TrackId) => {
       order.push(trackId);
       return { status: "found" };
     });
 
-    enqueueLyricsFetch(1, "Auto One", params, { priority: "auto" });
-    enqueueLyricsFetch(2, "Manual Two", params, { priority: "manual" });
+    enqueueLyricsFetch("1", "Auto One", params, { priority: "auto" });
+    enqueueLyricsFetch("2", "Manual Two", params, { priority: "manual" });
     await runCapturedProcessor();
 
-    expect(order).toEqual([2, 1]);
+    expect(order).toEqual(["2", "1"]);
   });
 
   it("promotes an auto-queued track to the manual queue front", async () => {
-    const order: number[] = [];
-    runSingleLyricsFetchMock.mockImplementation(async (trackId: number) => {
+    const order: string[] = [];
+    runSingleLyricsFetchMock.mockImplementation(async (trackId: TrackId) => {
       order.push(trackId);
       return { status: "found" };
     });
 
-    enqueueLyricsFetch(1, "Auto One", params, { priority: "auto" });
-    enqueueLyricsFetch(2, "Manual Two", params, { priority: "manual" });
-    enqueueLyricsFetch(1, "Auto One", params, { priority: "manual" });
+    enqueueLyricsFetch("1", "Auto One", params, { priority: "auto" });
+    enqueueLyricsFetch("2", "Manual Two", params, { priority: "manual" });
+    enqueueLyricsFetch("1", "Auto One", params, { priority: "manual" });
     await runCapturedProcessor();
 
-    expect(order).toEqual([1, 2]);
+    expect(order).toEqual(["1", "2"]);
   });
 
   it("uses solo labels for a single successful fetch", async () => {
     runSingleLyricsFetchMock.mockResolvedValue({ status: "found" });
 
-    enqueueLyricsFetch(1, "Song", params, { priority: "manual" });
+    enqueueLyricsFetch("1", "Song", params, { priority: "manual" });
     const ctx = await runCapturedProcessor();
 
     expect(runSingleLyricsFetchMock).toHaveBeenCalledWith(
-      1,
+      "1",
       params,
       expect.objectContaining({ skipIfHasLyrics: false }),
     );
@@ -226,14 +227,14 @@ describe("enqueueLyricsFetch", () => {
   it("passes skipIfHasLyrics for auto-priority fetches", async () => {
     runSingleLyricsFetchMock.mockResolvedValue({ status: "found" });
 
-    enqueueLyricsFetch(1, "Song", params, {
+    enqueueLyricsFetch("1", "Song", params, {
       priority: "auto",
       respectMissCache: true,
     });
     await runCapturedProcessor();
 
     expect(runSingleLyricsFetchMock).toHaveBeenCalledWith(
-      1,
+      "1",
       params,
       expect.objectContaining({
         skipIfHasLyrics: true,
@@ -245,7 +246,7 @@ describe("enqueueLyricsFetch", () => {
   it("dismisses silently for a solo not-found fetch", async () => {
     runSingleLyricsFetchMock.mockResolvedValue({ status: "not_found" });
 
-    enqueueLyricsFetch(1, "Song", params, { priority: "manual" });
+    enqueueLyricsFetch("1", "Song", params, { priority: "manual" });
     const ctx = await runCapturedProcessor();
 
     expect(ctx.dismissedSilently).toBe(true);
@@ -256,8 +257,8 @@ describe("enqueueLyricsFetch", () => {
       .mockResolvedValueOnce({ status: "found" })
       .mockResolvedValueOnce({ status: "not_found" });
 
-    enqueueLyricsFetch(1, "Song One", params, { priority: "manual" });
-    enqueueLyricsFetch(2, "Song Two", params, { priority: "auto" });
+    enqueueLyricsFetch("1", "Song One", params, { priority: "manual" });
+    enqueueLyricsFetch("2", "Song Two", params, { priority: "auto" });
     const ctx = await runCapturedProcessor();
 
     expect(ctx.labels.at(-1)).toBe("Fetching lyrics…");
@@ -281,8 +282,8 @@ describe("enqueueLyricsFetch", () => {
         error: new Error("connection refused"),
       });
 
-    enqueueLyricsFetch(1, "Song One", params, { priority: "manual" });
-    enqueueLyricsFetch(2, "Song Two", params, { priority: "manual" });
+    enqueueLyricsFetch("1", "Song One", params, { priority: "manual" });
+    enqueueLyricsFetch("2", "Song Two", params, { priority: "manual" });
     const ctx = await runCapturedProcessor();
 
     expect(ctx.settleCalls).toEqual([
@@ -302,8 +303,8 @@ describe("enqueueLyricsFetch", () => {
         error: new Error("network timeout"),
       });
 
-    enqueueLyricsFetch(1, "Song One", params, { priority: "manual" });
-    enqueueLyricsFetch(2, "Song Two", params, { priority: "manual" });
+    enqueueLyricsFetch("1", "Song One", params, { priority: "manual" });
+    enqueueLyricsFetch("2", "Song Two", params, { priority: "manual" });
     const ctx = await runCapturedProcessor();
 
     expect(ctx.settleCalls).toEqual([
@@ -319,7 +320,7 @@ describe("enqueueLyricsFetch", () => {
   it("settles solo ambiguous as success with Choose", async () => {
     runSingleLyricsFetchMock.mockResolvedValue({ status: "ambiguous" });
 
-    enqueueLyricsFetch(1, "Song", params, { priority: "manual" });
+    enqueueLyricsFetch("1", "Song", params, { priority: "manual" });
     const ctx = await runCapturedProcessor();
 
     expect(ctx.settleCalls).toEqual([
@@ -332,7 +333,7 @@ describe("enqueueLyricsFetch", () => {
   });
 
   it("starts the shared bulk background task with a stable key", () => {
-    enqueueLyricsFetch(1, "Song", params, { priority: "manual" });
+    enqueueLyricsFetch("1", "Song", params, { priority: "manual" });
 
     expect(runInBackgroundMock).toHaveBeenCalledWith(
       expect.objectContaining({ key: LYRICS_FETCH_BULK_KEY }),
@@ -341,8 +342,8 @@ describe("enqueueLyricsFetch", () => {
 
   it("switches to bulk toast immediately when another track is enqueued mid-fetch", async () => {
     let unblockFirst: (() => void) | undefined;
-    runSingleLyricsFetchMock.mockImplementation((trackId: number) => {
-      if (trackId === 1) {
+    runSingleLyricsFetchMock.mockImplementation((trackId: TrackId) => {
+      if (trackId === "1") {
         return new Promise((resolve) => {
           unblockFirst = () => resolve({ status: "found" });
         });
@@ -357,10 +358,10 @@ describe("enqueueLyricsFetch", () => {
       return "task-id";
     });
 
-    enqueueLyricsFetch(1, "Song One", params, { priority: "manual" });
+    enqueueLyricsFetch("1", "Song One", params, { priority: "manual" });
     await Promise.resolve();
 
-    enqueueLyricsFetch(2, "Song Two", params, { priority: "auto" });
+    enqueueLyricsFetch("2", "Song Two", params, { priority: "auto" });
 
     expect(ctx.labels.at(-1)).toBe("Fetching lyrics…");
     expect(ctx.progress.at(-1)).toEqual({ current: 0, total: 2 });

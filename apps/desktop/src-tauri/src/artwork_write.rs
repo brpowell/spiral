@@ -4,6 +4,7 @@ use crate::artwork_paths::{
     override_art_filename, playlist_artwork_path_stem, to_library_relative, FRONT_STEM,
     PORTRAIT_STEM,
 };
+use crate::ids::PlaylistId;
 use crate::metadata_reader;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -37,10 +38,9 @@ pub fn write_art_for_cache_key(
             Some((id, title)) => (id, title),
             None => (rest, "playlist"),
         };
-        let id: i64 = id_str
-            .parse()
-            .map_err(|_| format!("invalid playlist art key: {cache_key}"))?;
-        return write_playlist_art(library_root, id, title, bytes, mime_or_ext);
+        let id = PlaylistId::parse(id_str)
+            .ok_or_else(|| format!("invalid playlist art key: {cache_key}"))?;
+        return write_playlist_art(library_root, &id, title, bytes, mime_or_ext);
     }
     if let Some(track_path) = cache_key.strip_prefix("track-override:") {
         let tags = metadata_reader::read_basic_tags(Path::new(track_path));
@@ -176,7 +176,7 @@ fn write_artist_portrait(
 
 fn write_playlist_art(
     library_root: &Path,
-    playlist_id: i64,
+    playlist_id: &PlaylistId,
     title: &str,
     bytes: &[u8],
     mime_or_ext: &str,
@@ -196,7 +196,7 @@ fn write_playlist_art(
 /// Bake a crop from `source_path` and write the display playlist cover only.
 pub fn store_cropped_playlist_art(
     library_root: &Path,
-    playlist_id: i64,
+    playlist_id: &PlaylistId,
     title: &str,
     source_path: &str,
     crop: crate::image_crop::ImageCrop,
@@ -222,7 +222,7 @@ pub fn store_cropped_playlist_art(
     Ok(display.to_string_lossy().into_owned())
 }
 
-fn clear_playlist_art_files(library_root: &Path, playlist_id: i64) -> Result<(), String> {
+fn clear_playlist_art_files(library_root: &Path, playlist_id: &PlaylistId) -> Result<(), String> {
     let dir = artwork_paths::artwork_root(library_root).join(artwork_paths::PLAYLISTS_DIR);
     if !dir.is_dir() {
         return Ok(());
@@ -321,13 +321,19 @@ mod tests {
             width: 0.5,
             height: 1.0,
         };
-        let display =
-            store_cropped_playlist_art(&root, 7, "Summer", source_path.to_str().unwrap(), crop)
-                .unwrap();
+        let display = store_cropped_playlist_art(
+            &root,
+            &PlaylistId::from("7"),
+            "Summer",
+            source_path.to_str().unwrap(),
+            crop,
+        )
+        .unwrap();
 
         let display_path = PathBuf::from(&display);
         assert!(display_path.is_file());
-        let stem = artwork_paths::playlist_artwork_path_stem(&root, 7, "Summer");
+        let stem =
+            artwork_paths::playlist_artwork_path_stem(&root, &PlaylistId::from("7"), "Summer");
         let parent = stem.parent().unwrap();
         let entries: Vec<_> = fs::read_dir(parent)
             .unwrap()

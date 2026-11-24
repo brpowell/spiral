@@ -1,3 +1,5 @@
+import type { TrackId } from "./track";
+
 /**
  * A library source: a folder of tracks the user chose. There may be none.
  * Other (id 2, loose files with no folder) is built in. Libraries from before
@@ -83,7 +85,7 @@ export interface FileLocation {
 /** One file operation in a plan. Only moves exist so far. */
 export interface FileOp {
   kind: "move";
-  trackId: number;
+  trackId: TrackId;
   from: FileLocation;
   to: FileLocation;
 }
@@ -94,7 +96,7 @@ export interface FileOp {
  */
 export type FileConflict =
   | { kind: "targetExists"; wanted: string }
-  | { kind: "duplicateTarget"; wanted: string; otherTrackId: number }
+  | { kind: "duplicateTarget"; wanted: string; otherTrackId: TrackId }
   | { kind: "sourceMissing" }
   | { kind: "sourceUnreadable"; error: string }
   | { kind: "insideSpiralFolder" }

@@ -19,7 +19,7 @@ function setup(playlists: Playlist[] = []) {
 }
 
 const playlist: Playlist = {
-  id: 1,
+  id: "1",
   title: "Road Trip",
   description: null,
   dateCreated: "2026-01-01",

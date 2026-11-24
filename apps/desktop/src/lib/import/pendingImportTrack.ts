@@ -1,18 +1,31 @@
 import { isCdTrackListId } from "@/lib/cd/cdTracks";
-import { mbidFieldsFrom, type Track, type TrackInput } from "@/types/track";
+import {
+  mbidFieldsFrom,
+  type Track,
+  type TrackInput,
+  type TrackListId,
+} from "@/types/track";
 
-let nextPendingId = -1;
+const PENDING_TRACK_ID_PREFIX = "pending:";
+
+let nextPendingId = 1;
 
 export function resetPendingTrackIds(): void {
-  nextPendingId = -1;
+  nextPendingId = 1;
 }
 
-export function allocPendingTrackId(): number {
-  return nextPendingId--;
+/** A synthetic `pending:<n>` id for a track row still being imported. */
+export function allocPendingTrackId(): TrackListId {
+  return `${PENDING_TRACK_ID_PREFIX}${nextPendingId++}`;
 }
 
-export function isPendingTrackId(id: number): boolean {
-  return id < 0 && !isCdTrackListId(id);
+export function isPendingTrackId(id: TrackListId): boolean {
+  return id.startsWith(PENDING_TRACK_ID_PREFIX);
+}
+
+/** True for a saved library track's id: neither a pending import nor a CD row. */
+export function isLibraryTrackId(id: TrackListId): boolean {
+  return !isPendingTrackId(id) && !isCdTrackListId(id);
 }
 
 export function isTrackImporting(track: Track): boolean {
@@ -25,11 +38,11 @@ export function isTrackInteractive(track: Track): boolean {
 
 /** Library tracks that can be converted (saved rows, not mid-import). */
 export function isTrackConvertible(track: Track): boolean {
-  return track.id > 0 && isTrackInteractive(track);
+  return isLibraryTrackId(track.id) && isTrackInteractive(track);
 }
 
 export function pendingTrackFromInput(
-  id: number,
+  id: TrackListId,
   sourcePath: string,
   input: TrackInput,
 ): Track {

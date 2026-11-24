@@ -5,7 +5,7 @@ import { usePlayerStore } from "@/store/usePlayerStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";
 import { useSkinStore } from "@/store/useSkinStore";
 import type { Playlist } from "@/types/playlist";
-import type { Track } from "@/types/track";
+import type { Track, TrackId } from "@/types/track";
 
 function track(
   id: number,
@@ -13,7 +13,7 @@ function track(
   overrides: Partial<Track> = {},
 ): Track {
   return {
-    id,
+    id: String(id),
     title,
     artist: null,
     album: null,
@@ -35,7 +35,7 @@ function track(
   };
 }
 
-function playlist(id: number, title: string, trackIds: number[]): Playlist {
+function playlist(id: string, title: string, trackIds: TrackId[]): Playlist {
   return {
     id,
     title,
@@ -76,30 +76,30 @@ describe("playbackStart", () => {
 
   it("starts all tracks from the first title when the set list is empty", () => {
     playOrResume();
-    expect(playTracks).toHaveBeenCalledWith([2, 1, 3], 2);
+    expect(playTracks).toHaveBeenCalledWith(["2", "1", "3"], "2");
   });
 
   it("does not shrink the play context to the skin playlist filter", () => {
     useSkinStore.setState({ playlistFilterQuery: "A" });
     playOrResume();
-    expect(playTracks).toHaveBeenCalledWith([2, 1, 3], 2);
+    expect(playTracks).toHaveBeenCalledWith(["2", "1", "3"], "2");
   });
 
   it("starts the selected playlist when that source has tracks", () => {
     useSkinStore.setState({ playlistSourceId: "playlist:9" });
     usePlaylistStore.setState({
-      playlists: [playlist(9, "Mix", [3, 1])],
+      playlists: [playlist("9", "Mix", ["3", "1"])],
     });
 
     playOrResume();
-    expect(playTracks).toHaveBeenCalledWith([3, 1], 3);
+    expect(playTracks).toHaveBeenCalledWith(["3", "1"], "3");
   });
 
   it("falls back to all tracks when Up Next is empty after stop", () => {
     useSkinStore.setState({ playlistSourceId: SKIN_PLAYLIST_SOURCE_UP_NEXT });
 
     playOrResume();
-    expect(playTracks).toHaveBeenCalledWith([2, 1, 3], 2);
+    expect(playTracks).toHaveBeenCalledWith(["2", "1", "3"], "2");
   });
 
   it("skips tracks already flagged unplayable when choosing a start id", () => {
@@ -112,12 +112,12 @@ describe("playbackStart", () => {
     });
 
     playOrResume();
-    expect(playTracks).toHaveBeenCalledWith([2, 1, 3], 1);
+    expect(playTracks).toHaveBeenCalledWith(["2", "1", "3"], "1");
   });
 
   it("resumes a paused current track", () => {
     usePlayerStore.setState({
-      currentTrackId: 1,
+      currentTrackId: "1",
       playbackState: "paused",
     });
 

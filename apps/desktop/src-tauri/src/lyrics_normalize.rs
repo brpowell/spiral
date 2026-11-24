@@ -1,4 +1,5 @@
 use crate::db;
+use crate::ids::TrackId;
 use crate::lyrics_lrc;
 use crate::lyrics_tags::RawLyrics;
 use crate::models::{LyricsFormat, LyricsSource, TrackLyricsInput, TrackLyricsRecord};
@@ -67,9 +68,12 @@ pub fn resolve_embedded_and_sidecar_lyrics(
     }
 }
 
-pub fn track_lyrics_input_to_record(input: TrackLyricsInput, track_id: i64) -> TrackLyricsRecord {
+pub fn track_lyrics_input_to_record(
+    input: TrackLyricsInput,
+    track_id: &TrackId,
+) -> TrackLyricsRecord {
     TrackLyricsRecord {
-        track_id,
+        track_id: track_id.clone(),
         format: input.format,
         source: input.source,
         lines: input.lines,
@@ -92,7 +96,7 @@ pub fn track_lyrics_record_to_input(record: TrackLyricsRecord) -> TrackLyricsInp
 /// wipe library lyrics until conflict UI exists (Phase 2).
 pub fn persist_import_lyrics(
     conn: &Connection,
-    track_id: i64,
+    track_id: &TrackId,
     lyrics: &Option<TrackLyricsInput>,
 ) -> rusqlite::Result<()> {
     let Some(lyrics) = lyrics else {
@@ -109,7 +113,7 @@ pub fn persist_import_lyrics(
 /// lyrics (other than an instrumental marker) clear them.
 pub fn save_track_lyrics(
     conn: &Connection,
-    track_id: i64,
+    track_id: &TrackId,
     lyrics: Option<&TrackLyricsInput>,
 ) -> rusqlite::Result<()> {
     match lyrics.filter(|lyrics| {
@@ -207,9 +211,10 @@ mod tests {
             text: "Hello".to_string(),
             hint: LyricsFormatHint::Plain,
         });
-        let record = track_lyrics_input_to_record(input, 42);
+        let id = TrackId::new();
+        let record = track_lyrics_input_to_record(input, &id);
 
-        assert_eq!(record.track_id, 42);
+        assert_eq!(record.track_id, id);
         assert_eq!(record.plain_text, "Hello");
         assert!(!record.updated_at.is_empty());
     }

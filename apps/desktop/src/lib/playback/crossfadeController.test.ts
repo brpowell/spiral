@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { cdTrackListId } from "@/lib/cd/cdTracks";
 import { effectiveFadeSeconds } from "./canCrossfade";
 import {
   CrossfadeController,
@@ -104,12 +105,12 @@ function crossfadeScheduleArgs(
 ) {
   return {
     crossfadeSeconds: 7,
-    currentPlayable: { type: "library" as const, trackId: 1 },
-    currentTrackId: 1,
+    currentPlayable: { type: "library" as const, trackId: "1" },
+    currentTrackId: "1",
     currentSource: { kind: "file" as const, path: "/a.wav" },
-    nextPlayable: { type: "library" as const, trackId: 2 },
+    nextPlayable: { type: "library" as const, trackId: "2" },
     nextSource: { kind: "file" as const, path: "/b.flac" },
-    nextTrackId: 2,
+    nextTrackId: "2",
     repeatMode: "off" as const,
     volume: 1,
     muted: false,
@@ -196,8 +197,8 @@ describe("CrossfadeController", () => {
     await vi.advanceTimersByTimeAsync(3500);
 
     expect(onActiveTrackChange).toHaveBeenCalledWith({
-      incomingPlayable: { type: "library", trackId: 2 },
-      incomingTrackListId: 2,
+      incomingPlayable: { type: "library", trackId: "2" },
+      incomingTrackListId: "2",
     });
     expect(controller.getActiveEngine()).toBe(deckB);
 
@@ -231,8 +232,8 @@ describe("CrossfadeController", () => {
 
     const midFade = controller.getCrossfadeVisualState();
     expect(midFade).toEqual({
-      outgoingTrackId: 1,
-      incomingTrackId: 2,
+      outgoingTrackId: "1",
+      incomingTrackId: "2",
       progress: expect.any(Number),
     });
     expect(midFade!.progress).toBeGreaterThanOrEqual(0);
@@ -410,9 +411,9 @@ describe("CrossfadeController", () => {
 
     controller.maybeScheduleCrossfade(
       crossfadeScheduleArgs({
-        nextPlayable: { type: "library", trackId: 1 },
+        nextPlayable: { type: "library", trackId: "1" },
         nextSource: { kind: "file", path: "/a.wav" },
-        nextTrackId: 1,
+        nextTrackId: "1",
         repeatMode: "one",
       }),
     );
@@ -553,7 +554,7 @@ describe("CrossfadeController", () => {
     await vi.waitFor(() => {
       expect(deckB.play).toHaveBeenCalled();
     });
-    expect(controller.getCrossfadeIncomingTrackId()).toBe(2);
+    expect(controller.getCrossfadeIncomingTrackId()).toBe("2");
 
     deckB.load.mockClear();
     deckB.play.mockClear();
@@ -561,9 +562,9 @@ describe("CrossfadeController", () => {
     const track3Source: PlaybackSource = { kind: "file", path: "/c.flac" };
     controller.startCrossfadeNow(
       crossfadeScheduleArgs({
-        nextTrackId: 3,
+        nextTrackId: "3",
         nextSource: track3Source,
-        nextPlayable: { type: "library", trackId: 3 },
+        nextPlayable: { type: "library", trackId: "3" },
       }),
     );
 
@@ -571,7 +572,7 @@ describe("CrossfadeController", () => {
       expect(deckB.load).toHaveBeenCalledWith(track3Source);
       expect(deckB.play).toHaveBeenCalled();
     });
-    expect(controller.getCrossfadeIncomingTrackId()).toBe(3);
+    expect(controller.getCrossfadeIncomingTrackId()).toBe("3");
 
     await vi.advanceTimersByTimeAsync(7050);
     expect(controller.getCrossfadeIncomingTrackId()).toBeNull();
@@ -756,8 +757,8 @@ describe("CrossfadeController", () => {
     expect(deckA.release).toHaveBeenCalled();
     expect(controller.getActiveEngine()).toBe(deckB);
     expect(onActiveTrackChange).toHaveBeenCalledWith({
-      incomingPlayable: { type: "library", trackId: 2 },
-      incomingTrackListId: 2,
+      incomingPlayable: { type: "library", trackId: "2" },
+      incomingTrackListId: "2",
     });
     expect(onEnd).not.toHaveBeenCalled();
     expect(controller.consumeHandledEnd()).toBe(false);
@@ -923,9 +924,9 @@ describe("CrossfadeController", () => {
       crossfadeScheduleArgs({
         positionSeconds: 179,
         outgoingDuration: 180,
-        nextPlayable: { type: "library", trackId: 1 },
+        nextPlayable: { type: "library", trackId: "1" },
         nextSource: { kind: "file", path: "/a.wav" },
-        nextTrackId: 1,
+        nextTrackId: "1",
         repeatMode: "one",
       }),
     );
@@ -983,7 +984,7 @@ describe("CrossfadeController", () => {
           driveId: "drive-a",
           trackNumber: 1,
         },
-        currentTrackId: -1,
+        currentTrackId: cdTrackListId(1),
         currentSource,
         nextPlayable: {
           type: "cd",
@@ -991,7 +992,7 @@ describe("CrossfadeController", () => {
           trackNumber: 2,
         },
         nextSource,
-        nextTrackId: -2,
+        nextTrackId: cdTrackListId(2),
         positionSeconds: 179,
         outgoingDuration: 180,
         onActiveTrackChange,
@@ -1012,7 +1013,7 @@ describe("CrossfadeController", () => {
         driveId: "drive-a",
         trackNumber: 2,
       },
-      incomingTrackListId: -2,
+      incomingTrackListId: cdTrackListId(2),
     });
     expect(deckA.release).toHaveBeenCalled();
     expect(controller.getActiveEngine()).toBe(deckB);

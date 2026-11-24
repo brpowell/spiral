@@ -39,13 +39,14 @@ import {
   type TrackListSortField,
 } from "./types";
 import { checkAllState } from "@/lib/tracks/trackCheckSelection";
-import type { Track } from "@/types/track";
+import type { Track, TrackId, TrackListId } from "@/types/track";
 import type { CanonicalRating } from "@/lib/tracks/trackRating";
 import { useTrackListVirtualizer } from "./useTrackListVirtualizer";
 import { usePrefetchVirtualRowArt } from "./usePrefetchVirtualRowArt";
 import { useTrackListHeaderRoving } from "./useTrackListHeaderRoving";
 import { useTrackListRowRoving } from "./useTrackListRowRoving";
 import "./TrackList.css";
+import type { PlaylistId } from "@/types/playlist";
 
 /** Pointer-only — keyboard rearrange uses Alt+Arrow on the focused row. */
 const TRACK_SORT_SENSORS = [HANDLE_POINTER_SENSOR];
@@ -60,31 +61,31 @@ function sortFieldForColumn(
 interface TrackListProps {
   presetId: TrackListPresetId;
   tracks: Track[];
-  selectedTrackIds: number[];
-  currentTrackId: number | null;
+  selectedTrackIds: TrackListId[];
+  currentTrackId: TrackListId | null;
   playbackState: "playing" | "paused" | "stopped";
   onSelectTrack: (track: Track, e: React.MouseEvent) => void;
   onPlayTrack: (track: Track) => void;
-  onRatingChange?: (trackId: number, rating: CanonicalRating) => void;
+  onRatingChange?: (trackId: TrackId, rating: CanonicalRating) => void;
   sortField?: TrackListSortField;
   sortDir?: TrackListSortDir;
   onSort?: (field: TrackListSortField) => void;
   emptyMessage?: string;
   className?: string;
   showAlbumArt?: boolean;
-  playlistId?: number;
+  playlistId?: PlaylistId;
   reorderable?: boolean;
-  onReorderTracks?: (trackIds: number[]) => void;
+  onReorderTracks?: (trackIds: TrackId[]) => void;
   readOnly?: boolean;
   canNavigateAlbum?: (track: Track) => boolean;
   cdDriveId?: string;
   checkMode?: boolean;
-  checkedTrackIds?: number[];
+  checkedTrackIds?: TrackListId[];
   onToggleChecked?: (track: Track, checked: boolean) => void;
   onToggleAllChecked?: (checked: boolean) => void;
-  cdImportingTrackIds?: ReadonlySet<number>;
-  cdImportingActiveTrackId?: number | null;
-  cdImportCompletedTrackIds?: ReadonlySet<number>;
+  cdImportingTrackIds?: ReadonlySet<TrackListId>;
+  cdImportingActiveTrackId?: TrackListId | null;
+  cdImportCompletedTrackIds?: ReadonlySet<TrackListId>;
   /** Grow to fill the parent. Use false when the list lives in a page-style scroller. */
   fillHeight?: boolean;
 }
@@ -102,7 +103,7 @@ function SortableTrackListRow({
   ...rowProps
 }: TrackListRowProps & {
   sortableGroup: string;
-  onDropSettled?: (trackId: number) => void;
+  onDropSettled?: (trackId: TrackId) => void;
 }) {
   // Keep the sortable element on the <li>, but activate drag from the grip
   // so row keyboard nav (Space to select, Enter to play) stays intact.
@@ -210,8 +211,8 @@ export function TrackList({
   const sortableGroup =
     playlistId != null ? `playlist-tracks-${playlistId}` : "playlist-tracks";
   const pendingReorderRef = useRef<{
-    sourceId: number;
-    trackIds: number[];
+    sourceId: TrackListId;
+    trackIds: TrackId[];
   } | null>(null);
 
   const openAlbum = useNavigationStore((s) => s.openAlbum);
@@ -539,7 +540,7 @@ export function TrackList({
   };
 
   const flushPendingReorder = useCallback(
-    (trackId: number) => {
+    (trackId: TrackId) => {
       const pending = pendingReorderRef.current;
       if (!pending || pending.sourceId !== trackId || !onReorderTracks) return;
       pendingReorderRef.current = null;
@@ -566,7 +567,7 @@ export function TrackList({
       // while the hidden placeholder is still mounted races reconciliation and
       // briefly flashes an empty row (especially when moving down).
       pendingReorderRef.current = {
-        sourceId: Number(event.operation.source?.id),
+        sourceId: String(event.operation.source?.id),
         trackIds: next.map((track) => track.id),
       };
     },

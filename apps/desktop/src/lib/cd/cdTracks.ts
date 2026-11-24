@@ -1,5 +1,5 @@
 import type { CdDisc, CdDiscCdText, CdTrack, DiscTocTrack } from "@/types/cd";
-import { mbidFieldsFrom, type Track } from "@/types/track";
+import { mbidFieldsFrom, type Track, type TrackListId } from "@/types/track";
 import { t } from "@/lib/i18n/i18n";
 
 const PLACEHOLDER_TRACK_TITLE = /^Track \d+$/;
@@ -31,22 +31,22 @@ export function mergeCdTextIntoDisc(
 }
 
 /**
- * CD rows get synthetic ids below this base so they stay disjoint from both
- * library ids (positive) and pending-import ids (small negatives from -1 down).
+ * CD rows get synthetic `cd:<track number>` ids, disjoint from library ids (UUIDs) and
+ * pending-import ids (`pending:<n>`).
  */
-const CD_TRACK_LIST_ID_BASE = -1_000_000_000;
+const CD_TRACK_LIST_ID_PREFIX = "cd:";
 
-/** Synthetic library IDs for CD rows in TrackList (negative, scoped to disc view). */
-export function cdTrackListId(trackNumber: number): number {
-  return CD_TRACK_LIST_ID_BASE - trackNumber;
+/** Synthetic track list id for a CD row (scoped to the disc view and its queue). */
+export function cdTrackListId(trackNumber: number): TrackListId {
+  return `${CD_TRACK_LIST_ID_PREFIX}${trackNumber}`;
 }
 
-export function isCdTrackListId(id: number): boolean {
-  return id <= CD_TRACK_LIST_ID_BASE;
+export function isCdTrackListId(id: TrackListId): boolean {
+  return id.startsWith(CD_TRACK_LIST_ID_PREFIX);
 }
 
-export function cdTrackNumberFromListId(id: number): number {
-  return CD_TRACK_LIST_ID_BASE - id;
+export function cdTrackNumberFromListId(id: TrackListId): number {
+  return Number(id.slice(CD_TRACK_LIST_ID_PREFIX.length));
 }
 
 export function cdTracksForList(disc: CdDisc): Track[] {

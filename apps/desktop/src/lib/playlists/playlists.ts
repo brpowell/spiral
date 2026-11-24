@@ -1,4 +1,4 @@
-import type { Playlist } from "@/types/playlist";
+import type { Playlist, PlaylistId } from "@/types/playlist";
 import type { Track } from "@/types/track";
 import { compareLocalized } from "@/lib/i18n/appLocale";
 
@@ -32,7 +32,7 @@ export function sortedPlaylists(playlists: Playlist[]): Playlist[] {
 
 export function getPlaylistById(
   playlists: Playlist[],
-  id: number,
+  id: PlaylistId,
 ): Playlist | undefined {
   return playlists.find((p) => p.id === id);
 }

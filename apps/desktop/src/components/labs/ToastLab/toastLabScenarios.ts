@@ -47,7 +47,7 @@ import {
 import { libraryRefreshSettleOptions } from "@/lib/refreshLibraryMetadata";
 import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
 import type { LyricsSearchCandidate } from "@/types/lyrics";
-import type { Track } from "@/types/track";
+import type { Track, TrackId } from "@/types/track";
 import type {
   BackgroundTaskRunContext,
   useBackgroundTasksStore,
@@ -131,14 +131,14 @@ function toastLabCandidate(
  */
 function seedToastLabLyricsReview(
   items: Array<{
-    trackId: number;
+    trackId: TrackId;
     title: string;
     artist?: string;
     album?: string;
     durationSeconds?: number;
     candidates: LyricsSearchCandidate[];
   }>,
-): number[] {
+): TrackId[] {
   const store = useLyricsFetchStore.getState();
   const stubs = items.map((item) =>
     toastLabStubTrack({
@@ -940,7 +940,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     fire: ({ showToast, dismissMs }) => {
       const [trackId] = seedToastLabLyricsReview([
         {
-          trackId: 7,
+          trackId: "lab-7",
           title: "Song",
           candidates: [
             toastLabCandidate(101, {
@@ -975,7 +975,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     fire: ({ showToast, dismissMs }) => {
       const trackIds = seedToastLabLyricsReview([
         {
-          trackId: 901,
+          trackId: "lab-901",
           title: "Neon Highways",
           artist: "Circuit Bloom",
           album: "Night Drive",
@@ -996,7 +996,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
           ],
         },
         {
-          trackId: 902,
+          trackId: "lab-902",
           title: "Static Bloom",
           artist: "Violet Static",
           album: "Afterimage",
@@ -1029,7 +1029,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
           ],
         },
         {
-          trackId: 903,
+          trackId: "lab-903",
           title: "Glass Harbor",
           artist: "Marina Echo",
           album: "Tide Charts",
@@ -1072,7 +1072,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
       const errorLines = ["Song D: network timeout"];
       seedToastLabLyricsReview([
         {
-          trackId: 3,
+          trackId: "lab-3",
           title: "Song C",
           candidates: [
             toastLabCandidate(201, {
@@ -1133,7 +1133,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
                 failed: 1,
               },
               errorLines,
-              reviewTrackIds: [3],
+              reviewTrackIds: ["lab-3"],
             }),
             dismissMs,
           });

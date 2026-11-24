@@ -46,7 +46,12 @@ import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
 import type { Album } from "@/types/album";
 import type { CdDisc } from "@/types/cd";
 import type { TrackMetadataUpdate } from "@/types/metadata";
-import { mbidFieldsFrom, type Track, type TrackInput } from "@/types/track";
+import {
+  mbidFieldsFrom,
+  type Track,
+  type TrackInput,
+  type TrackListId,
+} from "@/types/track";
 
 export class CdImportCancelledError extends Error {
   constructor() {
@@ -63,7 +68,7 @@ interface CdImportTrackPlan {
   trackNumber: number;
   metadata: TrackMetadataUpdate;
   durationSeconds: number | null;
-  pendingId: number;
+  pendingId: TrackListId;
   rating: number;
 }
 
@@ -330,7 +335,7 @@ export function startCdImport(options: {
           const firstEntry = entries[0]?.metadata;
           if (firstEntry) {
             const key = albumKey({
-              id: 0,
+              id: "",
               title: firstEntry.title,
               artist: firstEntry.artist,
               album: firstEntry.album,

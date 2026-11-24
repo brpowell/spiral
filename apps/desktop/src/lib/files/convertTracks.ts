@@ -16,7 +16,7 @@ import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import { useConvertStore } from "@/store/useConvertStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { ACTIVITY_LOG_DOMAINS } from "@/types/activityLog";
-import type { Track } from "@/types/track";
+import type { Track, TrackId, TrackListId } from "@/types/track";
 import { formatPeerOutcomeTitle } from "@/lib/toast/toastPeerOutcomes";
 
 export type ConvertMode = "replace" | "add_new";
@@ -77,9 +77,9 @@ export function convertTracksSettleOptions(options: {
 }
 
 export function filterConvertibleTrackIds(
-  trackIds: number[],
+  trackIds: TrackId[],
   library: Track[],
-): number[] {
+): TrackId[] {
   return [...new Set(trackIds)].filter((id) => {
     const track = library.find((item) => item.id === id);
     return (
@@ -89,11 +89,11 @@ export function filterConvertibleTrackIds(
 }
 
 async function resolveConvertibleCandidatesOnDisk(
-  candidateIds: number[],
+  candidateIds: TrackListId[],
   library: Track[],
-): Promise<number[]> {
+): Promise<TrackId[]> {
   const updateTrackInLibrary = usePlayerStore.getState().updateTrackInLibrary;
-  const resolved: number[] = [];
+  const resolved: TrackId[] = [];
 
   for (const id of candidateIds) {
     const track = library.find((item) => item.id === id);
@@ -108,7 +108,7 @@ async function resolveConvertibleCandidatesOnDisk(
   return resolved;
 }
 
-export function openConvertForTrackIds(trackIds: number[]): void {
+export function openConvertForTrackIds(trackIds: TrackId[]): void {
   void (async () => {
     const library = usePlayerStore.getState().library;
     const candidates = filterConvertibleTrackIds(trackIds, library);
@@ -141,7 +141,7 @@ export function openConvertForTrackIds(trackIds: number[]): void {
 }
 
 export function startConvertTracks(options: {
-  trackIds: number[];
+  trackIds: TrackId[];
   profileId: string;
   mode: ConvertMode;
 }): void {

@@ -31,31 +31,31 @@ function track(overrides: Partial<Track> & Pick<Track, "id">): Track {
 describe("indexPlaybackTracks", () => {
   it("lets playback rows win over library rows with the same id", () => {
     const map = indexPlaybackTracks({
-      library: [track({ id: 1, title: "Library" })],
-      playbackTracks: [track({ id: 1, title: "Playback" })],
+      library: [track({ id: "1", title: "Library" })],
+      playbackTracks: [track({ id: "1", title: "Playback" })],
     });
 
-    expect(map.get(1)?.title).toBe("Playback");
+    expect(map.get("1")?.title).toBe("Playback");
   });
 
   it("lets CD queue rows win over library, but not playback rows", () => {
     const map = indexPlaybackTracks({
-      library: [track({ id: 1, title: "Library" })],
-      playbackTracks: [track({ id: 2, title: "Playback" })],
-      cdQueueTracks: [track({ id: 1, title: "CD" })],
+      library: [track({ id: "1", title: "Library" })],
+      playbackTracks: [track({ id: "2", title: "Playback" })],
+      cdQueueTracks: [track({ id: "1", title: "CD" })],
     });
 
-    expect(map.get(1)?.title).toBe("CD");
-    expect(map.get(2)?.title).toBe("Playback");
+    expect(map.get("1")?.title).toBe("CD");
+    expect(map.get("2")?.title).toBe("Playback");
   });
 });
 
 describe("findPlaybackTrack", () => {
   it("uses the same precedence as the index", () => {
     const found = findPlaybackTrack({
-      library: [track({ id: 1, title: "Library" })],
-      playbackTracks: [track({ id: 1, title: "Playback" })],
-      currentTrackId: 1,
+      library: [track({ id: "1", title: "Library" })],
+      playbackTracks: [track({ id: "1", title: "Playback" })],
+      currentTrackId: "1",
     });
 
     expect(found?.title).toBe("Playback");
@@ -64,7 +64,7 @@ describe("findPlaybackTrack", () => {
   it("returns undefined when nothing is playing", () => {
     expect(
       findPlaybackTrack({
-        library: [track({ id: 1 })],
+        library: [track({ id: "1" })],
         playbackTracks: [],
         currentTrackId: null,
       }),

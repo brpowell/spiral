@@ -14,7 +14,7 @@ import type { Playlist } from "@/types/playlist";
 
 function playlist(id: number, title: string): Playlist {
   return {
-    id,
+    id: String(id),
     title,
     description: null,
     dateCreated: "2026-01-01",
@@ -117,12 +117,12 @@ describe("captureReturnContext", () => {
           view: "library",
           albumKey: null,
           artistKey: null,
-          playlistId: 7,
+          playlistId: "7",
           cdDriveId: null,
         },
         [playlist(7, "Road Trip")],
       ),
-    ).toEqual({ kind: "playlist", playlistId: 7, title: "Road Trip" });
+    ).toEqual({ kind: "playlist", playlistId: "7", title: "Road Trip" });
   });
 
   it("captures disc title when opening album from CD detail", () => {
@@ -495,14 +495,14 @@ describe("navigation stack unwind", () => {
   it("unwinds Playlist → Album → Artist → Album → Playlist", () => {
     const store = useNavigationStore.getState();
 
-    store.openPlaylist(7);
+    store.openPlaylist("7");
     store.openAlbum(ALBUM_KEY);
     expect(useNavigationStore.getState()).toMatchObject({
       albumKey: ALBUM_KEY,
       playlistId: null,
       albumReturnContext: {
         kind: "playlist",
-        playlistId: 7,
+        playlistId: "7",
       },
     });
 
@@ -516,7 +516,7 @@ describe("navigation stack unwind", () => {
       },
       albumReturnContext: {
         kind: "playlist",
-        playlistId: 7,
+        playlistId: "7",
       },
     });
 
@@ -530,7 +530,7 @@ describe("navigation stack unwind", () => {
     store.closeAlbum();
     expect(useNavigationStore.getState()).toMatchObject({
       albumKey: null,
-      playlistId: 7,
+      playlistId: "7",
       albumReturnContext: null,
     });
   });

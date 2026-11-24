@@ -1,12 +1,17 @@
+import type { TrackId } from "./track";
+
 export type PlaylistImageMode = "generated" | "design" | "custom";
 
+/** A playlist's id: a UUIDv7 string. */
+export type PlaylistId = string;
+
 export interface Playlist {
-  id: number;
+  id: PlaylistId;
   title: string;
   description: string | null;
   dateCreated: string;
   lastUsedAt: string;
-  trackIds: number[];
+  trackIds: TrackId[];
   imageMode: PlaylistImageMode;
   customImagePath: string | null;
   /** Solid fill or gradient start (`#rrggbb`). Used when `imageMode` is `design`. */
