@@ -2,9 +2,9 @@ use crate::audio_properties::AudioProperties;
 use crate::db_migrations;
 use crate::ids::{EventId, PlaylistId, TrackId};
 use crate::models::{
-    ArtistImage, ClearListenHistoryResult, ListenEventInput, LyricsFormat, LyricsLine,
-    LyricsSource, Playlist, PlaylistImageMode, RecordListenEventResult, Track, TrackInput,
-    TrackLyricsRecord, TrackMetadataUpdate,
+    ClearListenHistoryResult, ListenEventInput, LyricsFormat, LyricsLine, LyricsSource, Playlist,
+    PlaylistImageMode, RecordListenEventResult, Track, TrackInput, TrackLyricsRecord,
+    TrackMetadataUpdate,
 };
 use crate::position_key;
 use crate::sources::{self, SourceRoots};
@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 const TRACK_SELECT: &str = "SELECT tracks.id, tracks.title, tracks.artist, tracks.album, tracks.album_artist, tracks.track_number, tracks.total_tracks, tracks.disc_number, tracks.total_discs,
-                tracks.year, tracks.genre, tracks.duration_seconds, tracks.sample_rate, tracks.bitrate, tracks.codec, tracks.rel_path, tracks.art_path,
+                tracks.year, tracks.genre, tracks.duration_seconds, tracks.sample_rate, tracks.bitrate, tracks.codec, tracks.rel_path,
                 tracks.date_added, tracks.play_count, tracks.last_played_at, tracks.rating,
                 tracks.recording_mbid, tracks.release_mbid, tracks.artist_mbids, tracks.album_artist_mbids, track_lyrics.format,
                 tracks.source_id, tracks.missing_since";
@@ -24,7 +24,7 @@ const TRACK_FROM_JOIN: &str =
 
 /// Map a [`TRACK_SELECT`] row, resolving its stored path to an absolute one.
 fn map_track_row(row: &Row<'_>, roots: &SourceRoots) -> rusqlite::Result<Track> {
-    let source_id: i64 = row.get(26)?;
+    let source_id: i64 = row.get(25)?;
     let rel_path: String = row.get(15)?;
     Ok(Track {
         id: row.get(0)?,
@@ -43,22 +43,23 @@ fn map_track_row(row: &Row<'_>, roots: &SourceRoots) -> rusqlite::Result<Track> 
         bitrate: row.get(13)?,
         codec: row.get(14)?,
         file_path: roots.resolve(source_id, &rel_path),
-        art_path: row.get(16)?,
-        date_added: row.get(17)?,
-        play_count: row.get(18)?,
-        last_played_at: row.get(19)?,
-        rating: row.get(20)?,
-        recording_mbid: crate::mbid::normalize_mbid(row.get::<_, Option<String>>(21)?.as_deref()),
-        release_mbid: crate::mbid::normalize_mbid(row.get::<_, Option<String>>(22)?.as_deref()),
-        artist_mbids: crate::mbid::parse_mbid_list(row.get::<_, Option<String>>(23)?.as_deref()),
+        // Resolved from the artwork registry by `artwork_paths::hydrate_track_art_path`.
+        art_path: None,
+        date_added: row.get(16)?,
+        play_count: row.get(17)?,
+        last_played_at: row.get(18)?,
+        rating: row.get(19)?,
+        recording_mbid: crate::mbid::normalize_mbid(row.get::<_, Option<String>>(20)?.as_deref()),
+        release_mbid: crate::mbid::normalize_mbid(row.get::<_, Option<String>>(21)?.as_deref()),
+        artist_mbids: crate::mbid::parse_mbid_list(row.get::<_, Option<String>>(22)?.as_deref()),
         album_artist_mbids: crate::mbid::parse_mbid_list(
-            row.get::<_, Option<String>>(24)?.as_deref(),
+            row.get::<_, Option<String>>(23)?.as_deref(),
         ),
         lyrics_format: row
-            .get::<_, Option<String>>(25)?
+            .get::<_, Option<String>>(24)?
             .map(|value| parse_lyrics_format(&value)),
         source_id,
-        missing_since: row.get(27)?,
+        missing_since: row.get(26)?,
     })
 }
 
@@ -220,9 +221,9 @@ pub fn save_track(
         "INSERT INTO tracks (
             id, title, artist, album, album_artist, track_number, total_tracks, disc_number, total_discs,
             year, genre, duration_seconds, sample_rate, bitrate, codec,
-            rel_path, art_path, date_added, rating,
+            rel_path, date_added, rating,
             recording_mbid, release_mbid, artist_mbids, album_artist_mbids, source_id
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)
         ON CONFLICT(source_id, rel_path) DO UPDATE SET
             title = excluded.title,
             artist = excluded.artist,
@@ -238,7 +239,6 @@ pub fn save_track(
             sample_rate = excluded.sample_rate,
             bitrate = excluded.bitrate,
             codec = excluded.codec,
-            art_path = excluded.art_path,
             recording_mbid = excluded.recording_mbid,
             release_mbid = excluded.release_mbid,
             artist_mbids = excluded.artist_mbids,
@@ -265,7 +265,6 @@ pub fn save_track(
             input.bitrate,
             input.codec,
             rel_path,
-            input.art_path,
             date_added,
             rating,
             recording_mbid,
@@ -534,16 +533,15 @@ pub fn update_track(
                     total_discs = ?8,
                     year = ?9,
                     genre = ?10,
-                    art_path = ?11,
-                    recording_mbid = ?12,
-                    release_mbid = ?13,
-                    artist_mbids = ?14,
-                    album_artist_mbids = ?15,
-                    rel_path = ?16,
-                    sample_rate = ?17,
-                    bitrate = ?18,
-                    codec = ?19
-                 WHERE id = ?20",
+                    recording_mbid = ?11,
+                    release_mbid = ?12,
+                    artist_mbids = ?13,
+                    album_artist_mbids = ?14,
+                    rel_path = ?15,
+                    sample_rate = ?16,
+                    bitrate = ?17,
+                    codec = ?18
+                 WHERE id = ?19",
                 params![
                     metadata.title,
                     metadata.artist,
@@ -555,7 +553,6 @@ pub fn update_track(
                     metadata.total_discs,
                     metadata.year,
                     metadata.genre,
-                    metadata.art_path,
                     recording_mbid,
                     release_mbid,
                     artist_mbids,
@@ -580,13 +577,12 @@ pub fn update_track(
                     total_discs = ?8,
                     year = ?9,
                     genre = ?10,
-                    art_path = ?11,
-                    recording_mbid = ?12,
-                    release_mbid = ?13,
-                    artist_mbids = ?14,
-                    album_artist_mbids = ?15,
-                    rel_path = ?16
-                 WHERE id = ?17",
+                    recording_mbid = ?11,
+                    release_mbid = ?12,
+                    artist_mbids = ?13,
+                    album_artist_mbids = ?14,
+                    rel_path = ?15
+                 WHERE id = ?16",
                 params![
                     metadata.title,
                     metadata.artist,
@@ -598,7 +594,6 @@ pub fn update_track(
                     metadata.total_discs,
                     metadata.year,
                     metadata.genre,
-                    metadata.art_path,
                     recording_mbid,
                     release_mbid,
                     artist_mbids,
@@ -621,12 +616,11 @@ pub fn update_track(
                 total_discs = ?8,
                 year = ?9,
                 genre = ?10,
-                art_path = ?11,
-                recording_mbid = ?12,
-                release_mbid = ?13,
-                artist_mbids = ?14,
-                album_artist_mbids = ?15
-             WHERE id = ?16",
+                recording_mbid = ?11,
+                release_mbid = ?12,
+                artist_mbids = ?13,
+                album_artist_mbids = ?14
+             WHERE id = ?15",
             params![
                 metadata.title,
                 metadata.artist,
@@ -638,7 +632,6 @@ pub fn update_track(
                 metadata.total_discs,
                 metadata.year,
                 metadata.genre,
-                metadata.art_path,
                 recording_mbid,
                 release_mbid,
                 artist_mbids,
@@ -821,7 +814,7 @@ fn check_same_ids<T: Eq + std::hash::Hash>(
 
 pub fn get_all_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::Error> {
     let mut stmt = conn.prepare(
-        "SELECT id, title, description, date_created, last_used_at, image_mode, custom_image_path,
+        "SELECT id, title, description, date_created, last_used_at, image_mode,
                 cover_background, cover_background_end, cover_icon
          FROM playlists
          ORDER BY position ASC, id ASC",
@@ -837,7 +830,6 @@ pub fn get_all_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::E
             row.get::<_, Option<String>>(6)?,
             row.get::<_, Option<String>>(7)?,
             row.get::<_, Option<String>>(8)?,
-            row.get::<_, Option<String>>(9)?,
         ))
     })?;
 
@@ -850,7 +842,6 @@ pub fn get_all_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::E
             date_created,
             last_used_at,
             image_mode,
-            custom_image_path,
             cover_background,
             cover_background_end,
             cover_icon,
@@ -864,7 +855,8 @@ pub fn get_all_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::E
             last_used_at,
             track_ids,
             image_mode: parse_playlist_image_mode(&image_mode),
-            custom_image_path,
+            // Resolved from the artwork registry by the playlist commands.
+            custom_image_path: None,
             cover_background,
             cover_background_end,
             cover_icon,
@@ -879,7 +871,6 @@ pub fn create_playlist(
     title: &str,
     description: Option<&str>,
     image_mode: PlaylistImageMode,
-    custom_image_path: Option<&str>,
     cover_background: Option<&str>,
     cover_background_end: Option<&str>,
     cover_icon: Option<&str>,
@@ -891,10 +882,10 @@ pub fn create_playlist(
     let id = PlaylistId::new();
     conn.execute(
         "INSERT INTO playlists (
-            id, title, description, date_created, last_used_at, image_mode, custom_image_path,
+            id, title, description, date_created, last_used_at, image_mode,
             cover_background, cover_background_end, cover_icon, position
          )
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![
             id,
             title,
@@ -902,7 +893,6 @@ pub fn create_playlist(
             now,
             now,
             playlist_image_mode_str(image_mode),
-            custom_image_path,
             cover_background,
             cover_background_end,
             cover_icon,
@@ -919,20 +909,18 @@ pub fn update_playlist(
     title: &str,
     description: Option<&str>,
     image_mode: PlaylistImageMode,
-    custom_image_path: Option<&str>,
     cover_background: Option<&str>,
     cover_background_end: Option<&str>,
     cover_icon: Option<&str>,
 ) -> Result<(), rusqlite::Error> {
     conn.execute(
-        "UPDATE playlists SET title = ?1, description = ?2, image_mode = ?3, custom_image_path = ?4,
-         cover_background = ?5, cover_background_end = ?6, cover_icon = ?7
-         WHERE id = ?8",
+        "UPDATE playlists SET title = ?1, description = ?2, image_mode = ?3,
+         cover_background = ?4, cover_background_end = ?5, cover_icon = ?6
+         WHERE id = ?7",
         params![
             title,
             description,
             playlist_image_mode_str(image_mode),
-            custom_image_path,
             cover_background,
             cover_background_end,
             cover_icon,
@@ -1074,70 +1062,6 @@ pub fn list_file_paths(conn: &Connection) -> Result<Vec<String>, rusqlite::Error
         })?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(paths)
-}
-
-pub fn get_all_artist_images(conn: &Connection) -> Result<Vec<ArtistImage>, rusqlite::Error> {
-    let mut stmt =
-        conn.prepare("SELECT artist_key, art_path FROM artist_images ORDER BY artist_key")?;
-    let images = stmt
-        .query_map([], |row| {
-            Ok(ArtistImage {
-                artist_key: row.get(0)?,
-                art_path: row.get(1)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(images)
-}
-
-pub fn save_artist_image(
-    conn: &Connection,
-    artist_key: &str,
-    art_path: Option<&str>,
-) -> Result<(), rusqlite::Error> {
-    match art_path {
-        Some(path) if !path.is_empty() => conn.execute(
-            "INSERT INTO artist_images (artist_key, art_path)
-             VALUES (?1, ?2)
-             ON CONFLICT(artist_key) DO UPDATE SET art_path = excluded.art_path",
-            params![artist_key, path],
-        )?,
-        _ => conn.execute(
-            "DELETE FROM artist_images WHERE artist_key = ?1",
-            params![artist_key],
-        )?,
-    };
-    Ok(())
-}
-
-pub fn rename_artist_image_key(
-    conn: &Connection,
-    old_key: &str,
-    new_key: &str,
-) -> Result<(), rusqlite::Error> {
-    let art_path: Option<String> = conn
-        .query_row(
-            "SELECT art_path FROM artist_images WHERE artist_key = ?1",
-            params![old_key],
-            |row| row.get(0),
-        )
-        .optional()?;
-
-    let Some(art_path) = art_path else {
-        return Ok(());
-    };
-
-    conn.execute(
-        "DELETE FROM artist_images WHERE artist_key = ?1",
-        params![old_key],
-    )?;
-    conn.execute(
-        "INSERT INTO artist_images (artist_key, art_path)
-         VALUES (?1, ?2)
-         ON CONFLICT(artist_key) DO UPDATE SET art_path = excluded.art_path",
-        params![new_key, art_path],
-    )?;
-    Ok(())
 }
 
 fn lyrics_format_to_str(format: LyricsFormat) -> &'static str {
@@ -1414,7 +1338,6 @@ mod tests {
             None,
             None,
             None,
-            None,
         )
         .unwrap();
         add_tracks_to_playlist(&conn, &playlist_id, &[a.clone(), b.clone(), c.clone()]).unwrap();
@@ -1457,7 +1380,6 @@ mod tests {
             None,
             None,
             None,
-            None,
         )
         .unwrap();
         let alpha = create_playlist(
@@ -1468,7 +1390,6 @@ mod tests {
             None,
             None,
             None,
-            None,
         )
         .unwrap();
         let middle = create_playlist(
@@ -1476,7 +1397,6 @@ mod tests {
             "Middle",
             None,
             PlaylistImageMode::Generated,
-            None,
             None,
             None,
             None,

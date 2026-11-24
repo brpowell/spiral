@@ -41,7 +41,7 @@ pub(crate) fn track_for_ui(
     let mut track = db::get_track_by_id(conn, track_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Track {track_id} not found"))?;
-    crate::artwork_paths::hydrate_track_art_path(library_root, &mut track);
+    crate::artwork_paths::hydrate_track_art_path(conn, library_root, &mut track);
     Ok(track)
 }
 
@@ -116,6 +116,7 @@ fn track_to_input(track: &Track, file_path: String) -> TrackInput {
         release_mbid: track.release_mbid.clone(),
         artist_mbids: track.artist_mbids.clone(),
         album_artist_mbids: track.album_artist_mbids.clone(),
+        staged_front: None,
     }
 }
 
@@ -210,6 +211,15 @@ pub fn save_track(
         eprintln!("persist_import_lyrics error: {e}");
         e.to_string()
     })?;
+    // Front art is what the file embeds (an import's own picture, or the art a
+    // CD rip wrote into it); `art_path` stands in only for a file with none.
+    crate::artwork_extract::link_front_from_file(
+        &conn,
+        &root,
+        &crate::artwork_extract::FrontTarget::of_input(&id, &track),
+        Path::new(&track.file_path),
+        track.art_path.as_deref().map(Path::new),
+    )?;
     track_for_ui(&conn, &root, &id)
 }
 
@@ -221,7 +231,7 @@ pub fn get_library(app: AppHandle, state: State<DbState>) -> Result<Vec<Track>, 
         eprintln!("get_library error: {e}");
         e.to_string()
     })?;
-    crate::artwork_paths::hydrate_tracks_art_paths(&library_root, &mut tracks);
+    crate::artwork_paths::hydrate_tracks_art_paths(&conn, &library_root, &mut tracks);
     Ok(tracks)
 }
 
@@ -230,7 +240,6 @@ const REFRESH_METADATA_MAX_ERRORS: usize = 20;
 fn refresh_library_metadata_blocking(
     app: &AppHandle,
 ) -> Result<RefreshLibraryMetadataResult, String> {
-    let app_data = settings::app_data_dir(app)?;
     let library_root = PathBuf::from(settings::resolved_library_settings(app).library_root);
     let state = app.state::<DbState>();
     let tracks = {
@@ -262,14 +271,11 @@ fn refresh_library_metadata_blocking(
         }
 
         let lyrics_sidecar_enabled = settings::lyrics_sidecar_sync_enabled(app);
-        let parse_result = metadata_reader::parse_track_metadata_for_library(
-            &app_data,
-            &track.file_path,
-            lyrics_sidecar_enabled,
-            Some(&library_root),
-        );
-        let mut input = match parse_result {
-            Ok(input) => input,
+        // Art is reconstructed per album after all tracks are read.
+        let parse_result =
+            metadata_reader::read_track_metadata(&track.file_path, lyrics_sidecar_enabled);
+        let input = match parse_result {
+            Ok(parsed) => parsed.input,
             Err(err) => {
                 failed += 1;
                 if errors.len() < REFRESH_METADATA_MAX_ERRORS {
@@ -278,9 +284,6 @@ fn refresh_library_metadata_blocking(
                 continue;
             }
         };
-        // Art is reconstructed per-album after all tracks are parsed.
-        input.art_path = track.art_path.clone();
-
         let save_result = {
             let conn = state.0.lock().map_err(|e| e.to_string())?;
             db::save_track(&conn, &input, track.source_id)
@@ -453,10 +456,9 @@ pub fn remove_track(
 
     {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
-        if let Err(err) =
-            crate::artwork_organize::gc_art_after_track_removed(&conn, &library_root, &track)
-        {
-            eprintln!("artwork GC after remove_track: {err}");
+        // Its art links went with its row; drop images nothing else shows.
+        if let Err(err) = crate::artwork_registry::prune(&conn, &library_root) {
+            eprintln!("artwork prune after remove_track: {err}");
         }
     }
 
@@ -718,6 +720,21 @@ fn adopt_replacement(
     })?;
     let source_id = sources::require_source_for_path(&tx, roots, new_path)?;
     db::set_track_source(&tx, track_id, source_id).map_err(|e| e.to_string())?;
+    // The new file's picture is the track's front art now.
+    crate::artwork_extract::link_front_from_file(
+        &tx,
+        &roots.library_root,
+        &crate::artwork_extract::FrontTarget {
+            track_id,
+            album_artist: metadata.album_artist.as_deref(),
+            artist: metadata.artist.as_deref(),
+            album: metadata.album.as_deref(),
+            title: &metadata.title,
+            track_number: metadata.track_number,
+        },
+        new_path,
+        metadata.art_path.as_deref().map(Path::new),
+    )?;
     // The file is there: whatever went missing before is found.
     tx.execute(
         "UPDATE tracks SET missing_since = NULL WHERE id = ?1",
@@ -782,7 +799,7 @@ fn replace_track_file(
     sidecar_enabled: bool,
     app_data: Option<&Path>,
 ) -> Result<(), String> {
-    let (existing, mut metadata, copy_to, old_root) = {
+    let (existing, metadata, copy_to, old_root) = {
         let conn = db.lock().map_err(|e| e.to_string())?;
         let existing = db::get_track_by_id(&conn, track_id)
             .map_err(|e| e.to_string())?
@@ -814,14 +831,11 @@ fn replace_track_file(
     };
 
     if let Some(app_data) = app_data {
-        if let Some(new_art) = library_organize::migrate_art_cache(
+        library_organize::migrate_art_cache(
             app_data,
             &existing.file_path,
             &new_path.to_string_lossy(),
-            metadata.art_path.as_deref(),
-        )? {
-            metadata.art_path = Some(new_art);
-        }
+        )?;
     }
 
     let canonical_lyrics = {
@@ -963,9 +977,14 @@ fn convert_track_impl(
     // that source is.
     let (existing, target, folder, old_root) = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
-        let existing = db::get_track_by_id(&conn, track_id)
+        let mut existing = db::get_track_by_id(&conn, track_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("Track {track_id} not found"))?;
+        crate::artwork_paths::hydrate_track_art_path(
+            &conn,
+            Path::new(&resolved.library_root),
+            &mut existing,
+        );
         let (target, folder) = replacement_destination(&conn, &existing)?;
         let old_root = sources::SourceRoots::load(&conn)
             .map_err(|e| e.to_string())?
@@ -1036,21 +1055,21 @@ fn convert_track_impl(
             eprintln!("convert_track save_track error: {e}");
             e.to_string()
         })?;
+        crate::artwork_extract::link_front_from_file(
+            &conn,
+            &root,
+            &crate::artwork_extract::FrontTarget::of_input(&id, &input),
+            Path::new(&input.file_path),
+            existing.art_path.as_deref().map(Path::new),
+        )?;
         return track_for_ui(&conn, &root, &id);
     }
 
     let old_path = PathBuf::from(&existing.file_path);
-    let mut metadata = track_to_metadata(&existing);
+    let metadata = track_to_metadata(&existing);
 
     if let Ok(app_data) = app.path().app_data_dir() {
-        if let Some(new_art) = library_organize::migrate_art_cache(
-            &app_data,
-            &existing.file_path,
-            &new_path,
-            metadata.art_path.as_deref(),
-        )? {
-            metadata.art_path = Some(new_art);
-        }
+        library_organize::migrate_art_cache(&app_data, &existing.file_path, &new_path)?;
     }
 
     {
@@ -1510,7 +1529,6 @@ mod tests {
                         "Mix",
                         None,
                         crate::models::PlaylistImageMode::Generated,
-                        None,
                         None,
                         None,
                         None,

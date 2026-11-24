@@ -9,8 +9,8 @@ pub const ARTISTS_DIR: &str = "artists";
 pub const PLAYLISTS_DIR: &str = "playlists";
 pub const FRONT_STEM: &str = "front";
 pub const PORTRAIT_STEM: &str = "portrait";
-
-const IMAGE_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp"];
+/// The folders under `Artwork/` that hold art.
+pub const ARTWORK_SUBDIRS: &[&str] = &[ALBUMS_DIR, ARTISTS_DIR, PLAYLISTS_DIR];
 
 /// English unknown labels — must match organize path fallbacks, not i18n.
 pub fn unknown_artist_label() -> &'static str {
@@ -110,28 +110,6 @@ pub fn playlist_artwork_path_stem(
         .join(playlist_artwork_filename(playlist_id, title))
 }
 
-/// Display cover file for a stem — skips leftover `.source.*` / `.crop.json` if present.
-pub fn find_playlist_display_for_stem(stem: &Path) -> Option<PathBuf> {
-    let parent = stem.parent()?;
-    let prefix = stem.file_name()?.to_string_lossy().into_owned();
-    let needle = format!("{prefix}.");
-    let entries = fs::read_dir(parent).ok()?;
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().into_owned();
-        let lower = name.to_ascii_lowercase();
-        if lower.contains(".source.") || lower.ends_with(".crop.json") {
-            continue;
-        }
-        if name.starts_with(&needle) && entry.path().is_file() {
-            let ext = name.rsplit_once('.').map(|(_, e)| e).unwrap_or("");
-            if IMAGE_EXTENSIONS.iter().any(|e| ext.eq_ignore_ascii_case(e)) {
-                return Some(entry.path());
-            }
-        }
-    }
-    None
-}
-
 /// Relative path under library root using `/` separators. `None` when `absolute` is not
 /// under `library_root` or the remainder has anything but plain names (`..`, `.`).
 pub fn to_library_relative(library_root: &Path, absolute: &Path) -> Option<String> {
@@ -158,47 +136,6 @@ pub fn resolve_library_relative(library_root: &Path, relative: &str) -> Option<P
         }
     }
     Some(path)
-}
-
-pub fn find_role_image(dir: &Path, stem: &str) -> Option<PathBuf> {
-    if !dir.is_dir() {
-        return None;
-    }
-    for ext in IMAGE_EXTENSIONS {
-        let candidate = dir.join(format!("{stem}.{ext}"));
-        if candidate.is_file() {
-            return Some(candidate);
-        }
-        // jpeg → also accept if stem is front and we wrote .jpeg (we normalize to jpg)
-        if *ext == "jpeg" {
-            continue;
-        }
-    }
-    // Case-insensitive probe on case-sensitive volumes.
-    let entries = fs::read_dir(dir).ok()?;
-    let stem_lower = stem.to_ascii_lowercase();
-    for entry in entries.flatten() {
-        let name = entry.file_name();
-        let name = name.to_string_lossy();
-        let Some((file_stem, ext)) = name.rsplit_once('.') else {
-            continue;
-        };
-        if !IMAGE_EXTENSIONS.iter().any(|e| ext.eq_ignore_ascii_case(e)) {
-            continue;
-        }
-        if file_stem.eq_ignore_ascii_case(&stem_lower) && entry.path().is_file() {
-            return Some(entry.path());
-        }
-    }
-    None
-}
-
-pub fn find_front_image(album_dir: &Path) -> Option<PathBuf> {
-    find_role_image(album_dir, FRONT_STEM)
-}
-
-pub fn find_portrait_image(artist_dir: &Path) -> Option<PathBuf> {
-    find_role_image(artist_dir, PORTRAIT_STEM)
 }
 
 pub fn ext_from_mime_or_bytes(mime: &str, bytes: &[u8]) -> &'static str {
@@ -252,83 +189,73 @@ pub fn ensure_artwork_dirs(library_root: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Absolute path for display: override relative path, else album front.jpg.
-pub fn resolve_track_art_absolute(
+/// Resolve a track's front art to a file for display: a copy of its linked
+/// image, preferring the one in its album folder. `None` when it has none or
+/// every copy is damaged.
+pub fn hydrate_track_art_path(
+    conn: &rusqlite::Connection,
     library_root: &Path,
-    art_path: Option<&str>,
-    album_artist: Option<&str>,
-    artist: Option<&str>,
-    album: Option<&str>,
-) -> Option<PathBuf> {
-    if let Some(rel) = art_path.map(str::trim).filter(|s| !s.is_empty()) {
-        // Legacy absolute app-data / absolute paths still work until migrated.
-        let candidate = if Path::new(rel).is_absolute() {
-            Some(PathBuf::from(rel))
-        } else {
-            resolve_library_relative(library_root, rel)
-        };
-        if let Some(candidate) = candidate.filter(|p| p.is_file()) {
-            return Some(candidate);
-        }
-    }
-    let dir = album_artwork_dir(library_root, album_artist, artist, album);
-    find_front_image(&dir)
+    track: &mut crate::models::Track,
+) {
+    use crate::artwork_registry::{self, ArtworkKind};
+    let hash = artwork_registry::track_art(conn, &track.id, ArtworkKind::Front)
+        .ok()
+        .flatten();
+    track.art_path = hash.and_then(|hash| {
+        let dir = album_artwork_dir(
+            library_root,
+            track.album_artist.as_deref(),
+            track.artist.as_deref(),
+            track.album.as_deref(),
+        );
+        artwork_registry::resolve(conn, library_root, &hash, Some(&dir))
+            .ok()
+            .flatten()
+            .map(|p| p.to_string_lossy().into_owned())
+    });
 }
 
-/// Absolute path for display: stored portrait if it still exists, else
-/// `Artwork/artists/{key}/portrait.*` (so a renamed artist folder still hydrates).
-pub fn resolve_artist_art_absolute(
+/// [`hydrate_track_art_path`] for many tracks, reading the registry once and
+/// checking each file once.
+pub fn hydrate_tracks_art_paths(
+    conn: &rusqlite::Connection,
     library_root: &Path,
-    artist_key: &str,
-    art_path: Option<&str>,
-) -> Option<PathBuf> {
-    if let Some(rel) = art_path.map(str::trim).filter(|s| !s.is_empty()) {
-        let candidate = if Path::new(rel).is_absolute() {
-            Some(PathBuf::from(rel))
-        } else {
-            resolve_library_relative(library_root, rel)
-        };
-        if let Some(candidate) = candidate.filter(|p| p.is_file()) {
-            return Some(candidate);
-        }
-    }
-    find_portrait_image(&artist_artwork_dir(library_root, artist_key))
-}
-
-pub fn hydrate_track_art_path(library_root: &Path, track: &mut crate::models::Track) {
-    let resolved = resolve_track_art_absolute(
-        library_root,
-        track.art_path.as_deref(),
-        track.album_artist.as_deref(),
-        track.artist.as_deref(),
-        track.album.as_deref(),
-    );
-    track.art_path = resolved.map(|p| p.to_string_lossy().into_owned());
-}
-
-pub fn hydrate_tracks_art_paths(library_root: &Path, tracks: &mut [crate::models::Track]) {
-    for track in tracks {
-        hydrate_track_art_path(library_root, track);
-    }
-}
-
-/// True when the display path is an album override (not front.jpg / missing).
-pub fn art_path_is_override(art_path: Option<&str>) -> bool {
-    let Some(path) = art_path.map(str::trim).filter(|s| !s.is_empty()) else {
-        return false;
+    tracks: &mut [crate::models::Track],
+) {
+    use crate::artwork_registry::{self, ArtworkKind};
+    let (Ok(links), Ok(files)) = (
+        artwork_registry::all_track_art(conn, ArtworkKind::Front),
+        artwork_registry::all_files(conn),
+    ) else {
+        return;
     };
-    let name = Path::new(path)
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("");
-    let stem = name.rsplit_once('.').map(|(s, _)| s).unwrap_or(name);
-    !stem.eq_ignore_ascii_case(FRONT_STEM)
+    let mut intact: std::collections::HashMap<String, bool> = std::collections::HashMap::new();
+    for track in tracks {
+        track.art_path = links.get(&track.id).and_then(|hash| {
+            let dir = album_artwork_dir(
+                library_root,
+                track.album_artist.as_deref(),
+                track.artist.as_deref(),
+                track.album.as_deref(),
+            );
+            artwork_registry::pick_file(
+                files.get(hash).map_or(&[][..], Vec::as_slice),
+                library_root,
+                Some(&dir),
+                &mut |f| {
+                    *intact
+                        .entry(f.rel_path.clone())
+                        .or_insert_with(|| f.is_intact(library_root))
+                },
+            )
+            .map(|p| p.to_string_lossy().into_owned())
+        });
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
 
     #[test]
     fn override_filename_includes_type() {
@@ -384,43 +311,6 @@ mod tests {
             );
         }
         assert!(ensure_inside_artist_artwork(root, &albums.join("A")).is_err());
-    }
-
-    #[test]
-    fn find_front_image_probes_extensions() {
-        let dir = std::env::temp_dir().join(format!("spiral-front-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("front.png");
-        let mut f = fs::File::create(&path).unwrap();
-        writeln!(f, "x").unwrap();
-        assert_eq!(find_front_image(&dir).as_deref(), Some(path.as_path()));
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn resolve_artist_art_falls_back_to_current_key_folder() {
-        let root = std::env::temp_dir().join(format!(
-            "spiral-artist-hydrate-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(&root).unwrap();
-
-        let new_dir = artist_artwork_dir(&root, "The Fall Out Boy");
-        fs::create_dir_all(&new_dir).unwrap();
-        let portrait = new_dir.join(format!("{PORTRAIT_STEM}.jpg"));
-        fs::write(&portrait, b"art").unwrap();
-
-        let stale = format!("Artwork/{ARTISTS_DIR}/Fall Out Boy/{PORTRAIT_STEM}.jpg");
-        let resolved = resolve_artist_art_absolute(&root, "The Fall Out Boy", Some(&stale));
-        assert_eq!(resolved.as_deref(), Some(portrait.as_path()));
-
-        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]

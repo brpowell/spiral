@@ -14,6 +14,7 @@ mod artist_tags;
 mod artwork_extract;
 mod artwork_organize;
 mod artwork_paths;
+mod artwork_registry;
 mod artwork_write;
 mod audio_formats;
 mod audio_properties;

@@ -396,66 +396,43 @@ fn prune_empty_dirs_inner(mut dir: PathBuf, stop_at: PathBuf) {
     }
 }
 
-/// Rename legacy app-data cached art when a library track path changes.
-/// Library-relative `Artwork/…` paths are left unchanged (identity moves use
-/// [`crate::artwork_organize`]).
+/// Rename art cached in app data (keyed by file path) when a track's file
+/// moves. Library art is in the artwork registry and doesn't follow file
+/// paths; this cache only stands in for art of files outside the library.
 pub fn migrate_art_cache(
     app_data_dir: &Path,
     old_file_path: &str,
     new_file_path: &str,
-    current_art_path: Option<&str>,
-) -> Result<Option<String>, String> {
+) -> Result<(), String> {
     use crate::art_cache::{art_cache_dir, art_cache_key};
-
-    if let Some(p) = current_art_path {
-        let norm = p.replace('\\', "/");
-        if norm.starts_with("Artwork/") || norm.contains("/Artwork/") {
-            return Ok(Some(p.to_string()));
-        }
-    }
 
     let dir = art_cache_dir(app_data_dir);
     if !dir.is_dir() {
-        return Ok(current_art_path.map(|s| s.to_string()));
+        return Ok(());
     }
 
     let old_prefix = art_cache_key(old_file_path);
     let new_prefix = art_cache_key(new_file_path);
     if old_prefix == new_prefix {
-        return Ok(current_art_path.map(|s| s.to_string()));
+        return Ok(());
     }
 
-    let mut migrated_ext: Option<String> = None;
     let entries = fs::read_dir(&dir).map_err(|e| e.to_string())?;
     for entry in entries {
         let entry = entry.map_err(|e| e.to_string())?;
         let name = entry.file_name().to_string_lossy().to_string();
-        if !name.starts_with(&format!("{old_prefix}.")) {
+        let Some(ext) = name.strip_prefix(&format!("{old_prefix}.")) else {
             continue;
-        }
-        let ext = name
-            .strip_prefix(&format!("{old_prefix}."))
-            .unwrap_or("jpg")
-            .to_string();
+        };
         let dest = dir.join(format!("{new_prefix}.{ext}"));
         if dest.exists() {
             let _ = fs::remove_file(&dest);
         }
         fs::rename(entry.path(), &dest)
             .map_err(|e| format!("failed to migrate cached art: {e}"))?;
-        migrated_ext = Some(ext);
     }
-
-    Ok(match migrated_ext {
-        Some(ext) => Some(
-            dir.join(format!("{new_prefix}.{ext}"))
-                .to_string_lossy()
-                .into_owned(),
-        ),
-        None => current_art_path.map(|s| s.to_string()),
-    })
+    Ok(())
 }
-
 /// After metadata is written, move the file into Artist/Album layout when enabled.
 pub fn relocate_track_after_metadata(
     media_folder: &str,

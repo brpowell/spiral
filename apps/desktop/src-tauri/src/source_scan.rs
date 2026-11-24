@@ -24,7 +24,8 @@
 //! the database lock, and the lock is taken briefly for each write.
 
 use crate::art_cache;
-use crate::artwork_organize;
+use crate::artwork_extract;
+use crate::artwork_registry;
 use crate::audio_formats::is_supported_audio_file;
 use crate::db;
 use crate::fs_probe::{self, Probed};
@@ -582,6 +583,7 @@ fn reconcile_watched(
             return Ok(summary);
         }
         let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+        let mut staged = Vec::new();
         done += finished_reads.load(Ordering::Relaxed);
         for (job, read) in jobs.into_iter().zip(reads) {
             if let Some(track_id) = job.repoint {
@@ -592,7 +594,8 @@ fn reconcile_watched(
                     if let Some(read) = read {
                         match read {
                             Ok(input) => {
-                                save(&tx, &input, source_id)?;
+                                save(&tx, ctx, &input, source_id)?;
+                                staged.push(input);
                                 summary.updated += 1;
                             }
                             Err(err) => summary.fail(&job.path, err),
@@ -609,7 +612,8 @@ fn reconcile_watched(
                 }
                 None => match read.expect("new files are read") {
                     Ok(input) => {
-                        let id = save(&tx, &input, source_id)?;
+                        let id = save(&tx, ctx, &input, source_id)?;
+                        staged.push(input);
                         set_present(&tx, &id, job.stat)?;
                         summary.added += 1;
                     }
@@ -618,6 +622,8 @@ fn reconcile_watched(
             }
         }
         tx.commit().map_err(|e| e.to_string())?;
+        drop(conn);
+        artwork_extract::discard_staged(&staged);
         if let Some(p) = progress {
             p(ScanProgress::Reading {
                 current: done,
@@ -652,6 +658,18 @@ fn reconcile_watched(
     for id in &gone {
         set_missing(&conn, id, true)?;
         summary.missing += 1;
+    }
+
+    // Art a re-read file no longer has goes; a full pass also rebuilds damaged
+    // front art from the files that embed it.
+    let library_root = &ctx.roots.library_root;
+    if matches!(scope, ReconcileScope::All) {
+        if let Err(err) = artwork_extract::repair_front_art(&conn, library_root) {
+            eprintln!("artwork repair: {err}");
+        }
+    }
+    if let Err(err) = artwork_registry::prune(&conn, library_root) {
+        eprintln!("artwork prune: {err}");
     }
     Ok(summary)
 }
@@ -821,7 +839,7 @@ fn read_tracks(
             read.map(|parsed| {
                 metadata_reader::place_embedded_art(
                     &ctx.app_data_dir,
-                    Some(&ctx.roots.library_root),
+                    metadata_reader::ArtPlacement::Library,
                     parsed,
                 )
             })
@@ -831,15 +849,18 @@ fn read_tracks(
 }
 
 /// Save a track read from a source's folder and make sure it belongs to it (a
-/// row already at this path in another source is claimed).
+/// row already at this path in another source is claimed). Its front art comes
+/// from the picture the read staged.
 fn save(
     conn: &Connection,
+    ctx: &ScanContext,
     input: &crate::models::TrackInput,
     source_id: i64,
 ) -> Result<TrackId, String> {
     let id = db::save_track(conn, input, source_id).map_err(|e| e.to_string())?;
     db::set_track_source(conn, &id, source_id).map_err(|e| e.to_string())?;
     lyrics_normalize::persist_import_lyrics(conn, &id, &input.lyrics).map_err(|e| e.to_string())?;
+    artwork_extract::adopt_staged_front(conn, &ctx.roots.library_root, &id, input)?;
     Ok(id)
 }
 
@@ -855,15 +876,12 @@ pub fn remove_source(
     let removed = sources::remove_source(conn, source_id)?;
     for track in &tracks {
         let _ = art_cache::remove_cached_art(&ctx.app_data_dir, &track.file_path);
-        if let Err(err) =
-            artwork_organize::gc_art_after_track_removed(conn, &ctx.roots.library_root, track)
-        {
-            eprintln!("artwork GC after removing source {source_id}: {err}");
-        }
+    }
+    if let Err(err) = artwork_registry::prune(conn, &ctx.roots.library_root) {
+        eprintln!("artwork prune after removing source {source_id}: {err}");
     }
     Ok(removed)
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -965,7 +983,6 @@ mod tests {
                 "Mix",
                 None,
                 crate::models::PlaylistImageMode::Generated,
-                None,
                 None,
                 None,
                 None,
@@ -1101,12 +1118,13 @@ mod tests {
 
             let t = Instant::now();
             for f in &files {
-                let _ = metadata_reader::parse_track_metadata_for_library(
-                    &fx.ctx.app_data_dir,
-                    f,
-                    false,
-                    Some(&fx.ctx.roots.library_root),
-                );
+                let _ = metadata_reader::read_track_metadata(f, false).map(|parsed| {
+                    metadata_reader::place_embedded_art(
+                        &fx.ctx.app_data_dir,
+                        metadata_reader::ArtPlacement::Library,
+                        parsed,
+                    )
+                });
             }
             println!("parse (incl. art):  {:?}", t.elapsed());
         }
@@ -1749,14 +1767,23 @@ mod tests {
             Some("Artist"),
             Some("Album"),
         );
-        fs::create_dir_all(&album_dir).unwrap();
-        fs::write(album_dir.join("front.jpg"), b"art").unwrap();
         lock(&fx.db)
             .execute(
                 "UPDATE tracks SET artist = 'Artist', album = 'Album' WHERE id = ?1",
                 params![a_id],
             )
             .unwrap();
+        let target = artwork_extract::FrontTarget {
+            track_id: &a_id,
+            album_artist: None,
+            artist: Some("Artist"),
+            album: Some("Album"),
+            title: "a",
+            track_number: None,
+        };
+        artwork_extract::place_front(&lock(&fx.db), &fx.ctx.roots.library_root, &target, b"art")
+            .unwrap();
+        assert!(album_dir.join("front.jpg").is_file());
 
         let removed = remove_source(&lock(&fx.db), &fx.ctx, id).unwrap();
         assert_eq!(removed, 1);
@@ -1767,6 +1794,67 @@ mod tests {
         assert_eq!(fx.tracks(keep), vec![(s(&k), "k".into(), false)]);
         // A reconcile of the removed source fails instead of recreating it.
         assert!(reconcile_source(&fx.db, &fx.ctx, id, ReconcileScope::All).is_err());
+    }
+
+    fn embed_art(fx: &Fixture, file: &Path, album: &str, art: &[u8]) {
+        let cover = fx.path("cover.jpg");
+        fs::write(&cover, art).unwrap();
+        crate::metadata_writer::write_track_metadata(
+            file,
+            &crate::models::TrackMetadataUpdate {
+                title: "Song".into(),
+                artist: Some("Band".into()),
+                album: Some(album.into()),
+                art_path: Some(cover.to_string_lossy().into_owned()),
+                art_changed: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn a_scan_links_embedded_art_and_repairs_a_damaged_front() {
+        let fx = Fixture::new("scan-art");
+        let id = fx.watch("Collection");
+        let a = fx.wav("Collection/a.wav");
+        let art = b"\xFF\xD8\xFF\xE0scanned-front";
+        embed_art(&fx, &a, "Record", art);
+        fx.reconcile(id);
+        let track = fx.track_id(&a);
+        let hash = artwork_registry::sha256_hex(art);
+        let front_of = |fx: &Fixture| {
+            artwork_registry::track_art(&lock(&fx.db), &track, artwork_registry::ArtworkKind::Front)
+                .unwrap()
+        };
+        assert_eq!(front_of(&fx), Some(hash.clone()));
+        let front = fx
+            .ctx
+            .roots
+            .library_root
+            .join("Artwork/albums/Band/Record/front.jpg");
+        assert_eq!(fs::read(&front).unwrap(), art);
+        // The staged copy is gone once saved.
+        let staging = artwork_extract::staging_dir(&fx.ctx.app_data_dir);
+        assert!(fs::read_dir(&staging).map_or(true, |mut d| d.next().is_none()));
+
+        fs::remove_file(&front).unwrap();
+        fx.reconcile(id);
+        assert_eq!(
+            fs::read(&front).unwrap(),
+            art,
+            "a full scan rewrites it from the tags"
+        );
+
+        // New art in the file: the track follows it and the old image goes.
+        let new_art = b"\xFF\xD8\xFF\xE0new-front";
+        embed_art(&fx, &a, "Record", new_art);
+        fx.reconcile(id);
+        assert_eq!(front_of(&fx), Some(artwork_registry::sha256_hex(new_art)));
+        let images: i64 = lock(&fx.db)
+            .query_row("SELECT COUNT(*) FROM artwork", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(images, 1);
     }
 
     #[test]

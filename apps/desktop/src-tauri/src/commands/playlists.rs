@@ -1,4 +1,3 @@
-use crate::artwork_paths::{self, resolve_library_relative};
 use crate::db;
 use crate::ids::{PlaylistId, TrackId};
 use crate::models::{Playlist, PlaylistImageMode};
@@ -8,29 +7,17 @@ use tauri::{AppHandle, State};
 
 use super::library::DbState;
 
-fn hydrate_playlist_image(library_root: &Path, playlist: &mut Playlist) {
-    let Some(path) = playlist.custom_image_path.as_deref() else {
-        return;
-    };
-    if Path::new(path).is_absolute() {
-        return;
-    }
-    let Some(abs) = resolve_library_relative(library_root, path) else {
-        return;
-    };
-    if abs.is_file() {
-        playlist.custom_image_path = Some(abs.to_string_lossy().into_owned());
-    }
-}
-
-fn store_playlist_image(library_root: &Path, path: Option<&str>) -> Option<String> {
-    let path = path?;
-    let p = Path::new(path);
-    if p.is_absolute() {
-        artwork_paths::to_library_relative(library_root, p).or_else(|| Some(path.to_string()))
-    } else {
-        Some(path.to_string())
-    }
+/// Fill `custom_image_path` with the file to show for the playlist's cover.
+fn hydrate_playlist_image(
+    conn: &rusqlite::Connection,
+    library_root: &Path,
+    playlist: &mut Playlist,
+) {
+    playlist.custom_image_path =
+        crate::artwork_write::playlist_cover_path(conn, library_root, &playlist.id)
+            .ok()
+            .flatten()
+            .map(|p| p.to_string_lossy().into_owned());
 }
 
 #[tauri::command]
@@ -63,9 +50,24 @@ pub fn get_playlists(app: AppHandle, state: State<DbState>) -> Result<Vec<Playli
         e.to_string()
     })?;
     for playlist in &mut playlists {
-        hydrate_playlist_image(&library_root, playlist);
+        hydrate_playlist_image(&conn, &library_root, playlist);
     }
     Ok(playlists)
+}
+
+/// Record a playlist's cover: the picked image in custom mode, none otherwise.
+fn save_playlist_cover(
+    conn: &rusqlite::Connection,
+    library_root: &Path,
+    id: &PlaylistId,
+    title: &str,
+    image_mode: PlaylistImageMode,
+    custom_image_path: Option<&str>,
+) -> Result<(), String> {
+    let picked = custom_image_path
+        .filter(|_| image_mode == PlaylistImageMode::Custom)
+        .map(Path::new);
+    crate::artwork_write::set_playlist_cover(conn, library_root, id, title, picked)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -82,14 +84,12 @@ pub fn create_playlist(
     cover_icon: Option<String>,
 ) -> Result<PlaylistId, String> {
     let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
-    let stored = store_playlist_image(&library_root, custom_image_path.as_deref());
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::create_playlist(
+    let id = db::create_playlist(
         &conn,
         &title,
         description.as_deref(),
         image_mode,
-        stored.as_deref(),
         cover_background.as_deref(),
         cover_background_end.as_deref(),
         cover_icon.as_deref(),
@@ -97,7 +97,18 @@ pub fn create_playlist(
     .map_err(|e| {
         eprintln!("create_playlist error: {e}");
         e.to_string()
-    })
+    })?;
+    if custom_image_path.is_some() {
+        save_playlist_cover(
+            &conn,
+            &library_root,
+            &id,
+            &title,
+            image_mode,
+            custom_image_path.as_deref(),
+        )?;
+    }
+    Ok(id)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -117,39 +128,12 @@ pub fn update_playlist(
     let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
     let conn = state.0.lock().map_err(|e| e.to_string())?;
 
-    let (old_title, old_image): (String, Option<String>) = conn
-        .query_row(
-            "SELECT title, custom_image_path FROM playlists WHERE id = ?1",
-            rusqlite::params![id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )
-        .map_err(|e| e.to_string())?;
-
-    let mut stored = if image_mode == PlaylistImageMode::Custom {
-        store_playlist_image(&library_root, custom_image_path.as_deref())
-    } else {
-        None
-    };
-    if image_mode == PlaylistImageMode::Custom && old_title.trim() != title.trim() {
-        stored = crate::artwork_organize::rename_playlist_artwork_file(
-            &library_root,
-            &id,
-            &old_title,
-            &title,
-            stored.as_deref().or(old_image.as_deref()),
-        )?;
-    }
-    if stored.is_none() {
-        crate::artwork_organize::remove_playlist_artwork(&library_root, &id)?;
-    }
-
     db::update_playlist(
         &conn,
         &id,
         &title,
         description.as_deref(),
         image_mode,
-        stored.as_deref(),
         cover_background.as_deref(),
         cover_background_end.as_deref(),
         cover_icon.as_deref(),
@@ -157,7 +141,16 @@ pub fn update_playlist(
     .map_err(|e| {
         eprintln!("update_playlist error: {e}");
         e.to_string()
-    })
+    })?;
+    // A renamed playlist's cover file is renamed with it.
+    save_playlist_cover(
+        &conn,
+        &library_root,
+        &id,
+        &title,
+        image_mode,
+        custom_image_path.as_deref(),
+    )
 }
 
 #[tauri::command]
@@ -221,11 +214,18 @@ pub fn reorder_playlists(
 }
 
 #[tauri::command]
-pub fn delete_playlist(state: State<DbState>, id: PlaylistId) -> Result<(), String> {
+pub fn delete_playlist(
+    app: AppHandle,
+    state: State<DbState>,
+    id: PlaylistId,
+) -> Result<(), String> {
+    let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     db::delete_playlist(&conn, &id).map_err(|e| {
         eprintln!("delete_playlist error: {e}");
         e.to_string()
     })?;
+    // Its cover link went with it; the cover file goes too.
+    crate::artwork_registry::prune(&conn, &library_root)?;
     Ok(())
 }

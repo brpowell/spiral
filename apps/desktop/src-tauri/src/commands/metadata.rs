@@ -32,15 +32,11 @@ pub async fn parse_track_metadata(app: AppHandle, file_path: String) -> Result<T
         let file_path = super::files::ensure_playable_path(&app, &file_path)?
             .to_string_lossy()
             .into_owned();
-        let app_data = app_data_dir(&app)?;
-        let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
         let lyrics_sidecar_enabled = settings::lyrics_sidecar_sync_enabled(&app);
-        metadata_reader::parse_track_metadata_for_library(
-            &app_data,
-            &file_path,
-            lyrics_sidecar_enabled,
-            Some(&library_root),
-        )
+        // The picture isn't written anywhere: saving the track takes its front
+        // art from the file.
+        metadata_reader::read_track_metadata(&file_path, lyrics_sidecar_enabled)
+            .map(|parsed| parsed.input)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -96,18 +92,36 @@ pub async fn cache_art_from_file(
                     .unwrap_or("jpg"),
             ),
         };
-        let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
-        let app_data = app_data_dir(&app)?;
-        crate::artwork_write::write_art_for_cache_key(
-            &library_root,
-            &app_data,
-            &file_path,
-            &bytes,
-            ext,
-        )
+        write_art(&app, &file_path, &bytes, ext)
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// [`crate::artwork_write::write_art_for_cache_key`] with the app's folders,
+/// and the library database for a track override (to reuse an album file).
+fn write_art(
+    app: &AppHandle,
+    cache_key: &str,
+    bytes: &[u8],
+    mime_or_ext: &str,
+) -> Result<String, String> {
+    let library_root = PathBuf::from(settings::resolved_library_settings(app).library_root);
+    let app_data = app_data_dir(app)?;
+    let state = app.state::<DbState>();
+    let conn = if cache_key.starts_with("track-override:") {
+        Some(state.0.lock().map_err(|e| e.to_string())?)
+    } else {
+        None
+    };
+    crate::artwork_write::write_art_for_cache_key(
+        conn.as_deref(),
+        &library_root,
+        &app_data,
+        cache_key,
+        bytes,
+        mime_or_ext,
+    )
 }
 
 /// Encoded sizes (bytes) of the cropped result at each output cap, plus the
@@ -190,15 +204,7 @@ pub fn cache_art_from_bytes(
     file_path: String,
     format: String,
 ) -> Result<String, String> {
-    let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
-    let app_data = app_data_dir(&app)?;
-    crate::artwork_write::write_art_for_cache_key(
-        &library_root,
-        &app_data,
-        &file_path,
-        &bytes,
-        &format,
-    )
+    write_art(&app, &file_path, &bytes, &format)
 }
 
 #[derive(Serialize)]
@@ -292,17 +298,9 @@ fn cache_art_from_url_blocking(
         .map_err(|e| format!("Failed to read {kind}: {e}"))?;
 
     let ext = guess_ext_from_url(&url);
-    let app_data = app_data_dir(&app)?;
     let byte_count = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
-    let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
 
-    let dest_str = crate::artwork_write::write_art_for_cache_key(
-        &library_root,
-        &app_data,
-        &file_path,
-        &bytes,
-        ext,
-    )?;
+    let dest_str = write_art(&app, &file_path, &bytes, ext)?;
 
     // CD auto-fetch logs its own completion line from the frontend.
     if !activity_log::thread_has_drive_id() {
@@ -548,17 +546,7 @@ pub fn write_track_metadata(
     )? {
         final_path = new_path.to_string_lossy().into_owned();
         let app_data = app_data_dir(&app)?;
-        if let Some(new_art) = library_organize::migrate_art_cache(
-            &app_data,
-            &file_path,
-            &final_path,
-            metadata
-                .art_path
-                .as_deref()
-                .or(existing.art_path.as_deref()),
-        )? {
-            metadata.art_path = Some(new_art);
-        }
+        library_organize::migrate_art_cache(&app_data, &file_path, &final_path)?;
     }
 
     let new_file_path = if final_path != file_path {
@@ -571,79 +559,40 @@ pub fn write_track_metadata(
         lyrics_sidecar::sync_sidecar(Path::new(&final_path), metadata.lyrics.as_ref())?;
     }
 
-    let old_identity = (
-        crate::artwork_paths::album_artist_for_path(
-            existing.album_artist.as_deref(),
-            existing.artist.as_deref(),
-        ),
-        crate::artwork_paths::album_title_for_path(existing.album.as_deref()),
-    );
-    let new_identity = (
-        crate::artwork_paths::album_artist_for_path(
-            metadata.album_artist.as_deref(),
-            metadata.artist.as_deref(),
-        ),
-        crate::artwork_paths::album_title_for_path(metadata.album.as_deref()),
-    );
-    let identity_changed = old_identity != new_identity;
-
     {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
-
-        if identity_changed {
-            let art_for_reconcile = if metadata.art_changed {
-                metadata.art_path.as_deref()
-            } else {
-                existing.art_path.as_deref()
-            };
-            metadata.art_path = crate::artwork_organize::reconcile_track_album_artwork(
-                &conn,
-                &library_root,
-                track_id,
-                existing.album_artist.as_deref(),
-                existing.artist.as_deref(),
-                existing.album.as_deref(),
-                metadata.album_artist.as_deref(),
-                metadata.artist.as_deref(),
-                metadata.album.as_deref(),
-                art_for_reconcile,
-            )?;
-            if metadata.art_changed {
-                metadata.art_path = crate::artwork_write::track_art_path_for_db(
-                    &library_root,
-                    metadata.art_path.as_deref(),
-                );
-            }
-        } else if metadata.art_changed {
-            metadata.art_path = crate::artwork_write::track_art_path_for_db(
-                &library_root,
-                metadata.art_path.as_deref(),
-            );
-        } else {
-            // Keep stored library-relative pointer; ignore hydrated absolute from UI.
-            metadata.art_path = existing.art_path.clone();
-        }
 
         db::update_track(&conn, track_id, &metadata, new_file_path, None).map_err(|e| {
             eprintln!("update_track error: {e}");
             e.to_string()
         })?;
 
-        // Overwrite / clear-to-canonical: drop override files nothing else still points at.
+        let target = crate::artwork_extract::FrontTarget {
+            track_id,
+            album_artist: metadata.album_artist.as_deref(),
+            artist: metadata.artist.as_deref(),
+            album: metadata.album.as_deref(),
+            title: &metadata.title,
+            track_number: metadata.track_number,
+        };
+        // A new album: the track's art goes with it to the new album folder.
+        crate::artwork_organize::reconcile_track_album_artwork(
+            &conn,
+            &library_root,
+            track_id,
+            existing.album_artist.as_deref(),
+            existing.artist.as_deref(),
+            existing.album.as_deref(),
+            &target,
+        )?;
+        // The picture is in the file now (where the format holds one); record it.
         if metadata.art_changed {
-            let previous = existing.art_path.as_deref();
-            let next = metadata.art_path.as_deref();
-            let previous_key = previous.map(|p| p.replace('\\', "/"));
-            let next_key = next.map(|p| p.replace('\\', "/"));
-            if previous_key != next_key {
-                if let Err(err) = crate::artwork_organize::gc_unreferenced_override_file(
-                    &conn,
-                    &library_root,
-                    previous,
-                ) {
-                    eprintln!("artwork GC after metadata write: {err}");
-                }
-            }
+            crate::artwork_write::set_track_front(
+                &conn,
+                &library_root,
+                &target,
+                metadata.art_path.as_deref().map(Path::new),
+            )?;
         }
 
         if metadata.lyrics_changed {
@@ -657,7 +606,7 @@ pub fn write_track_metadata(
         let mut track = db::get_track_by_id(&conn, track_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("Track {track_id} not found after metadata write"))?;
-        crate::artwork_paths::hydrate_track_art_path(&library_root, &mut track);
+        crate::artwork_paths::hydrate_track_art_path(&conn, &library_root, &mut track);
         Ok(track)
     }
 }

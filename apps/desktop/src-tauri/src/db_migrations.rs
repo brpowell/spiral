@@ -78,6 +78,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "library_meta_change_log",
         up: library_meta_change_log,
     },
+    Migration {
+        version: 10,
+        name: "artwork_registry",
+        up: artwork_registry,
+    },
 ];
 
 fn latest_version() -> i64 {
@@ -1034,6 +1039,581 @@ fn library_meta_change_log(conn: &Connection) -> Result<(), rusqlite::Error> {
     Ok(())
 }
 
+/// Art moves from file paths to a content-addressed registry, so every art
+/// change is a row change the change log sees.
+///
+/// - `artwork` has one row per distinct image, keyed by the SHA-256 (hex) of
+///   its bytes. A row never changes: other bytes are another hash.
+/// - `artwork_file` lists where copies of an image live, relative to the
+///   Spiral folder and always under `Artwork/`. Several files may share a hash
+///   (two albums with the same cover each keep their own `front.*`). Which
+///   files exist is this machine's business and is not logged.
+/// - `track_artwork`, `artist_artwork` and `playlist_artwork` link an entity
+///   and a `kind` (`front`, `portrait`, `cover`; open text, checked in Rust) to
+///   an image. They replace `tracks.art_path`, `artist_images` and
+///   `playlists.custom_image_path`, which are dropped.
+/// - The links and `genre_settings` join the change log; `artwork` and
+///   `artwork_file` stay out of it. Log rows for the dropped `artist_image`
+///   entity are deleted.
+///
+/// Every track, artist portrait and custom playlist cover is backfilled from
+/// the art it shows today: `art_path`, else the album folder's `front.*` from
+/// the track's tags (artists: `Artwork/artists/<key>/portrait.*`). The bytes
+/// are read and hashed, and a file outside `Artwork/` (art cached in app data)
+/// is copied into it. A file that is missing or can't be read gets no link.
+/// The backfill is not logged, as v9 logged nothing for existing rows. The
+/// Spiral folder comes from `temp.spiral_folder`; without one (an in-memory
+/// database) nothing is backfilled.
+fn artwork_registry(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // What each entity shows today, read before the old columns go.
+    let tracks: Vec<V10TrackArt> = conn
+        .prepare(
+            "SELECT id, art_path, album_artist, artist, album, title, track_number
+             FROM tracks ORDER BY id",
+        )?
+        .query_map([], |row| {
+            Ok(V10TrackArt {
+                id: row.get(0)?,
+                art_path: row.get(1)?,
+                album_artist: row.get(2)?,
+                artist: row.get(3)?,
+                album: row.get(4)?,
+                title: row.get(5)?,
+                track_number: row.get(6)?,
+            })
+        })?
+        .collect::<Result<_, _>>()?;
+    let artists: Vec<(String, String)> = conn
+        .prepare("SELECT artist_key, art_path FROM artist_images ORDER BY artist_key")?
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .collect::<Result<_, _>>()?;
+    let playlists: Vec<(String, String, String)> = conn
+        .prepare(
+            "SELECT id, title, custom_image_path FROM playlists
+             WHERE image_mode = 'custom' AND custom_image_path IS NOT NULL ORDER BY id",
+        )?
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+        .collect::<Result<_, _>>()?;
+
+    conn.execute_batch(
+        "CREATE TABLE artwork (
+            hash TEXT PRIMARY KEY,
+            mime TEXT NOT NULL,
+            width INTEGER,
+            height INTEGER,
+            byte_size INTEGER NOT NULL
+        );
+        CREATE TABLE artwork_file (
+            rel_path TEXT PRIMARY KEY,
+            hash TEXT NOT NULL REFERENCES artwork(hash) ON DELETE CASCADE,
+            size INTEGER NOT NULL,
+            mtime_ms INTEGER NOT NULL
+        );
+        CREATE INDEX idx_artwork_file_hash ON artwork_file(hash);
+
+        CREATE TABLE tracks_new (
+            id TEXT PRIMARY KEY NOT NULL,
+            title TEXT NOT NULL,
+            artist TEXT,
+            album TEXT,
+            album_artist TEXT,
+            track_number INTEGER,
+            total_tracks INTEGER,
+            disc_number INTEGER,
+            total_discs INTEGER,
+            year INTEGER,
+            genre TEXT,
+            duration_seconds REAL,
+            sample_rate INTEGER,
+            bitrate INTEGER,
+            codec TEXT,
+            source_id INTEGER NOT NULL REFERENCES sources(id),
+            rel_path TEXT NOT NULL,
+            date_added TEXT NOT NULL,
+            play_count INTEGER NOT NULL DEFAULT 0,
+            last_played_at TEXT,
+            rating INTEGER NOT NULL DEFAULT 0,
+            recording_mbid TEXT,
+            release_mbid TEXT,
+            artist_mbids TEXT,
+            album_artist_mbids TEXT,
+            missing_since TEXT,
+            file_size INTEGER,
+            file_mtime_ms INTEGER,
+            UNIQUE (source_id, rel_path)
+        );
+        INSERT INTO tracks_new
+            SELECT id, title, artist, album, album_artist, track_number, total_tracks,
+                   disc_number, total_discs, year, genre, duration_seconds, sample_rate,
+                   bitrate, codec, source_id, rel_path, date_added, play_count,
+                   last_played_at, rating, recording_mbid, release_mbid, artist_mbids,
+                   album_artist_mbids, missing_since, file_size, file_mtime_ms
+            FROM tracks;
+
+        CREATE TABLE playlists_new (
+            id TEXT PRIMARY KEY NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            date_created TEXT NOT NULL,
+            last_used_at TEXT NOT NULL,
+            image_mode TEXT NOT NULL DEFAULT 'generated',
+            cover_background TEXT,
+            cover_background_end TEXT,
+            cover_icon TEXT,
+            position TEXT NOT NULL
+        );
+        INSERT INTO playlists_new
+            SELECT id, title, description, date_created, last_used_at, image_mode,
+                   cover_background, cover_background_end, cover_icon, position
+            FROM playlists;
+
+        -- Their change-log triggers go with them and are made again below.
+        DROP TABLE tracks;
+        DROP TABLE playlists;
+        DROP TABLE artist_images;
+        ALTER TABLE tracks_new RENAME TO tracks;
+        ALTER TABLE playlists_new RENAME TO playlists;
+
+        CREATE TABLE track_artwork (
+            track_id TEXT NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+            kind TEXT NOT NULL,
+            artwork_hash TEXT NOT NULL REFERENCES artwork(hash),
+            PRIMARY KEY (track_id, kind)
+        );
+        CREATE INDEX idx_track_artwork_hash ON track_artwork(artwork_hash);
+        CREATE TABLE artist_artwork (
+            artist_key TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            artwork_hash TEXT NOT NULL REFERENCES artwork(hash),
+            PRIMARY KEY (artist_key, kind)
+        );
+        CREATE INDEX idx_artist_artwork_hash ON artist_artwork(artwork_hash);
+        CREATE TABLE playlist_artwork (
+            playlist_id TEXT NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+            kind TEXT NOT NULL,
+            artwork_hash TEXT NOT NULL REFERENCES artwork(hash),
+            PRIMARY KEY (playlist_id, kind)
+        );
+        CREATE INDEX idx_playlist_artwork_hash ON playlist_artwork(artwork_hash);
+
+        DELETE FROM change_log WHERE entity = 'artist_image';",
+    )?;
+
+    if let Some(root) = migration_spiral_folder(conn)? {
+        v10_backfill(conn, &root, &tracks, &artists, &playlists)?;
+    }
+
+    // (table, entity, id of a row as `<row>.` prefixed SQL, columns whose change counts)
+    let tracked: [(&str, &str, &str, &[&str]); 6] = [
+        (
+            "tracks",
+            "track",
+            "{row}.id",
+            &[
+                "title",
+                "artist",
+                "album",
+                "album_artist",
+                "track_number",
+                "total_tracks",
+                "disc_number",
+                "total_discs",
+                "year",
+                "genre",
+                "duration_seconds",
+                "sample_rate",
+                "bitrate",
+                "codec",
+                "rating",
+                "recording_mbid",
+                "release_mbid",
+                "artist_mbids",
+                "album_artist_mbids",
+                // A changed file (same id, new audio) must reach clients.
+                "file_size",
+                "file_mtime_ms",
+            ],
+        ),
+        (
+            "playlists",
+            "playlist",
+            "{row}.id",
+            &[
+                "title",
+                "description",
+                "position",
+                "image_mode",
+                "cover_background",
+                "cover_background_end",
+                "cover_icon",
+            ],
+        ),
+        (
+            "track_artwork",
+            "track_artwork",
+            "{row}.track_id || ':' || {row}.kind",
+            &["artwork_hash"],
+        ),
+        (
+            // `kind` never holds ':', so the key splits at the last one.
+            "artist_artwork",
+            "artist_artwork",
+            "{row}.artist_key || ':' || {row}.kind",
+            &["artwork_hash"],
+        ),
+        (
+            "playlist_artwork",
+            "playlist_artwork",
+            "{row}.playlist_id || ':' || {row}.kind",
+            &["artwork_hash"],
+        ),
+        (
+            "genre_settings",
+            "genre_setting",
+            "{row}.genre_key",
+            &["background_kind", "background_start", "background_end"],
+        ),
+    ];
+    for (table, entity, id_sql, columns) in tracked {
+        let log = |row: &str, op: &str| {
+            let id = id_sql.replace("{row}", row);
+            format!(
+                "UPDATE library_meta SET rev = rev + 1;
+                DELETE FROM change_log WHERE entity = '{entity}' AND entity_id = {id};
+                INSERT INTO change_log (rev, entity, entity_id, op)
+                    SELECT rev, '{entity}', {id}, '{op}' FROM library_meta;"
+            )
+        };
+        let changed = columns
+            .iter()
+            .map(|c| format!("OLD.{c} IS NOT NEW.{c}"))
+            .collect::<Vec<_>>()
+            .join(" OR ");
+        // As in v9, an update that changes a row's key is not logged as such:
+        // the app moves a link by deleting it and inserting the new one.
+        conn.execute_batch(&format!(
+            "CREATE TRIGGER change_log_{table}_insert AFTER INSERT ON {table}
+            BEGIN {insert} END;
+            CREATE TRIGGER change_log_{table}_update AFTER UPDATE ON {table}
+            WHEN {changed}
+            BEGIN {update} END;
+            CREATE TRIGGER change_log_{table}_delete AFTER DELETE ON {table}
+            BEGIN {delete} END;",
+            insert = log("NEW", "upsert"),
+            update = log("NEW", "upsert"),
+            delete = log("OLD", "delete"),
+        ))?;
+    }
+    Ok(())
+}
+
+/// A track's art as v9 stored it, read by [`artwork_registry`].
+struct V10TrackArt {
+    id: String,
+    art_path: Option<String>,
+    album_artist: Option<String>,
+    artist: Option<String>,
+    album: Option<String>,
+    title: String,
+    track_number: Option<i32>,
+}
+
+/// Image extensions v9 looked for, in the order it looked.
+const V10_IMAGE_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp"];
+
+fn v10_backfill(
+    conn: &Connection,
+    root: &Path,
+    tracks: &[V10TrackArt],
+    artists: &[(String, String)],
+    playlists: &[(String, String, String)],
+) -> Result<(), rusqlite::Error> {
+    let artwork = root.join("Artwork");
+    // An album's tracks share its front: read and record each file once.
+    let mut recorded: std::collections::HashMap<PathBuf, String> = std::collections::HashMap::new();
+    for track in tracks {
+        let album_dir = artwork
+            .join("albums")
+            .join(v10_album_artist(
+                track.album_artist.as_deref(),
+                track.artist.as_deref(),
+            ))
+            .join(v10_sanitize(
+                track
+                    .album
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or("Unknown Album"),
+            ));
+        let current = v10_stored_file(root, track.art_path.as_deref())
+            .or_else(|| v10_find_role_image(&album_dir, "front"));
+        let Some(current) = current else { continue };
+        let hash = match recorded.get(&current) {
+            Some(hash) => Some(hash.clone()),
+            None => v10_record_track_art(conn, root, &artwork, &album_dir, track, &current)?,
+        };
+        if let Some(hash) = hash {
+            recorded.insert(current, hash.clone());
+            conn.execute(
+                "INSERT OR REPLACE INTO track_artwork (track_id, kind, artwork_hash)
+                 VALUES (?1, 'front', ?2)",
+                params![track.id, hash],
+            )?;
+        }
+    }
+
+    for (artist_key, art_path) in artists {
+        let dir = artwork
+            .join("artists")
+            .join(v10_sanitize(artist_key.trim()));
+        let current =
+            v10_stored_file(root, Some(art_path)).or_else(|| v10_find_role_image(&dir, "portrait"));
+        let Some(current) = current else { continue };
+        let Some(bytes) = v10_read(&current) else {
+            continue;
+        };
+        let dest = if current.starts_with(&artwork) {
+            current
+        } else {
+            dir.join(format!("portrait.{}", v10_ext(&bytes)))
+        };
+        if let Some(hash) = v10_register(conn, root, &dest, &bytes)? {
+            conn.execute(
+                "INSERT OR REPLACE INTO artist_artwork (artist_key, kind, artwork_hash)
+                 VALUES (?1, 'portrait', ?2)",
+                params![artist_key, hash],
+            )?;
+        }
+    }
+
+    for (playlist_id, title, path) in playlists {
+        let Some(current) = v10_stored_file(root, Some(path)) else {
+            continue;
+        };
+        let Some(bytes) = v10_read(&current) else {
+            continue;
+        };
+        let dest = if current.starts_with(&artwork) {
+            current
+        } else {
+            artwork.join("playlists").join(format!(
+                "{playlist_id}-{}.{}",
+                v10_sanitize(title.trim()),
+                v10_ext(&bytes)
+            ))
+        };
+        if let Some(hash) = v10_register(conn, root, &dest, &bytes)? {
+            conn.execute(
+                "INSERT OR REPLACE INTO playlist_artwork (playlist_id, kind, artwork_hash)
+                 VALUES (?1, 'cover', ?2)",
+                params![playlist_id, hash],
+            )?;
+        }
+    }
+    Ok(())
+}
+
+/// Record the art file a track shows (`current`), copying art from outside
+/// `Artwork/` into its album folder: as the folder's front when it has none,
+/// else as an override named for the track. Returns the image's hash.
+fn v10_record_track_art(
+    conn: &Connection,
+    root: &Path,
+    artwork: &Path,
+    album_dir: &Path,
+    track: &V10TrackArt,
+    current: &Path,
+) -> Result<Option<String>, rusqlite::Error> {
+    let Some(bytes) = v10_read(current) else {
+        return Ok(None);
+    };
+    let dest = if current.starts_with(artwork) {
+        current.to_path_buf()
+    } else {
+        let ext = v10_ext(&bytes);
+        match v10_find_role_image(album_dir, "front") {
+            Some(front) if v10_read(&front).as_deref() == Some(bytes.as_slice()) => front,
+            Some(_) => {
+                let number = track
+                    .track_number
+                    .map_or_else(|| "00".to_string(), |n| format!("{n:02}"));
+                let name = format!("{number} - {} - front", v10_sanitize(track.title.trim()));
+                v10_free_name(album_dir, &name, ext, &bytes)
+            }
+            None => album_dir.join(format!("front.{ext}")),
+        }
+    };
+    v10_register(conn, root, &dest, &bytes)
+}
+
+/// A stored v9 art path that names an existing file: absolute as it is,
+/// relative to the Spiral folder when it has only plain segments.
+fn v10_stored_file(root: &Path, stored: Option<&str>) -> Option<PathBuf> {
+    let stored = stored.map(str::trim).filter(|s| !s.is_empty())?;
+    let path = if Path::new(stored).is_absolute() {
+        PathBuf::from(stored)
+    } else {
+        let mut path = root.to_path_buf();
+        for segment in stored.split(['/', '\\']).filter(|s| !s.is_empty()) {
+            let mut parts = Path::new(segment).components();
+            match (parts.next(), parts.next()) {
+                (Some(std::path::Component::Normal(name)), None) => path.push(name),
+                _ => return None,
+            }
+        }
+        path
+    };
+    path.is_file().then_some(path)
+}
+
+/// `<stem>.<ext>` in `dir` as v9 found it: the known extensions in order, then
+/// any case.
+fn v10_find_role_image(dir: &Path, stem: &str) -> Option<PathBuf> {
+    for ext in V10_IMAGE_EXTENSIONS {
+        let candidate = dir.join(format!("{stem}.{ext}"));
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    for entry in std::fs::read_dir(dir).ok()?.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let Some((file_stem, ext)) = name.rsplit_once('.') else {
+            continue;
+        };
+        if file_stem.eq_ignore_ascii_case(stem)
+            && V10_IMAGE_EXTENSIONS
+                .iter()
+                .any(|e| ext.eq_ignore_ascii_case(e))
+            && entry.path().is_file()
+        {
+            return Some(entry.path());
+        }
+    }
+    None
+}
+
+fn v10_read(path: &Path) -> Option<Vec<u8>> {
+    std::fs::read(path).ok().filter(|bytes| !bytes.is_empty())
+}
+
+/// `<name>.<ext>` in `dir`, or with a short hash added when another image has
+/// that name. An existing file with these bytes is reused.
+fn v10_free_name(dir: &Path, name: &str, ext: &str, bytes: &[u8]) -> PathBuf {
+    let plain = dir.join(format!("{name}.{ext}"));
+    if !plain.exists() || v10_read(&plain).as_deref() == Some(bytes) {
+        return plain;
+    }
+    dir.join(format!("{name}-{}.{ext}", &v10_hash(bytes)[..8]))
+}
+
+/// Make sure `dest` holds `bytes`, then record the image and the file.
+/// `None` when the copy can't be written.
+fn v10_register(
+    conn: &Connection,
+    root: &Path,
+    dest: &Path,
+    bytes: &[u8],
+) -> Result<Option<String>, rusqlite::Error> {
+    if v10_read(dest).as_deref() != Some(bytes) {
+        let written = dest
+            .parent()
+            .is_some_and(|parent| std::fs::create_dir_all(parent).is_ok())
+            && std::fs::write(dest, bytes).is_ok();
+        if !written {
+            return Ok(None);
+        }
+    }
+    let Some(rel_path) = migration_relative_path(dest, root) else {
+        return Ok(None);
+    };
+    let Ok(meta) = std::fs::metadata(dest) else {
+        return Ok(None);
+    };
+    let mtime_ms = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map_or(0, |d| d.as_millis() as i64);
+    let hash = v10_hash(bytes);
+    let (width, height) = v10_dimensions(bytes).unzip();
+    conn.execute(
+        "INSERT OR IGNORE INTO artwork (hash, mime, width, height, byte_size)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![hash, v10_mime(bytes), width, height, bytes.len() as i64],
+    )?;
+    conn.execute(
+        "INSERT OR REPLACE INTO artwork_file (rel_path, hash, size, mtime_ms)
+         VALUES (?1, ?2, ?3, ?4)",
+        params![rel_path, hash, meta.len() as i64, mtime_ms],
+    )?;
+    Ok(Some(hash))
+}
+
+fn v10_hash(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    hex::encode(Sha256::digest(bytes))
+}
+
+fn v10_mime(bytes: &[u8]) -> &'static str {
+    if bytes.starts_with(&[0x89, b'P', b'N', b'G']) {
+        "image/png"
+    } else if bytes.len() >= 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        "image/webp"
+    } else if bytes.starts_with(b"GIF8") {
+        "image/gif"
+    } else if bytes.starts_with(b"BM") {
+        "image/bmp"
+    } else {
+        "image/jpeg"
+    }
+}
+
+fn v10_ext(bytes: &[u8]) -> &'static str {
+    match v10_mime(bytes) {
+        "image/png" => "png",
+        "image/webp" => "webp",
+        _ => "jpg",
+    }
+}
+
+/// Width and height from the image header, without decoding it.
+fn v10_dimensions(bytes: &[u8]) -> Option<(i64, i64)> {
+    let (w, h) = image::ImageReader::new(std::io::Cursor::new(bytes))
+        .with_guessed_format()
+        .ok()?
+        .into_dimensions()
+        .ok()?;
+    Some((i64::from(w), i64::from(h)))
+}
+
+/// The album artist folder name v9 used.
+fn v10_album_artist(album_artist: Option<&str>, artist: Option<&str>) -> String {
+    v10_sanitize(
+        album_artist
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .or_else(|| artist.map(str::trim).filter(|s| !s.is_empty()))
+            .unwrap_or("Unknown Artist"),
+    )
+}
+
+/// A folder or file name as v9 made it from a tag.
+fn v10_sanitize(name: &str) -> String {
+    let kept: String = name
+        .chars()
+        .filter(|ch| {
+            !ch.is_control() && !matches!(ch, '/' | '\\' | ':' | '<' | '>' | '"' | '|' | '?' | '*')
+        })
+        .collect();
+    let trimmed = kept.split_whitespace().collect::<Vec<_>>().join(" ");
+    if trimmed.chars().all(|c| c == '.' || c == ' ') {
+        "Unknown".to_string()
+    } else {
+        trimmed
+    }
+}
+
 /// A UUIDv7 for `unix_ms` with `counter` (12 bits) in `rand_a` and random
 /// `rand_b`.
 fn migration_uuid(unix_ms: u64, counter: u16) -> String {
@@ -1342,8 +1922,6 @@ mod tests {
         let conn = mem();
         run(&conn, None).unwrap();
         assert_eq!(schema_version(&conn).unwrap(), latest_version());
-        upsert_artist_image(&conn, "a", "/x.png");
-        upsert_artist_image(&conn, "a", "/y.png");
     }
 
     #[test]
@@ -1366,7 +1944,8 @@ mod tests {
         )
         .unwrap();
 
-        run(&conn, None).unwrap();
+        // v10 replaces `artist_images`; check it as v9 left it.
+        migrate_to(&conn, 9);
 
         let rows: Vec<(String, String)> = conn
             .prepare("SELECT artist_key, art_path FROM artist_images ORDER BY artist_key")
@@ -1659,6 +2238,36 @@ mod tests {
                 expected.push(("library_meta".to_string(), 1));
                 expected.push(("change_log".to_string(), 0));
             }
+            // v10 replaces `artist_images` with the artwork registry. The
+            // fixtures' art files aren't on disk, so nothing is backfilled, and
+            // log rows for the dropped `artist_image` entity go.
+            if from < 10 {
+                let dropped_log_rows: i64 = if from == 9 {
+                    conn.query_row(
+                        "SELECT COUNT(*) FROM change_log WHERE entity = 'artist_image'",
+                        [],
+                        |r| r.get(0),
+                    )
+                    .unwrap()
+                } else {
+                    0
+                };
+                expected.retain(|(table, _)| table != "artist_images");
+                for (table, n) in &mut expected {
+                    if table == "change_log" {
+                        *n -= dropped_log_rows;
+                    }
+                }
+                for table in [
+                    "artwork",
+                    "artwork_file",
+                    "track_artwork",
+                    "artist_artwork",
+                    "playlist_artwork",
+                ] {
+                    expected.push((table.to_string(), 0));
+                }
+            }
             expected.sort();
 
             run(&conn, None).unwrap_or_else(|e| panic!("{name}: upgrade failed: {e}"));
@@ -1852,18 +2461,23 @@ mod tests {
     fn a_recreated_entity_replaces_its_tombstone() {
         let conn = logged_fixture();
         conn.execute(
-            "DELETE FROM artist_images WHERE artist_key = 'artist x'",
-            [],
+            "DELETE FROM playlist_tracks WHERE playlist_id = ?1 AND track_id = ?2",
+            [PLAYLIST_1, TRACK_C],
         )
         .unwrap();
         conn.execute(
-            "INSERT INTO artist_images (artist_key, art_path) VALUES ('artist x', '/b.png')",
-            [],
+            "INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?1, ?2, 'a9')",
+            [PLAYLIST_1, TRACK_C],
         )
         .unwrap();
         assert_eq!(
             log(&conn),
-            vec![(2, "artist_image".into(), "artist x".into(), "upsert".into())]
+            vec![(
+                2,
+                "playlist_track".into(),
+                format!("{PLAYLIST_1}:{TRACK_C}"),
+                "upsert".into()
+            )]
         );
     }
 
@@ -1891,7 +2505,6 @@ mod tests {
                     ("sample_rate", "7"),
                     ("bitrate", "7"),
                     ("codec", "'t'"),
-                    ("art_path", "'t'"),
                     ("rating", "7"),
                     ("recording_mbid", "'t'"),
                     ("release_mbid", "'t'"),
@@ -1909,7 +2522,6 @@ mod tests {
                     ("description", "'t'"),
                     ("position", "'t'"),
                     ("image_mode", "'t'"),
-                    ("custom_image_path", "'t'"),
                     ("cover_background", "'t'"),
                     ("cover_background_end", "'t'"),
                     ("cover_icon", "'t'"),
@@ -1931,11 +2543,39 @@ mod tests {
                 ],
             ),
             (
-                "artist_images",
+                "track_artwork",
+                "track_id = '018d0000-0000-7000-8000-000000000001'",
+                &[("artwork_hash", "'h2'")],
+            ),
+            (
+                "artist_artwork",
                 "artist_key = 'artist x'",
-                &[("art_path", "'t'")],
+                &[("artwork_hash", "'h2'")],
+            ),
+            (
+                "playlist_artwork",
+                "playlist_id = '018d0000-0000-7000-8000-0000000000a1'",
+                &[("artwork_hash", "'h2'")],
+            ),
+            (
+                "genre_settings",
+                "genre_key = 'rock'",
+                &[
+                    ("background_kind", "'theme_solid'"),
+                    ("background_start", "'#000000'"),
+                    ("background_end", "'#ffffff'"),
+                ],
             ),
         ];
+        conn.execute_batch(&format!(
+            "INSERT INTO artwork (hash, mime, byte_size) VALUES ('h1', 'image/png', 1),
+                                                              ('h2', 'image/png', 1);
+            INSERT INTO track_artwork VALUES ('{TRACK_A}', 'front', 'h1');
+            INSERT INTO artist_artwork VALUES ('artist x', 'portrait', 'h1');
+            INSERT INTO playlist_artwork VALUES ('{PLAYLIST_1}', 'cover', 'h1');
+            INSERT INTO genre_settings (genre_key, background_kind) VALUES ('rock', 'color');"
+        ))
+        .unwrap();
         for (table, row, changes) in columns {
             for (column, value) in *changes {
                 let before = rev(&conn);
@@ -2313,11 +2953,10 @@ mod tests {
     #[test]
     fn failed_migration_rolls_back_and_keeps_previous_version() {
         let conn = mem();
-        run(&conn, None).unwrap();
+        migrate_to(&conn, 1);
         // Break v2's precondition: a view named like its scratch table makes
         // the rebuild fail after it has already dropped nothing yet.
-        conn.execute_batch("PRAGMA user_version = 1; DROP TABLE artist_images;")
-            .unwrap();
+        conn.execute_batch("DROP TABLE artist_images;").unwrap();
         conn.execute_batch(LEGACY_ARTIST_IMAGES).unwrap();
         conn.execute_batch("INSERT INTO artist_images VALUES ('a', 'artist', '/a.png');")
             .unwrap();
@@ -2353,5 +2992,271 @@ mod tests {
         drop(backup);
         drop(conn);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn png(width: u32, height: u32, shade: u8) -> Vec<u8> {
+        let mut out = Vec::new();
+        image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
+            width,
+            height,
+            image::Rgb([shade, shade, shade]),
+        ))
+        .write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png)
+        .unwrap();
+        out
+    }
+
+    fn write(path: &Path, bytes: &[u8]) {
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, bytes).unwrap();
+    }
+
+    fn sha(bytes: &[u8]) -> String {
+        v10_hash(bytes)
+    }
+
+    fn links(conn: &Connection, table: &str, key: &str) -> Vec<(String, String, String)> {
+        conn.prepare(&format!(
+            "SELECT {key}, kind, artwork_hash FROM {table} ORDER BY {key}, kind"
+        ))
+        .unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap()
+    }
+
+    fn files(conn: &Connection) -> Vec<(String, String)> {
+        conn.prepare("SELECT rel_path, hash FROM artwork_file ORDER BY rel_path")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    }
+
+    const TRACK_B: &str = "018d0000-0000-7000-8000-000000000002";
+    const TRACK_F: &str = "018d0000-0000-7000-8000-000000000007";
+    const PLAYLIST_2: &str = "018d0000-0000-7000-8000-0000000000a2";
+
+    /// The v9 fixture with art on disk in a temp Spiral folder: album 1 has a
+    /// front and an override, `Artist X/Unknown Album` has the same front as
+    /// album 1, track C's art is cached outside the folder, and artist x and
+    /// playlist 2 have images.
+    #[test]
+    fn v10_backfills_the_art_each_entity_shows() {
+        let root = temp_library("v10-backfill");
+        let outside = root.with_extension("app-data");
+        let front = png(4, 3, 10);
+        let override_art = png(2, 2, 20);
+        let cached = png(5, 5, 30);
+        let portrait = png(6, 6, 40);
+        let cover = png(3, 3, 50);
+        let album1 = root.join("Artwork/albums/Artist X/Album 1");
+        write(&album1.join("front.png"), &front);
+        write(&album1.join("02 - Song B - front.jpg"), &override_art);
+        // Tracks E and F: album artist X, no album.
+        write(
+            &root.join("Artwork/albums/Artist X/Unknown Album/front.png"),
+            &front,
+        );
+        write(&outside.join("c.png"), &cached);
+        write(
+            &root.join("Artwork/artists/artist x/portrait.png"),
+            &portrait,
+        );
+        write(
+            &root.join(format!("Artwork/playlists/{PLAYLIST_2}-Another.png")),
+            &cover,
+        );
+        // Album 3 already has a front, so C's cached art becomes an override.
+        let album3 = root.join("Artwork/albums/Artist Z/Album 3");
+        write(&album3.join("front.jpg"), &png(1, 1, 60));
+
+        let conn = load_fixture(9);
+        conn.execute(
+            "UPDATE tracks SET art_path = ?1 WHERE id = ?2",
+            params![outside.join("c.png").to_string_lossy(), TRACK_C],
+        )
+        .unwrap();
+        crate::sources::attach_spiral_folder(&conn, &root).unwrap();
+        run(&conn, None).unwrap();
+
+        let (front_hash, override_hash) = (sha(&front), sha(&override_art));
+        assert_eq!(
+            links(&conn, "track_artwork", "track_id"),
+            vec![
+                (TRACK_A.into(), "front".into(), front_hash.clone()),
+                (TRACK_B.into(), "front".into(), override_hash.clone()),
+                (TRACK_C.into(), "front".into(), sha(&cached)),
+                // D is on Artist Z's Unknown Album, which has no art.
+                (
+                    "018d0000-0000-7000-8000-000000000006".into(),
+                    "front".into(),
+                    front_hash.clone()
+                ),
+                (TRACK_F.into(), "front".into(), front_hash.clone()),
+            ]
+        );
+        assert_eq!(
+            links(&conn, "artist_artwork", "artist_key"),
+            vec![("artist x".into(), "portrait".into(), sha(&portrait))]
+        );
+        assert_eq!(
+            links(&conn, "playlist_artwork", "playlist_id"),
+            vec![(PLAYLIST_2.into(), "cover".into(), sha(&cover))]
+        );
+        // One image, two files: each album keeps its own front.
+        let copy = "Artwork/albums/Artist Z/Album 3/00 - Song C - front.png";
+        assert_eq!(
+            files(&conn),
+            vec![
+                (
+                    "Artwork/albums/Artist X/Album 1/02 - Song B - front.jpg".into(),
+                    override_hash
+                ),
+                (
+                    "Artwork/albums/Artist X/Album 1/front.png".into(),
+                    front_hash.clone()
+                ),
+                (
+                    "Artwork/albums/Artist X/Unknown Album/front.png".into(),
+                    front_hash.clone()
+                ),
+                (copy.into(), sha(&cached)),
+                (
+                    "Artwork/artists/artist x/portrait.png".into(),
+                    sha(&portrait)
+                ),
+                (
+                    format!("Artwork/playlists/{PLAYLIST_2}-Another.png"),
+                    sha(&cover)
+                ),
+            ]
+        );
+        assert_eq!(std::fs::read(root.join(copy)).unwrap(), cached);
+        let (mime, width, height, size): (String, i64, i64, i64) = conn
+            .query_row(
+                "SELECT mime, width, height, byte_size FROM artwork WHERE hash = ?1",
+                [&front_hash],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            (mime.as_str(), width, height, size),
+            ("image/png", 4, 3, front.len() as i64)
+        );
+        // Album 3's own front shows on no track, so it isn't recorded: only
+        // art in use is backfilled.
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM artwork", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            5
+        );
+        let stat: (i64, i64) = conn
+            .query_row(
+                "SELECT size, mtime_ms FROM artwork_file WHERE rel_path = ?1",
+                [copy],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        let meta = std::fs::metadata(root.join(copy)).unwrap();
+        assert_eq!(stat.0, meta.len() as i64);
+        assert!(stat.1 > 0);
+
+        // The backfill isn't logged (rev 4 is this test pointing C at its
+        // cache under v9); the dropped entity's rows are gone.
+        assert_eq!(rev(&conn), 4);
+        assert_eq!(
+            log(&conn)
+                .into_iter()
+                .map(|(_, entity, _, _)| entity)
+                .collect::<Vec<_>>(),
+            vec!["track", "playlist_track", "track"]
+        );
+        let _ = std::fs::remove_dir_all(&root);
+        let _ = std::fs::remove_dir_all(&outside);
+    }
+
+    #[test]
+    fn v10_without_a_spiral_folder_links_nothing() {
+        let conn = load_fixture(9);
+        run(&conn, None).unwrap();
+        for table in ["artwork", "artwork_file", "track_artwork", "artist_artwork"] {
+            let n: i64 = conn
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(n, 0, "{table}");
+        }
+        assert!(!table_exists(&conn, "artist_images").unwrap());
+        assert!(!table_columns(&conn, "tracks")
+            .unwrap()
+            .contains(&"art_path".to_string()));
+        assert!(!table_columns(&conn, "playlists")
+            .unwrap()
+            .contains(&"custom_image_path".to_string()));
+    }
+
+    #[test]
+    fn genre_settings_changes_are_logged() {
+        let conn = logged_fixture();
+        conn.execute(
+            "INSERT INTO genre_settings (genre_key, background_kind) VALUES ('jazz', 'color')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE genre_settings SET background_start = '#123456' WHERE genre_key = 'jazz'",
+            [],
+        )
+        .unwrap();
+        assert_eq!(
+            log(&conn),
+            vec![(2, "genre_setting".into(), "jazz".into(), "upsert".into())]
+        );
+        conn.execute("DELETE FROM genre_settings WHERE genre_key = 'jazz'", [])
+            .unwrap();
+        assert_eq!(
+            log(&conn),
+            vec![(3, "genre_setting".into(), "jazz".into(), "delete".into())]
+        );
+    }
+
+    #[test]
+    fn deleting_a_track_or_playlist_drops_its_art_links_with_tombstones() {
+        let conn = logged_fixture();
+        conn.execute_batch(&format!(
+            "INSERT INTO artwork (hash, mime, byte_size) VALUES ('h', 'image/png', 1);
+            INSERT INTO track_artwork VALUES ('{TRACK_C}', 'front', 'h');
+            INSERT INTO playlist_artwork VALUES ('{PLAYLIST_1}', 'cover', 'h');"
+        ))
+        .unwrap();
+        conn.execute("DELETE FROM tracks WHERE id = ?1", [TRACK_C])
+            .unwrap();
+        conn.execute("DELETE FROM playlists WHERE id = ?1", [PLAYLIST_1])
+            .unwrap();
+        let ops: Vec<(String, String, String)> = log(&conn)
+            .into_iter()
+            .map(|(_, entity, id, op)| (entity, id, op))
+            .collect();
+        for expected in [
+            ("track_artwork", format!("{TRACK_C}:front")),
+            ("playlist_artwork", format!("{PLAYLIST_1}:cover")),
+        ] {
+            assert!(
+                ops.contains(&(expected.0.into(), expected.1.clone(), "delete".into())),
+                "{expected:?} in {ops:?}"
+            );
+        }
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM track_artwork", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap()
+                + conn
+                    .query_row("SELECT COUNT(*) FROM playlist_artwork", [], |r| r
+                        .get::<_, i64>(0))
+                    .unwrap(),
+            0
+        );
     }
 }
