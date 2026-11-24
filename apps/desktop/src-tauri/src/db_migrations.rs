@@ -73,6 +73,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "uuid_ids",
         up: uuid_ids,
     },
+    Migration {
+        version: 9,
+        name: "library_meta_change_log",
+        up: library_meta_change_log,
+    },
 ];
 
 fn latest_version() -> i64 {
@@ -872,6 +877,141 @@ fn fill_uuid_map(
     Ok(())
 }
 
+/// Gives the library an identity and a change feed for sync.
+///
+/// - `library_meta` holds one row: the library's UUID, minted here and kept in
+///   the database so it travels with backups and copies, and `rev`, a counter
+///   that goes up by one for every logged change.
+/// - `change_log` records which entity changed at which `rev`, with `delete`
+///   rows as tombstones. It holds one row per entity (its latest change), so
+///   "changes since rev N" is every row with `rev > N`. It stores no data: the
+///   current row is read from its own table.
+/// - Triggers on the catalog tables keep both in step, so every write path is
+///   covered. They ignore columns that are not catalog data: play counts and
+///   last played (caches recomputed from events), `playlists.last_used_at`, and
+///   this machine's scan state (`source_id`, `rel_path`, `missing_since`).
+///
+/// Nothing is backfilled: a client's first sync is a snapshot plus the current
+/// `rev`, which starts at 0.
+fn library_meta_change_log(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute_batch(
+        "CREATE TABLE library_meta (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            library_id TEXT NOT NULL,
+            rev INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE change_log (
+            rev INTEGER PRIMARY KEY,
+            entity TEXT NOT NULL,
+            entity_id TEXT NOT NULL,
+            op TEXT NOT NULL CHECK (op IN ('upsert', 'delete')),
+            UNIQUE (entity, entity_id)
+        );",
+    )?;
+    conn.execute(
+        "INSERT INTO library_meta (id, library_id, rev) VALUES (1, ?1, 0)",
+        [uuid::Uuid::now_v7().to_string()],
+    )?;
+
+    // (table, entity, id of a row as `<row>.` prefixed SQL, columns whose change counts)
+    let tracked: [(&str, &str, &str, &[&str]); 5] = [
+        (
+            "tracks",
+            "track",
+            "{row}.id",
+            &[
+                "title",
+                "artist",
+                "album",
+                "album_artist",
+                "track_number",
+                "total_tracks",
+                "disc_number",
+                "total_discs",
+                "year",
+                "genre",
+                "duration_seconds",
+                "sample_rate",
+                "bitrate",
+                "codec",
+                "art_path",
+                "rating",
+                "recording_mbid",
+                "release_mbid",
+                "artist_mbids",
+                "album_artist_mbids",
+                // A changed file (same id, new audio) must reach clients.
+                "file_size",
+                "file_mtime_ms",
+            ],
+        ),
+        (
+            "playlists",
+            "playlist",
+            "{row}.id",
+            &[
+                "title",
+                "description",
+                "position",
+                "image_mode",
+                "custom_image_path",
+                "cover_background",
+                "cover_background_end",
+                "cover_icon",
+            ],
+        ),
+        (
+            "playlist_tracks",
+            "playlist_track",
+            "{row}.playlist_id || ':' || {row}.track_id",
+            &["position"],
+        ),
+        (
+            "track_lyrics",
+            "track_lyrics",
+            "{row}.track_id",
+            &["format", "source", "lines_json", "plain_text"],
+        ),
+        (
+            "artist_images",
+            "artist_image",
+            "{row}.artist_key",
+            &["art_path"],
+        ),
+    ];
+    for (table, entity, id_sql, columns) in tracked {
+        let log = |row: &str, op: &str| {
+            let id = id_sql.replace("{row}", row);
+            format!(
+                // Delete then insert, not `INSERT OR REPLACE`: a statement that fires a trigger
+                // overrides the conflict clause of the trigger's own statements.
+                "UPDATE library_meta SET rev = rev + 1;
+                DELETE FROM change_log WHERE entity = '{entity}' AND entity_id = {id};
+                INSERT INTO change_log (rev, entity, entity_id, op)
+                    SELECT rev, '{entity}', {id}, '{op}' FROM library_meta;"
+            )
+        };
+        let changed = columns
+            .iter()
+            .map(|c| format!("OLD.{c} IS NOT NEW.{c}"))
+            .collect::<Vec<_>>()
+            .join(" OR ");
+        conn.execute_batch(&format!(
+            "CREATE TRIGGER change_log_{table}_insert AFTER INSERT ON {table}
+            BEGIN {insert} END;
+            CREATE TRIGGER change_log_{table}_update AFTER UPDATE ON {table}
+            WHEN {changed}
+            BEGIN {update} END;
+            CREATE TRIGGER change_log_{table}_delete AFTER DELETE ON {table}
+            BEGIN {delete} END;",
+            insert = log("NEW", "upsert"),
+            update = log("NEW", "upsert"),
+            delete = log("OLD", "delete"),
+        ))?;
+    }
+    Ok(())
+}
+
 /// A UUIDv7 for `unix_ms` with `counter` (12 bits) in `rand_a` and random
 /// `rand_b`.
 fn migration_uuid(unix_ms: u64, counter: u16) -> String {
@@ -1492,6 +1632,11 @@ mod tests {
             if from < 6 {
                 expected.push(("removed_tracks".to_string(), 0));
             }
+            // v9 adds the library's one `library_meta` row and an empty log.
+            if from < 9 {
+                expected.push(("library_meta".to_string(), 1));
+                expected.push(("change_log".to_string(), 0));
+            }
             expected.sort();
 
             run(&conn, None).unwrap_or_else(|e| panic!("{name}: upgrade failed: {e}"));
@@ -1533,6 +1678,241 @@ mod tests {
         counts.push(("sources".to_string(), 1));
         counts.sort();
         counts
+    }
+
+    fn rev(conn: &Connection) -> i64 {
+        conn.query_row("SELECT rev FROM library_meta", [], |r| r.get(0))
+            .unwrap()
+    }
+
+    fn log(conn: &Connection) -> Vec<(i64, String, String, String)> {
+        conn.prepare("SELECT rev, entity, entity_id, op FROM change_log ORDER BY rev")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    }
+
+    /// A migrated database with the v8 fixture's rows, foreign keys on.
+    fn logged_fixture() -> Connection {
+        let conn = load_fixture(8);
+        crate::sources::attach_spiral_folder(&conn, Path::new("/library")).unwrap();
+        run(&conn, None).unwrap();
+        conn
+    }
+
+    const TRACK_A: &str = "018d0000-0000-7000-8000-000000000001";
+    const TRACK_C: &str = "018d0000-0000-7000-8000-000000000003";
+    const PLAYLIST_1: &str = "018d0000-0000-7000-8000-0000000000a1";
+
+    #[test]
+    fn library_gets_one_uuid_and_an_empty_log() {
+        let conn = logged_fixture();
+        let id: String = conn
+            .query_row("SELECT library_id FROM library_meta", [], |r| r.get(0))
+            .unwrap();
+        assert!(uuid::Uuid::parse_str(&id).is_ok());
+        assert_eq!(rev(&conn), 0);
+        assert!(log(&conn).is_empty());
+        // Opening again keeps the same identity.
+        run(&conn, None).unwrap();
+        let again: String = conn
+            .query_row("SELECT library_id FROM library_meta", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(id, again);
+        assert!(conn
+            .execute(
+                "INSERT INTO library_meta (id, library_id) VALUES (2, 'x')",
+                []
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn catalog_changes_are_logged_with_a_rising_rev() {
+        let conn = logged_fixture();
+        conn.execute(
+            "UPDATE tracks SET title = 'Renamed' WHERE id = ?1",
+            [TRACK_A],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE playlist_tracks SET position = 'a3' WHERE playlist_id = ?1 AND track_id = ?2",
+            [PLAYLIST_1, TRACK_C],
+        )
+        .unwrap();
+        assert_eq!(rev(&conn), 2);
+        assert_eq!(
+            log(&conn),
+            vec![
+                (1, "track".into(), TRACK_A.into(), "upsert".into()),
+                (
+                    2,
+                    "playlist_track".into(),
+                    format!("{PLAYLIST_1}:{TRACK_C}"),
+                    "upsert".into()
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn an_entity_keeps_only_its_latest_change() {
+        let conn = logged_fixture();
+        for title in ["One", "Two", "Three"] {
+            conn.execute(
+                "UPDATE tracks SET title = ?1 WHERE id = ?2",
+                [title, TRACK_A],
+            )
+            .unwrap();
+        }
+        assert_eq!(rev(&conn), 3);
+        assert_eq!(
+            log(&conn),
+            vec![(3, "track".into(), TRACK_A.into(), "upsert".into())]
+        );
+    }
+
+    #[test]
+    fn non_catalog_columns_and_events_are_not_logged() {
+        let conn = logged_fixture();
+        conn.execute(
+            "UPDATE tracks SET play_count = 9, last_played_at = 'now', missing_since = 'now',
+                    rel_path = 'moved.mp3' WHERE id = ?1",
+            [TRACK_A],
+        )
+        .unwrap();
+        conn.execute("UPDATE playlists SET last_used_at = 'now'", [])
+            .unwrap();
+        // Setting a column to the value it has is not a change.
+        conn.execute("UPDATE tracks SET title = title", []).unwrap();
+        conn.execute(
+            "INSERT INTO listen_events (id, track_id, started_at, ended_at, listened_seconds,
+                                        completion)
+             VALUES (?1, ?2, 'a', 'b', 1.0, 'completed')",
+            ["018d0000-0000-7000-8000-0000000000e9", TRACK_A],
+        )
+        .unwrap();
+        assert_eq!(rev(&conn), 0);
+        assert!(log(&conn).is_empty());
+    }
+
+    #[test]
+    fn deleting_a_track_logs_it_and_what_it_took_with_it() {
+        let conn = logged_fixture();
+        conn.execute("DELETE FROM tracks WHERE id = ?1", [TRACK_C])
+            .unwrap();
+        let entries = log(&conn);
+        let ops: Vec<_> = entries
+            .iter()
+            .map(|(_, entity, id, op)| (entity.as_str(), id.as_str(), op.as_str()))
+            .collect();
+        let entry = format!("{PLAYLIST_1}:{TRACK_C}");
+        assert!(ops.contains(&("track", TRACK_C, "delete")));
+        assert!(ops.contains(&("playlist_track", entry.as_str(), "delete")));
+        assert_eq!(rev(&conn), entries.len() as i64);
+    }
+
+    #[test]
+    fn a_recreated_entity_replaces_its_tombstone() {
+        let conn = logged_fixture();
+        conn.execute(
+            "DELETE FROM artist_images WHERE artist_key = 'artist x'",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO artist_images (artist_key, art_path) VALUES ('artist x', '/b.png')",
+            [],
+        )
+        .unwrap();
+        assert_eq!(
+            log(&conn),
+            vec![(2, "artist_image".into(), "artist x".into(), "upsert".into())]
+        );
+    }
+
+    /// A trigger's column names are only checked when it first fires, so change
+    /// every column the log watches and expect an entry each time.
+    #[test]
+    fn changing_any_logged_column_is_logged() {
+        let conn = logged_fixture();
+        let columns: &[(&str, &str, &[(&str, &str)])] = &[
+            (
+                "tracks",
+                "id = '018d0000-0000-7000-8000-000000000001'",
+                &[
+                    ("title", "'t'"),
+                    ("artist", "'t'"),
+                    ("album", "'t'"),
+                    ("album_artist", "'t'"),
+                    ("track_number", "7"),
+                    ("total_tracks", "7"),
+                    ("disc_number", "7"),
+                    ("total_discs", "7"),
+                    ("year", "1999"),
+                    ("genre", "'t'"),
+                    ("duration_seconds", "7.5"),
+                    ("sample_rate", "7"),
+                    ("bitrate", "7"),
+                    ("codec", "'t'"),
+                    ("art_path", "'t'"),
+                    ("rating", "7"),
+                    ("recording_mbid", "'t'"),
+                    ("release_mbid", "'t'"),
+                    ("artist_mbids", "'t'"),
+                    ("album_artist_mbids", "'t'"),
+                    ("file_size", "7"),
+                    ("file_mtime_ms", "7"),
+                ],
+            ),
+            (
+                "playlists",
+                "id = '018d0000-0000-7000-8000-0000000000a1'",
+                &[
+                    ("title", "'t'"),
+                    ("description", "'t'"),
+                    ("position", "'t'"),
+                    ("image_mode", "'t'"),
+                    ("custom_image_path", "'t'"),
+                    ("cover_background", "'t'"),
+                    ("cover_background_end", "'t'"),
+                    ("cover_icon", "'t'"),
+                ],
+            ),
+            (
+                "playlist_tracks",
+                "track_id = '018d0000-0000-7000-8000-000000000001'",
+                &[("position", "'t'")],
+            ),
+            (
+                "track_lyrics",
+                "track_id = '018d0000-0000-7000-8000-000000000001'",
+                &[
+                    ("format", "'t'"),
+                    ("source", "'t'"),
+                    ("lines_json", "'t'"),
+                    ("plain_text", "'t'"),
+                ],
+            ),
+            (
+                "artist_images",
+                "artist_key = 'artist x'",
+                &[("art_path", "'t'")],
+            ),
+        ];
+        for (table, row, changes) in columns {
+            for (column, value) in *changes {
+                let before = rev(&conn);
+                conn.execute(
+                    &format!("UPDATE {table} SET {column} = {value} WHERE {row}"),
+                    [],
+                )
+                .unwrap_or_else(|e| panic!("{table}.{column}: {e}"));
+                assert_eq!(rev(&conn), before + 1, "{table}.{column} was not logged");
+            }
+        }
     }
 
     fn load_fixture(version: i64) -> Connection {
