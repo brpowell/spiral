@@ -8,7 +8,7 @@ import {
   recordTrackResult,
   type FetchMissingLyricsSummary,
 } from "./fetchMissingLyrics";
-import type { Track } from "@/types/track";
+import type { Track, TrackId } from "@/types/track";
 
 const {
   runSingleLyricsFetchMock,
@@ -53,9 +53,9 @@ vi.mock("@/lib/tauri", () => ({
   peekLyricsFetchCache: peekLyricsFetchCacheMock,
 }));
 
-const fetchingTrackIds = new Set<number>();
-const queuedTrackIds = new Set<number>();
-const setFetchingMock = vi.fn((trackId: number, isFetching: boolean) => {
+const fetchingTrackIds = new Set<string>();
+const queuedTrackIds = new Set<string>();
+const setFetchingMock = vi.fn((trackId: TrackId, isFetching: boolean) => {
   if (isFetching) fetchingTrackIds.add(trackId);
   else fetchingTrackIds.delete(trackId);
 });
@@ -91,7 +91,7 @@ vi.mock("@/store/useBackgroundTasksStore", () => ({
 
 function track(overrides: Partial<Track> = {}): Track {
   return {
-    id: 1,
+    id: "1",
     title: "Song",
     artist: "Artist",
     album: "Album",
@@ -155,15 +155,15 @@ async function runBackgroundJob(
 describe("partitionMissingLyricsTracks", () => {
   it("splits missing tracks into eligible and ineligible", () => {
     const result = partitionMissingLyricsTracks([
-      track({ id: 1, title: "Has lyrics", lyricsFormat: "plain" }),
-      track({ id: 2, title: "Instrumental", lyricsFormat: "instrumental" }),
-      track({ id: 3, title: "Missing eligible" }),
-      track({ id: 4, title: "Missing no artist", artist: null }),
-      track({ id: 5, title: "Missing no duration", durationSeconds: null }),
+      track({ id: "1", title: "Has lyrics", lyricsFormat: "plain" }),
+      track({ id: "2", title: "Instrumental", lyricsFormat: "instrumental" }),
+      track({ id: "3", title: "Missing eligible" }),
+      track({ id: "4", title: "Missing no artist", artist: null }),
+      track({ id: "5", title: "Missing no duration", durationSeconds: null }),
     ]);
 
-    expect(result.eligible.map((t) => t.id)).toEqual([3]);
-    expect(result.ineligible.map((t) => t.id)).toEqual([4, 5]);
+    expect(result.eligible.map((t) => t.id)).toEqual(["3"]);
+    expect(result.ineligible.map((t) => t.id)).toEqual(["4", "5"]);
   });
 });
 
@@ -180,15 +180,15 @@ describe("filterEligibleByFetchCache", () => {
       .mockResolvedValueOnce("hit");
 
     const result = await filterEligibleByFetchCache([
-      track({ id: 1, title: "Miss" }),
-      track({ id: 2, title: "Instrumental" }),
-      track({ id: 3, title: "Fresh" }),
-      track({ id: 4, title: "Cached hit" }),
+      track({ id: "1", title: "Miss" }),
+      track({ id: "2", title: "Instrumental" }),
+      track({ id: "3", title: "Fresh" }),
+      track({ id: "4", title: "Cached hit" }),
     ]);
 
-    expect(result.cachedMiss.map((t) => t.id)).toEqual([1]);
-    expect(result.cachedInstrumental.map((t) => t.id)).toEqual([2]);
-    expect(result.toFetch.map((t) => t.id)).toEqual([3, 4]);
+    expect(result.cachedMiss.map((t) => t.id)).toEqual(["1"]);
+    expect(result.cachedInstrumental.map((t) => t.id)).toEqual(["2"]);
+    expect(result.toFetch.map((t) => t.id)).toEqual(["3", "4"]);
   });
 });
 
@@ -219,14 +219,14 @@ describe("formatFetchMissingLyricsToastLabel", () => {
     summary.skipped = 2;
     summary.tracks = [
       {
-        trackId: 1,
+        trackId: "1",
         title: "A",
         artist: "X",
         status: "skipped",
         reason: "cached_miss",
       },
       {
-        trackId: 2,
+        trackId: "2",
         title: "B",
         artist: "Y",
         status: "skipped",
@@ -243,20 +243,20 @@ describe("recordTrackResult", () => {
   it("accumulates per-track statuses into summary counts", () => {
     const summary = emptyFetchMissingLyricsSummary(3);
     recordTrackResult(summary, {
-      trackId: 1,
+      trackId: "1",
       title: "A",
       artist: "X",
       status: "found",
     });
     recordTrackResult(summary, {
-      trackId: 2,
+      trackId: "2",
       title: "B",
       artist: "Y",
       status: "skipped",
       reason: "insufficient_metadata",
     });
     recordTrackResult(summary, {
-      trackId: 3,
+      trackId: "3",
       title: "C",
       artist: "Z",
       status: "failed",
@@ -299,7 +299,7 @@ describe("fetchMissingLyrics", () => {
   });
 
   it("logs ineligible-only summary without starting a background job", () => {
-    library = [track({ id: 9, artist: null })];
+    library = [track({ id: "9", artist: null })];
     fetchMissingLyrics();
 
     expect(runInBackgroundMock).not.toHaveBeenCalled();
@@ -317,7 +317,7 @@ describe("fetchMissingLyrics", () => {
           skipped: 1,
           tracks: [
             expect.objectContaining({
-              trackId: 9,
+              trackId: "9",
               status: "skipped",
               reason: "insufficient_metadata",
             }),
@@ -329,9 +329,9 @@ describe("fetchMissingLyrics", () => {
 
   it("runs a cancelable job and writes a cancelled summary with attempted tracks", async () => {
     library = [
-      track({ id: 1, title: "One" }),
-      track({ id: 2, title: "Two" }),
-      track({ id: 3, title: "Three" }),
+      track({ id: "1", title: "One" }),
+      track({ id: "2", title: "Two" }),
+      track({ id: "3", title: "Three" }),
     ];
 
     let cancelRequested = false;
@@ -350,13 +350,16 @@ describe("fetchMissingLyrics", () => {
     expect(summary.cancelled).toBe(true);
     expect(summary.attempted).toBe(1);
     expect(summary.tracks).toEqual([
-      expect.objectContaining({ trackId: 1, status: "found" }),
+      expect.objectContaining({ trackId: "1", status: "found" }),
     ]);
-    expect(summary.tracks.some((t) => t.trackId === 2)).toBe(false);
+    expect(summary.tracks.some((t) => t.trackId === "2")).toBe(false);
   });
 
   it("treats mid-fetch strategy cancel as cancelled, not failed", async () => {
-    library = [track({ id: 1, title: "One" }), track({ id: 2, title: "Two" })];
+    library = [
+      track({ id: "1", title: "One" }),
+      track({ id: "2", title: "Two" }),
+    ];
     runSingleLyricsFetchMock.mockResolvedValueOnce({ status: "cancelled" });
 
     await runBackgroundJob();
@@ -370,19 +373,19 @@ describe("fetchMissingLyrics", () => {
     expect(summary.failed).toBe(0);
     expect(summary.tracks).toEqual([
       expect.objectContaining({
-        trackId: 1,
+        trackId: "1",
         status: "skipped",
         reason: "cancelled",
       }),
     ]);
-    expect(summary.tracks.some((t) => t.trackId === 2)).toBe(false);
+    expect(summary.tracks.some((t) => t.trackId === "2")).toBe(false);
   });
 
   it("settles cancel with Review when ambiguous matches remain", async () => {
     library = [
-      track({ id: 1, title: "One" }),
-      track({ id: 2, title: "Two" }),
-      track({ id: 3, title: "Three" }),
+      track({ id: "1", title: "One" }),
+      track({ id: "2", title: "Two" }),
+      track({ id: "3", title: "Three" }),
     ];
 
     let cancelRequested = false;
@@ -407,8 +410,8 @@ describe("fetchMissingLyrics", () => {
 
   it("skips cached misses and only fetches uncached tracks", async () => {
     library = [
-      track({ id: 1, title: "Cached miss" }),
-      track({ id: 2, title: "Needs fetch" }),
+      track({ id: "1", title: "Cached miss" }),
+      track({ id: "2", title: "Needs fetch" }),
     ];
     peekLyricsFetchCacheMock
       .mockResolvedValueOnce("miss")
@@ -419,7 +422,7 @@ describe("fetchMissingLyrics", () => {
 
     expect(runSingleLyricsFetchMock).toHaveBeenCalledTimes(1);
     expect(runSingleLyricsFetchMock).toHaveBeenCalledWith(
-      2,
+      "2",
       expect.any(Object),
       expect.any(Object),
     );
@@ -431,11 +434,11 @@ describe("fetchMissingLyrics", () => {
     expect(summary.tracks).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          trackId: 1,
+          trackId: "1",
           status: "skipped",
           reason: "cached_miss",
         }),
-        expect.objectContaining({ trackId: 2, status: "found" }),
+        expect.objectContaining({ trackId: "2", status: "found" }),
       ]),
     );
   });

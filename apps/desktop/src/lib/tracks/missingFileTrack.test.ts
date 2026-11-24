@@ -14,7 +14,7 @@ import {
 } from "./missingFileTrack";
 
 const track = (patch: Partial<Track> = {}) =>
-  ({ id: 1, title: "Song", filePath: "/m/a.mp3", ...patch }) as Track;
+  ({ id: "1", title: "Song", filePath: "/m/a.mp3", ...patch }) as Track;
 
 describe("missing tracks", () => {
   it("counts a scan's missing mark as well as the playback flag", () => {

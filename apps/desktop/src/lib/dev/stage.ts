@@ -16,6 +16,7 @@ import {
   type StageAppState,
   type StageNav,
 } from "./stageState";
+import type { TrackListId } from "@/types/track";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -187,7 +188,7 @@ export async function apply(state: StageAppState): Promise<string[]> {
     const library = usePlayerStore.getState().library;
     const ids = state.selection
       .map((ref) => findTrack(library, ref)?.id)
-      .filter((id): id is number => id !== undefined);
+      .filter((id): id is TrackListId => id !== undefined);
     usePlayerStore.setState({
       selectedTrackIds: ids,
       selectionAnchorId: ids[0] ?? null,

@@ -1,11 +1,12 @@
 import { useTrackMenu } from "@/hooks/useTrackMenu";
 import type { Track } from "@/types/track";
+import type { PlaylistId } from "@/types/playlist";
 
 interface TrackRowMenuProps {
   track: Track;
   children: React.ReactNode;
   className?: string;
-  playlistId?: number;
+  playlistId?: PlaylistId;
   interactive?: boolean;
 }
 

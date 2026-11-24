@@ -41,7 +41,7 @@ describe("splitVizTrack", () => {
     const art = bitmap("/art/front.jpg");
     const portrait = bitmap("/artists/bjork.jpg");
     const track: VizFrameTrack = {
-      id: 7,
+      id: "7",
       title: "Hyperballad",
       album: "Post",
       art,
@@ -60,7 +60,7 @@ describe("splitVizTrack", () => {
     expect(portraitId).toMatch(/^img-\d+$/);
     expect(portraitId).not.toBe(artId);
     expect(split.wire).toEqual({
-      id: 7,
+      id: "7",
       title: "Hyperballad",
       album: "Post",
       artId,
@@ -78,7 +78,7 @@ describe("splitVizTrack", () => {
 
   it("never puts image file paths on the wire", () => {
     const track: VizFrameTrack = {
-      id: 8,
+      id: "8",
       title: "Joga",
       album: "Homogenic",
       art: bitmap("/Users/me/Music/Björk/Homogenic/cover.jpg"),
@@ -101,7 +101,7 @@ describe("splitVizTrack", () => {
     const first = bitmap("/art/same.jpg");
     const second = bitmap("/art/same.jpg");
     const track = (art: ImageBitmap): VizFrameTrack => ({
-      id: 1,
+      id: "1",
       title: "",
       album: null,
       art,
@@ -133,7 +133,7 @@ describe("materializeVizTrack", () => {
     const art = bitmap("/art/front.jpg");
     const materialized = materializeVizTrack(
       {
-        id: 7,
+        id: "7",
         title: "Hyperballad",
         album: "Post",
         artId: "/art/front.jpg",
@@ -190,7 +190,7 @@ describe("withPreviewTrackIdentity", () => {
   it("leaves a loaded track alone", () => {
     const loaded: VizFrameTrack = {
       ...EMPTY_VIZ_TRACK,
-      id: 42,
+      id: "42",
       title: "Real Song",
     };
     expect(withPreviewTrackIdentity(loaded)).toBe(loaded);

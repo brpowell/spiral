@@ -28,6 +28,7 @@
 //! merged source).
 
 use crate::fs_move;
+use crate::ids::TrackId;
 use crate::library_organize::{self, OrganizeMetadata};
 use crate::lyrics_sidecar;
 use crate::source_scan;
@@ -67,7 +68,7 @@ pub enum FileOp {
     /// cached art) and point the track's row at the new place.
     #[serde(rename_all = "camelCase")]
     Move {
-        track_id: i64,
+        track_id: TrackId,
         from: Location,
         to: Location,
     },
@@ -75,9 +76,9 @@ pub enum FileOp {
 
 impl FileOp {
     #[cfg_attr(not(test), allow(dead_code))] // For planners comparing ops (merging).
-    pub fn track_id(&self) -> i64 {
+    pub fn track_id(&self) -> &TrackId {
         match self {
-            FileOp::Move { track_id, .. } => *track_id,
+            FileOp::Move { track_id, .. } => track_id,
         }
     }
 
@@ -106,7 +107,10 @@ pub enum Conflict {
     /// An earlier track in the plan wants the same path; this one gets a
     /// numbered name instead.
     #[serde(rename_all = "camelCase")]
-    DuplicateTarget { wanted: String, other_track_id: i64 },
+    DuplicateTarget {
+        wanted: String,
+        other_track_id: TrackId,
+    },
     /// The track's file isn't there. Skipped.
     SourceMissing,
     /// The track's file can't be read. Skipped.
@@ -244,7 +248,7 @@ fn same_file(a: &Path, b: &Path) -> bool {
 }
 
 struct OrganizeRow {
-    id: i64,
+    id: TrackId,
     rel_path: String,
     title: String,
     artist: Option<String>,
@@ -370,7 +374,7 @@ pub fn plan_organize_source(
         finish: None,
     };
     // Targets handed out so far, and paths earlier moves leave free.
-    let mut claimed: HashMap<String, i64> = HashMap::new();
+    let mut claimed: HashMap<String, TrackId> = HashMap::new();
     let mut vacated: HashSet<String> = HashSet::new();
 
     for row in rows {
@@ -382,7 +386,7 @@ pub fn plan_organize_source(
         };
         let blocked = |to: Location, conflict: Conflict| PlannedOp {
             op: FileOp::Move {
-                track_id: row.id,
+                track_id: row.id.clone(),
                 from: from.clone(),
                 to,
             },
@@ -456,15 +460,15 @@ pub fn plan_organize_source(
             continue;
         }
         let conflict = (target != wanted).then(|| match claimed.get(&path_key(&wanted_rel)) {
-            Some(&other_track_id) => Conflict::DuplicateTarget {
+            Some(other_track_id) => Conflict::DuplicateTarget {
                 wanted: wanted_rel.clone(),
-                other_track_id,
+                other_track_id: other_track_id.clone(),
             },
             None => Conflict::TargetExists {
                 wanted: wanted_rel.clone(),
             },
         });
-        claimed.insert(path_key(&target_rel), row.id);
+        claimed.insert(path_key(&target_rel), row.id.clone());
         vacated.insert(own_key);
         plan.ops.push(PlannedOp {
             op: FileOp::Move {
@@ -698,7 +702,7 @@ fn apply_finish(conn: &Connection, finish: &Finish) -> Result<(), String> {
 
 /// Whether `loc` is free for `track_id` to move to: nothing on disk there and
 /// no other row stored at it.
-fn target_free(conn: &Connection, loc: &Location, path: &Path, track_id: i64) -> bool {
+fn target_free(conn: &Connection, loc: &Location, path: &Path, track_id: &TrackId) -> bool {
     if path.exists() {
         return false;
     }
@@ -708,14 +712,14 @@ fn target_free(conn: &Connection, loc: &Location, path: &Path, track_id: i64) ->
     let Ok(rel) = roots.relative_path(loc.source_id, path) else {
         return false;
     };
-    let other: Option<i64> = conn
+    let other: Option<TrackId> = conn
         .query_row(
             "SELECT id FROM tracks WHERE source_id = ?1 AND rel_path = ?2 AND id != ?3",
             params![loc.source_id, rel, track_id],
             |row| row.get(0),
         )
         .optional()
-        .unwrap_or(Some(-1));
+        .unwrap_or_else(|_| Some(TrackId::default()));
     other.is_none()
 }
 
@@ -736,7 +740,7 @@ fn run_step(
     let to_there = to.path.exists();
     if begun && !from_there && to_there {
         // Moved before the crash; finish what follows the file.
-        return finish_move(db, ctx, journal, step, *track_id, from, &to).map(Ok);
+        return finish_move(db, ctx, journal, step, track_id, from, &to).map(Ok);
     }
     if !from_there {
         journal.append(&Entry::Skip {
@@ -754,9 +758,9 @@ fn run_step(
     if !same_file(&from.path, &to.path) {
         // Taken since planning: pick the next free name, as planning would.
         let conn = lock(db);
-        if !target_free(&conn, &to, &to.path, *track_id) {
+        if !target_free(&conn, &to, &to.path, track_id) {
             let path = library_organize::unique_path_by(to.path.clone(), |c| {
-                target_free(&conn, &to, c, *track_id)
+                target_free(&conn, &to, c, track_id)
             });
             let roots = SourceRoots::load(&conn).map_err(|e| e.to_string())?;
             to.rel_path = roots.relative_path(to.source_id, &path)?;
@@ -784,7 +788,7 @@ fn run_step(
         })?;
         return Ok(Err(err));
     }
-    finish_move(db, ctx, journal, step, *track_id, from, &to).map(Ok)
+    finish_move(db, ctx, journal, step, track_id, from, &to).map(Ok)
 }
 
 /// After the audio file is at `to`: move its lyrics sidecar and cached art,
@@ -794,7 +798,7 @@ fn finish_move(
     ctx: &ApplyContext,
     journal: &mut Journal,
     step: usize,
-    track_id: i64,
+    track_id: &TrackId,
     from: &Location,
     to: &Location,
 ) -> Result<(), String> {
@@ -1011,7 +1015,14 @@ mod tests {
 
         /// A track row in `source_id` for a small WAV written at `rel` (under
         /// the fixture's folder), tagged with `artist`, `album` and `title`.
-        fn track(&self, source_id: i64, rel: &str, artist: &str, album: &str, title: &str) -> i64 {
+        fn track(
+            &self,
+            source_id: i64,
+            rel: &str,
+            artist: &str,
+            album: &str,
+            title: &str,
+        ) -> TrackId {
             let path = self.path(rel);
             fs::create_dir_all(path.parent().unwrap()).unwrap();
             wav::write_minimal(&path);
@@ -1019,22 +1030,30 @@ mod tests {
         }
 
         /// A track row only; no file is written.
-        fn row(&self, source_id: i64, path: &Path, artist: &str, album: &str, title: &str) -> i64 {
+        fn row(
+            &self,
+            source_id: i64,
+            path: &Path,
+            artist: &str,
+            album: &str,
+            title: &str,
+        ) -> TrackId {
             let conn = lock(&self.db);
             let rel = SourceRoots::load(&conn)
                 .unwrap()
                 .relative_path(source_id, path)
                 .unwrap();
+            let id = TrackId::new();
             conn.execute(
-                "INSERT INTO tracks (title, artist, album, rel_path, date_added, source_id)
-                 VALUES (?1, ?2, ?3, ?4, '2026-01-01T00:00:00Z', ?5)",
-                params![title, artist, album, rel, source_id],
+                "INSERT INTO tracks (id, title, artist, album, rel_path, date_added, source_id)
+                 VALUES (?1, ?2, ?3, ?4, ?5, '2026-01-01T00:00:00Z', ?6)",
+                params![id, title, artist, album, rel, source_id],
             )
             .unwrap();
-            conn.last_insert_rowid()
+            id
         }
 
-        fn rel_path(&self, id: i64) -> String {
+        fn rel_path(&self, id: &TrackId) -> String {
             lock(&self.db)
                 .query_row(
                     "SELECT rel_path FROM tracks WHERE id = ?1",
@@ -1059,12 +1078,12 @@ mod tests {
         }
     }
 
-    fn targets(plan: &FilePlan) -> Vec<(i64, String, Option<Conflict>)> {
+    fn targets(plan: &FilePlan) -> Vec<(TrackId, String, Option<Conflict>)> {
         plan.ops
             .iter()
             .map(|op| {
                 (
-                    op.op.track_id(),
+                    op.op.track_id().clone(),
                     op.op.to().rel_path.clone(),
                     op.conflict.clone(),
                 )
@@ -1108,10 +1127,13 @@ mod tests {
             targets(&plan_organize_source(&conn, src, format.map(String::from)).unwrap())
         };
         // No format of its own: `{albumArtist}/{album}/{trackNumber:02} - {title}.{ext}`.
-        assert_eq!(plan(None), vec![(a, "Band/Album/Song.wav".into(), None)]);
+        assert_eq!(
+            plan(None),
+            vec![(a.clone(), "Band/Album/Song.wav".into(), None)]
+        );
         sources::set_source_path_format(&lock(&fx.db), src, Some("{album}/{title}.{ext}".into()))
             .unwrap();
-        assert_eq!(plan(None), vec![(a, "Album/Song.wav".into(), None)]);
+        assert_eq!(plan(None), vec![(a.clone(), "Album/Song.wav".into(), None)]);
         assert_eq!(
             plan(Some("{title}.{ext}")),
             vec![(a, "Song.wav".into(), None)]
@@ -1156,9 +1178,9 @@ mod tests {
                         wanted: "Band/Album/Song.wav".into()
                     })
                 ),
-                (b, "Band/Album/Twin.wav".into(), None),
+                (b.clone(), "Band/Album/Twin.wav".into(), None),
                 (
-                    c,
+                    c.clone(),
                     "Band/Album/Twin (2).wav".into(),
                     Some(Conflict::DuplicateTarget {
                         wanted: "Band/Album/Twin.wav".into(),
@@ -1181,7 +1203,7 @@ mod tests {
 
         // Applied as planned; the stranger's file is untouched.
         assert_eq!(fx.apply(&plan).moved, 4);
-        assert_eq!(fx.rel_path(c), "Band/Album/Twin (2).wav");
+        assert_eq!(fx.rel_path(&c), "Band/Album/Twin (2).wav");
         assert_eq!(
             fs::read(fx.path("Collection/Band/Album/Song.wav")).unwrap(),
             b"not ours"
@@ -1195,12 +1217,12 @@ mod tests {
         let a = fx.track(src, "Collection/a.wav", "Band", "Album", "Song");
         let b = fx.track(src, "Collection/b.wav", "band", "album", "song");
         let plan = fx.plan(src);
-        assert_eq!(plan.ops[0].op.track_id(), a);
-        assert_eq!(plan.ops[1].op.track_id(), b);
+        assert_eq!(plan.ops[0].op.track_id(), &a);
+        assert_eq!(plan.ops[1].op.track_id(), &b);
         assert_eq!(plan.ops[1].op.to().rel_path, "band/album/song (2).wav");
         assert!(matches!(
             plan.ops[1].conflict,
-            Some(Conflict::DuplicateTarget { other_track_id, .. }) if other_track_id == a
+            Some(Conflict::DuplicateTarget { ref other_track_id, .. }) if *other_track_id == a
         ));
     }
 
@@ -1266,13 +1288,13 @@ mod tests {
         assert_eq!(
             targets(&plan),
             vec![(
-                id,
+                id.clone(),
                 "Band/Album/.hack.wav".into(),
                 Some(Conflict::HiddenTarget)
             )]
         );
         assert_eq!(fx.apply(&plan), ApplySummary::default());
-        assert_eq!(fx.rel_path(id), "a.wav");
+        assert_eq!(fx.rel_path(&id), "a.wav");
     }
 
     #[test]
@@ -1297,7 +1319,7 @@ mod tests {
             return; // Running as root: permissions don't apply.
         }
         let plan = fx.plan(src);
-        assert_eq!(plan.ops[0].op.track_id(), id);
+        assert_eq!(plan.ops[0].op.track_id(), &id);
         assert!(matches!(
             plan.ops[0].conflict,
             Some(Conflict::SourceUnreadable { .. })
@@ -1333,8 +1355,8 @@ mod tests {
         assert_eq!(summary.moved, 2);
         assert_eq!(progress.last(), Some(&Progress { done: 2, total: 2 }));
         assert_eq!(progress.len(), 3);
-        assert_eq!(fx.rel_path(a), "Band/Album/Song.wav");
-        assert_eq!(fx.rel_path(b), "Band/Album/Other.wav");
+        assert_eq!(fx.rel_path(&a), "Band/Album/Song.wav");
+        assert_eq!(fx.rel_path(&b), "Band/Album/Other.wav");
         assert!(fx.path("Collection/Band/Album/Song.wav").is_file());
         assert!(fx.path("Collection/Band/Album/Song.lrc").is_file());
         assert!(
@@ -1363,7 +1385,7 @@ mod tests {
         fs::create_dir_all(fx.path("Collection/Band/Album")).unwrap();
         fs::write(fx.path("Collection/Band/Album/Song.wav"), b"late").unwrap();
         assert_eq!(fx.apply(&plan).moved, 1);
-        assert_eq!(fx.rel_path(a), "Band/Album/Song (2).wav");
+        assert_eq!(fx.rel_path(&a), "Band/Album/Song (2).wav");
         assert_eq!(
             fs::read(fx.path("Collection/Band/Album/Song.wav")).unwrap(),
             b"late"
@@ -1380,8 +1402,8 @@ mod tests {
         fs::remove_file(fx.path("Collection/a.wav")).unwrap();
         let summary = fx.apply(&plan);
         assert_eq!((summary.moved, summary.failed), (1, 1));
-        assert_eq!(fx.rel_path(a), "a.wav");
-        assert_eq!(fx.rel_path(b), "Band/Album/B.wav");
+        assert_eq!(fx.rel_path(&a), "a.wav");
+        assert_eq!(fx.rel_path(&b), "Band/Album/B.wav");
     }
 
     #[test]
@@ -1474,9 +1496,9 @@ mod tests {
             .expect("there was a journal");
         assert_eq!(summary.moved, 2);
         assert_eq!(progress.last(), Some(&Progress { done: 2, total: 2 }));
-        assert_eq!(fx.rel_path(done), "Band/Album/One.wav");
-        assert_eq!(fx.rel_path(moved), "Band/Album/Two.wav");
-        assert_eq!(fx.rel_path(untouched), "Band/Album/Three.wav");
+        assert_eq!(fx.rel_path(&done), "Band/Album/One.wav");
+        assert_eq!(fx.rel_path(&moved), "Band/Album/Two.wav");
+        assert_eq!(fx.rel_path(&untouched), "Band/Album/Three.wav");
         assert!(fx.path("Collection/Band/Album/Two.lrc").is_file());
         assert!(!fx.path("Collection/in").exists());
         assert!(!fx.ctx().journal.exists());
@@ -1512,7 +1534,7 @@ mod tests {
         );
 
         recover(&fx.db, &fx.ctx(), |_| {}).unwrap();
-        assert_eq!(fx.rel_path(id), to.rel_path);
+        assert_eq!(fx.rel_path(&id), to.rel_path);
         assert!(!from.path.exists());
         assert_eq!(fs::read(&to.path).unwrap(), original);
     }
@@ -1565,7 +1587,7 @@ mod tests {
         fx.track(src, "Collection/in/b.wav", "Band", "Album", "Other");
         // Index the source as the watcher would have, recording file stats.
         source_scan::reconcile_source(&fx.db, &scan, src, ReconcileScope::All).unwrap();
-        let ids_before: Vec<i64> = db_ids(&fx);
+        let ids_before: Vec<TrackId> = db_ids(&fx);
 
         let plan = fx.plan(src);
         let olds: Vec<PathBuf> = plan
@@ -1602,7 +1624,7 @@ mod tests {
         assert_eq!(db_ids(&fx), ids_before);
     }
 
-    fn db_ids(fx: &Fixture) -> Vec<i64> {
+    fn db_ids(fx: &Fixture) -> Vec<TrackId> {
         let conn = lock(&fx.db);
         let mut stmt = conn
             .prepare("SELECT id FROM tracks WHERE missing_since IS NULL ORDER BY id")
@@ -1610,7 +1632,7 @@ mod tests {
         let ids = stmt
             .query_map([], |row| row.get(0))
             .unwrap()
-            .collect::<Result<Vec<i64>, _>>()
+            .collect::<Result<Vec<TrackId>, _>>()
             .unwrap();
         ids
     }
@@ -1658,7 +1680,7 @@ mod tests {
     fn plan_entries_serialize_for_the_frontend() {
         let op = PlannedOp {
             op: FileOp::Move {
-                track_id: 7,
+                track_id: TrackId::from("0190a1b2-0000-7000-8000-000000000007"),
                 from: Location {
                     source_id: 3,
                     rel_path: "a.mp3".into(),
@@ -1672,14 +1694,20 @@ mod tests {
             },
             conflict: Some(Conflict::DuplicateTarget {
                 wanted: "B/a.mp3".into(),
-                other_track_id: 6,
+                other_track_id: TrackId::from("0190a1b2-0000-7000-8000-000000000006"),
             }),
         };
         let json = serde_json::to_value(&op).unwrap();
         assert_eq!(json["op"]["kind"], "move");
-        assert_eq!(json["op"]["trackId"], 7);
+        assert_eq!(
+            json["op"]["trackId"],
+            "0190a1b2-0000-7000-8000-000000000007"
+        );
         assert_eq!(json["op"]["to"]["relPath"], "B/a.mp3");
         assert_eq!(json["conflict"]["kind"], "duplicateTarget");
-        assert_eq!(json["conflict"]["otherTrackId"], 6);
+        assert_eq!(
+            json["conflict"]["otherTrackId"],
+            "0190a1b2-0000-7000-8000-000000000006"
+        );
     }
 }

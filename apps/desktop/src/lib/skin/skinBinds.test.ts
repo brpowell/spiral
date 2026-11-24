@@ -425,7 +425,7 @@ describe("bind path isolation", () => {
 
 describe("track.rating binds", () => {
   const ratedTrack = {
-    id: 1,
+    id: "1",
     title: "Song",
     artist: "Artist",
     album: "Album",

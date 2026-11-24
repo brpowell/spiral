@@ -6,6 +6,7 @@ import {
   usePopularityScore,
 } from "@/hooks/usePopularity";
 import { PopularityGlyph } from "./PopularityGlyph";
+import type { TrackId } from "@/types/track";
 
 /**
  * A track's popularity: the rings glyph, with the score and an explainer in a tooltip on hover and
@@ -13,7 +14,7 @@ import { PopularityGlyph } from "./PopularityGlyph";
  * visual-only. It is a focusable row cell control (reached with the arrow keys, like Rating), and
  * subscribes itself so the memoized rows around it don't re-render.
  */
-export function TrackPopularityCell({ trackId }: { trackId: number }) {
+export function TrackPopularityCell({ trackId }: { trackId: TrackId }) {
   const fraction = usePopularityFraction(POPULARITY_COLUMN_PROFILE, trackId);
   const score = usePopularityScore(POPULARITY_COLUMN_PROFILE, trackId);
   const { summary, explainer } = popularityDescription(score);

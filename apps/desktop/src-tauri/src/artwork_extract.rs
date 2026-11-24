@@ -2,6 +2,7 @@ use crate::artwork_paths::{
     album_artwork_dir, ensure_inside_album_artwork, ext_from_mime_or_bytes, find_front_image,
     override_art_filename, to_library_relative, FRONT_STEM,
 };
+use crate::ids::TrackId;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
@@ -9,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct TrackArtSource {
-    pub track_id: Option<i64>,
+    pub track_id: Option<TrackId>,
     pub title: String,
     pub track_number: Option<i32>,
     pub disc_number: Option<i32>,
@@ -381,7 +382,7 @@ pub fn reconstruct_all_album_artwork(
             .map(|t| {
                 let art = extract_embedded_art_bytes(Path::new(&t.file_path));
                 TrackArtSource {
-                    track_id: Some(t.id),
+                    track_id: Some(t.id.clone()),
                     title: t.title.clone(),
                     track_number: t.track_number,
                     disc_number: t.disc_number,
@@ -404,7 +405,7 @@ pub fn reconstruct_all_album_artwork(
         )?;
 
         for (source, assignment) in sources.iter().zip(assignments.iter()) {
-            let Some(id) = source.track_id else {
+            let Some(id) = &source.track_id else {
                 continue;
             };
             conn.execute(
@@ -456,7 +457,7 @@ mod tests {
 
     fn track(title: &str, num: i32, bytes: Option<&[u8]>) -> TrackArtSource {
         TrackArtSource {
-            track_id: Some(num as i64),
+            track_id: Some(TrackId::from(num.to_string().as_str())),
             title: title.into(),
             track_number: Some(num),
             disc_number: Some(1),

@@ -1,4 +1,4 @@
-import type { Track } from "@/types/track";
+import type { Track, TrackId } from "@/types/track";
 
 /**
  * Popularity building blocks.
@@ -10,7 +10,7 @@ import type { Track } from "@/types/track";
  */
 
 /** Track id -> score. Absent means 0. */
-export type TrackScores = ReadonlyMap<number, number>;
+export type TrackScores = ReadonlyMap<TrackId, number>;
 
 export interface PopularityParams {
   /** Days for a listen's weight to halve. `null` disables decay (all-time totals). */
@@ -24,7 +24,7 @@ export interface PopularityParams {
 }
 
 export interface TrackPopularityRow {
-  trackId: number;
+  trackId: TrackId;
   score: number;
 }
 

@@ -1,10 +1,12 @@
 use crate::audio_properties::AudioProperties;
 use crate::db_migrations;
+use crate::ids::{EventId, PlaylistId, TrackId};
 use crate::models::{
     ArtistImage, ClearListenHistoryResult, ListenEventInput, LyricsFormat, LyricsLine,
     LyricsSource, Playlist, PlaylistImageMode, RecordListenEventResult, Track, TrackInput,
     TrackLyricsRecord, TrackMetadataUpdate,
 };
+use crate::position_key;
 use crate::sources::{self, SourceRoots};
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension, Row};
@@ -163,7 +165,7 @@ fn path_error(message: String) -> rusqlite::Error {
 pub fn track_id_for_path(
     conn: &Connection,
     file_path: &str,
-) -> Result<Option<i64>, rusqlite::Error> {
+) -> Result<Option<TrackId>, rusqlite::Error> {
     track_id_for_path_with(conn, &SourceRoots::load(conn)?, file_path)
 }
 
@@ -171,7 +173,7 @@ fn track_id_for_path_with(
     conn: &Connection,
     roots: &SourceRoots,
     file_path: &str,
-) -> Result<Option<i64>, rusqlite::Error> {
+) -> Result<Option<TrackId>, rusqlite::Error> {
     let mut stmt = conn.prepare("SELECT id FROM tracks WHERE source_id = ?1 AND rel_path = ?2")?;
     for (source_id, rel_path) in roots.candidates(Path::new(file_path)) {
         if let Some(id) = stmt
@@ -191,7 +193,7 @@ pub fn save_track(
     conn: &Connection,
     input: &TrackInput,
     source_id: i64,
-) -> Result<i64, rusqlite::Error> {
+) -> Result<TrackId, rusqlite::Error> {
     let date_added = Utc::now().to_rfc3339();
     let rating = input.rating.unwrap_or(0);
     let (recording_mbid, release_mbid, artist_mbids, album_artist_mbids) = crate::mbid::sql_values(
@@ -216,11 +218,11 @@ pub fn save_track(
     };
     conn.execute(
         "INSERT INTO tracks (
-            title, artist, album, album_artist, track_number, total_tracks, disc_number, total_discs,
+            id, title, artist, album, album_artist, track_number, total_tracks, disc_number, total_discs,
             year, genre, duration_seconds, sample_rate, bitrate, codec,
             rel_path, art_path, date_added, rating,
             recording_mbid, release_mbid, artist_mbids, album_artist_mbids, source_id
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)
         ON CONFLICT(source_id, rel_path) DO UPDATE SET
             title = excluded.title,
             artist = excluded.artist,
@@ -247,6 +249,7 @@ pub fn save_track(
                 ELSE tracks.rating
             END",
         params![
+            TrackId::new(),
             input.title,
             input.artist,
             input.album,
@@ -323,7 +326,7 @@ pub fn listen_qualifies(
 
 fn track_listen_counters(
     conn: &Connection,
-    track_id: i64,
+    track_id: &TrackId,
 ) -> Result<(u32, String), rusqlite::Error> {
     conn.query_row(
         "SELECT play_count, COALESCE(last_played_at, '') FROM tracks WHERE id = ?1",
@@ -335,11 +338,11 @@ fn track_listen_counters(
 /// Return current counters without inserting (recording disabled).
 pub fn skip_listen_event_recording(
     conn: &Connection,
-    track_id: i64,
+    track_id: &TrackId,
 ) -> Result<RecordListenEventResult, rusqlite::Error> {
     let (play_count, last_played_at) = track_listen_counters(conn, track_id)?;
     Ok(RecordListenEventResult {
-        event_id: 0,
+        event_id: EventId::default(),
         play_count,
         last_played_at,
         counted: false,
@@ -353,15 +356,17 @@ pub fn record_listen_event(
 ) -> Result<RecordListenEventResult, rusqlite::Error> {
     let qualifies = listen_event_qualifies(event);
     let tx = conn.transaction()?;
+    let event_id = EventId::new();
 
     tx.execute(
         "INSERT INTO listen_events (
-            track_id, started_at, ended_at, listened_seconds,
+            id, track_id, started_at, ended_at, listened_seconds,
             library_listened_seconds, skin_listened_seconds,
             track_duration_seconds, completion, source, ui_mode,
             theme_id, theme_name, skin_id, skin_name, visualizer_id, visualizer_name
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
         params![
+            event_id,
             event.track_id,
             event.started_at,
             event.ended_at,
@@ -380,8 +385,6 @@ pub fn record_listen_event(
             event.visualizer_name,
         ],
     )?;
-    let event_id = tx.last_insert_rowid();
-
     if qualifies {
         tx.execute(
             "UPDATE tracks SET
@@ -392,7 +395,7 @@ pub fn record_listen_event(
         )?;
     }
 
-    let (play_count, last_played_at) = track_listen_counters(&tx, event.track_id)?;
+    let (play_count, last_played_at) = track_listen_counters(&tx, &event.track_id)?;
 
     tx.commit()?;
 
@@ -445,7 +448,11 @@ pub fn clear_listen_events(
     })
 }
 
-pub fn set_track_rating(conn: &Connection, id: i64, rating: u8) -> Result<u8, rusqlite::Error> {
+pub fn set_track_rating(
+    conn: &Connection,
+    id: &TrackId,
+    rating: u8,
+) -> Result<u8, rusqlite::Error> {
     conn.execute(
         "UPDATE tracks SET rating = ?1 WHERE id = ?2",
         params![rating, id],
@@ -475,7 +482,7 @@ pub fn get_all_tracks(conn: &Connection) -> Result<Vec<Track>, rusqlite::Error> 
 
 pub fn update_track(
     conn: &Connection,
-    id: i64,
+    id: &TrackId,
     metadata: &TrackMetadataUpdate,
     file_path: Option<&str>,
     audio_properties: Option<&AudioProperties>,
@@ -645,7 +652,11 @@ pub fn update_track(
 
 /// Move a track to another source, e.g. after its file moved into the tracks
 /// folder. Its file must be inside the new source's folder.
-pub fn set_track_source(conn: &Connection, id: i64, source_id: i64) -> Result<(), rusqlite::Error> {
+pub fn set_track_source(
+    conn: &Connection,
+    id: &TrackId,
+    source_id: i64,
+) -> Result<(), rusqlite::Error> {
     let roots = SourceRoots::load(conn)?;
     let (old_source, old_rel): (i64, String) = conn.query_row(
         "SELECT source_id, rel_path FROM tracks WHERE id = ?1",
@@ -676,7 +687,7 @@ pub fn get_tracks_for_source(
     Ok(tracks)
 }
 
-pub fn get_track_by_id(conn: &Connection, id: i64) -> Result<Option<Track>, rusqlite::Error> {
+pub fn get_track_by_id(conn: &Connection, id: &TrackId) -> Result<Option<Track>, rusqlite::Error> {
     let sql = format!("{TRACK_SELECT} {TRACK_FROM_JOIN} WHERE tracks.id = ?1");
     let roots = SourceRoots::load(conn)?;
     let mut stmt = conn.prepare(&sql)?;
@@ -688,7 +699,7 @@ pub fn get_track_by_id(conn: &Connection, id: i64) -> Result<Option<Track>, rusq
     }
 }
 
-pub fn delete_track(conn: &Connection, id: i64) -> Result<bool, rusqlite::Error> {
+pub fn delete_track(conn: &Connection, id: &TrackId) -> Result<bool, rusqlite::Error> {
     let deleted = conn.execute("DELETE FROM tracks WHERE id = ?1", params![id])?;
     Ok(deleted > 0)
 }
@@ -699,7 +710,7 @@ pub fn delete_track(conn: &Connection, id: i64) -> Result<bool, rusqlite::Error>
 /// there was no such track.
 pub fn delete_track_keep_excluded(
     conn: &Connection,
-    id: i64,
+    id: &TrackId,
 ) -> Result<Option<String>, rusqlite::Error> {
     let tx = conn.unchecked_transaction()?;
     let row: Option<(i64, String)> = tx
@@ -757,16 +768,55 @@ pub fn clear_removed_track(
     Ok(cleared > 0)
 }
 
-fn playlist_track_ids(conn: &Connection, playlist_id: i64) -> Result<Vec<i64>, rusqlite::Error> {
+/// A playlist's tracks in order, each with its position key.
+fn playlist_track_keys(
+    conn: &Connection,
+    playlist_id: &PlaylistId,
+) -> Result<Vec<(TrackId, String)>, rusqlite::Error> {
     let mut stmt = conn.prepare(
-        "SELECT track_id FROM playlist_tracks
+        "SELECT track_id, position FROM playlist_tracks
          WHERE playlist_id = ?1
-         ORDER BY position ASC",
+         ORDER BY position ASC, track_id ASC",
     )?;
-    let ids = stmt
-        .query_map(params![playlist_id], |row| row.get(0))?
+    let rows = stmt
+        .query_map(params![playlist_id], |row| Ok((row.get(0)?, row.get(1)?)))?
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(ids)
+    Ok(rows)
+}
+
+fn playlist_track_ids(
+    conn: &Connection,
+    playlist_id: &PlaylistId,
+) -> Result<Vec<TrackId>, rusqlite::Error> {
+    Ok(playlist_track_keys(conn, playlist_id)?
+        .into_iter()
+        .map(|(id, _)| id)
+        .collect())
+}
+
+fn position_error(err: position_key::PositionKeyError) -> rusqlite::Error {
+    rusqlite::Error::ToSqlConversionFailure(Box::new(err))
+}
+
+/// Check that `desired` holds exactly the ids of `current`, each once.
+fn check_same_ids<T: Eq + std::hash::Hash>(
+    current: &[(T, String)],
+    desired: &[T],
+    what: &str,
+) -> Result<(), rusqlite::Error> {
+    let current_set: std::collections::HashSet<&T> = current.iter().map(|(id, _)| id).collect();
+    let desired_set: std::collections::HashSet<&T> = desired.iter().collect();
+    if current.len() != desired.len() || desired_set.len() != desired.len() {
+        return Err(rusqlite::Error::InvalidParameterName(format!(
+            "{what} length mismatch"
+        )));
+    }
+    if desired_set != current_set {
+        return Err(rusqlite::Error::InvalidParameterName(format!(
+            "{what} contain unknown items"
+        )));
+    }
+    Ok(())
 }
 
 pub fn get_all_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::Error> {
@@ -778,7 +828,7 @@ pub fn get_all_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::E
     )?;
     let rows = stmt.query_map([], |row| {
         Ok((
-            row.get::<_, i64>(0)?,
+            row.get::<_, PlaylistId>(0)?,
             row.get::<_, String>(1)?,
             row.get::<_, Option<String>>(2)?,
             row.get::<_, String>(3)?,
@@ -805,7 +855,7 @@ pub fn get_all_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::E
             cover_background_end,
             cover_icon,
         ) = row?;
-        let track_ids = playlist_track_ids(conn, id)?;
+        let track_ids = playlist_track_ids(conn, &id)?;
         playlists.push(Playlist {
             id,
             title,
@@ -833,22 +883,20 @@ pub fn create_playlist(
     cover_background: Option<&str>,
     cover_background_end: Option<&str>,
     cover_icon: Option<&str>,
-) -> Result<i64, rusqlite::Error> {
+) -> Result<PlaylistId, rusqlite::Error> {
     let now = Utc::now().to_rfc3339();
-    let position: i64 = conn
-        .query_row(
-            "SELECT COALESCE(MAX(position), -1) + 1 FROM playlists",
-            [],
-            |row| row.get(0),
-        )
-        .unwrap_or(0);
+    let last: Option<String> =
+        conn.query_row("SELECT MAX(position) FROM playlists", [], |row| row.get(0))?;
+    let position = position_key::key_between(last.as_deref(), None).map_err(position_error)?;
+    let id = PlaylistId::new();
     conn.execute(
         "INSERT INTO playlists (
-            title, description, date_created, last_used_at, image_mode, custom_image_path,
+            id, title, description, date_created, last_used_at, image_mode, custom_image_path,
             cover_background, cover_background_end, cover_icon, position
          )
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         params![
+            id,
             title,
             description,
             now,
@@ -861,13 +909,13 @@ pub fn create_playlist(
             position,
         ],
     )?;
-    Ok(conn.last_insert_rowid())
+    Ok(id)
 }
 
 #[allow(clippy::too_many_arguments)]
 pub fn update_playlist(
     conn: &Connection,
-    id: i64,
+    id: &PlaylistId,
     title: &str,
     description: Option<&str>,
     image_mode: PlaylistImageMode,
@@ -894,7 +942,7 @@ pub fn update_playlist(
     Ok(())
 }
 
-pub fn touch_playlist(conn: &Connection, id: i64) -> Result<(), rusqlite::Error> {
+pub fn touch_playlist(conn: &Connection, id: &PlaylistId) -> Result<(), rusqlite::Error> {
     let now = Utc::now().to_rfc3339();
     conn.execute(
         "UPDATE playlists SET last_used_at = ?1 WHERE id = ?2",
@@ -903,47 +951,34 @@ pub fn touch_playlist(conn: &Connection, id: i64) -> Result<(), rusqlite::Error>
     Ok(())
 }
 
-pub fn delete_playlist(conn: &Connection, id: i64) -> Result<bool, rusqlite::Error> {
+pub fn delete_playlist(conn: &Connection, id: &PlaylistId) -> Result<bool, rusqlite::Error> {
     let deleted = conn.execute("DELETE FROM playlists WHERE id = ?1", params![id])?;
     Ok(deleted > 0)
 }
 
+/// Append tracks to the end of a playlist, skipping any it already holds: a track is in a playlist
+/// at most once.
 pub fn add_tracks_to_playlist(
     conn: &Connection,
-    playlist_id: i64,
-    track_ids: &[i64],
+    playlist_id: &PlaylistId,
+    track_ids: &[TrackId],
 ) -> Result<(), rusqlite::Error> {
     if track_ids.is_empty() {
         return Ok(());
     }
 
-    let max_position: i64 = conn
-        .query_row(
-            "SELECT COALESCE(MAX(position), -1) FROM playlist_tracks WHERE playlist_id = ?1",
-            params![playlist_id],
-            |row| row.get(0),
-        )
-        .unwrap_or(-1);
+    let current = playlist_track_keys(conn, playlist_id)?;
+    let mut seen: std::collections::HashSet<&TrackId> = current.iter().map(|(id, _)| id).collect();
+    let new_ids: Vec<&TrackId> = track_ids.iter().filter(|id| seen.insert(*id)).collect();
+    let last = current.iter().map(|(_, key)| key.as_str()).max();
+    let keys = position_key::keys_between(last, None, new_ids.len()).map_err(position_error)?;
 
-    let mut existing: std::collections::HashSet<i64> = conn
-        .prepare("SELECT track_id FROM playlist_tracks WHERE playlist_id = ?1")?
-        .query_map(params![playlist_id], |row| row.get(0))?
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .collect();
-
-    let mut position = max_position + 1;
-    for track_id in track_ids {
-        if existing.contains(track_id) {
-            continue;
-        }
+    for (track_id, position) in new_ids.into_iter().zip(keys) {
         conn.execute(
             "INSERT INTO playlist_tracks (playlist_id, track_id, position)
              VALUES (?1, ?2, ?3)",
             params![playlist_id, track_id, position],
         )?;
-        existing.insert(*track_id);
-        position += 1;
     }
 
     touch_playlist(conn, playlist_id)?;
@@ -952,8 +987,8 @@ pub fn add_tracks_to_playlist(
 
 pub fn remove_tracks_from_playlist(
     conn: &Connection,
-    playlist_id: i64,
-    track_ids: &[i64],
+    playlist_id: &PlaylistId,
+    track_ids: &[TrackId],
 ) -> Result<(), rusqlite::Error> {
     if track_ids.is_empty() {
         return Ok(());
@@ -970,29 +1005,23 @@ pub fn remove_tracks_from_playlist(
     Ok(())
 }
 
+/// Put a playlist's tracks in `track_ids` order. Only tracks that moved get a new position key,
+/// so a reorder made on another device merges track by track.
 pub fn reorder_playlist_tracks(
     conn: &Connection,
-    playlist_id: i64,
-    track_ids: &[i64],
+    playlist_id: &PlaylistId,
+    track_ids: &[TrackId],
 ) -> Result<(), rusqlite::Error> {
-    let current = playlist_track_ids(conn, playlist_id)?;
-    if current.len() != track_ids.len() {
-        return Err(rusqlite::Error::InvalidParameterName(
-            "track_ids length mismatch".into(),
-        ));
-    }
-    let current_set: std::collections::HashSet<i64> = current.into_iter().collect();
-    if !track_ids.iter().all(|id| current_set.contains(id)) {
-        return Err(rusqlite::Error::InvalidParameterName(
-            "track_ids contain unknown tracks".into(),
-        ));
-    }
+    let current = playlist_track_keys(conn, playlist_id)?;
+    check_same_ids(&current, track_ids, "track_ids")?;
 
-    for (position, track_id) in track_ids.iter().enumerate() {
+    for (track_id, position) in
+        position_key::reorder(&current, track_ids).map_err(position_error)?
+    {
         conn.execute(
             "UPDATE playlist_tracks SET position = ?1
              WHERE playlist_id = ?2 AND track_id = ?3",
-            params![position as i64, playlist_id, track_id],
+            params![position, playlist_id, track_id],
         )?;
     }
 
@@ -1000,32 +1029,30 @@ pub fn reorder_playlist_tracks(
     Ok(())
 }
 
-fn all_playlist_ids(conn: &Connection) -> Result<Vec<i64>, rusqlite::Error> {
-    let mut stmt = conn.prepare("SELECT id FROM playlists ORDER BY position ASC, id ASC")?;
-    let ids = stmt
-        .query_map([], |row| row.get(0))?
+/// Every playlist in sidebar order, each with its position key.
+fn playlist_keys(conn: &Connection) -> Result<Vec<(PlaylistId, String)>, rusqlite::Error> {
+    let mut stmt =
+        conn.prepare("SELECT id, position FROM playlists ORDER BY position ASC, id ASC")?;
+    let rows = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(ids)
+    Ok(rows)
 }
 
-pub fn reorder_playlists(conn: &Connection, playlist_ids: &[i64]) -> Result<(), rusqlite::Error> {
-    let current = all_playlist_ids(conn)?;
-    if current.len() != playlist_ids.len() {
-        return Err(rusqlite::Error::InvalidParameterName(
-            "playlist_ids length mismatch".into(),
-        ));
-    }
-    let current_set: std::collections::HashSet<i64> = current.into_iter().collect();
-    if !playlist_ids.iter().all(|id| current_set.contains(id)) {
-        return Err(rusqlite::Error::InvalidParameterName(
-            "playlist_ids contain unknown playlists".into(),
-        ));
-    }
+/// Put the sidebar's playlists in `playlist_ids` order, rewriting only the ones that moved.
+pub fn reorder_playlists(
+    conn: &Connection,
+    playlist_ids: &[PlaylistId],
+) -> Result<(), rusqlite::Error> {
+    let current = playlist_keys(conn)?;
+    check_same_ids(&current, playlist_ids, "playlist_ids")?;
 
-    for (position, playlist_id) in playlist_ids.iter().enumerate() {
+    for (playlist_id, position) in
+        position_key::reorder(&current, playlist_ids).map_err(position_error)?
+    {
         conn.execute(
             "UPDATE playlists SET position = ?1 WHERE id = ?2",
-            params![position as i64, playlist_id],
+            params![position, playlist_id],
         )?;
     }
 
@@ -1151,7 +1178,7 @@ fn parse_lyrics_source(value: &str) -> Option<LyricsSource> {
 }
 
 fn map_track_lyrics_row(row: &Row<'_>) -> rusqlite::Result<TrackLyricsRecord> {
-    let track_id: i64 = row.get(0)?;
+    let track_id: TrackId = row.get(0)?;
     let format = parse_lyrics_format(&row.get::<_, String>(1)?);
     let source = row
         .get::<_, Option<String>>(2)?
@@ -1172,7 +1199,7 @@ fn map_track_lyrics_row(row: &Row<'_>) -> rusqlite::Result<TrackLyricsRecord> {
 
 pub fn get_track_lyrics(
     conn: &Connection,
-    track_id: i64,
+    track_id: &TrackId,
 ) -> Result<Option<TrackLyricsRecord>, rusqlite::Error> {
     conn.query_row(
         "SELECT track_id, format, source, lines_json, plain_text, updated_at
@@ -1215,7 +1242,7 @@ pub fn upsert_track_lyrics(
 /// first-applied time.
 pub fn record_lyrics_attempt(
     conn: &Connection,
-    track_id: i64,
+    track_id: &TrackId,
     lrclib_id: i64,
 ) -> Result<(), rusqlite::Error> {
     conn.execute(
@@ -1227,7 +1254,10 @@ pub fn record_lyrics_attempt(
 }
 
 /// LRCLIB ids already applied to a track.
-pub fn list_lyrics_attempts(conn: &Connection, track_id: i64) -> Result<Vec<i64>, rusqlite::Error> {
+pub fn list_lyrics_attempts(
+    conn: &Connection,
+    track_id: &TrackId,
+) -> Result<Vec<i64>, rusqlite::Error> {
     let mut stmt = conn.prepare(
         "SELECT lrclib_id FROM track_lyrics_attempts WHERE track_id = ?1 ORDER BY applied_at",
     )?;
@@ -1235,7 +1265,7 @@ pub fn list_lyrics_attempts(conn: &Connection, track_id: i64) -> Result<Vec<i64>
     rows.collect()
 }
 
-pub fn delete_track_lyrics(conn: &Connection, track_id: i64) -> Result<(), rusqlite::Error> {
+pub fn delete_track_lyrics(conn: &Connection, track_id: &TrackId) -> Result<(), rusqlite::Error> {
     conn.execute(
         "DELETE FROM track_lyrics WHERE track_id = ?1",
         params![track_id],
@@ -1247,8 +1277,8 @@ pub fn delete_track_lyrics(conn: &Connection, track_id: i64) -> Result<(), rusql
 #[allow(dead_code)]
 pub fn get_lyrics_for_track_ids(
     conn: &Connection,
-    ids: &[i64],
-) -> Result<HashMap<i64, TrackLyricsRecord>, rusqlite::Error> {
+    ids: &[TrackId],
+) -> Result<HashMap<TrackId, TrackLyricsRecord>, rusqlite::Error> {
     if ids.is_empty() {
         return Ok(HashMap::new());
     }
@@ -1263,7 +1293,7 @@ pub fn get_lyrics_for_track_ids(
     let mut lyrics = HashMap::new();
     for row in rows {
         let record = row?;
-        lyrics.insert(record.track_id, record);
+        lyrics.insert(record.track_id.clone(), record);
     }
     Ok(lyrics)
 }
@@ -1314,9 +1344,9 @@ mod tests {
         }
     }
 
-    fn sample_listen(track_id: i64, completion: &str) -> ListenEventInput {
+    fn sample_listen(track_id: &TrackId, completion: &str) -> ListenEventInput {
         ListenEventInput {
-            track_id,
+            track_id: track_id.clone(),
             started_at: "2026-07-13T12:00:00Z".into(),
             ended_at: "2026-07-13T12:01:00Z".into(),
             listened_seconds: 60.0,
@@ -1335,7 +1365,7 @@ mod tests {
         }
     }
 
-    fn listen_event_count(conn: &Connection, track_id: i64) -> i64 {
+    fn listen_event_count(conn: &Connection, track_id: &TrackId) -> i64 {
         conn.query_row(
             "SELECT COUNT(*) FROM listen_events WHERE track_id = ?1",
             params![track_id],
@@ -1349,8 +1379,8 @@ mod tests {
         let conn = test_conn();
         let path = "/music/song.mp3";
 
-        save_track(&conn, &sample_input(path), MUSIC_SOURCE_ID).unwrap();
-        let first = get_track_by_id(&conn, 1).unwrap().unwrap();
+        let id = save_track(&conn, &sample_input(path), MUSIC_SOURCE_ID).unwrap();
+        let first = get_track_by_id(&conn, &id).unwrap().unwrap();
         let first_added = first.date_added.clone();
 
         std::thread::sleep(std::time::Duration::from_millis(5));
@@ -1359,7 +1389,7 @@ mod tests {
         updated.title = "Renamed".into();
         save_track(&conn, &updated, MUSIC_SOURCE_ID).unwrap();
 
-        let second = get_track_by_id(&conn, 1).unwrap().unwrap();
+        let second = get_track_by_id(&conn, &id).unwrap().unwrap();
         assert_eq!(second.title, "Renamed");
         assert_eq!(second.date_added, first_added);
     }
@@ -1367,9 +1397,14 @@ mod tests {
     #[test]
     fn reorder_playlist_tracks_updates_order() {
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/a.mp3"), MUSIC_SOURCE_ID).unwrap();
-        save_track(&conn, &sample_input("/music/b.mp3"), MUSIC_SOURCE_ID).unwrap();
-        save_track(&conn, &sample_input("/music/c.mp3"), MUSIC_SOURCE_ID).unwrap();
+        let [a, b, c] = ["a", "b", "c"].map(|name| {
+            save_track(
+                &conn,
+                &sample_input(&format!("/music/{name}.mp3")),
+                MUSIC_SOURCE_ID,
+            )
+            .unwrap()
+        });
 
         let playlist_id = create_playlist(
             &conn,
@@ -1382,16 +1417,32 @@ mod tests {
             None,
         )
         .unwrap();
-        add_tracks_to_playlist(&conn, playlist_id, &[1, 2, 3]).unwrap();
+        add_tracks_to_playlist(&conn, &playlist_id, &[a.clone(), b.clone(), c.clone()]).unwrap();
         assert_eq!(
-            playlist_track_ids(&conn, playlist_id).unwrap(),
-            vec![1, 2, 3]
+            playlist_track_ids(&conn, &playlist_id).unwrap(),
+            vec![a.clone(), b.clone(), c.clone()]
         );
+        let keys_before = playlist_track_keys(&conn, &playlist_id).unwrap();
 
-        reorder_playlist_tracks(&conn, playlist_id, &[3, 1, 2]).unwrap();
+        // Moving one track rewrites only its own position.
+        reorder_playlist_tracks(&conn, &playlist_id, &[c.clone(), a.clone(), b.clone()]).unwrap();
         assert_eq!(
-            playlist_track_ids(&conn, playlist_id).unwrap(),
-            vec![3, 1, 2]
+            playlist_track_ids(&conn, &playlist_id).unwrap(),
+            vec![c.clone(), a.clone(), b.clone()]
+        );
+        let keys_after = playlist_track_keys(&conn, &playlist_id).unwrap();
+        let changed: Vec<&TrackId> = keys_after
+            .iter()
+            .filter(|row| !keys_before.contains(row))
+            .map(|(id, _)| id)
+            .collect();
+        assert_eq!(changed, vec![&c]);
+
+        // A track is in a playlist at most once; adding it again changes nothing.
+        add_tracks_to_playlist(&conn, &playlist_id, &[a.clone(), a.clone()]).unwrap();
+        assert_eq!(
+            playlist_track_ids(&conn, &playlist_id).unwrap(),
+            vec![c, a, b]
         );
     }
 
@@ -1438,26 +1489,28 @@ mod tests {
                 .into_iter()
                 .map(|p| p.id)
                 .collect::<Vec<_>>(),
-            vec![zebra, alpha, middle]
+            vec![zebra.clone(), alpha.clone(), middle.clone()]
         );
 
-        reorder_playlists(&conn, &[alpha, middle, zebra]).unwrap();
+        reorder_playlists(&conn, &[alpha.clone(), middle.clone(), zebra.clone()]).unwrap();
         assert_eq!(
             get_all_playlists(&conn)
                 .unwrap()
                 .into_iter()
                 .map(|p| p.id)
                 .collect::<Vec<_>>(),
-            vec![alpha, middle, zebra]
+            vec![alpha.clone(), middle, zebra.clone()]
         );
+
+        assert!(reorder_playlists(&conn, &[alpha.clone(), alpha.clone(), zebra.clone()]).is_err());
     }
 
     #[test]
     fn record_listen_event_inserts_and_updates_counters() {
         let mut conn = test_conn();
-        save_track(&conn, &sample_input("/music/a.mp3"), MUSIC_SOURCE_ID).unwrap();
+        let id = save_track(&conn, &sample_input("/music/a.mp3"), MUSIC_SOURCE_ID).unwrap();
 
-        let mut event = sample_listen(1, "natural_end");
+        let mut event = sample_listen(&id, "natural_end");
         event.ended_at = "2026-07-13T12:03:00Z".into();
         event.listened_seconds = 180.0;
         event.library_listened_seconds = 40.0;
@@ -1472,20 +1525,25 @@ mod tests {
 
         let result = record_listen_event(&mut conn, &event).unwrap();
 
-        assert_eq!(result.event_id, 1);
+        assert_eq!(
+            uuid::Uuid::parse_str(result.event_id.as_str())
+                .unwrap()
+                .get_version_num(),
+            7
+        );
         assert_eq!(result.play_count, 1);
         assert!(result.counted);
         assert!(result.recorded);
         assert_eq!(result.last_played_at, "2026-07-13T12:03:00Z");
 
-        let track = get_track_by_id(&conn, 1).unwrap().unwrap();
+        let track = get_track_by_id(&conn, &id).unwrap().unwrap();
         assert_eq!(track.play_count, 1);
         assert_eq!(
             track.last_played_at.as_deref(),
             Some("2026-07-13T12:03:00Z")
         );
 
-        assert_eq!(listen_event_count(&conn, 1), 1);
+        assert_eq!(listen_event_count(&conn, &id), 1);
 
         let (completion, theme_id, theme_name, skin_name, ui_mode, lib_s, skin_s): (
             String,
@@ -1499,8 +1557,8 @@ mod tests {
             .query_row(
                 "SELECT completion, theme_id, theme_name, skin_name, ui_mode,
                         library_listened_seconds, skin_listened_seconds
-                 FROM listen_events WHERE id = 1",
-                [],
+                 FROM listen_events WHERE id = ?1",
+                params![result.event_id],
                 |row| {
                     Ok((
                         row.get(0)?,
@@ -1526,9 +1584,9 @@ mod tests {
     #[test]
     fn record_listen_event_short_skip_does_not_count() {
         let mut conn = test_conn();
-        save_track(&conn, &sample_input("/music/a.mp3"), MUSIC_SOURCE_ID).unwrap();
+        let id = save_track(&conn, &sample_input("/music/a.mp3"), MUSIC_SOURCE_ID).unwrap();
 
-        let mut event = sample_listen(1, "skipped");
+        let mut event = sample_listen(&id, "skipped");
         event.ended_at = "2026-07-13T12:00:10Z".into();
         event.listened_seconds = 10.0;
         event.track_duration_seconds = Some(180.0);
@@ -1539,12 +1597,12 @@ mod tests {
         assert!(!result.counted);
         assert_eq!(result.play_count, 0);
         assert_eq!(result.last_played_at, "");
-        assert_eq!(listen_event_count(&conn, 1), 1);
+        assert_eq!(listen_event_count(&conn, &id), 1);
 
         let last_played_at: Option<String> = conn
             .query_row(
-                "SELECT last_played_at FROM tracks WHERE id = 1",
-                [],
+                "SELECT last_played_at FROM tracks WHERE id = ?1",
+                params![id],
                 |row| row.get(0),
             )
             .unwrap();
@@ -1553,7 +1611,7 @@ mod tests {
 
     #[test]
     fn listen_event_qualifies_at_threshold_boundaries() {
-        let mut base = sample_listen(1, "skipped");
+        let mut base = sample_listen(&TrackId::new(), "skipped");
         base.track_duration_seconds = Some(100.0);
 
         let mut under_seconds = base.clone();
@@ -1585,34 +1643,34 @@ mod tests {
     #[test]
     fn skip_listen_event_recording_leaves_history_untouched() {
         let mut conn = test_conn();
-        save_track(&conn, &sample_input("/music/a.mp3"), MUSIC_SOURCE_ID).unwrap();
-        record_listen_event(&mut conn, &sample_listen(1, "natural_end")).unwrap();
+        let id = save_track(&conn, &sample_input("/music/a.mp3"), MUSIC_SOURCE_ID).unwrap();
+        record_listen_event(&mut conn, &sample_listen(&id, "natural_end")).unwrap();
 
-        let result = skip_listen_event_recording(&conn, 1).unwrap();
+        let result = skip_listen_event_recording(&conn, &id).unwrap();
         assert!(!result.recorded);
         assert!(!result.counted);
-        assert_eq!(result.event_id, 0);
+        assert_eq!(result.event_id, EventId::default());
         assert_eq!(result.play_count, 1);
-        assert_eq!(listen_event_count(&conn, 1), 1);
+        assert_eq!(listen_event_count(&conn, &id), 1);
     }
 
     #[test]
     fn clear_listen_events_all_resets_counters() {
         let mut conn = test_conn();
-        save_track(&conn, &sample_input("/music/a.mp3"), MUSIC_SOURCE_ID).unwrap();
-        save_track(&conn, &sample_input("/music/b.mp3"), MUSIC_SOURCE_ID).unwrap();
-        record_listen_event(&mut conn, &sample_listen(1, "natural_end")).unwrap();
-        record_listen_event(&mut conn, &sample_listen(2, "natural_end")).unwrap();
+        let a = save_track(&conn, &sample_input("/music/a.mp3"), MUSIC_SOURCE_ID).unwrap();
+        let b = save_track(&conn, &sample_input("/music/b.mp3"), MUSIC_SOURCE_ID).unwrap();
+        record_listen_event(&mut conn, &sample_listen(&a, "natural_end")).unwrap();
+        record_listen_event(&mut conn, &sample_listen(&b, "natural_end")).unwrap();
 
         let cleared = clear_listen_events(&conn, None).unwrap();
         assert_eq!(cleared.deleted_events, 2);
         assert!(cleared.reset_counters);
-        assert_eq!(listen_event_count(&conn, 1), 0);
-        assert_eq!(get_track_by_id(&conn, 1).unwrap().unwrap().play_count, 0);
+        assert_eq!(listen_event_count(&conn, &a), 0);
+        assert_eq!(get_track_by_id(&conn, &a).unwrap().unwrap().play_count, 0);
         let last_played_at: Option<String> = conn
             .query_row(
-                "SELECT last_played_at FROM tracks WHERE id = 1",
-                [],
+                "SELECT last_played_at FROM tracks WHERE id = ?1",
+                params![a],
                 |row| row.get(0),
             )
             .unwrap();
@@ -1622,27 +1680,27 @@ mod tests {
     #[test]
     fn clear_listen_events_within_hours_keeps_older_rows() {
         let mut conn = test_conn();
-        save_track(&conn, &sample_input("/music/a.mp3"), MUSIC_SOURCE_ID).unwrap();
+        let id = save_track(&conn, &sample_input("/music/a.mp3"), MUSIC_SOURCE_ID).unwrap();
 
-        let mut old = sample_listen(1, "natural_end");
+        let mut old = sample_listen(&id, "natural_end");
         old.ended_at = "2020-01-01T00:00:00.000Z".into();
         record_listen_event(&mut conn, &old).unwrap();
 
-        let mut recent = sample_listen(1, "natural_end");
+        let mut recent = sample_listen(&id, "natural_end");
         recent.ended_at = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
         record_listen_event(&mut conn, &recent).unwrap();
 
-        assert_eq!(listen_event_count(&conn, 1), 2);
+        assert_eq!(listen_event_count(&conn, &id), 2);
         let cleared = clear_listen_events(&conn, Some(24)).unwrap();
         assert_eq!(cleared.deleted_events, 1);
         assert!(!cleared.reset_counters);
-        assert_eq!(listen_event_count(&conn, 1), 1);
-        assert_eq!(get_track_by_id(&conn, 1).unwrap().unwrap().play_count, 2);
+        assert_eq!(listen_event_count(&conn, &id), 1);
+        assert_eq!(get_track_by_id(&conn, &id).unwrap().unwrap().play_count, 2);
 
         let ended_at: String = conn
             .query_row(
-                "SELECT ended_at FROM listen_events WHERE track_id = 1",
-                [],
+                "SELECT ended_at FROM listen_events WHERE track_id = ?1",
+                params![id],
                 |row| row.get(0),
             )
             .unwrap();
@@ -1652,12 +1710,12 @@ mod tests {
     #[test]
     fn delete_track_cascades_listen_events() {
         let mut conn = test_conn();
-        save_track(&conn, &sample_input("/music/a.mp3"), MUSIC_SOURCE_ID).unwrap();
-        record_listen_event(&mut conn, &sample_listen(1, "natural_end")).unwrap();
+        let id = save_track(&conn, &sample_input("/music/a.mp3"), MUSIC_SOURCE_ID).unwrap();
+        record_listen_event(&mut conn, &sample_listen(&id, "natural_end")).unwrap();
 
-        assert_eq!(listen_event_count(&conn, 1), 1);
-        delete_track(&conn, 1).unwrap();
-        assert_eq!(listen_event_count(&conn, 1), 0);
+        assert_eq!(listen_event_count(&conn, &id), 1);
+        delete_track(&conn, &id).unwrap();
+        assert_eq!(listen_event_count(&conn, &id), 0);
     }
 
     #[test]
@@ -1665,17 +1723,17 @@ mod tests {
         let conn = test_conn();
         let path = "/music/rated.mp3";
 
-        save_track(&conn, &sample_input(path), MUSIC_SOURCE_ID).unwrap();
-        assert_eq!(set_track_rating(&conn, 1, 128).unwrap(), 128);
+        let id = save_track(&conn, &sample_input(path), MUSIC_SOURCE_ID).unwrap();
+        assert_eq!(set_track_rating(&conn, &id, 128).unwrap(), 128);
 
-        let rated = get_track_by_id(&conn, 1).unwrap().unwrap();
+        let rated = get_track_by_id(&conn, &id).unwrap().unwrap();
         assert_eq!(rated.rating, 128);
 
         let mut updated = sample_input(path);
         updated.title = "Renamed".into();
         save_track(&conn, &updated, MUSIC_SOURCE_ID).unwrap();
 
-        let after_upsert = get_track_by_id(&conn, 1).unwrap().unwrap();
+        let after_upsert = get_track_by_id(&conn, &id).unwrap().unwrap();
         assert_eq!(after_upsert.title, "Renamed");
         assert_eq!(after_upsert.rating, 128);
     }
@@ -1687,9 +1745,9 @@ mod tests {
 
         let mut input = sample_input(path);
         input.rating = Some(204);
-        save_track(&conn, &input, MUSIC_SOURCE_ID).unwrap();
+        let id = save_track(&conn, &input, MUSIC_SOURCE_ID).unwrap();
 
-        let track = get_track_by_id(&conn, 1).unwrap().unwrap();
+        let track = get_track_by_id(&conn, &id).unwrap().unwrap();
         assert_eq!(track.rating, 204);
     }
 
@@ -1698,14 +1756,14 @@ mod tests {
         let conn = test_conn();
         let path = "/music/late-rated.mp3";
 
-        save_track(&conn, &sample_input(path), MUSIC_SOURCE_ID).unwrap();
-        assert_eq!(get_track_by_id(&conn, 1).unwrap().unwrap().rating, 0);
+        let id = save_track(&conn, &sample_input(path), MUSIC_SOURCE_ID).unwrap();
+        assert_eq!(get_track_by_id(&conn, &id).unwrap().unwrap().rating, 0);
 
         let mut updated = sample_input(path);
         updated.rating = Some(153);
         save_track(&conn, &updated, MUSIC_SOURCE_ID).unwrap();
 
-        assert_eq!(get_track_by_id(&conn, 1).unwrap().unwrap().rating, 153);
+        assert_eq!(get_track_by_id(&conn, &id).unwrap().unwrap().rating, 153);
     }
 
     #[test]
@@ -1715,14 +1773,14 @@ mod tests {
 
         let mut first = sample_input(path);
         first.rating = Some(128);
-        save_track(&conn, &first, MUSIC_SOURCE_ID).unwrap();
-        set_track_rating(&conn, 1, 179).unwrap();
+        let id = save_track(&conn, &first, MUSIC_SOURCE_ID).unwrap();
+        set_track_rating(&conn, &id, 179).unwrap();
 
         let mut updated = sample_input(path);
         updated.rating = Some(255);
         save_track(&conn, &updated, MUSIC_SOURCE_ID).unwrap();
 
-        assert_eq!(get_track_by_id(&conn, 1).unwrap().unwrap().rating, 179);
+        assert_eq!(get_track_by_id(&conn, &id).unwrap().unwrap().rating, 179);
     }
 
     #[test]
@@ -1730,12 +1788,12 @@ mod tests {
         let mut conn = test_conn();
         let path = "/music/refresh.mp3";
 
-        save_track(&conn, &sample_input(path), MUSIC_SOURCE_ID).unwrap();
-        record_listen_event(&mut conn, &sample_listen(1, "natural_end")).unwrap();
-        record_listen_event(&mut conn, &sample_listen(1, "natural_end")).unwrap();
-        set_track_rating(&conn, 1, 128).unwrap();
+        let id = save_track(&conn, &sample_input(path), MUSIC_SOURCE_ID).unwrap();
+        record_listen_event(&mut conn, &sample_listen(&id, "natural_end")).unwrap();
+        record_listen_event(&mut conn, &sample_listen(&id, "natural_end")).unwrap();
+        set_track_rating(&conn, &id, 128).unwrap();
 
-        let before = get_track_by_id(&conn, 1).unwrap().unwrap();
+        let before = get_track_by_id(&conn, &id).unwrap().unwrap();
         let date_added = before.date_added.clone();
         assert_eq!(before.play_count, 2);
         assert_eq!(before.rating, 128);
@@ -1753,7 +1811,7 @@ mod tests {
         refreshed.rating = Some(255);
         save_track(&conn, &refreshed, MUSIC_SOURCE_ID).unwrap();
 
-        let after = get_track_by_id(&conn, 1).unwrap().unwrap();
+        let after = get_track_by_id(&conn, &id).unwrap().unwrap();
         assert_eq!(after.title, "Updated Title");
         assert_eq!(after.artist.as_deref(), Some("Updated Artist"));
         assert_eq!(after.album.as_deref(), Some("Updated Album"));
@@ -1836,7 +1894,7 @@ mod tests {
             MUSIC_SOURCE_ID,
         )
         .unwrap();
-        let track = get_track_by_id(&conn, id).unwrap().unwrap();
+        let track = get_track_by_id(&conn, &id).unwrap().unwrap();
 
         assert_eq!(track.recording_mbid.as_deref(), Some(SAMPLE_RECORDING_MBID));
         assert_eq!(track.release_mbid.as_deref(), Some(SAMPLE_RELEASE_MBID));
@@ -1885,7 +1943,7 @@ mod tests {
     fn save_track_on_conflict_updates_mbid_columns() {
         let conn = test_conn();
         let path = "/music/conflict-mbid.mp3";
-        save_track(&conn, &sample_mbid_input(path), MUSIC_SOURCE_ID).unwrap();
+        let id = save_track(&conn, &sample_mbid_input(path), MUSIC_SOURCE_ID).unwrap();
 
         let mut updated = sample_input(path);
         updated.title = "Retagged".into();
@@ -1895,7 +1953,7 @@ mod tests {
         updated.album_artist_mbids = vec!["CCCCCCCC-DDDD-EEEE-FFFF-000000000000".into()];
         save_track(&conn, &updated, MUSIC_SOURCE_ID).unwrap();
 
-        let track = get_track_by_id(&conn, 1).unwrap().unwrap();
+        let track = get_track_by_id(&conn, &id).unwrap().unwrap();
         assert_eq!(track.title, "Retagged");
         assert_eq!(
             track.recording_mbid.as_deref(),
@@ -1909,9 +1967,11 @@ mod tests {
         );
 
         let artist_sql: Option<String> = conn
-            .query_row("SELECT artist_mbids FROM tracks WHERE id = 1", [], |row| {
-                row.get(0)
-            })
+            .query_row(
+                "SELECT artist_mbids FROM tracks WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
             .unwrap();
         assert_eq!(artist_sql, None);
     }
@@ -1925,11 +1985,11 @@ mod tests {
             MUSIC_SOURCE_ID,
         )
         .unwrap();
-        let existing = get_track_by_id(&conn, id).unwrap().unwrap();
+        let existing = get_track_by_id(&conn, &id).unwrap().unwrap();
 
         update_track(
             &conn,
-            id,
+            &id,
             &TrackMetadataUpdate {
                 title: existing.title.clone(),
                 artist: existing.artist.clone(),
@@ -1955,7 +2015,7 @@ mod tests {
         )
         .unwrap();
 
-        let track = get_track_by_id(&conn, id).unwrap().unwrap();
+        let track = get_track_by_id(&conn, &id).unwrap().unwrap();
         assert_eq!(track.recording_mbid.as_deref(), Some(SAMPLE_RECORDING_MBID));
         assert_eq!(track.release_mbid.as_deref(), Some(SAMPLE_RELEASE_MBID));
         assert_eq!(track.artist_mbids, vec![SAMPLE_ARTIST_MBID.to_string()]);
@@ -1974,11 +2034,11 @@ mod tests {
             MUSIC_SOURCE_ID,
         )
         .unwrap();
-        let existing = get_track_by_id(&conn, id).unwrap().unwrap();
+        let existing = get_track_by_id(&conn, &id).unwrap().unwrap();
 
         update_track(
             &conn,
-            id,
+            &id,
             &TrackMetadataUpdate {
                 title: existing.title.clone(),
                 artist: existing.artist.clone(),
@@ -2004,7 +2064,7 @@ mod tests {
         )
         .unwrap();
 
-        let updated = get_track_by_id(&conn, id).unwrap().unwrap();
+        let updated = get_track_by_id(&conn, &id).unwrap().unwrap();
         assert_eq!(updated.id, id);
         assert_eq!(updated.file_path, "/music/album/track.m4a");
     }
@@ -2034,7 +2094,7 @@ mod tests {
     fn save_track_sets_source_on_insert_and_keeps_it_on_refresh() {
         let conn = test_conn();
         let id = save_track(&conn, &sample_input("/music/sub/a.mp3"), MUSIC_SOURCE_ID).unwrap();
-        let track = get_track_by_id(&conn, id).unwrap().unwrap();
+        let track = get_track_by_id(&conn, &id).unwrap().unwrap();
         assert_eq!(track.source_id, MUSIC_SOURCE_ID);
         assert_eq!(track.missing_since, None);
 
@@ -2046,7 +2106,7 @@ mod tests {
         let sub = conn.last_insert_rowid();
         save_track(&conn, &sample_input("/music/sub/a.mp3"), sub).unwrap();
         assert_eq!(
-            get_track_by_id(&conn, id).unwrap().unwrap().source_id,
+            get_track_by_id(&conn, &id).unwrap().unwrap().source_id,
             MUSIC_SOURCE_ID
         );
 
@@ -2059,9 +2119,9 @@ mod tests {
             [],
         )
         .unwrap();
-        assert!(set_track_source(&conn, id, conn.last_insert_rowid()).is_err());
-        set_track_source(&conn, id, sub).unwrap();
-        let track = get_track_by_id(&conn, id).unwrap().unwrap();
+        assert!(set_track_source(&conn, &id, conn.last_insert_rowid()).is_err());
+        set_track_source(&conn, &id, sub).unwrap();
+        let track = get_track_by_id(&conn, &id).unwrap().unwrap();
         assert_eq!(
             (track.source_id, track.file_path.as_str()),
             (sub, "/music/sub/a.mp3")
@@ -2114,16 +2174,16 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            get_track_by_id(&conn, id).unwrap().unwrap().source_id,
+            get_track_by_id(&conn, &id).unwrap().unwrap().source_id,
             tracks_id
         );
         assert_eq!(source(&dir.join("Downloads/b.mp3")), None);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    fn sample_lyrics(track_id: i64, plain_text: &str) -> TrackLyricsRecord {
+    fn sample_lyrics(track_id: &TrackId, plain_text: &str) -> TrackLyricsRecord {
         TrackLyricsRecord {
-            track_id,
+            track_id: track_id.clone(),
             format: LyricsFormat::Plain,
             source: Some(LyricsSource::Manual),
             lines: plain_text
@@ -2143,13 +2203,13 @@ mod tests {
     #[test]
     fn track_lyrics_round_trip() {
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/lyrics.mp3"), MUSIC_SOURCE_ID).unwrap();
+        let id = save_track(&conn, &sample_input("/music/lyrics.mp3"), MUSIC_SOURCE_ID).unwrap();
 
-        let record = sample_lyrics(1, "Line one\nLine two");
+        let record = sample_lyrics(&id, "Line one\nLine two");
         upsert_track_lyrics(&conn, &record).unwrap();
 
-        let loaded = get_track_lyrics(&conn, 1).unwrap().unwrap();
-        assert_eq!(loaded.track_id, 1);
+        let loaded = get_track_lyrics(&conn, &id).unwrap().unwrap();
+        assert_eq!(loaded.track_id, id);
         assert_eq!(loaded.format, LyricsFormat::Plain);
         assert_eq!(loaded.source, Some(LyricsSource::Manual));
         assert_eq!(loaded.plain_text, "Line one\nLine two");
@@ -2161,7 +2221,7 @@ mod tests {
     #[test]
     fn track_lyrics_instrumental_round_trip_and_track_format() {
         let conn = test_conn();
-        save_track(
+        let id = save_track(
             &conn,
             &sample_input("/music/instrumental.mp3"),
             MUSIC_SOURCE_ID,
@@ -2169,7 +2229,7 @@ mod tests {
         .unwrap();
 
         let record = TrackLyricsRecord {
-            track_id: 1,
+            track_id: id.clone(),
             format: LyricsFormat::Instrumental,
             source: Some(LyricsSource::Lrclib),
             lines: vec![],
@@ -2178,62 +2238,63 @@ mod tests {
         };
         upsert_track_lyrics(&conn, &record).unwrap();
 
-        let loaded = get_track_lyrics(&conn, 1).unwrap().unwrap();
+        let loaded = get_track_lyrics(&conn, &id).unwrap().unwrap();
         assert_eq!(loaded.format, LyricsFormat::Instrumental);
         assert_eq!(loaded.source, Some(LyricsSource::Lrclib));
         assert!(loaded.plain_text.is_empty());
 
-        let track = get_track_by_id(&conn, 1).unwrap().unwrap();
+        let track = get_track_by_id(&conn, &id).unwrap().unwrap();
         assert_eq!(track.lyrics_format, Some(LyricsFormat::Instrumental));
     }
 
     #[test]
     fn track_lyrics_upsert_replaces_existing() {
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/lyrics.mp3"), MUSIC_SOURCE_ID).unwrap();
+        let id = save_track(&conn, &sample_input("/music/lyrics.mp3"), MUSIC_SOURCE_ID).unwrap();
 
-        upsert_track_lyrics(&conn, &sample_lyrics(1, "First version")).unwrap();
-        upsert_track_lyrics(&conn, &sample_lyrics(1, "Second version")).unwrap();
+        upsert_track_lyrics(&conn, &sample_lyrics(&id, "First version")).unwrap();
+        upsert_track_lyrics(&conn, &sample_lyrics(&id, "Second version")).unwrap();
 
-        let loaded = get_track_lyrics(&conn, 1).unwrap().unwrap();
+        let loaded = get_track_lyrics(&conn, &id).unwrap().unwrap();
         assert_eq!(loaded.plain_text, "Second version");
     }
 
     #[test]
     fn delete_track_lyrics_removes_row() {
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/lyrics.mp3"), MUSIC_SOURCE_ID).unwrap();
-        upsert_track_lyrics(&conn, &sample_lyrics(1, "To delete")).unwrap();
+        let id = save_track(&conn, &sample_input("/music/lyrics.mp3"), MUSIC_SOURCE_ID).unwrap();
+        upsert_track_lyrics(&conn, &sample_lyrics(&id, "To delete")).unwrap();
 
-        delete_track_lyrics(&conn, 1).unwrap();
-        assert!(get_track_lyrics(&conn, 1).unwrap().is_none());
+        delete_track_lyrics(&conn, &id).unwrap();
+        assert!(get_track_lyrics(&conn, &id).unwrap().is_none());
     }
 
     #[test]
     fn get_lyrics_for_track_ids_returns_batch_map() {
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/a.mp3"), MUSIC_SOURCE_ID).unwrap();
-        save_track(&conn, &sample_input("/music/b.mp3"), MUSIC_SOURCE_ID).unwrap();
-        save_track(&conn, &sample_input("/music/c.mp3"), MUSIC_SOURCE_ID).unwrap();
+        let a = save_track(&conn, &sample_input("/music/a.mp3"), MUSIC_SOURCE_ID).unwrap();
+        let b = save_track(&conn, &sample_input("/music/b.mp3"), MUSIC_SOURCE_ID).unwrap();
+        let c = save_track(&conn, &sample_input("/music/c.mp3"), MUSIC_SOURCE_ID).unwrap();
 
-        upsert_track_lyrics(&conn, &sample_lyrics(1, "Track A")).unwrap();
-        upsert_track_lyrics(&conn, &sample_lyrics(3, "Track C")).unwrap();
+        upsert_track_lyrics(&conn, &sample_lyrics(&a, "Track A")).unwrap();
+        upsert_track_lyrics(&conn, &sample_lyrics(&c, "Track C")).unwrap();
 
-        let lyrics = get_lyrics_for_track_ids(&conn, &[1, 2, 3]).unwrap();
+        let lyrics = get_lyrics_for_track_ids(&conn, &[a.clone(), b.clone(), c.clone()]).unwrap();
         assert_eq!(lyrics.len(), 2);
-        assert_eq!(lyrics.get(&1).unwrap().plain_text, "Track A");
-        assert_eq!(lyrics.get(&3).unwrap().plain_text, "Track C");
-        assert!(!lyrics.contains_key(&2));
+        assert_eq!(lyrics.get(&a).unwrap().plain_text, "Track A");
+        assert_eq!(lyrics.get(&c).unwrap().plain_text, "Track C");
+        assert!(!lyrics.contains_key(&b));
     }
 
     #[test]
     fn delete_track_cascades_lyrics() {
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/lyrics.mp3"), MUSIC_SOURCE_ID).unwrap();
-        upsert_track_lyrics(&conn, &sample_lyrics(1, "Cascade me")).unwrap();
+        let id = save_track(&conn, &sample_input("/music/lyrics.mp3"), MUSIC_SOURCE_ID).unwrap();
+        upsert_track_lyrics(&conn, &sample_lyrics(&id, "Cascade me")).unwrap();
 
-        conn.execute("DELETE FROM tracks WHERE id = 1", []).unwrap();
-        assert!(get_track_lyrics(&conn, 1).unwrap().is_none());
+        conn.execute("DELETE FROM tracks WHERE id = ?1", params![id])
+            .unwrap();
+        assert!(get_track_lyrics(&conn, &id).unwrap().is_none());
     }
 
     #[test]
@@ -2242,15 +2303,15 @@ mod tests {
         use crate::lyrics_tags::{LyricsFormatHint, RawLyrics};
 
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/song.mp3"), MUSIC_SOURCE_ID).unwrap();
+        let id = save_track(&conn, &sample_input("/music/song.mp3"), MUSIC_SOURCE_ID).unwrap();
 
         let input = normalize_embedded_lyrics(RawLyrics {
             text: "Embedded verse".to_string(),
             hint: LyricsFormatHint::Plain,
         });
-        persist_import_lyrics(&conn, 1, &Some(input)).unwrap();
+        persist_import_lyrics(&conn, &id, &Some(input)).unwrap();
 
-        let loaded = get_track_lyrics(&conn, 1).unwrap().unwrap();
+        let loaded = get_track_lyrics(&conn, &id).unwrap().unwrap();
         assert_eq!(loaded.plain_text, "Embedded verse");
         assert_eq!(loaded.source, Some(LyricsSource::Embedded));
     }
@@ -2260,26 +2321,26 @@ mod tests {
         use crate::lyrics_normalize::persist_import_lyrics;
 
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/song.mp3"), MUSIC_SOURCE_ID).unwrap();
-        upsert_track_lyrics(&conn, &sample_lyrics(1, "Existing")).unwrap();
+        let id = save_track(&conn, &sample_input("/music/song.mp3"), MUSIC_SOURCE_ID).unwrap();
+        upsert_track_lyrics(&conn, &sample_lyrics(&id, "Existing")).unwrap();
 
-        persist_import_lyrics(&conn, 1, &None).unwrap();
+        persist_import_lyrics(&conn, &id, &None).unwrap();
 
-        let loaded = get_track_lyrics(&conn, 1).unwrap().unwrap();
+        let loaded = get_track_lyrics(&conn, &id).unwrap().unwrap();
         assert_eq!(loaded.plain_text, "Existing");
     }
 
     #[test]
     fn get_track_by_id_includes_lyrics_format_when_present() {
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/song.mp3"), MUSIC_SOURCE_ID).unwrap();
+        let id = save_track(&conn, &sample_input("/music/song.mp3"), MUSIC_SOURCE_ID).unwrap();
 
-        let without_lyrics = get_track_by_id(&conn, 1).unwrap().unwrap();
+        let without_lyrics = get_track_by_id(&conn, &id).unwrap().unwrap();
         assert!(without_lyrics.lyrics_format.is_none());
 
-        upsert_track_lyrics(&conn, &sample_lyrics(1, "Line one")).unwrap();
+        upsert_track_lyrics(&conn, &sample_lyrics(&id, "Line one")).unwrap();
 
-        let with_plain = get_track_by_id(&conn, 1).unwrap().unwrap();
+        let with_plain = get_track_by_id(&conn, &id).unwrap().unwrap();
         assert_eq!(with_plain.lyrics_format, Some(LyricsFormat::Plain));
     }
 
@@ -2320,7 +2381,7 @@ mod tests {
             .id
         }
 
-        fn location(&self, id: i64) -> (i64, String) {
+        fn location(&self, id: &TrackId) -> (i64, String) {
             self.conn
                 .query_row(
                     "SELECT source_id, rel_path FROM tracks WHERE id = ?1",
@@ -2343,14 +2404,17 @@ mod tests {
         let file = lib.root.join("Tracks").join("Artist").join("a.mp3");
         let path = file.to_string_lossy().into_owned();
         let id = save_track(&lib.conn, &sample_input(&path), lib.tracks).unwrap();
-        assert_eq!(lib.location(id), (lib.tracks, "Artist/a.mp3".into()));
+        assert_eq!(lib.location(&id), (lib.tracks, "Artist/a.mp3".into()));
         assert_eq!(
-            get_track_by_id(&lib.conn, id).unwrap().unwrap().file_path,
+            get_track_by_id(&lib.conn, &id).unwrap().unwrap().file_path,
             path
         );
         assert_eq!(list_file_paths(&lib.conn).unwrap(), vec![path.clone()]);
         assert!(has_track_file_path(&lib.conn, &path).unwrap());
-        assert_eq!(track_id_for_path(&lib.conn, &path).unwrap(), Some(id));
+        assert_eq!(
+            track_id_for_path(&lib.conn, &path).unwrap(),
+            Some(id.clone())
+        );
 
         // Saving the same file again refreshes the row, whatever source is asked for.
         let elsewhere = lib.add_source("Elsewhere");
@@ -2363,9 +2427,9 @@ mod tests {
         let loose = loose.to_string_lossy();
         assert!(save_track(&lib.conn, &sample_input(&loose), lib.tracks).is_err());
         let other = save_track(&lib.conn, &sample_input(&loose), elsewhere).unwrap();
-        assert_eq!(lib.location(other), (elsewhere, "loose.mp3".into()));
-        assert!(set_track_source(&lib.conn, other, lib.tracks).is_err());
-        assert_eq!(lib.location(other), (elsewhere, "loose.mp3".into()));
+        assert_eq!(lib.location(&other), (elsewhere, "loose.mp3".into()));
+        assert!(set_track_source(&lib.conn, &other, lib.tracks).is_err());
+        assert_eq!(lib.location(&other), (elsewhere, "loose.mp3".into()));
     }
 
     #[test]
@@ -2382,7 +2446,7 @@ mod tests {
         let organized = lib.root.join("Tracks").join("A").join("b.mp3");
         update_track(
             &lib.conn,
-            id,
+            &id,
             &TrackMetadataUpdate {
                 title: "Moved".into(),
                 ..Default::default()
@@ -2391,8 +2455,8 @@ mod tests {
             None,
         )
         .unwrap();
-        assert_eq!(lib.location(id), (lib.tracks, "A/b.mp3".into()));
-        let track = get_track_by_id(&lib.conn, id).unwrap().unwrap();
+        assert_eq!(lib.location(&id), (lib.tracks, "A/b.mp3".into()));
+        let track = get_track_by_id(&lib.conn, &id).unwrap().unwrap();
         assert_eq!(track.file_path, organized.to_string_lossy());
         assert_eq!(track.source_id, lib.tracks);
 
@@ -2400,13 +2464,13 @@ mod tests {
         let outside = std::env::temp_dir().join("spiral-outside/c.mp3");
         let err = update_track(
             &lib.conn,
-            id,
+            &id,
             &TrackMetadataUpdate::default(),
             Some(&outside.to_string_lossy()),
             None,
         )
         .unwrap_err();
         assert!(err.to_string().contains(sources::NO_SOURCE), "{err}");
-        assert_eq!(lib.location(id), (lib.tracks, "A/b.mp3".into()));
+        assert_eq!(lib.location(&id), (lib.tracks, "A/b.mp3".into()));
     }
 }

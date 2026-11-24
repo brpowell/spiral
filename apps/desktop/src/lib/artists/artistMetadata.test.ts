@@ -45,12 +45,12 @@ describe("artistToForm", () => {
         name: "Radiohead",
         tracks: [
           track({
-            id: 1,
+            id: "1",
             albumArtist: "Radiohead",
             albumArtistMbids: [ARTIST_A],
           }),
           track({
-            id: 2,
+            id: "2",
             albumArtist: "Radiohead",
             albumArtistMbids: [ARTIST_A],
           }),
@@ -68,7 +68,7 @@ describe("artistToForm", () => {
         name: "Thom Yorke",
         tracks: [
           track({
-            id: 1,
+            id: "1",
             artist: "Radiohead; Thom Yorke",
             artistMbids: [ARTIST_A, ARTIST_B],
           }),
@@ -86,12 +86,12 @@ describe("artistToForm", () => {
         name: "Radiohead",
         tracks: [
           track({
-            id: 1,
+            id: "1",
             albumArtist: "Radiohead",
             albumArtistMbids: [ARTIST_A],
           }),
           track({
-            id: 2,
+            id: "2",
             albumArtist: "Radiohead",
             albumArtistMbids: [ARTIST_B],
           }),
@@ -107,12 +107,12 @@ describe("artistMbidPlaceholder", () => {
   it("shows mixed-values when discography IDs differ", () => {
     const tracks = [
       track({
-        id: 1,
+        id: "1",
         albumArtist: "Radiohead",
         albumArtistMbids: [ARTIST_A],
       }),
       track({
-        id: 2,
+        id: "2",
         albumArtist: "Radiohead",
         albumArtistMbids: [ARTIST_B],
       }),
@@ -139,7 +139,7 @@ describe("artistFormsEqual", () => {
 describe("buildTrackArtistMetadata", () => {
   it("writes a single discography ID onto albumArtistMbids", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       albumArtist: "Radiohead",
       artistMbids: [ARTIST_C],
       recordingMbid: ARTIST_C,
@@ -166,7 +166,7 @@ describe("buildTrackArtistMetadata", () => {
 
   it("replaces the matching performer slot and leaves other IDs", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       artist: "Radiohead; Thom Yorke",
       artistMbids: [ARTIST_A, ARTIST_B],
     });
@@ -194,7 +194,7 @@ describe("buildTrackArtistMetadata", () => {
 
   it("preserves MBIDs when only the name changes", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       albumArtist: "Radiohead",
       albumArtistMbids: [ARTIST_A],
     });
@@ -218,7 +218,7 @@ describe("buildTrackArtistMetadata", () => {
 
   it("renames a matching Artist credit when discography Album Artist changes", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       artist: "Radiohead; Kid A Choir",
       albumArtist: "Radiohead",
       artistMbids: [ARTIST_A, ARTIST_B],
@@ -246,7 +246,7 @@ describe("buildTrackArtistMetadata", () => {
 
   it("does not rename a non-matching Artist credit in discography mode", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       artist: "Thom Yorke",
       albumArtist: "Radiohead",
     });
@@ -267,7 +267,7 @@ describe("buildTrackArtistMetadata", () => {
 
   it("replaces Artist when it is the same multi-value string as Album Artist", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       artist: "Radiohead; Thom Yorke",
       albumArtist: "Radiohead; Thom Yorke",
     });
@@ -291,7 +291,7 @@ describe("buildTrackArtistMetadata", () => {
 
   it("renames a matching Album Artist credit when a performer name changes", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       artist: "Radiohead; Thom Yorke",
       albumArtist: "Radiohead",
     });
@@ -313,7 +313,7 @@ describe("buildTrackArtistMetadata", () => {
 
   it("does not rename a non-matching Album Artist in performers mode", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       artist: "Radiohead; Thom Yorke",
       albumArtist: "Various Artists",
     });
@@ -335,7 +335,7 @@ describe("buildTrackArtistMetadata", () => {
 
   it("writes a matching Artist MBID when a discography ID changes", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       artist: "Radiohead; Kid A Choir",
       albumArtist: "Radiohead",
       artistMbids: [ARTIST_C, ARTIST_B],
@@ -363,7 +363,7 @@ describe("buildTrackArtistMetadata", () => {
 
   it("writes a matching Album Artist MBID when a performer ID changes", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       artist: "Radiohead; Thom Yorke",
       albumArtist: "Radiohead",
       artistMbids: [ARTIST_C, ARTIST_B],
@@ -393,7 +393,7 @@ describe("buildTrackArtistMetadata", () => {
 
   it("clears a matching Artist MBID when a discography ID is cleared", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       artist: "Radiohead",
       albumArtist: "Radiohead",
       artistMbids: [ARTIST_A],
@@ -419,7 +419,7 @@ describe("buildTrackArtistMetadata", () => {
 
   it("clears a single discography ID", () => {
     const editedTrack = track({
-      id: 1,
+      id: "1",
       albumArtist: "Radiohead",
       albumArtistMbids: [ARTIST_A],
     });
@@ -442,7 +442,7 @@ describe("buildTrackArtistMetadata", () => {
 
   it("renames a featured Artist credit without changing another album's Album Artist", () => {
     const editedTrack = track({
-      id: 2,
+      id: "2",
       title: "Like That",
       artist: "Future; Metro Boomin; Kendrick Lamar",
       albumArtist: "Future; Metro Boomin",
@@ -470,7 +470,7 @@ describe("buildTrackArtistMetadata", () => {
 
   it("writes a featured Artist MBID without touching another album's Album Artist IDs", () => {
     const editedTrack = track({
-      id: 2,
+      id: "2",
       artist: "Future; Metro Boomin; Kendrick Lamar",
       albumArtist: "Future; Metro Boomin",
       artistMbids: [ARTIST_B, ARTIST_C, ARTIST_C],
@@ -503,18 +503,18 @@ describe("buildTrackArtistMetadata", () => {
 describe("artistMetadataSaveTargets", () => {
   it("includes featured credits that are not in the discography group", () => {
     const owned = track({
-      id: 1,
+      id: "1",
       artist: "Kendrick Lamar",
       albumArtist: "Kendrick Lamar",
     });
     const feature = track({
-      id: 2,
+      id: "2",
       title: "Like That",
       artist: "Future; Metro Boomin; Kendrick Lamar",
       albumArtist: "Future; Metro Boomin",
     });
     const unrelated = track({
-      id: 3,
+      id: "3",
       artist: "Future",
       albumArtist: "Future",
     });
@@ -526,8 +526,8 @@ describe("artistMetadataSaveTargets", () => {
         "Kendrick Lamar",
       ).map((target) => ({ id: target.track.id, scope: target.scope })),
     ).toEqual([
-      { id: 1, scope: "owned" },
-      { id: 2, scope: "appearance" },
+      { id: "1", scope: "owned" },
+      { id: "2", scope: "appearance" },
     ]);
   });
 });

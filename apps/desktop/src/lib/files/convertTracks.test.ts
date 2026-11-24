@@ -7,7 +7,7 @@ import type { Track } from "@/types/track";
 
 function makeTrack(overrides: Partial<Track> = {}): Track {
   return {
-    id: 42,
+    id: "42",
     title: "Track One",
     artist: "Artist",
     album: "Album",
@@ -31,30 +31,32 @@ function makeTrack(overrides: Partial<Track> = {}): Track {
 
 describe("filterConvertibleTrackIds", () => {
   it("includes saved library tracks", () => {
-    const library = [makeTrack({ id: 1 }), makeTrack({ id: 2 })];
-    expect(filterConvertibleTrackIds([1, 2], library)).toEqual([1, 2]);
+    const library = [makeTrack({ id: "1" }), makeTrack({ id: "2" })];
+    expect(filterConvertibleTrackIds(["1", "2"], library)).toEqual(["1", "2"]);
   });
 
   it("excludes importing and pending tracks", () => {
     const library = [
-      makeTrack({ id: 1 }),
-      makeTrack({ id: -1, importStatus: "importing" }),
-      makeTrack({ id: 2, importStatus: "importing" }),
+      makeTrack({ id: "1" }),
+      makeTrack({ id: "pending:1", importStatus: "importing" }),
+      makeTrack({ id: "2", importStatus: "importing" }),
     ];
-    expect(filterConvertibleTrackIds([1, -1, 2], library)).toEqual([1]);
+    expect(filterConvertibleTrackIds(["1", "pending:1", "2"], library)).toEqual(
+      ["1"],
+    );
   });
 
   it("excludes tracks flagged missing on disk", () => {
     const library = [
-      makeTrack({ id: 1 }),
-      makeTrack({ id: 2, missingFile: true }),
+      makeTrack({ id: "1" }),
+      makeTrack({ id: "2", missingFile: true }),
     ];
-    expect(filterConvertibleTrackIds([1, 2], library)).toEqual([1]);
+    expect(filterConvertibleTrackIds(["1", "2"], library)).toEqual(["1"]);
   });
 
   it("deduplicates track ids", () => {
-    const library = [makeTrack({ id: 1 })];
-    expect(filterConvertibleTrackIds([1, 1, 1], library)).toEqual([1]);
+    const library = [makeTrack({ id: "1" })];
+    expect(filterConvertibleTrackIds(["1", "1", "1"], library)).toEqual(["1"]);
   });
 });
 

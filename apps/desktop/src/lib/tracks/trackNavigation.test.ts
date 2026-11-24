@@ -27,7 +27,7 @@ function track(overrides: Partial<Track> & Pick<Track, "id">): Track {
 
 describe("artistLinksForTrack", () => {
   it("links each parsed performer separately", () => {
-    const links = artistLinksForTrack(track({ id: 1, artist: "Alice; Bob" }));
+    const links = artistLinksForTrack(track({ id: "1", artist: "Alice; Bob" }));
 
     expect(links).toEqual([
       { name: "Alice", key: "Alice", linkable: true },
@@ -37,7 +37,7 @@ describe("artistLinksForTrack", () => {
 
   it("respects library membership", () => {
     const links = artistLinksForTrack(
-      track({ id: 1, artist: "Alice; Bob" }),
+      track({ id: "1", artist: "Alice; Bob" }),
       new Set(["Alice"]),
     );
 
@@ -49,7 +49,7 @@ describe("artistLinksForTrack", () => {
 
   it("returns empty when track has no artist metadata", () => {
     expect(
-      artistLinksForTrack(track({ id: 1, artist: null, albumArtist: null })),
+      artistLinksForTrack(track({ id: "1", artist: null, albumArtist: null })),
     ).toEqual([]);
   });
 });

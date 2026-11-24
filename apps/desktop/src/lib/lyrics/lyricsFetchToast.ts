@@ -13,7 +13,7 @@ import {
   trackIsMarkedInstrumental,
 } from "./lyricsFetchRunner";
 import { commitInstrumentalMarkForTrack } from "./lyricsFetchCommit";
-import type { Track } from "@/types/track";
+import type { Track, TrackId } from "@/types/track";
 
 export type { LyricsFetchParams } from "./lyricsFetchRunner";
 export { buildLyricsFetchParamsForTrack, canFetchLyricsForTrack };
@@ -67,7 +67,7 @@ export async function prepareLyricsFetchForLightbox(
 }
 
 export function runLyricsFetchInBackground(
-  trackId: number,
+  trackId: TrackId,
   displayTitle: string,
   params: LyricsFetchParams,
   options?: LyricsFetchRunOptions,
@@ -85,7 +85,7 @@ export function runLyricsFetchInBackground(
  * when the search fails, which settles the toast as an error.
  */
 export function searchLyricsOptionsInBackground(
-  trackId: number,
+  trackId: TrackId,
   displayTitle: string,
   params: LyricsFetchParams,
 ): Promise<LyricsSearchCandidate[]> {

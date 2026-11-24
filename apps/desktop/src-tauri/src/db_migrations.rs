@@ -68,6 +68,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "reread_joined_artists",
         up: reread_joined_artists,
     },
+    Migration {
+        version: 8,
+        name: "uuid_ids",
+        up: uuid_ids,
+    },
 ];
 
 fn latest_version() -> i64 {
@@ -598,10 +603,6 @@ fn reread_joined_artists(conn: &Connection) -> Result<(), rusqlite::Error> {
     )
 }
 
-// DRAFT v8 (`uuid_ids`): not in `MIGRATIONS` yet, so it never runs. Register it
-// only in the same change that switches the app code to text ids; the plan is in
-// `apps/desktop/docs/plans/uuid-ids.md`.
-
 /// Tracks, playlists and listen events get UUIDv7 text ids, the same value in
 /// SQL, the app and the sync protocol. Each existing row's id carries its
 /// creation time (`date_added`, `date_created`, `started_at`), so ids still
@@ -614,7 +615,6 @@ fn reread_joined_artists(conn: &Connection) -> Result<(), rusqlite::Error> {
 /// - No old → new id map is kept. The saved playback queue
 ///   (`playback-session.json`) holds old track ids and is dropped on first read.
 /// - Sources keep integer ids: they are local to one machine.
-#[allow(dead_code)] // DRAFT: see the note above.
 fn uuid_ids(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.execute_batch(
         "CREATE TEMP TABLE track_id_map (old_id INTEGER PRIMARY KEY, id TEXT NOT NULL);
@@ -820,10 +820,16 @@ fn uuid_ids(conn: &Connection) -> Result<(), rusqlite::Error> {
     )
 }
 
-/// Fill `map_table (old_id, id)` with a UUIDv7 per row of `select_sql`, which
-/// returns `(old integer id, RFC 3339 creation time)`. A time that doesn't
-/// parse falls back to now.
-#[allow(dead_code)] // DRAFT: see `uuid_ids`.
+/// Give every row of `select_sql` (`old id, creation time`) a UUIDv7 stamped
+/// with its creation time, in `map_table`.
+///
+/// Ids must sort in creation order, but creation times are finer than the
+/// millisecond a UUIDv7 holds, and a bulk import makes many rows a
+/// millisecond. So rows are numbered in order (by time, then old id) and,
+/// within one millisecond, the number goes in the id's 12 `rand_a` bits
+/// (RFC 9562's counter method). More than 4096 rows in one millisecond carry
+/// into the next one, which keeps the order. A time that doesn't parse counts
+/// as now.
 fn fill_uuid_map(
     conn: &Connection,
     map_table: &str,
@@ -833,28 +839,55 @@ fn fill_uuid_map(
         .prepare(select_sql)?
         .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
         .collect::<Result<_, _>>()?;
+    let now = Utc::now();
+    let mut stamped: Vec<(chrono::DateTime<Utc>, i64)> = rows
+        .into_iter()
+        .map(|(old_id, created_at)| {
+            let created = chrono::DateTime::parse_from_rfc3339(&created_at)
+                .map(|t| t.with_timezone(&Utc))
+                .unwrap_or(now);
+            (created, old_id)
+        })
+        .collect();
+    stamped.sort();
+
     let mut insert = conn.prepare(&format!(
         "INSERT INTO {map_table} (old_id, id) VALUES (?1, ?2)"
     ))?;
-    for (old_id, created_at) in rows {
-        let created = chrono::DateTime::parse_from_rfc3339(&created_at)
-            .map(|t| t.with_timezone(&Utc))
-            .unwrap_or_else(|_| Utc::now());
-        let ts = uuid::Timestamp::from_unix(
-            uuid::NoContext,
-            created.timestamp().max(0) as u64,
-            created.timestamp_subsec_nanos(),
-        );
-        insert.execute(params![old_id, uuid::Uuid::new_v7(ts).to_string()])?;
+    let mut last_ms: u64 = 0;
+    let mut counter: u16 = 0;
+    for (created, old_id) in stamped {
+        let ms = created.timestamp_millis().max(0) as u64;
+        if ms > last_ms {
+            last_ms = ms;
+            counter = 0;
+        } else if counter == 0x0FFF {
+            last_ms += 1;
+            counter = 0;
+        } else {
+            counter += 1;
+        }
+        insert.execute(params![old_id, migration_uuid(last_ms, counter)])?;
     }
     Ok(())
+}
+
+/// A UUIDv7 for `unix_ms` with `counter` (12 bits) in `rand_a` and random
+/// `rand_b`.
+fn migration_uuid(unix_ms: u64, counter: u16) -> String {
+    let mut bytes = [0u8; 10];
+    bytes[0] = ((counter >> 8) & 0x0F) as u8;
+    bytes[1] = (counter & 0xFF) as u8;
+    bytes[2..].copy_from_slice(&uuid::Uuid::now_v7().as_bytes()[8..]);
+    uuid::Builder::from_unix_timestamp_millis(unix_ms, &bytes)
+        .into_uuid()
+        .to_string()
 }
 
 /// The `index`th key of a run of fractional position keys, in the format of
 /// the `fractional-indexing` library (base 62, a head letter giving the integer
 /// part's length: `a0`…`az`, then `b00`…). Spelled out here so later changes to
 /// the app's key generator can't alter what migration 8 does.
-#[allow(dead_code)] // DRAFT: see `uuid_ids`.
 fn migration_position_key(index: usize) -> String {
     const DIGITS: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     let mut remaining = index;
@@ -1269,9 +1302,7 @@ mod tests {
         std::fs::write(fixtures_dir().join(format!("v{version}.sql")), out).unwrap();
     }
 
-    /// DRAFT v8: un-ignore when `uuid_ids` is registered in `MIGRATIONS`.
     #[test]
-    #[ignore = "uuid_ids is a draft, not yet registered"]
     fn uuid_ids_keeps_every_row_and_link() {
         let conn = mem();
         conn.execute_batch(&std::fs::read_to_string(fixtures_dir().join("v7.sql")).unwrap())
@@ -1335,6 +1366,57 @@ mod tests {
             .collect::<Result<_, _>>()
             .unwrap();
         assert_eq!(playlists, ["Favourites", "Another", "Empty"]);
+    }
+
+    #[test]
+    fn migration_ids_keep_creation_order_within_a_millisecond() {
+        let conn = mem();
+        conn.execute_batch(
+            "CREATE TABLE src (old_id INTEGER PRIMARY KEY, created TEXT NOT NULL);
+             CREATE TEMP TABLE ids (old_id INTEGER PRIMARY KEY, id TEXT NOT NULL);",
+        )
+        .unwrap();
+        // Same millisecond, microseconds out of old-id order; an offset time; a tie.
+        let rows = [
+            (1, "2026-11-18T21:21:10.926853+00:00"),
+            (2, "2026-11-18T21:21:10.926145+00:00"),
+            (3, "2026-11-18T21:21:10.926574+00:00"),
+            (4, "2026-11-18T22:21:10.926000+01:00"),
+            (5, "2026-11-18T21:21:10.927000+00:00"),
+            (6, "2026-11-18T21:21:10.927000+00:00"),
+        ];
+        for (old_id, created) in rows {
+            conn.execute("INSERT INTO src VALUES (?1, ?2)", params![old_id, created])
+                .unwrap();
+        }
+        fill_uuid_map(&conn, "ids", "SELECT old_id, created FROM src").unwrap();
+        let order: Vec<i64> = conn
+            .prepare("SELECT old_id FROM ids ORDER BY id")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(order, [4, 2, 3, 1, 5, 6]);
+
+        let id: String = conn
+            .query_row("SELECT id FROM ids WHERE old_id = 2", [], |r| r.get(0))
+            .unwrap();
+        let parsed = uuid::Uuid::parse_str(&id).unwrap();
+        assert_eq!(parsed.get_version_num(), 7);
+        let (secs, nanos) = parsed.get_timestamp().unwrap().to_unix();
+        assert_eq!(
+            secs * 1000 + u64::from(nanos / 1_000_000),
+            1_795_036_870_926
+        );
+    }
+
+    #[test]
+    fn migration_ids_carry_past_a_full_millisecond() {
+        let a = migration_uuid(1_000, 0x0FFF);
+        let b = migration_uuid(1_001, 0);
+        assert!(a < b);
+        assert!(migration_uuid(1_000, 1) > migration_uuid(1_000, 0));
     }
 
     #[test]
@@ -1476,10 +1558,12 @@ mod tests {
         .unwrap()
     }
 
-    fn track_locations(conn: &Connection) -> Vec<(i64, i64, String)> {
-        conn.prepare("SELECT id, source_id, rel_path FROM tracks ORDER BY id")
+    /// Each track's (source, path), by path. Ids are left out: some tests open the library,
+    /// which runs every migration, and `uuid_ids` replaces them.
+    fn track_locations(conn: &Connection) -> Vec<(i64, String)> {
+        conn.prepare("SELECT source_id, rel_path FROM tracks ORDER BY rel_path")
             .unwrap()
-            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap()
             .collect::<Result<_, _>>()
             .unwrap()
@@ -1489,7 +1573,7 @@ mod tests {
     fn upgraded_fixture() -> Connection {
         let conn = load_fixture(2);
         crate::sources::attach_spiral_folder(&conn, Path::new("/library")).unwrap();
-        run(&conn, None).unwrap();
+        migrate_to(&conn, 3);
         conn
     }
 
@@ -1540,10 +1624,7 @@ mod tests {
         assert_eq!(format, None);
         assert_eq!(
             track_locations(&conn),
-            vec![
-                (3, 1, "Artist Z/Album 3/c.mp3".into()),
-                (4, 1, "d.mp3".into()),
-            ]
+            vec![(1, "Artist Z/Album 3/c.mp3".into()), (1, "d.mp3".into())]
         );
 
         // Everything else about the rows survived the rebuild.
@@ -1558,11 +1639,12 @@ mod tests {
             .unwrap();
         assert_eq!(kept, ("Song C".into(), 3, 80, None, None));
 
-        // Today's resolver turns them back into the same absolute paths.
-        let paths: Vec<String> = crate::db::get_all_tracks(&conn)
-            .unwrap()
+        // Today's resolver turns them back into the same absolute paths. (Read the rows
+        // directly: today's track queries expect the text ids of a later version.)
+        let roots = crate::sources::SourceRoots::load(&conn).unwrap();
+        let paths: Vec<String> = track_locations(&conn)
             .into_iter()
-            .map(|t| t.file_path.replace('\\', "/"))
+            .map(|(source_id, rel_path)| roots.resolve(source_id, &rel_path).replace('\\', "/"))
             .collect();
         for expected in [
             "/library/Tracks/Artist Z/Album 3/c.mp3",
@@ -1672,11 +1754,11 @@ mod tests {
         let conn = crate::db::open_library(&db_path).unwrap();
         assert_eq!(schema_version(&conn).unwrap(), latest_version());
         assert!(dir.join("Library.db.bak-v2").is_file());
-        assert_eq!(
-            track_locations(&conn),
-            vec![(3, 1, "Artist Z/c.mp3".into())]
-        );
-        let track = crate::db::get_track_by_id(&conn, 3).unwrap().unwrap();
+        assert_eq!(track_locations(&conn), vec![(1, "Artist Z/c.mp3".into())]);
+        let id = crate::db::track_id_for_path(&conn, &inside.to_string_lossy())
+            .unwrap()
+            .unwrap();
+        let track = crate::db::get_track_by_id(&conn, &id).unwrap().unwrap();
         assert_eq!(Path::new(&track.file_path), inside);
         assert_eq!(track.play_count, 3);
         assert_eq!(
@@ -1733,7 +1815,7 @@ mod tests {
         let db_path = write_v2_library(&dir, &[(3, &file), (4, &alias.join("c.mp3"))]);
 
         let conn = crate::db::open(&db_path).unwrap();
-        assert_eq!(track_locations(&conn), vec![(3, 1, "c.mp3".into())]);
+        assert_eq!(track_locations(&conn), vec![(1, "c.mp3".into())]);
         check_foreign_keys(&conn).unwrap();
         drop(conn);
         let _ = std::fs::remove_dir_all(&dir);
@@ -1783,7 +1865,7 @@ mod tests {
         )
         .unwrap();
 
-        run(&conn, None).unwrap();
+        migrate_to(&conn, 7);
 
         let stats: Vec<(i64, Option<i64>, Option<i64>)> = conn
             .prepare("SELECT id, file_size, file_mtime_ms FROM tracks ORDER BY id")

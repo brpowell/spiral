@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { afterUiTransition } from "@/lib/scheduling";
 import type { ConvertMode } from "@/lib/files/convertTracks";
+import type { TrackId } from "@/types/track";
 
 interface ConvertConfirmResult {
   profileId: string;
@@ -8,14 +9,14 @@ interface ConvertConfirmResult {
 }
 
 interface ConvertPromptRequest {
-  trackIds: number[];
+  trackIds: TrackId[];
   resolve: (result: ConvertConfirmResult) => void;
   reject: () => void;
 }
 
 interface ConvertState {
   prompt: ConvertPromptRequest | null;
-  promptConvert: (trackIds: number[]) => Promise<ConvertConfirmResult | null>;
+  promptConvert: (trackIds: TrackId[]) => Promise<ConvertConfirmResult | null>;
   confirmConvert: (result: ConvertConfirmResult) => Promise<void>;
   cancelConvert: () => void;
 }

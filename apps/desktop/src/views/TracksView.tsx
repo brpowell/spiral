@@ -20,7 +20,7 @@ import { confirmAndApplyTrackRatings } from "@/lib/tracks/applyTrackRating";
 import { isTrackImporting } from "@/lib/import/pendingImportTrack";
 import type { CanonicalRating } from "@/lib/tracks/trackRating";
 import { usePlayerStore } from "@/store/usePlayerStore";
-import type { Track } from "@/types/track";
+import type { Track, TrackId } from "@/types/track";
 import "./TracksView.css";
 
 interface TracksViewProps {
@@ -38,7 +38,7 @@ export function TracksView({ tracks }: TracksViewProps) {
   const libraryLoaded = usePlayerStore((s) => s.libraryLoaded);
 
   const handleRatingChange = useCallback(
-    (trackId: number, rating: CanonicalRating) => {
+    (trackId: TrackId, rating: CanonicalRating) => {
       const track = usePlayerStore
         .getState()
         .library.find((t) => t.id === trackId);

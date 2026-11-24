@@ -39,7 +39,7 @@ vi.mock("@/store/usePlayerStore", () => ({
     getState: () => ({
       library: [
         {
-          id: 1,
+          id: "1",
           title: "Song",
           artist: "Artist",
           filePath: "/music/song.mp3",
@@ -67,11 +67,11 @@ describe("runSingleLyricsFetch", () => {
 
   it("skips when skipIfHasLyrics is set and lyrics already exist", async () => {
     getTrackLyricsMock.mockResolvedValue({
-      trackId: 1,
+      trackId: "1",
       plainText: "Existing lyrics",
     });
 
-    const result = await runSingleLyricsFetch(1, params, {
+    const result = await runSingleLyricsFetch("1", params, {
       skipIfHasLyrics: true,
     });
 
@@ -84,7 +84,7 @@ describe("runSingleLyricsFetch", () => {
 
   it("replaces existing lyrics on manual refetch (skipIfHasLyrics unset)", async () => {
     getTrackLyricsMock.mockResolvedValue({
-      trackId: 1,
+      trackId: "1",
       plainText: "Manually edited lyrics",
     });
     fetchLyricsLrclibMock.mockResolvedValue({
@@ -97,12 +97,12 @@ describe("runSingleLyricsFetch", () => {
     });
     commitFetchedLyricsForTrackMock.mockResolvedValue({ status: "ok" });
 
-    const result = await runSingleLyricsFetch(1, params);
+    const result = await runSingleLyricsFetch("1", params);
 
     expect(result).toEqual({ status: "found" });
     expect(fetchLyricsLrclibMock).toHaveBeenCalled();
     expect(commitFetchedLyricsForTrackMock).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 1 }),
+      expect.objectContaining({ id: "1" }),
       expect.objectContaining({ plainText: "Cached LRCLIB lyrics" }),
     );
   });
@@ -112,7 +112,7 @@ describe("runSingleLyricsFetch", () => {
       new Error("Lyrics fetch cancelled"),
     );
 
-    const result = await runSingleLyricsFetch(1, params);
+    const result = await runSingleLyricsFetch("1", params);
 
     expect(result).toEqual({ status: "cancelled" });
     expect(applyOutcomeMock).not.toHaveBeenCalled();

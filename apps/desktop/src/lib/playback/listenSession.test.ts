@@ -48,12 +48,12 @@ afterEach(() => {
 
 describe("listenSession", () => {
   it("opens and closes a listen with appearance snapshot", () => {
-    expect(openListen(7, 180, true)).toBeNull();
-    expect(getActiveListenTrackId()).toBe(7);
+    expect(openListen("7", 180, true)).toBeNull();
+    expect(getActiveListenTrackId()).toBe("7");
 
     const closed = closeListen("natural_end");
     expect(closed).not.toBeNull();
-    expect(closed?.trackId).toBe(7);
+    expect(closed?.trackId).toBe("7");
     expect(closed?.completion).toBe("natural_end");
     expect(closed?.uiMode).toBe("library");
     expect(closed?.libraryListenedSeconds).toBeGreaterThanOrEqual(0);
@@ -70,7 +70,7 @@ describe("listenSession", () => {
   it("records skin seconds when skin mode session is active", () => {
     setSkinModeSessionActive(true);
     vi.useFakeTimers();
-    openListen(1, 100, true);
+    openListen("1", 100, true);
     vi.advanceTimersByTime(10_000);
     const closed = closeListen("natural_end");
     expect(closed?.uiMode).toBe("skin");
@@ -80,7 +80,7 @@ describe("listenSession", () => {
 
   it("splits seconds across library and skin when mode changes mid-listen", () => {
     vi.useFakeTimers();
-    openListen(1, 200, true);
+    openListen("1", 200, true);
     vi.advanceTimersByTime(50_000);
 
     setSkinModeSessionActive(true);
@@ -96,7 +96,7 @@ describe("listenSession", () => {
 
   it("uses skin majority when more time spent in skin mode", () => {
     vi.useFakeTimers();
-    openListen(1, 200, true);
+    openListen("1", 200, true);
     vi.advanceTimersByTime(20_000);
 
     setSkinModeSessionActive(true);
@@ -109,24 +109,24 @@ describe("listenSession", () => {
   });
 
   it("is idempotent on double close", () => {
-    openListen(1, 100, true);
+    openListen("1", 100, true);
     expect(closeListen("skipped")).not.toBeNull();
     expect(closeListen("skipped")).toBeNull();
   });
 
   it("returns previous listen when opening a new one", () => {
-    openListen(1, 100, true);
-    const previous = openListen(2, 200, true);
-    expect(previous?.trackId).toBe(1);
+    openListen("1", 100, true);
+    const previous = openListen("2", 200, true);
+    expect(previous?.trackId).toBe("1");
     expect(previous?.completion).toBe("skipped");
-    expect(getActiveListenTrackId()).toBe(2);
+    expect(getActiveListenTrackId()).toBe("2");
   });
 
   it("excludes paused time from listened_seconds", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-13T12:00:00.000Z"));
 
-    openListen(1, 180, true);
+    openListen("1", 180, true);
     vi.advanceTimersByTime(5_000);
     pauseListenAccumulation();
     vi.advanceTimersByTime(20_000);
@@ -140,7 +140,7 @@ describe("listenSession", () => {
 
   it("treats near-complete crossfade handoff as natural_end", () => {
     vi.useFakeTimers();
-    openListen(1, 207.9, true);
+    openListen("1", 207.9, true);
     vi.advanceTimersByTime(202_265);
 
     const closed = closeListenForHandoff(202.3, 207.9);
@@ -149,7 +149,7 @@ describe("listenSession", () => {
 
   it("treats early handoff as skipped", () => {
     vi.useFakeTimers();
-    openListen(1, 200, true);
+    openListen("1", 200, true);
     vi.advanceTimersByTime(20_000);
 
     const closed = closeListenForHandoff(20, 200);

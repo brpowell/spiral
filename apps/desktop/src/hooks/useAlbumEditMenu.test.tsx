@@ -10,7 +10,7 @@ import { useAlbumEditMenu } from "./useAlbumEditMenu";
 const album = {
   key: "a",
   title: "A",
-  tracks: [{ id: 4 }, { id: 5 }] as Track[],
+  tracks: [{ id: "4" }, { id: "5" }] as Track[],
 } as Album;
 
 function Harness({ value }: { value: Album }) {
@@ -33,7 +33,7 @@ describe("useAlbumEditMenu play all", () => {
       clientY: 10,
     });
     fireEvent.click(screen.getByRole("menuitem", { name: "Play All" }));
-    expect(playTracks).toHaveBeenCalledWith([4, 5], 4);
+    expect(playTracks).toHaveBeenCalledWith(["4", "5"], "4");
   });
 });
 
@@ -45,7 +45,9 @@ describe("useAlbumEditMenu add to playlist", () => {
     vi.clearAllMocks();
     usePlayerStore.setState({ library: album.tracks });
     usePlaylistStore.setState({
-      playlists: [{ id: 9, title: "Mix", trackIds: [] } as unknown as Playlist],
+      playlists: [
+        { id: "9", title: "Mix", trackIds: [] } as unknown as Playlist,
+      ],
       addTracksToPlaylist,
       openPlaylistEditor,
     });
@@ -66,14 +68,14 @@ describe("useAlbumEditMenu add to playlist", () => {
     openSubmenu();
     fireEvent.click(screen.getAllByRole("menuitem", { name: "Mix" })[0]);
     await waitFor(() =>
-      expect(addTracksToPlaylist).toHaveBeenCalledWith(9, [4, 5]),
+      expect(addTracksToPlaylist).toHaveBeenCalledWith("9", ["4", "5"]),
     );
   });
 
   it("starts a new playlist seeded with the album's tracks", () => {
     openSubmenu();
     fireEvent.click(screen.getByRole("menuitem", { name: /New Playlist/ }));
-    expect(openPlaylistEditor).toHaveBeenCalledWith("new", [4, 5]);
+    expect(openPlaylistEditor).toHaveBeenCalledWith("new", ["4", "5"]);
   });
 
   it("omits the submenu for an album without tracks", () => {
@@ -105,7 +107,7 @@ describe("remove from library", () => {
       screen.getByRole("button", { name: "Remove from library" }),
     );
     await waitFor(() =>
-      expect(removeTracksFromLibrary).toHaveBeenCalledWith([4, 5], false),
+      expect(removeTracksFromLibrary).toHaveBeenCalledWith(["4", "5"], false),
     );
   });
 });

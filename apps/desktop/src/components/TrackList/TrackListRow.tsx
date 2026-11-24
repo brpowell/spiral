@@ -44,13 +44,14 @@ import { TrackRowMenu } from "@/components/TrackRowMenu/TrackRowMenu";
 import { CdTrackRowMenu } from "@/components/cd/CdTrackRowMenu/CdTrackRowMenu";
 import { TrackPopularityCell } from "./TrackPopularityCell";
 import type { TrackListColumnDef, TrackListColumnId } from "./types";
-import type { Track } from "@/types/track";
+import type { Track, TrackId, TrackListId } from "@/types/track";
 import type { CanonicalRating } from "@/lib/tracks/trackRating";
 import type {
   CellControlColumn,
   CellControlLocation,
 } from "./trackListRowCellNav";
 import { handleTrackListRowCellKeyDown } from "./trackListRowCellNav";
+import type { PlaylistId } from "@/types/playlist";
 
 function formatTrackNumber(track: Track): string {
   if (track.trackNumber == null) return "—";
@@ -201,7 +202,7 @@ export interface TrackListRowProps {
   indexColumn: "index" | "trackNumber";
   gridStyle: CSSProperties;
   canReorder: boolean;
-  playlistId?: number;
+  playlistId?: PlaylistId;
   isSelected: boolean;
   checkMode?: boolean;
   isChecked?: boolean;
@@ -216,15 +217,15 @@ export interface TrackListRowProps {
   onPlayTrack: (track: Track) => void;
   onOpenArtist: (artistKey: string) => void;
   onOpenAlbum: (track: Track) => void;
-  onRatingChange?: (trackId: number, rating: CanonicalRating) => void;
+  onRatingChange?: (trackId: TrackId, rating: CanonicalRating) => void;
   linkableArtistKeys: ReadonlySet<string>;
   canNavigateAlbum?: (track: Track) => boolean;
   readOnly?: boolean;
   cdDriveId?: string;
   cdTracks?: Track[];
-  cdImportingTrackIds?: ReadonlySet<number>;
-  cdImportingActiveTrackId?: number | null;
-  cdImportCompletedTrackIds?: ReadonlySet<number>;
+  cdImportingTrackIds?: ReadonlySet<TrackListId>;
+  cdImportingActiveTrackId?: TrackListId | null;
+  cdImportCompletedTrackIds?: ReadonlySet<TrackListId>;
   virtualStyle?: CSSProperties;
   tabIndex: number;
   rowRef: (element: HTMLDivElement | null) => void;

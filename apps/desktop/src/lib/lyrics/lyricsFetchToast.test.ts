@@ -53,7 +53,7 @@ vi.mock("@/store/usePlayerStore", () => ({
 
 function track(overrides: Partial<Track> = {}): Track {
   return {
-    id: 1,
+    id: "1",
     title: "Jumpin' Jumpin'",
     artist: "Destiny's Child",
     album: "The Writing's on the Wall",
@@ -119,7 +119,7 @@ describe("prepareLyricsFetchForLightbox", () => {
 
   it("skips auto-fetch when the track already has lyrics", async () => {
     getTrackLyricsMock.mockResolvedValue({
-      trackId: 1,
+      trackId: "1",
       format: "plain",
       source: "manual",
       lines: [],
@@ -129,7 +129,7 @@ describe("prepareLyricsFetchForLightbox", () => {
 
     await prepareLyricsFetchForLightbox(track(), { autoFetch: true });
 
-    expect(getTrackLyricsMock).toHaveBeenCalledWith(1);
+    expect(getTrackLyricsMock).toHaveBeenCalledWith("1");
     expect(peekLyricsFetchCacheMock).not.toHaveBeenCalled();
     expect(enqueueLyricsFetchMock).not.toHaveBeenCalled();
   });
@@ -152,7 +152,7 @@ describe("prepareLyricsFetchForLightbox", () => {
 
     await prepareLyricsFetchForLightbox(track(), { autoFetch: true });
 
-    expect(markTrackInstrumentalMock).toHaveBeenCalledWith(1);
+    expect(markTrackInstrumentalMock).toHaveBeenCalledWith("1");
     expect(enqueueLyricsFetchMock).not.toHaveBeenCalled();
     expect(applyOutcomeMock).toHaveBeenCalled();
   });
@@ -164,7 +164,7 @@ describe("prepareLyricsFetchForLightbox", () => {
     await prepareLyricsFetchForLightbox(track(), { autoFetch: true });
 
     expect(enqueueLyricsFetchMock).toHaveBeenCalledWith(
-      1,
+      "1",
       "Jumpin' Jumpin'",
       expect.objectContaining({
         artist: "Destiny's Child",

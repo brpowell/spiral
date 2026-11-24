@@ -1,10 +1,10 @@
-import type { Track } from "@/types/track";
+import type { Track, TrackListId } from "@/types/track";
 
 function automaticIds(
-  playContextIds: number[],
+  playContextIds: TrackListId[],
   library: Track[],
-  currentTrackId: number | null,
-): number[] {
+  currentTrackId: TrackListId | null,
+): TrackListId[] {
   if (playContextIds.length > 0) return playContextIds;
   if (currentTrackId === null) return [];
   return library.map((t) => t.id);
@@ -16,11 +16,11 @@ function automaticIds(
  * automatic continuation.
  */
 export function buildPlaybackOrder(
-  manualQueueIds: number[],
-  playContextIds: number[],
+  manualQueueIds: TrackListId[],
+  playContextIds: TrackListId[],
   library: Track[],
-  currentTrackId: number | null,
-): number[] {
+  currentTrackId: TrackListId | null,
+): TrackListId[] {
   const automatic = automaticIds(playContextIds, library, currentTrackId);
   const manualSet = new Set(manualQueueIds);
 

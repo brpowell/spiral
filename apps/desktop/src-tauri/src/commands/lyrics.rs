@@ -1,5 +1,6 @@
 use crate::commands::library::{project_lyrics_to_file, track_for_ui, DbState};
 use crate::db;
+use crate::ids::TrackId;
 use crate::lyrics_fetch;
 use crate::lyrics_normalize;
 use crate::models::{
@@ -13,10 +14,10 @@ use tauri::{AppHandle, State};
 #[tauri::command]
 pub fn get_track_lyrics(
     state: State<'_, DbState>,
-    track_id: i64,
+    track_id: TrackId,
 ) -> Result<Option<TrackLyricsRecord>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::get_track_lyrics(&conn, track_id).map_err(|e| {
+    db::get_track_lyrics(&conn, &track_id).map_err(|e| {
         eprintln!("get_track_lyrics error: {e}");
         e.to_string()
     })
@@ -24,7 +25,10 @@ pub fn get_track_lyrics(
 
 /// Persist an instrumental marker in `track_lyrics` (DB only — no file tags).
 #[tauri::command]
-pub fn mark_track_instrumental(state: State<'_, DbState>, track_id: i64) -> Result<Track, String> {
+pub fn mark_track_instrumental(
+    state: State<'_, DbState>,
+    track_id: TrackId,
+) -> Result<Track, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     let input = TrackLyricsInput {
         format: LyricsFormat::Instrumental,
@@ -32,12 +36,12 @@ pub fn mark_track_instrumental(state: State<'_, DbState>, track_id: i64) -> Resu
         lines: vec![],
         plain_text: String::new(),
     };
-    let record = lyrics_normalize::track_lyrics_input_to_record(input, track_id);
+    let record = lyrics_normalize::track_lyrics_input_to_record(input, &track_id);
     db::upsert_track_lyrics(&conn, &record).map_err(|e| {
         eprintln!("mark_track_instrumental upsert error: {e}");
         e.to_string()
     })?;
-    db::get_track_by_id(&conn, track_id)
+    db::get_track_by_id(&conn, &track_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Track {track_id} not found after marking instrumental"))
 }
@@ -48,23 +52,23 @@ pub fn mark_track_instrumental(state: State<'_, DbState>, track_id: i64) -> Resu
 pub fn save_track_lyrics(
     app: AppHandle,
     state: State<'_, DbState>,
-    track_id: i64,
+    track_id: TrackId,
     lyrics: Option<TrackLyricsInput>,
 ) -> Result<Track, String> {
     save_lyrics(
         &state,
-        track_id,
+        &track_id,
         lyrics.as_ref(),
         settings::lyrics_sidecar_sync_enabled(&app),
     )?;
     let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    track_for_ui(&conn, &library_root, track_id)
+    track_for_ui(&conn, &library_root, &track_id)
 }
 
 fn save_lyrics(
     state: &DbState,
-    track_id: i64,
+    track_id: &TrackId,
     lyrics: Option<&TrackLyricsInput>,
     sidecar_enabled: bool,
 ) -> Result<(), String> {
@@ -113,17 +117,20 @@ pub async fn fetch_lyrics_lrclib(
 #[tauri::command]
 pub fn record_lyrics_attempt(
     state: State<'_, DbState>,
-    track_id: i64,
+    track_id: TrackId,
     lrclib_id: i64,
 ) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::record_lyrics_attempt(&conn, track_id, lrclib_id).map_err(|e| e.to_string())
+    db::record_lyrics_attempt(&conn, &track_id, lrclib_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn list_lyrics_attempts(state: State<'_, DbState>, track_id: i64) -> Result<Vec<i64>, String> {
+pub fn list_lyrics_attempts(
+    state: State<'_, DbState>,
+    track_id: TrackId,
+) -> Result<Vec<i64>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::list_lyrics_attempts(&conn, track_id).map_err(|e| e.to_string())
+    db::list_lyrics_attempts(&conn, &track_id).map_err(|e| e.to_string())
 }
 
 /// List LRCLIB search matches so the user can choose one.
@@ -212,9 +219,9 @@ mod tests {
 
         for (id, file) in [(t.managed, &files[0]), (t.user, &files[1])] {
             let before = std::fs::read(file).unwrap();
-            save_lyrics(&state, id, Some(&lyrics), true).unwrap();
+            save_lyrics(&state, &id, Some(&lyrics), true).unwrap();
 
-            let stored = db::get_track_lyrics(&state.0.lock().unwrap(), id).unwrap();
+            let stored = db::get_track_lyrics(&state.0.lock().unwrap(), &id).unwrap();
             assert_eq!(stored.unwrap().plain_text, "Fetched line");
             assert_ne!(std::fs::read(file).unwrap(), before, "{}", file.display());
             assert!(sidecar_path_for(file).is_file());

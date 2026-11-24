@@ -1,3 +1,5 @@
+import type { TrackId } from "./track";
+
 export type LyricsFormat =
   "plain" | "line_synced" | "word_synced" | "instrumental";
 export type LyricsSource = "manual" | "embedded" | "sidecar" | "lrclib" | null;
@@ -23,7 +25,7 @@ export interface TrackLyricsInput {
 }
 
 export interface TrackLyrics {
-  trackId: number;
+  trackId: TrackId;
   format: LyricsFormat;
   source: LyricsSource;
   lines: LyricsLine[];

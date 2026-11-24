@@ -55,9 +55,9 @@ import type {
   MusicBrainzEntityLookup,
 } from "@/types/musicbrainz";
 import type { ImageCrop } from "./art/imageCrop";
-import type { Playlist } from "@/types/playlist";
+import type { Playlist, PlaylistId } from "@/types/playlist";
 import type { PlaybackSettings } from "@/types/playbackSettings";
-import type { Track, TrackInput } from "@/types/track";
+import type { Track, TrackId, TrackInput, TrackListId } from "@/types/track";
 import type {
   LyricsFetchOutcome,
   LyricsFormat,
@@ -97,7 +97,7 @@ function normalizeCoverArtCandidate(
 /** Normalize track JSON in case serde casing differs at the IPC boundary. */
 function normalizeTrack(raw: Record<string, unknown>): Track {
   return {
-    id: raw.id as number,
+    id: raw.id as TrackId,
     title: raw.title as string,
     artist: (raw.artist as string | null) ?? null,
     album: (raw.album as string | null) ?? null,
@@ -182,7 +182,7 @@ function stringArray(value: unknown): string[] | undefined {
 export type ListenEventInput = ListenEventPayload;
 
 export interface RecordListenEventResult {
-  eventId: number;
+  eventId: string;
   playCount: number;
   lastPlayedAt: string;
   counted: boolean;
@@ -195,7 +195,7 @@ export async function recordListenEvent(
     event,
   });
   return {
-    eventId: (raw.eventId ?? raw.event_id) as number,
+    eventId: (raw.eventId ?? raw.event_id) as string,
     playCount: (raw.playCount ?? raw.play_count) as number,
     lastPlayedAt: (raw.lastPlayedAt ?? raw.last_played_at) as string,
     counted: Boolean(raw.counted ?? false),
@@ -234,14 +234,14 @@ export async function getTrackPopularity(
 }
 
 export async function setTrackRating(
-  trackId: number,
+  trackId: TrackId,
   rating: number,
 ): Promise<number> {
   return invoke<number>("set_track_rating", { trackId, rating });
 }
 
 export async function getTrackLyrics(
-  trackId: number,
+  trackId: TrackId,
 ): Promise<TrackLyrics | null> {
   const raw = await invoke<Record<string, unknown> | null>("get_track_lyrics", {
     trackId,
@@ -315,7 +315,7 @@ export async function peekLyricsFetchCache(params: {
   });
 }
 
-export async function markTrackInstrumental(trackId: number): Promise<Track> {
+export async function markTrackInstrumental(trackId: TrackId): Promise<Track> {
   const raw = await invoke<Record<string, unknown>>("mark_track_instrumental", {
     trackId,
   });
@@ -327,7 +327,7 @@ export async function markTrackInstrumental(trackId: number): Promise<Track> {
  * only when the track's source is writable.
  */
 export async function saveTrackLyrics(
-  trackId: number,
+  trackId: TrackId,
   lyrics: TrackLyricsInput | null,
 ): Promise<Track> {
   const raw = await invoke<Record<string, unknown>>("save_track_lyrics", {
@@ -379,13 +379,13 @@ export async function searchLyricsCandidates(params: {
 }
 
 export async function recordLyricsAttempt(
-  trackId: number,
+  trackId: TrackId,
   lrclibId: number,
 ): Promise<void> {
   await invoke("record_lyrics_attempt", { trackId, lrclibId });
 }
 
-export async function listLyricsAttempts(trackId: number): Promise<number[]> {
+export async function listLyricsAttempts(trackId: TrackId): Promise<number[]> {
   return invoke<number[]>("list_lyrics_attempts", { trackId });
 }
 
@@ -443,7 +443,7 @@ export async function saveTrack(track: TrackInput): Promise<Track> {
 }
 
 export async function replaceTrackFromImport(options: {
-  trackId: number;
+  trackId: TrackId;
   sourcePath: string;
   track: TrackInput;
 }): Promise<Track> {
@@ -459,7 +459,7 @@ export async function replaceTrackFromImport(options: {
 }
 
 export async function convertTrack(options: {
-  trackId: number;
+  trackId: TrackId;
   profileId: string;
   mode: "replace" | "add_new";
 }): Promise<Track> {
@@ -500,7 +500,7 @@ export type RemovedFile =
   | "keptUnreachable";
 
 export async function removeTrack(
-  trackId: number,
+  trackId: TrackId,
   deleteFromDisk: boolean,
 ): Promise<RemovedFile> {
   return invoke<RemovedFile>("remove_track", { trackId, deleteFromDisk });
@@ -668,12 +668,12 @@ function normalizePlaylistImageMode(
 
 function normalizePlaylist(raw: Record<string, unknown>): Playlist {
   return {
-    id: raw.id as number,
+    id: raw.id as PlaylistId,
     title: raw.title as string,
     description: (raw.description as string | null | undefined) ?? null,
     dateCreated: (raw.dateCreated ?? raw.date_created) as string,
     lastUsedAt: (raw.lastUsedAt ?? raw.last_used_at) as string,
-    trackIds: (raw.trackIds ?? raw.track_ids ?? []) as number[],
+    trackIds: (raw.trackIds ?? raw.track_ids ?? []) as TrackId[],
     imageMode: normalizePlaylistImageMode(raw),
     customImagePath: (raw.customImagePath ?? raw.custom_image_path ?? null) as
       string | null,
@@ -703,8 +703,8 @@ export async function createPlaylist(
   title: string,
   description: string | null,
   image: PlaylistImageUpdate,
-): Promise<number> {
-  return invoke<number>("create_playlist", {
+): Promise<PlaylistId> {
+  return invoke<PlaylistId>("create_playlist", {
     title,
     description,
     imageMode: image.imageMode,
@@ -716,7 +716,7 @@ export async function createPlaylist(
 }
 
 export async function updatePlaylist(
-  id: number,
+  id: PlaylistId,
   title: string,
   description: string | null,
   image: PlaylistImageUpdate,
@@ -733,36 +733,38 @@ export async function updatePlaylist(
   });
 }
 
-export async function touchPlaylist(id: number): Promise<void> {
+export async function touchPlaylist(id: PlaylistId): Promise<void> {
   return invoke<void>("touch_playlist", { id });
 }
 
 export async function addTracksToPlaylist(
-  playlistId: number,
-  trackIds: number[],
+  playlistId: PlaylistId,
+  trackIds: TrackId[],
 ): Promise<void> {
   return invoke<void>("add_tracks_to_playlist", { playlistId, trackIds });
 }
 
 export async function removeTracksFromPlaylist(
-  playlistId: number,
-  trackIds: number[],
+  playlistId: PlaylistId,
+  trackIds: TrackId[],
 ): Promise<void> {
   return invoke<void>("remove_tracks_from_playlist", { playlistId, trackIds });
 }
 
 export async function reorderPlaylistTracks(
-  playlistId: number,
-  trackIds: number[],
+  playlistId: PlaylistId,
+  trackIds: TrackId[],
 ): Promise<void> {
   return invoke<void>("reorder_playlist_tracks", { playlistId, trackIds });
 }
 
-export async function reorderPlaylists(playlistIds: number[]): Promise<void> {
+export async function reorderPlaylists(
+  playlistIds: PlaylistId[],
+): Promise<void> {
   return invoke<void>("reorder_playlists", { playlistIds });
 }
 
-export async function deletePlaylist(id: number): Promise<void> {
+export async function deletePlaylist(id: PlaylistId): Promise<void> {
   return invoke<void>("delete_playlist", { id });
 }
 
@@ -798,7 +800,7 @@ export async function clearArtMeasureCache(): Promise<void> {
 }
 
 export async function storeCroppedPlaylistArt(
-  playlistId: number,
+  playlistId: PlaylistId,
   title: string,
   sourcePath: string,
   crop: ImageCrop,
@@ -1593,7 +1595,7 @@ export async function savePlaybackSettings(
 }
 
 export async function writeTrackMetadata(
-  trackId: number,
+  trackId: TrackId,
   filePath: string,
   metadata: TrackMetadataUpdate,
 ): Promise<Track> {
@@ -1677,13 +1679,13 @@ function normalizePlaybackSession(
   return {
     playContextIds: (raw.playContextIds ??
       raw.play_context_ids ??
-      []) as number[],
+      []) as TrackListId[],
     manualQueueIds: (raw.manualQueueIds ??
       raw.manual_queue_ids ??
-      []) as number[],
+      []) as TrackListId[],
     currentTrackId:
-      (raw.currentTrackId as number | null | undefined) ??
-      (raw.current_track_id as number | null | undefined) ??
+      (raw.currentTrackId as TrackListId | null | undefined) ??
+      (raw.current_track_id as TrackListId | null | undefined) ??
       null,
     positionSeconds:
       (raw.positionSeconds as number | undefined) ??

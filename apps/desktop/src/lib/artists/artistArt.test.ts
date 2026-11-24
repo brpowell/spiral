@@ -5,7 +5,7 @@ import type { Track } from "@/types/track";
 
 function track(overrides: Partial<Track> = {}): Track {
   return {
-    id: 1,
+    id: "1",
     title: "Song",
     artist: "Artist",
     album: "Album",
@@ -50,11 +50,11 @@ describe("pickArtPath", () => {
   it("prefers canonical front over overrides", () => {
     const tracks = [
       track({
-        id: 1,
+        id: "1",
         artPath: "/lib/Artwork/albums/A/B/03 - Song - front.jpg",
       }),
       track({
-        id: 2,
+        id: "2",
         artPath: "/lib/Artwork/albums/A/B/front.jpg",
       }),
     ];

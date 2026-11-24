@@ -29,9 +29,9 @@ describe("lyrics", () => {
   });
 
   it("creates plain track lyrics with one line per row", () => {
-    const lyrics = createPlainTrackLyrics(7, "First\nSecond", "embedded");
+    const lyrics = createPlainTrackLyrics("7", "First\nSecond", "embedded");
     expect(lyrics).toMatchObject({
-      trackId: 7,
+      trackId: "7",
       format: "plain",
       source: "embedded",
       plainText: "First\nSecond",
@@ -41,7 +41,7 @@ describe("lyrics", () => {
 
   it("normalizes snake_case lyrics payloads from IPC", () => {
     const normalized = normalizeTrackLyrics({
-      track_id: 3,
+      track_id: "3",
       format: "line_synced",
       source: "lrclib",
       lines: [{ text: "Synced line", start_ms: 12_500 }],
@@ -50,7 +50,7 @@ describe("lyrics", () => {
     });
 
     expect(normalized).toEqual({
-      trackId: 3,
+      trackId: "3",
       format: "line_synced",
       source: "lrclib",
       lines: [{ text: "Synced line", startMs: 12_500 }],
@@ -77,7 +77,7 @@ describe("lyrics", () => {
 
   it("round-trips normalized lyrics back to plain text", () => {
     const lyrics = normalizeTrackLyrics({
-      trackId: 1,
+      trackId: "1",
       format: "plain",
       source: "manual",
       lines: [{ text: "A" }, { text: "B" }],
@@ -109,7 +109,7 @@ describe("lyrics", () => {
 
   it("rebuilds line-synced plain text from every cue when stored text was collapsed", () => {
     const normalized = normalizeTrackLyrics({
-      trackId: 4,
+      trackId: "4",
       format: "line_synced",
       source: "lrclib",
       lines: [

@@ -44,7 +44,7 @@ import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { Album } from "@/types/album";
 import type { Artist } from "@/types/artist";
-import type { Track } from "@/types/track";
+import type { Track, TrackId } from "@/types/track";
 import "./AlbumDetailView.css";
 import "./DetailViewShared.css";
 
@@ -129,7 +129,7 @@ export function AlbumDetailView({
   };
 
   const handleRatingChange = useCallback(
-    (trackId: number, rating: CanonicalRating) => {
+    (trackId: TrackId, rating: CanonicalRating) => {
       const track = usePlayerStore
         .getState()
         .library.find((t) => t.id === trackId);

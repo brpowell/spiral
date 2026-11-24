@@ -26,7 +26,7 @@ import { SeekBar } from "./SeekBar";
 
 function track(): Track {
   return {
-    id: 1,
+    id: "1",
     title: "Airbag",
     artist: "Radiohead",
     album: "OK Computer",
@@ -66,7 +66,7 @@ describe("SeekBar in a skin window", () => {
     usePlayerStore.setState({
       library: [track()],
       playbackTracks: [],
-      currentTrackId: 1,
+      currentTrackId: "1",
       playbackState: "paused",
       positionSeconds: 60,
       seekPreviewRatio: null,

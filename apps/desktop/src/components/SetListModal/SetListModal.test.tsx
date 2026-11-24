@@ -52,7 +52,7 @@ function track(overrides: Partial<Track> & Pick<Track, "id">): Track {
     artist: "Artist",
     album: "Album",
     albumArtist: "Artist",
-    trackNumber: overrides.id,
+    trackNumber: Number(overrides.id),
     totalTracks: null,
     discNumber: 1,
     totalDiscs: null,
@@ -73,7 +73,9 @@ function track(overrides: Partial<Track> & Pick<Track, "id">): Track {
 }
 
 function seedLibrary(count: number) {
-  const library = Array.from({ length: count }, (_, i) => track({ id: i + 1 }));
+  const library = Array.from({ length: count }, (_, i) =>
+    track({ id: String(i + 1) }),
+  );
   usePlayerStore.setState({
     library,
     playbackTracks: library,
@@ -163,7 +165,7 @@ describe("SetListModal", () => {
 
   it("splits queued tracks into their own section", () => {
     seedLibrary(3);
-    usePlayerStore.setState({ manualQueueIds: [2] });
+    usePlayerStore.setState({ manualQueueIds: ["2"] });
     render(<SetListModal open onClose={() => undefined} />);
 
     expect(screen.getByRole("heading", { name: "Queued" })).toBeInTheDocument();

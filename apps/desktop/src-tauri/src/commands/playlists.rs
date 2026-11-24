@@ -1,5 +1,6 @@
 use crate::artwork_paths::{self, resolve_library_relative};
 use crate::db;
+use crate::ids::{PlaylistId, TrackId};
 use crate::models::{Playlist, PlaylistImageMode};
 use crate::settings;
 use std::path::{Path, PathBuf};
@@ -35,7 +36,7 @@ fn store_playlist_image(library_root: &Path, path: Option<&str>) -> Option<Strin
 #[tauri::command]
 pub fn store_cropped_playlist_art(
     app: AppHandle,
-    playlist_id: i64,
+    playlist_id: PlaylistId,
     title: String,
     source_path: String,
     crop: crate::image_crop::ImageCrop,
@@ -46,7 +47,7 @@ pub fn store_cropped_playlist_art(
     let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
     crate::artwork_write::store_cropped_playlist_art(
         &library_root,
-        playlist_id,
+        &playlist_id,
         &title,
         &source_path,
         crop,
@@ -79,7 +80,7 @@ pub fn create_playlist(
     cover_background: Option<String>,
     cover_background_end: Option<String>,
     cover_icon: Option<String>,
-) -> Result<i64, String> {
+) -> Result<PlaylistId, String> {
     let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
     let stored = store_playlist_image(&library_root, custom_image_path.as_deref());
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -104,7 +105,7 @@ pub fn create_playlist(
 pub fn update_playlist(
     app: AppHandle,
     state: State<DbState>,
-    id: i64,
+    id: PlaylistId,
     title: String,
     description: Option<String>,
     image_mode: PlaylistImageMode,
@@ -132,19 +133,19 @@ pub fn update_playlist(
     if image_mode == PlaylistImageMode::Custom && old_title.trim() != title.trim() {
         stored = crate::artwork_organize::rename_playlist_artwork_file(
             &library_root,
-            id,
+            &id,
             &old_title,
             &title,
             stored.as_deref().or(old_image.as_deref()),
         )?;
     }
     if stored.is_none() {
-        crate::artwork_organize::remove_playlist_artwork(&library_root, id)?;
+        crate::artwork_organize::remove_playlist_artwork(&library_root, &id)?;
     }
 
     db::update_playlist(
         &conn,
-        id,
+        &id,
         &title,
         description.as_deref(),
         image_mode,
@@ -160,9 +161,9 @@ pub fn update_playlist(
 }
 
 #[tauri::command]
-pub fn touch_playlist(state: State<DbState>, id: i64) -> Result<(), String> {
+pub fn touch_playlist(state: State<DbState>, id: PlaylistId) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::touch_playlist(&conn, id).map_err(|e| {
+    db::touch_playlist(&conn, &id).map_err(|e| {
         eprintln!("touch_playlist error: {e}");
         e.to_string()
     })
@@ -171,11 +172,11 @@ pub fn touch_playlist(state: State<DbState>, id: i64) -> Result<(), String> {
 #[tauri::command]
 pub fn add_tracks_to_playlist(
     state: State<DbState>,
-    playlist_id: i64,
-    track_ids: Vec<i64>,
+    playlist_id: PlaylistId,
+    track_ids: Vec<TrackId>,
 ) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::add_tracks_to_playlist(&conn, playlist_id, &track_ids).map_err(|e| {
+    db::add_tracks_to_playlist(&conn, &playlist_id, &track_ids).map_err(|e| {
         eprintln!("add_tracks_to_playlist error: {e}");
         e.to_string()
     })
@@ -184,11 +185,11 @@ pub fn add_tracks_to_playlist(
 #[tauri::command]
 pub fn remove_tracks_from_playlist(
     state: State<DbState>,
-    playlist_id: i64,
-    track_ids: Vec<i64>,
+    playlist_id: PlaylistId,
+    track_ids: Vec<TrackId>,
 ) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::remove_tracks_from_playlist(&conn, playlist_id, &track_ids).map_err(|e| {
+    db::remove_tracks_from_playlist(&conn, &playlist_id, &track_ids).map_err(|e| {
         eprintln!("remove_tracks_from_playlist error: {e}");
         e.to_string()
     })
@@ -197,18 +198,21 @@ pub fn remove_tracks_from_playlist(
 #[tauri::command]
 pub fn reorder_playlist_tracks(
     state: State<DbState>,
-    playlist_id: i64,
-    track_ids: Vec<i64>,
+    playlist_id: PlaylistId,
+    track_ids: Vec<TrackId>,
 ) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::reorder_playlist_tracks(&conn, playlist_id, &track_ids).map_err(|e| {
+    db::reorder_playlist_tracks(&conn, &playlist_id, &track_ids).map_err(|e| {
         eprintln!("reorder_playlist_tracks error: {e}");
         e.to_string()
     })
 }
 
 #[tauri::command]
-pub fn reorder_playlists(state: State<DbState>, playlist_ids: Vec<i64>) -> Result<(), String> {
+pub fn reorder_playlists(
+    state: State<DbState>,
+    playlist_ids: Vec<PlaylistId>,
+) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     db::reorder_playlists(&conn, &playlist_ids).map_err(|e| {
         eprintln!("reorder_playlists error: {e}");
@@ -217,9 +221,9 @@ pub fn reorder_playlists(state: State<DbState>, playlist_ids: Vec<i64>) -> Resul
 }
 
 #[tauri::command]
-pub fn delete_playlist(state: State<DbState>, id: i64) -> Result<(), String> {
+pub fn delete_playlist(state: State<DbState>, id: PlaylistId) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::delete_playlist(&conn, id).map_err(|e| {
+    db::delete_playlist(&conn, &id).map_err(|e| {
         eprintln!("delete_playlist error: {e}");
         e.to_string()
     })?;

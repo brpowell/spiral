@@ -8,7 +8,8 @@ import {
   normalizeGenreName,
 } from "./genres";
 
-const track = (id: number, genre: string | null) => ({ id, genre }) as Track;
+const track = (id: number, genre: string | null) =>
+  ({ id: String(id), genre }) as Track;
 
 describe("groupTracksIntoGenres", () => {
   it("groups case-insensitively and sorts by name", () => {

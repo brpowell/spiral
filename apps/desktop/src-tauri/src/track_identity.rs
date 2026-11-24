@@ -6,6 +6,7 @@
 //! confirmed with the file system ([`same_file`]), so two different files on a
 //! case-sensitive volume are never treated as one.
 
+use crate::ids::TrackId;
 use crate::sources::SourceRoots;
 use rusqlite::{params, Connection};
 use std::collections::HashMap;
@@ -29,8 +30,8 @@ pub fn same_file(a: &Path, b: &Path) -> bool {
 pub fn other_rows_for_file(
     conn: &Connection,
     path: &Path,
-    except: i64,
-) -> rusqlite::Result<Vec<i64>> {
+    except: &TrackId,
+) -> rusqlite::Result<Vec<TrackId>> {
     if !path.exists() {
         return Ok(Vec::new());
     }
@@ -44,8 +45,8 @@ pub fn other_rows_for_file(
 pub fn rows_named_like(
     conn: &Connection,
     path: &Path,
-    except: i64,
-) -> rusqlite::Result<Vec<(i64, PathBuf)>> {
+    except: &TrackId,
+) -> rusqlite::Result<Vec<(TrackId, PathBuf)>> {
     // Rows only match by file name, so a source root reached another way (a
     // symlink, another spelling of a folder) still compares by inode.
     let name_key = path.file_name().map(|n| path_key(&n.to_string_lossy()));
@@ -53,7 +54,7 @@ pub fn rows_named_like(
     let mut stmt = conn.prepare("SELECT id, source_id, rel_path FROM tracks WHERE id != ?1")?;
     let rows = stmt.query_map(params![except], |row| {
         Ok((
-            row.get::<_, i64>(0)?,
+            row.get::<_, TrackId>(0)?,
             row.get::<_, i64>(1)?,
             row.get::<_, String>(2)?,
         ))
@@ -72,16 +73,16 @@ pub fn rows_named_like(
 
 /// The ids of `candidates` (from [`rows_named_like`]) that are `path`'s file
 /// on disk.
-pub fn same_file_rows(candidates: &[(i64, PathBuf)], path: &Path) -> Vec<i64> {
+pub fn same_file_rows(candidates: &[(TrackId, PathBuf)], path: &Path) -> Vec<TrackId> {
     candidates
         .iter()
         .filter(|(_, other)| same_file(other, path))
-        .map(|(id, _)| *id)
+        .map(|(id, _)| id.clone())
         .collect()
 }
 
 struct Row {
-    id: i64,
+    id: TrackId,
     source_id: i64,
     rel_path: String,
     path: String,
@@ -109,7 +110,7 @@ pub fn merge_duplicate_tracks(conn: &Connection) -> rusqlite::Result<usize> {
         )?;
         let rows = stmt.query_map([], |row| {
             Ok((
-                row.get::<_, i64>(0)?,
+                row.get::<_, TrackId>(0)?,
                 row.get::<_, i64>(1)?,
                 row.get::<_, String>(2)?,
                 row.get::<_, bool>(3)?,
@@ -144,23 +145,24 @@ pub fn merge_duplicate_tracks(conn: &Connection) -> rusqlite::Result<usize> {
         if same.len() < 2 {
             continue;
         }
-        // Most history first; then a row whose file was found; then the oldest.
-        same.sort_by_key(|r| (-r.history, !r.present, r.id));
+        // Most history first; then a row whose file was found; then the oldest (ids are
+        // time-ordered).
+        same.sort_by(|a, b| (-a.history, !a.present, &a.id).cmp(&(-b.history, !b.present, &b.id)));
         let keep = same[0];
         let spelling = same.iter().find(|r| r.present).copied().unwrap_or(keep);
         let tx = conn.unchecked_transaction()?;
         for drop in &same[1..] {
-            merge_into(&tx, keep.id, drop.id)?;
+            merge_into(&tx, &keep.id, &drop.id)?;
             removed += 1;
         }
         tx.execute(
             "UPDATE tracks SET source_id = ?1, rel_path = ?2 WHERE id = ?3",
-            params![spelling.source_id, spelling.rel_path, keep.id],
+            params![spelling.source_id, spelling.rel_path, &keep.id],
         )?;
         if same.iter().any(|r| r.present) {
             tx.execute(
                 "UPDATE tracks SET missing_since = NULL WHERE id = ?1",
-                params![keep.id],
+                params![&keep.id],
             )?;
         }
         tx.commit()?;
@@ -169,7 +171,11 @@ pub fn merge_duplicate_tracks(conn: &Connection) -> rusqlite::Result<usize> {
 }
 
 /// Move `drop`'s history to `keep` and delete `drop`.
-pub(crate) fn merge_into(conn: &Connection, keep: i64, drop: i64) -> rusqlite::Result<()> {
+pub(crate) fn merge_into(
+    conn: &Connection,
+    keep: &TrackId,
+    drop: &TrackId,
+) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE tracks SET
             play_count = play_count + (SELECT play_count FROM tracks WHERE id = ?2),
@@ -252,9 +258,15 @@ pub(crate) mod tests {
         fs::write(&unrelated, b"y").unwrap();
         insert_track(&conn, "other.mp3", source);
 
-        assert_eq!(other_rows_for_file(&conn, &file, a).unwrap(), vec![b]);
-        assert!(other_rows_for_file(&conn, &unrelated, -1).unwrap().len() == 1);
-        assert!(other_rows_for_file(&conn, &tmp.0.join("gone.mp3"), -1)
+        let nobody = TrackId::new();
+        assert_eq!(other_rows_for_file(&conn, &file, &a).unwrap(), vec![b]);
+        assert!(
+            other_rows_for_file(&conn, &unrelated, &nobody)
+                .unwrap()
+                .len()
+                == 1
+        );
+        assert!(other_rows_for_file(&conn, &tmp.0.join("gone.mp3"), &nobody)
             .unwrap()
             .is_empty());
     }
@@ -272,13 +284,15 @@ pub(crate) mod tests {
         let old = insert_track(&conn, "Song.mp3", source);
         let new = insert_track(&conn, "song.mp3", source);
         conn.execute_batch(&format!(
-            "UPDATE tracks SET play_count = 3, rating = 80, missing_since = 'then' WHERE id = {old};
-             UPDATE tracks SET play_count = 1 WHERE id = {new};
-             INSERT INTO playlists (title, date_created, last_used_at) VALUES ('P', 'now', 'now');
-             INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (1, {old}, 0);
-             INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (1, {new}, 1);
-             INSERT INTO listen_events (track_id, started_at, ended_at, listened_seconds, completion)
-                 VALUES ({new}, 'a', 'b', 1.0, 'complete');"
+            "UPDATE tracks SET play_count = 3, rating = 80, missing_since = 'then' WHERE id = '{old}';
+             UPDATE tracks SET play_count = 1 WHERE id = '{new}';
+             INSERT INTO playlists (id, title, date_created, last_used_at, position)
+                 VALUES ('p', 'P', 'now', 'now', 'a0');
+             INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES ('p', '{old}', 'a0');
+             INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES ('p', '{new}', 'a1');
+             INSERT INTO listen_events (id, track_id, started_at, ended_at, listened_seconds,
+                                        completion)
+                 VALUES ('e', '{new}', 'a', 'b', 1.0, 'complete');"
         ))
         .unwrap();
         // An unrelated file is untouched.
@@ -290,7 +304,7 @@ pub(crate) mod tests {
         let (rel, plays, rating, missing): (String, i64, i64, Option<String>) = conn
             .query_row(
                 "SELECT rel_path, play_count, rating, missing_since FROM tracks WHERE id = ?1",
-                [old],
+                [&old],
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
             )
             .unwrap();
@@ -302,17 +316,17 @@ pub(crate) mod tests {
         assert_eq!(count("SELECT COUNT(*) FROM tracks"), 2);
         assert_eq!(
             count(&format!(
-                "SELECT COUNT(*) FROM playlist_tracks WHERE track_id = {old}"
+                "SELECT COUNT(*) FROM playlist_tracks WHERE track_id = '{old}'"
             )),
             1
         );
         assert_eq!(
             count(&format!(
-                "SELECT COUNT(*) FROM listen_events WHERE track_id = {old}"
+                "SELECT COUNT(*) FROM listen_events WHERE track_id = '{old}'"
             )),
             1
         );
-        assert!(crate::db::get_track_by_id(&conn, unrelated)
+        assert!(crate::db::get_track_by_id(&conn, &unrelated)
             .unwrap()
             .is_some());
         // Nothing left to merge.

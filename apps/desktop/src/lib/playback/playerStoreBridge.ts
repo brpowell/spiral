@@ -1,5 +1,5 @@
 import { emit, listen } from "@tauri-apps/api/event";
-import type { RepeatMode, Track } from "@/types/track";
+import type { RepeatMode, Track, TrackListId } from "@/types/track";
 import type { PlaybackState } from "@/types/track";
 import * as audio from "@/lib/playback";
 import { setLivePositionPublisher } from "./livePosition";
@@ -22,9 +22,9 @@ export const PLAYER_REQUEST_STATE_EVENT = "player://request-state";
 export interface PlayerStateSnapshot {
   library: Track[];
   playbackTracks: Track[];
-  playContextIds: number[];
-  manualQueueIds: number[];
-  currentTrackId: number | null;
+  playContextIds: TrackListId[];
+  manualQueueIds: TrackListId[];
+  currentTrackId: TrackListId | null;
   playbackState: PlaybackState;
   positionSeconds: number;
   volume: number;
@@ -52,10 +52,10 @@ export type PlayerRemoteAction =
   | { type: "setVolume"; volume: number }
   | { type: "setBalance"; balance: number }
   | { type: "toggleMute" }
-  | { type: "playTrack"; id: number }
-  | { type: "playTracks"; ids: number[]; startId: number }
-  | { type: "addToQueue"; ids: number[] }
-  | { type: "removeFromQueue"; id: number }
+  | { type: "playTrack"; id: TrackListId }
+  | { type: "playTracks"; ids: TrackListId[]; startId: TrackListId }
+  | { type: "addToQueue"; ids: TrackListId[] }
+  | { type: "removeFromQueue"; id: TrackListId }
   | { type: "clearSetList" }
   | { type: "importFromPaths"; paths: string[] }
   | { type: "toggleCrossfade" };

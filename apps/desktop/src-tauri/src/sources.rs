@@ -804,6 +804,7 @@ pub fn is_outside_source_walk(path: &Path, source_root: &Path, roots: &LibraryRo
 mod tests {
     use super::*;
     use crate::db_migrations;
+    use crate::ids::TrackId;
 
     /// An in-memory database: no Spiral folder is known.
     fn mem_conn() -> Connection {
@@ -852,14 +853,8 @@ mod tests {
         (conn, roots)
     }
 
-    fn insert_track(conn: &Connection, rel_path: &str, source_id: i64) -> i64 {
-        conn.execute(
-            "INSERT INTO tracks (title, rel_path, date_added, source_id)
-             VALUES ('Song', ?1, '2024-01-01T00:00:00Z', ?2)",
-            params![rel_path, source_id],
-        )
-        .unwrap();
-        conn.last_insert_rowid()
+    fn insert_track(conn: &Connection, rel_path: &str, source_id: i64) -> TrackId {
+        crate::source_test_support::insert_track(conn, rel_path, source_id)
     }
 
     fn tracks_folder(roots: &LibraryRoots) -> PathBuf {
@@ -942,12 +937,13 @@ mod tests {
     fn tracks_require_an_existing_source_and_unique_paths_per_source() {
         let conn = mem_conn();
         let missing = conn.execute(
-            "INSERT INTO tracks (title, rel_path, date_added) VALUES ('S', 'a.mp3', 'now')",
+            "INSERT INTO tracks (id, title, rel_path, date_added) VALUES ('t1', 'S', 'a.mp3', 'now')",
             [],
         );
         assert!(missing.is_err());
         let dangling = conn.execute(
-            "INSERT INTO tracks (title, rel_path, date_added, source_id) VALUES ('S', 'a.mp3', 'now', 99)",
+            "INSERT INTO tracks (id, title, rel_path, date_added, source_id)
+             VALUES ('t2', 'S', 'a.mp3', 'now', 99)",
             [],
         );
         assert!(dangling.is_err());
@@ -959,7 +955,8 @@ mod tests {
         let source = conn.last_insert_rowid();
         insert_track(&conn, "a.mp3", source);
         let duplicate = conn.execute(
-            "INSERT INTO tracks (title, rel_path, date_added, source_id) VALUES ('S', 'a.mp3', 'now', ?1)",
+            "INSERT INTO tracks (id, title, rel_path, date_added, source_id)
+             VALUES ('t3', 'S', 'a.mp3', 'now', ?1)",
             params![source],
         );
         assert!(duplicate.is_err());
@@ -1265,7 +1262,7 @@ mod tests {
         let rock_track = insert_track(&conn, "a.mp3", rock.id);
         let jazz_track = insert_track(&conn, "b.mp3", jazz.id);
         let tracks_track = insert_track(&conn, "c.mp3", tracks.id);
-        let remaining = || -> Vec<i64> {
+        let remaining = || -> Vec<TrackId> {
             conn.prepare("SELECT id FROM tracks ORDER BY id")
                 .unwrap()
                 .query_map([], |r| r.get(0))
@@ -1276,14 +1273,14 @@ mod tests {
 
         assert_eq!(remove_source(&conn, rock.id).unwrap(), 1);
         assert_eq!(get_source(&conn, rock.id).unwrap(), None);
-        assert_eq!(remaining(), vec![jazz_track, tracks_track]);
+        assert_eq!(remaining(), vec![jazz_track.clone(), tracks_track]);
         assert!(!remaining().contains(&rock_track));
         assert!(tmp.0.join("Rock").is_dir());
 
         // `Tracks` is an ordinary source: it goes, its files stay.
         std::fs::write(tracks_folder(&roots).join("c.mp3"), b"x").unwrap();
         assert_eq!(remove_source(&conn, tracks.id).unwrap(), 1);
-        assert_eq!(remaining(), vec![jazz_track]);
+        assert_eq!(remaining(), vec![jazz_track.clone()]);
         assert!(tracks_folder(&roots).join("c.mp3").is_file());
         assert_eq!(managed_source_id(&conn, &roots).unwrap(), None);
 

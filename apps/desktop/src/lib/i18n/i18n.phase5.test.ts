@@ -97,7 +97,10 @@ describe("i18n Phase 5 catalogs", () => {
 
 describe("Phase 5 helpers use catalogs", () => {
   it("uses mixed-value placeholder from catalogs", () => {
-    const tracks = [track({ id: 1, title: "A" }), track({ id: 2, title: "B" })];
+    const tracks = [
+      track({ id: "1", title: "A" }),
+      track({ id: "2", title: "B" }),
+    ];
     const form = tracksToForm(tracks);
     expect(mixedFieldPlaceholder(tracks, "title", form)).toBe(
       "Multiple values",

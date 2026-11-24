@@ -2,6 +2,7 @@ import {
   normalizeArtistName,
   parseArtistField,
 } from "@/lib/artists/artistNames";
+import type { TrackListId } from "@/types/track";
 
 /**
  * One performer credited on {@link VizFrameTrack}.
@@ -33,7 +34,7 @@ export interface VizFrameTrack {
    * `null` when nothing is loaded. Stable for a recording, so a module can
    * tell two tracks apart when their titles match.
    */
-  id: number | null;
+  id: TrackListId | null;
   /** Track title. `""` when nothing is loaded. */
   title: string;
   /** Album title. `null` when the track has none, or when nothing is loaded. */
@@ -70,7 +71,7 @@ export const EMPTY_VIZ_TRACK: VizFrameTrack = {
 };
 
 /** Synthetic id for {@link withPreviewTrackIdentity}; library ids are positive. */
-export const PREVIEW_TRACK_ID = -1;
+export const PREVIEW_TRACK_ID = "preview";
 
 /**
  * Gives a preview an identity when nothing is loaded. Some modules only draw
@@ -85,7 +86,7 @@ export function withPreviewTrackIdentity(track: VizFrameTrack): VizFrameTrack {
 
 /** Wire form of {@link VizFrameTrack}. Bitmaps travel in a separate message. */
 export interface VizTrackWire {
-  id: number | null;
+  id: TrackListId | null;
   title: string;
   album: string | null;
   artists: { name: string; portraitId: string | null }[];

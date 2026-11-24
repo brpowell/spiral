@@ -17,7 +17,7 @@ import { fetchLyricsLrclib, getTrackLyrics } from "@/lib/tauri";
 import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { missingFileErrorDetail } from "@/lib/tracks/missingFileTrack";
-import type { Track } from "@/types/track";
+import type { Track, TrackId } from "@/types/track";
 
 const LYRICS_FETCH_CANCELLED_MESSAGE = "Lyrics fetch cancelled";
 
@@ -67,14 +67,14 @@ type SingleLyricsFetchResult =
   | { status: "cancelled" }
   | { status: "error"; error: unknown };
 
-export function markLyricsFetchNotFound(trackId: number): void {
+export function markLyricsFetchNotFound(trackId: TrackId): void {
   applyFetchOutcome(trackId, {
     feedback: LYRICS_FETCH_NOT_FOUND,
     candidates: [],
   });
 }
 
-export function markLyricsFetchInstrumental(trackId: number): void {
+export function markLyricsFetchInstrumental(trackId: TrackId): void {
   applyFetchOutcome(trackId, {
     feedback: LYRICS_FETCH_INSTRUMENTAL,
     candidates: [],
@@ -82,7 +82,7 @@ export function markLyricsFetchInstrumental(trackId: number): void {
 }
 
 function applyFetchOutcome(
-  trackId: number,
+  trackId: TrackId,
   ui: {
     feedback: ReturnType<typeof createLyricsFetchFeedback> | null;
     candidates: Extract<
@@ -98,7 +98,7 @@ function applyFetchOutcome(
 }
 
 async function handleFoundLyrics(
-  trackId: number,
+  trackId: TrackId,
   result: Extract<LyricsFetchOutcome, { status: "found" }>,
 ): Promise<void> {
   const track = usePlayerStore
@@ -134,7 +134,7 @@ async function handleFoundLyrics(
   });
 }
 
-async function handleInstrumental(trackId: number): Promise<void> {
+async function handleInstrumental(trackId: TrackId): Promise<void> {
   const commit = await commitInstrumentalMarkForTrack(trackId);
   markLyricsFetchInstrumental(trackId);
   if (commit.status !== "ok") {
@@ -173,7 +173,9 @@ export function canFetchLyricsForTrack(track: Track): boolean {
 }
 
 /** True when the track has lyrics text or is marked instrumental (skip auto-fetch). */
-export async function trackAlreadyHasLyrics(trackId: number): Promise<boolean> {
+export async function trackAlreadyHasLyrics(
+  trackId: TrackId,
+): Promise<boolean> {
   const lyrics = await getTrackLyrics(trackId);
   if (!lyrics) return false;
   if (lyrics.format === "instrumental") return true;
@@ -185,7 +187,7 @@ export function trackIsMarkedInstrumental(track: Track): boolean {
 }
 
 export async function runSingleLyricsFetch(
-  trackId: number,
+  trackId: TrackId,
   params: LyricsFetchParams,
   options?: LyricsFetchRunOptions & {
     onRetry?: () => void;

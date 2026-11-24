@@ -26,7 +26,7 @@ const watched: Source = {
 
 function track(sourceId: number): Track {
   return {
-    id: 7,
+    id: "7",
     title: "Song",
     artist: "Artist",
     album: "Album",
@@ -55,7 +55,7 @@ function track(sourceId: number): Track {
 function openEditor(sourceId: number) {
   usePlayerStore.setState({
     library: [track(sourceId)],
-    editingTrackIds: [7],
+    editingTrackIds: ["7"],
     trackEditorInitialTab: "details",
   });
   render(<TrackEditor />);

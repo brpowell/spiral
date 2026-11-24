@@ -34,7 +34,7 @@ import { confirmAndApplyTrackRatings } from "@/lib/tracks/applyTrackRating";
 import type { CanonicalRating } from "@/lib/tracks/trackRating";
 import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
-import type { Track } from "@/types/track";
+import type { Track, TrackId } from "@/types/track";
 import "./GenreDetailView.css";
 import "./DetailViewShared.css";
 
@@ -84,7 +84,7 @@ export function GenreDetailView({ genres, genreKey }: GenreDetailViewProps) {
   const trackIds = useMemo(() => tracks.map((track) => track.id), [tracks]);
 
   const handleRatingChange = useCallback(
-    (trackId: number, rating: CanonicalRating) => {
+    (trackId: TrackId, rating: CanonicalRating) => {
       const track = usePlayerStore
         .getState()
         .library.find((candidate) => candidate.id === trackId);

@@ -9,7 +9,7 @@ import {
 } from "./playable";
 
 const libraryTrack: Track = {
-  id: 1,
+  id: "1",
   title: "Song",
   artist: "Artist",
   album: "Album",
@@ -34,7 +34,9 @@ const libraryTrack: Track = {
 
 describe("trackListIdForPlayable", () => {
   it("maps library and CD playables to list ids", () => {
-    expect(trackListIdForPlayable({ type: "library", trackId: 42 })).toBe(42);
+    expect(trackListIdForPlayable({ type: "library", trackId: "42" })).toBe(
+      "42",
+    );
     expect(
       trackListIdForPlayable({
         type: "cd",
@@ -46,7 +48,7 @@ describe("trackListIdForPlayable", () => {
 
   it("keeps CD list ids disjoint from pending-import ids", () => {
     expect(isPendingTrackId(cdTrackListId(1))).toBe(false);
-    expect(isPendingTrackId(-1)).toBe(true);
+    expect(isPendingTrackId("pending:1")).toBe(true);
   });
 });
 
@@ -63,17 +65,17 @@ describe("playableRefFromTrackListId", () => {
     expect(playableRefFromTrackListId(cdTrackListId(2), null)).toBeNull();
   });
 
-  it("treats small negative (pending-import) ids as library refs", () => {
-    expect(playableRefFromTrackListId(-2, "drive-a")).toEqual({
+  it("treats pending-import ids as library refs", () => {
+    expect(playableRefFromTrackListId("pending:2", "drive-a")).toEqual({
       type: "library",
-      trackId: -2,
+      trackId: "pending:2",
     });
   });
 
-  it("returns library playable for positive ids", () => {
-    expect(playableRefFromTrackListId(5, null)).toEqual({
+  it("returns library playable for library ids", () => {
+    expect(playableRefFromTrackListId("5", null)).toEqual({
       type: "library",
-      trackId: 5,
+      trackId: "5",
     });
   });
 });
@@ -81,19 +83,19 @@ describe("playableRefFromTrackListId", () => {
 describe("resolvePlaybackSource", () => {
   it("resolves library tracks to file sources", () => {
     expect(
-      resolvePlaybackSource({ type: "library", trackId: 1 }, [libraryTrack]),
+      resolvePlaybackSource({ type: "library", trackId: "1" }, [libraryTrack]),
     ).toEqual({ kind: "file", path: "/music/song.mp3", codec: "mp3" });
   });
 
   it("includes ALAC codec so playback can route to PCM", () => {
     const alacTrack: Track = {
       ...libraryTrack,
-      id: 2,
+      id: "2",
       codec: "alac",
       filePath: "/music/song.m4a",
     };
     expect(
-      resolvePlaybackSource({ type: "library", trackId: 2 }, [alacTrack]),
+      resolvePlaybackSource({ type: "library", trackId: "2" }, [alacTrack]),
     ).toEqual({ kind: "file", path: "/music/song.m4a", codec: "alac" });
   });
 

@@ -1,9 +1,10 @@
+import type { TrackId, TrackListId } from "@/types/track";
 export type CheckAllState = "none" | "some" | "all";
 
 /** Tri-state for a select-all header checkbox. */
 export function checkAllState(
-  orderedIds: number[],
-  checkedIds: number[],
+  orderedIds: TrackListId[],
+  checkedIds: TrackListId[],
 ): CheckAllState {
   if (orderedIds.length === 0) return "none";
   const checked = new Set(checkedIds);
@@ -14,11 +15,11 @@ export function checkAllState(
 }
 
 export function toggleTrackChecked(
-  trackId: number,
-  orderedIds: number[],
-  checkedIds: number[],
+  trackId: TrackId,
+  orderedIds: TrackListId[],
+  checkedIds: TrackListId[],
   checked: boolean,
-): number[] {
+): TrackListId[] {
   const set = new Set(checkedIds);
   if (checked) {
     set.add(trackId);
@@ -29,8 +30,8 @@ export function toggleTrackChecked(
 }
 
 export function setAllTracksChecked(
-  orderedIds: number[],
+  orderedIds: TrackListId[],
   checked: boolean,
-): number[] {
+): TrackListId[] {
   return checked ? [...orderedIds] : [];
 }

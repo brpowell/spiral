@@ -4,7 +4,7 @@ import { findTrack, missingDevices, trackRef } from "./stageState";
 
 const track = (over: Partial<Track>): Track =>
   ({
-    id: 1,
+    id: "1",
     title: "In Bloom",
     artist: "Nirvana",
     album: "Nevermind",
@@ -13,21 +13,21 @@ const track = (over: Partial<Track>): Track =>
 
 describe("findTrack", () => {
   const library = [
-    track({ id: 1 }),
-    track({ id: 2, album: "Live" }),
-    track({ id: 3, title: "On A Plain" }),
+    track({ id: "1" }),
+    track({ id: "2", album: "Live" }),
+    track({ id: "3", title: "On A Plain" }),
   ];
 
   it("matches title, artist and album case-insensitively", () => {
     const ref = { title: "in bloom", artist: "NIRVANA", album: "live" };
-    expect(findTrack(library, ref)?.id).toBe(2);
+    expect(findTrack(library, ref)?.id).toBe("2");
   });
 
   it("ignores null artist/album in the ref", () => {
     expect(
       findTrack(library, { title: "On A Plain", artist: null, album: null })
         ?.id,
-    ).toBe(3);
+    ).toBe("3");
   });
 
   it("returns undefined when nothing matches", () => {
@@ -37,7 +37,7 @@ describe("findTrack", () => {
   });
 
   it("round-trips through trackRef", () => {
-    expect(findTrack(library, trackRef(library[1]))?.id).toBe(2);
+    expect(findTrack(library, trackRef(library[1]))?.id).toBe("2");
   });
 });
 

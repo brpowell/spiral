@@ -1,10 +1,14 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { usePlayerStore } from "./usePlayerStore";
+import type { TrackListId } from "@/types/track";
 
-const album = [1, 2, 3, 4, 5, 6, 7, 8];
+const album = ["1", "2", "3", "4", "5", "6", "7", "8"];
 
-function setContext(playContextIds: number[], currentTrackId: number | null) {
+function setContext(
+  playContextIds: TrackListId[],
+  currentTrackId: TrackListId | null,
+) {
   usePlayerStore.setState({
     playContextIds,
     sequentialContextIds: null,
@@ -16,7 +20,7 @@ function setContext(playContextIds: number[], currentTrackId: number | null) {
 
 describe("toggleShuffle", () => {
   beforeEach(() => {
-    setContext(album, 3);
+    setContext(album, "3");
   });
 
   afterEach(() => {
@@ -26,9 +30,9 @@ describe("toggleShuffle", () => {
   it("restores the sequential set list when shuffle is turned off", () => {
     usePlayerStore.getState().toggleShuffle();
     const shuffled = usePlayerStore.getState().playContextIds;
-    expect([...shuffled].sort((a, b) => a - b)).toEqual(album);
+    expect([...shuffled].sort()).toEqual(album);
     // Already-played tracks and the current one keep their place.
-    expect(shuffled.slice(0, 3)).toEqual([1, 2, 3]);
+    expect(shuffled.slice(0, 3)).toEqual(["1", "2", "3"]);
 
     usePlayerStore.getState().toggleShuffle();
     const state = usePlayerStore.getState();
@@ -41,9 +45,9 @@ describe("toggleShuffle", () => {
     // Shuffle already on when a track is double-clicked: the context is
     // built shuffled with the clicked track first.
     usePlayerStore.setState({ shuffle: true });
-    void usePlayerStore.getState().playTracks(album, 4);
+    void usePlayerStore.getState().playTracks(album, "4");
     const state = usePlayerStore.getState();
-    expect(state.playContextIds[0]).toBe(4);
+    expect(state.playContextIds[0]).toBe("4");
     expect(state.sequentialContextIds).toEqual(album);
 
     state.toggleShuffle();
@@ -53,7 +57,7 @@ describe("toggleShuffle", () => {
   it("keeps the current order when the set list changed while shuffled", () => {
     usePlayerStore.getState().toggleShuffle();
     const shuffled = usePlayerStore.getState().playContextIds;
-    const trimmed = shuffled.filter((id) => id !== 8);
+    const trimmed = shuffled.filter((id) => id !== "8");
     usePlayerStore.setState({ playContextIds: trimmed });
 
     usePlayerStore.getState().toggleShuffle();

@@ -32,7 +32,7 @@ vi.mock("framer-motion", () => ({
   },
 }));
 
-function setScores(scores: [number, number][]) {
+function setScores(scores: [string, number][]) {
   act(() => {
     usePopularityStore.setState({
       scores: { [POPULARITY_COLUMN_PROFILE]: new Map(scores) },
@@ -50,10 +50,10 @@ describe("TrackPopularityCell", () => {
 
   it("names the cell by its score and describes it as private listening", () => {
     setScores([
-      [1, 10],
-      [2, 2.5],
+      ["1", 10],
+      ["2", 2.5],
     ]);
-    render(<TrackPopularityCell trackId={2} />);
+    render(<TrackPopularityCell trackId="2" />);
 
     const cell = screen.getByRole("img");
     expect(cell.getAttribute("aria-label")).toBe("Popularity: 2.5");
@@ -62,8 +62,8 @@ describe("TrackPopularityCell", () => {
   });
 
   it("shows the score and explainer in a tooltip on keyboard focus", () => {
-    setScores([[1, 4]]);
-    render(<TrackPopularityCell trackId={1} />);
+    setScores([["1", 4]]);
+    render(<TrackPopularityCell trackId="1" />);
     expect(screen.queryByRole("tooltip")).toBeNull();
 
     act(() => screen.getByRole("img").focus());
@@ -74,8 +74,8 @@ describe("TrackPopularityCell", () => {
   });
 
   it("is a focusable row cell control, so the arrow keys reach it", () => {
-    setScores([[1, 4]]);
-    render(<TrackPopularityCell trackId={1} />);
+    setScores([["1", 4]]);
+    render(<TrackPopularityCell trackId="1" />);
 
     const cell = screen.getByRole("img");
     expect(cell.getAttribute("tabindex")).toBe("-1");
@@ -85,21 +85,21 @@ describe("TrackPopularityCell", () => {
   });
 
   it("says a track with no score has not been played", () => {
-    setScores([[1, 10]]);
-    render(<TrackPopularityCell trackId={99} />);
+    setScores([["1", 10]]);
+    render(<TrackPopularityCell trackId="99" />);
 
     const cell = screen.getByRole("img");
     expect(cell.getAttribute("aria-label")).toBe("Not played yet");
   });
 
   it("updates when the scores change", () => {
-    setScores([[1, 4]]);
-    render(<TrackPopularityCell trackId={1} />);
+    setScores([["1", 4]]);
+    render(<TrackPopularityCell trackId="1" />);
     expect(screen.getByRole("img").getAttribute("aria-label")).toBe(
       "Popularity: 4.0",
     );
 
-    setScores([[1, 9]]);
+    setScores([["1", 9]]);
     expect(screen.getByRole("img").getAttribute("aria-label")).toBe(
       "Popularity: 9.0",
     );

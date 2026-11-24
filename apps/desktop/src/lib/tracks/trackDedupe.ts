@@ -1,4 +1,10 @@
-import { mbidFieldsFrom, type Track, type TrackInput } from "@/types/track";
+import {
+  mbidFieldsFrom,
+  type Track,
+  type TrackInput,
+  type TrackListId,
+} from "@/types/track";
+import { isLibraryTrackId } from "@/lib/import/pendingImportTrack";
 import { compareLocalized } from "@/lib/i18n/appLocale";
 import { t } from "@/lib/i18n/i18n";
 
@@ -17,7 +23,7 @@ export interface ImportDedupeResolution {
 export interface ImportDuplicateContext {
   incoming: TrackInput;
   existing: Track;
-  pendingId: number;
+  pendingId: TrackListId;
   sourcePath: string;
   /** Duplicates still ahead in this import batch (excluding the current one). */
   remainingDuplicates: number;
@@ -95,7 +101,7 @@ export function findTrackAtSourcePath(
   library: Track[],
 ): Track | undefined {
   for (const track of library) {
-    if (track.id <= 0) continue;
+    if (!isLibraryTrackId(track.id)) continue;
     if (sameLibraryFile(track.filePath, sourcePath)) return track;
   }
   return undefined;
@@ -106,7 +112,7 @@ export function findLibraryDuplicate(
   library: Track[],
 ): Track | undefined {
   for (const track of library) {
-    if (track.id <= 0) continue;
+    if (!isLibraryTrackId(track.id)) continue;
     if (tracksAreMetadataDuplicates(incoming, track)) {
       return track;
     }
@@ -118,7 +124,7 @@ export function findLibraryDuplicate(
 function syntheticLibraryTrack(
   metadata: TrackInput,
   sourcePath: string,
-  syntheticId: number,
+  syntheticId: TrackListId,
 ): Track {
   return {
     id: syntheticId,
@@ -152,7 +158,7 @@ export function countRemainingBatchDuplicates(
   fromIndex: number,
   library: Track[],
 ): number {
-  let simulatedLibrary = library.filter((track) => track.id > 0);
+  let simulatedLibrary = library.filter((track) => isLibraryTrackId(track.id));
   let remaining = 0;
 
   for (let j = fromIndex + 1; j < entries.length; j++) {
@@ -163,7 +169,7 @@ export function countRemainingBatchDuplicates(
     } else {
       simulatedLibrary = [
         ...simulatedLibrary,
-        syntheticLibraryTrack(metadata, sourcePath, j + 1),
+        syntheticLibraryTrack(metadata, sourcePath, `synthetic:${j + 1}`),
       ];
     }
   }

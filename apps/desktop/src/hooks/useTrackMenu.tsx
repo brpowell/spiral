@@ -43,9 +43,10 @@ import { usePlayerStore } from "@/store/usePlayerStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";
 import type { Track } from "@/types/track";
 import { useContextMenu } from "./useContextMenu";
+import type { PlaylistId } from "@/types/playlist";
 
 interface UseTrackMenuOptions {
-  playlistId?: number;
+  playlistId?: PlaylistId;
   disabled?: boolean;
 }
 

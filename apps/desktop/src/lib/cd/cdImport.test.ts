@@ -8,7 +8,7 @@ import type { Track } from "@/types/track";
 
 function makeTrack(overrides: Partial<Track> = {}): Track {
   return {
-    id: 42,
+    id: "42",
     title: "Track One",
     artist: "Artist",
     album: "Album",
@@ -98,8 +98,8 @@ describe("cd import cancel store", () => {
     useCdImportStore.getState().setCancelPrompt({
       driveId: "drive-a",
       tracks: [
-        makeTrack({ id: 10, trackNumber: 1 }),
-        makeTrack({ id: 11, trackNumber: 2 }),
+        makeTrack({ id: "10", trackNumber: 1 }),
+        makeTrack({ id: "11", trackNumber: 2 }),
       ],
     });
     useCdImportStore
@@ -123,12 +123,12 @@ describe("cd import cancel store", () => {
     useCdImportStore.getState().startImport("drive-a", [1]);
     useCdImportStore.getState().setCancelPrompt({
       driveId: "drive-a",
-      tracks: [makeTrack({ id: 99 })],
+      tracks: [makeTrack({ id: "99" })],
     });
 
     await useCdImportStore.getState().resolveCancelPrompt("delete");
 
-    expect(removeTracksFromLibrary).toHaveBeenCalledWith([99], true);
+    expect(removeTracksFromLibrary).toHaveBeenCalledWith(["99"], true);
     expect(useCdImportStore.getState().cancelPrompt).toBeNull();
   });
 
@@ -138,7 +138,7 @@ describe("cd import cancel store", () => {
 
     useCdImportStore.getState().setCancelPrompt({
       driveId: "drive-a",
-      tracks: [makeTrack({ id: 5 })],
+      tracks: [makeTrack({ id: "5" })],
     });
     useCdImportStore.getState().startImport("drive-b", [1]);
 

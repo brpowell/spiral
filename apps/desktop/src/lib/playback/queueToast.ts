@@ -1,8 +1,11 @@
 import { queueAddedPayload } from "@/lib/toast/toastPayloads";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
-import type { Track } from "@/types/track";
+import type { Track, TrackListId } from "@/types/track";
 
-export function showQueueAddedToast(ids: number[], library: Track[]): void {
+export function showQueueAddedToast(
+  ids: TrackListId[],
+  library: Track[],
+): void {
   const tracks = ids
     .map((id) => library.find((t) => t.id === id))
     .filter((t): t is Track => t != null);

@@ -4,7 +4,7 @@ import type { Track } from "@/types/track";
 import { RemoveTrackDialog } from "./RemoveTrackDialog";
 
 const track = (id: number, sourceId: number, missingSince?: string) =>
-  ({ id, title: `Song ${id}`, sourceId, missingSince }) as Track;
+  ({ id: String(id), title: `Song ${id}`, sourceId, missingSince }) as Track;
 
 function renderDialog(tracks: Track[]) {
   render(

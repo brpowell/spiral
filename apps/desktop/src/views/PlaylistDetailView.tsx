@@ -24,14 +24,14 @@ import {
 import { useDeletePlaylistDialog } from "@/hooks/useDeletePlaylistDialog";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { usePlaylistStore } from "@/store/usePlaylistStore";
-import type { Playlist } from "@/types/playlist";
+import type { Playlist, PlaylistId } from "@/types/playlist";
 import type { CanonicalRating } from "@/lib/tracks/trackRating";
-import type { Track } from "@/types/track";
+import type { Track, TrackId } from "@/types/track";
 import "./PlaylistDetailView.css";
 import "./DetailViewShared.css";
 
 interface PlaylistDetailViewProps {
-  playlistId: number;
+  playlistId: PlaylistId;
 }
 
 export function PlaylistDetailView({ playlistId }: PlaylistDetailViewProps) {
@@ -100,7 +100,7 @@ function PlaylistDetailContent({ playlist }: { playlist: Playlist }) {
   };
 
   const handleRatingChange = useCallback(
-    (trackId: number, rating: CanonicalRating) => {
+    (trackId: TrackId, rating: CanonicalRating) => {
       const track = usePlayerStore
         .getState()
         .library.find((t) => t.id === trackId);

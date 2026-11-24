@@ -1,10 +1,10 @@
-import type { RepeatMode } from "@/types/track";
+import type { RepeatMode, TrackListId } from "@/types/track";
 
 export function getAutoplayNextId(
-  queue: number[],
-  currentId: number,
+  queue: TrackListId[],
+  currentId: TrackListId,
   mode: RepeatMode,
-): number | null {
+): TrackListId | null {
   if (queue.length === 0) return null;
   const idx = queue.indexOf(currentId);
   if (idx < 0) return queue[0] ?? null;
@@ -15,10 +15,10 @@ export function getAutoplayNextId(
 }
 
 export function getManualNextId(
-  queue: number[],
-  currentId: number,
+  queue: TrackListId[],
+  currentId: TrackListId,
   mode: RepeatMode,
-): number | null {
+): TrackListId | null {
   if (queue.length === 0) return null;
   const idx = queue.indexOf(currentId);
   if (idx < 0) return queue[0] ?? null;
@@ -28,10 +28,10 @@ export function getManualNextId(
 }
 
 export function getManualPreviousId(
-  queue: number[],
-  currentId: number,
+  queue: TrackListId[],
+  currentId: TrackListId,
   mode: RepeatMode,
-): number | null {
+): TrackListId | null {
   if (queue.length === 0) return null;
   const idx = queue.indexOf(currentId);
   if (idx < 0) return queue[queue.length - 1] ?? null;
@@ -62,9 +62,9 @@ function fisherYates<T>(items: T[]): T[] {
 
 /** Shuffle upcoming tracks; current track and already-played tracks keep their order. */
 export function shuffleTrackList(
-  ids: number[],
-  currentId: number | null,
-): number[] {
+  ids: TrackListId[],
+  currentId: TrackListId | null,
+): TrackListId[] {
   if (ids.length <= 1) return [...ids];
   if (currentId === null) return fisherYates(ids);
 
@@ -77,7 +77,10 @@ export function shuffleTrackList(
 }
 
 /** Shuffle a new list while keeping the starting track first. */
-export function shuffleNewTrackList(ids: number[], startId: number): number[] {
+export function shuffleNewTrackList(
+  ids: TrackListId[],
+  startId: TrackListId,
+): TrackListId[] {
   if (ids.length <= 1) return [...ids];
   const rest = ids.filter((id) => id !== startId);
   return [startId, ...fisherYates(rest)];
@@ -90,9 +93,9 @@ export function shuffleNewTrackList(ids: number[], startId: number): number[] {
  * caller keeps the current order.
  */
 export function restoreSequentialOrder(
-  current: number[],
-  sequential: number[] | null,
-): number[] | null {
+  current: TrackListId[],
+  sequential: TrackListId[] | null,
+): TrackListId[] | null {
   if (!sequential || sequential.length !== current.length) return null;
   const currentSet = new Set(current);
   if (currentSet.size !== current.length) return null;

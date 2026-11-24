@@ -4,11 +4,12 @@ import {
   prunePlaybackSession,
   sessionHasContent,
 } from "./playbackSession";
+import { cdTrackListId } from "@/lib/cd/cdTracks";
 import type { PlaybackSession } from "@/types/playbackSession";
 import type { Track } from "@/types/track";
 
 const libraryTrack: Track = {
-  id: 1,
+  id: "1",
   title: "Song",
   artist: "Artist",
   album: "Album",
@@ -38,7 +39,7 @@ describe("parseRepeatMode", () => {
 describe("sessionHasContent", () => {
   it("treats queue, manual queue, or current track as content", () => {
     const session: PlaybackSession = {
-      playContextIds: [1],
+      playContextIds: ["1"],
       manualQueueIds: [],
       currentTrackId: null,
       positionSeconds: 0,
@@ -59,9 +60,9 @@ describe("prunePlaybackSession", () => {
   it("prunes library ids against the loaded library", () => {
     const pruned = prunePlaybackSession(
       {
-        playContextIds: [1, 99],
-        manualQueueIds: [1],
-        currentTrackId: 1,
+        playContextIds: ["1", "99"],
+        manualQueueIds: ["1"],
+        currentTrackId: "1",
         positionSeconds: 10,
         shuffle: true,
         repeatMode: "all",
@@ -70,9 +71,9 @@ describe("prunePlaybackSession", () => {
     );
 
     expect(pruned).toEqual({
-      playContextIds: [1],
-      manualQueueIds: [1],
-      currentTrackId: 1,
+      playContextIds: ["1"],
+      manualQueueIds: ["1"],
+      currentTrackId: "1",
       positionSeconds: 10,
       shuffle: true,
       repeatMode: "all",
@@ -82,9 +83,9 @@ describe("prunePlaybackSession", () => {
   it("drops non-library ids such as CD list ids and pending imports", () => {
     const pruned = prunePlaybackSession(
       {
-        playContextIds: [-1_000_000_001, 1],
-        manualQueueIds: [-1],
-        currentTrackId: -1_000_000_002,
+        playContextIds: [cdTrackListId(1), "1"],
+        manualQueueIds: ["pending:1"],
+        currentTrackId: cdTrackListId(2),
         positionSeconds: 5,
         shuffle: false,
         repeatMode: "off",
@@ -93,7 +94,7 @@ describe("prunePlaybackSession", () => {
     );
 
     expect(pruned).toEqual({
-      playContextIds: [1],
+      playContextIds: ["1"],
       manualQueueIds: [],
       currentTrackId: null,
       positionSeconds: 5,

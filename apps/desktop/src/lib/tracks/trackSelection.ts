@@ -1,19 +1,20 @@
+import type { TrackId, TrackListId } from "@/types/track";
 export interface TrackSelectionModifiers {
   shiftKey: boolean;
   metaKey: boolean;
 }
 
 export interface TrackSelectionResult {
-  selectedIds: number[];
-  anchorId: number | null;
+  selectedIds: TrackListId[];
+  anchorId: TrackListId | null;
 }
 
 /** Apply click selection with optional shift-range and cmd/ctrl toggle. */
 export function applyTrackSelection(
-  clickedId: number,
-  orderedIds: number[],
-  currentIds: number[],
-  anchorId: number | null,
+  clickedId: TrackListId,
+  orderedIds: TrackListId[],
+  currentIds: TrackListId[],
+  anchorId: TrackListId | null,
   modifiers: TrackSelectionModifiers,
 ): TrackSelectionResult {
   if (modifiers.shiftKey && anchorId != null) {
@@ -48,10 +49,10 @@ export function applyTrackSelection(
 
 /** Tracks to act on from context menu: selection if anchor is selected, else the row. */
 export function tracksForContextAction(
-  trackId: number,
-  selectedIds: number[],
-  scopeTrackIds: Set<number>,
-): number[] {
+  trackId: TrackId,
+  selectedIds: TrackListId[],
+  scopeTrackIds: Set<TrackId>,
+): TrackListId[] {
   if (selectedIds.includes(trackId) && selectedIds.length > 1) {
     return selectedIds.filter((id) => scopeTrackIds.has(id));
   }

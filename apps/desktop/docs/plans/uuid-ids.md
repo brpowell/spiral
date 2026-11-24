@@ -13,12 +13,12 @@ The PR ships no sync code.
 - [x] `uuid` crate (`v7` feature) added to the desktop crate
 - [x] Fixture for schema 7 (`tests/fixtures/db/seed/v7.sql`, generated `v7.sql`), with an empty
       playlist and a track listened to twice
-- [x] Migration drafted: `uuid_ids` in `src-tauri/src/db_migrations.rs`, **not registered in
-      `MIGRATIONS`**, so it never runs; its data test is `#[ignore]`d
-- [ ] Rust: switch id types (below)
-- [ ] TypeScript: switch id types (below)
-- [ ] Register `uuid_ids` as version 8, un-ignore its test, run `cargo test --lib db_migrations`
-- [ ] Try it on a copy of a real library (the migration backs up to `Library.db.bak-v7` first)
+- [x] Migration `uuid_ids` in `src-tauri/src/db_migrations.rs`
+- [x] Rust: switch id types (below)
+- [x] TypeScript: switch id types (below)
+- [x] Register `uuid_ids` as version 8, un-ignore its test, run `cargo test --lib db_migrations`
+- [x] Tried on a test library (816 tracks, 50 listens): every row and link kept, and ids sort
+      exactly as the old integer ids did. Not yet tried on a library with playlists.
 
 ## What the migration does
 
@@ -44,38 +44,29 @@ Ids become newtypes over `String`: `TrackId`, `PlaylistId`, `EventId`, so one ki
 passed where another belongs. Each is `#[serde(transparent)]` and implements rusqlite's
 `ToSql`/`FromSql`, so JSON and SQL see a plain string.
 
-- [ ] Add the id newtypes (one module, with `new()` calling `Uuid::now_v7()`)
+- [x] Add the id newtypes (`src-tauri/src/ids.rs`)
 
-- [ ] `models.rs`: `Track.id`, `Playlist.id`, `Playlist.track_ids`, lyrics/listen `track_id`,
-      `event_id`
-- [ ] `db.rs`: every track/playlist/event query; inserts generate ids with `Uuid::now_v7()`
-      instead of reading `last_insert_rowid()` (track insert, playlist create at `db.rs:864`, listen
-      event at `db.rs:383`)
-- [ ] Playlist reorder writes one key between the moved track's new neighbours instead of
-      renumbering (`db.rs:991`); add appends a key after the last one (`db.rs:920`). Playlist
-      sidebar reorder (`db.rs:1025`) and create (`db.rs:838`) do the same. Pick a `fractional_index` crate or port the
-      generator.
-- [ ] `session.rs`: `Vec<i64>` → `Vec<String>`. An old `playback-session.json` holds numbers, so
-      it fails to parse and `read_session` already returns `None`: the app starts with an empty
-      queue. Add a test that an old-format session reads as `None`.
-- [ ] `commands/library.rs`, `commands/playlists.rs`, `commands/lyrics.rs`, `commands/metadata.rs`
-- [ ] `file_plan.rs`, `source_scan.rs`, `sources.rs`, `track_identity.rs`, `popularity.rs`,
-      `rating_sync.rs`, `artwork_*.rs`, `mbid_tags.rs`, `lyrics_normalize.rs`, `lib.rs`
-- [ ] Test helpers that build tracks by hand: `source_test_support.rs`, the `CREATE TABLE tracks`
-      copies in `db.rs` and `artwork_organize.rs` tests
-- [ ] `file_plan.rs:335` and `:1608` order by `id`: still fine (time-ordered), but confirm
+- [x] `models.rs`, `db.rs`: inserts generate ids instead of reading `last_insert_rowid()`
+- [x] Position keys: `src-tauri/src/position_key.rs`, a port of the `fractional-indexing` generator.
+      `position_key::reorder` keeps the keys of the longest run already in order and rekeys only
+      the rest, so moving one track writes one row. Used for playlist tracks and the sidebar.
+- [x] `session.rs`: ids are plain strings (they are the frontend's track list ids, `cd:<n>`
+      included). An old `playback-session.json` holds numbers, fails to parse and reads as `None`;
+      tested.
+- [x] Commands, scan, file plan, identity, popularity, rating sync, artwork, lyrics modules
+- [x] Test helpers and tests. Tests of old migrations (v3, v7) now stop at their own version.
+- [x] `file_plan.rs` orders by `id`: fine, ids are time-ordered
 
 ## TypeScript changes
 
-About 87 source files and 23 test files mention track, playlist or event ids.
-
-- [ ] Types: `types/track.ts`, `types/playlist.ts`, `types/listenEvent.ts`, `types/playable.ts`,
-      `types/playbackSession.ts`, `types/lyrics.ts`, `types/source.ts`: `number` → `string`
-- [ ] `lib/tauri.ts` command signatures
-- [ ] `lib/skin/skinPlaylist.ts:35` parses `playlist:<id>` with `parseInt`
-- [ ] Selection and roving focus (`TrackList/useTrackListRowRoving.ts`), visualizer track
-      (`visualizer/vizTrack.ts`), `hooks/usePopularity.ts`
-- [ ] Anything that sorts, compares or does arithmetic on ids (search `- a.id`, `< b.id`)
+- [x] Types: `TrackId`, `TrackListId` (`types/track.ts`) and `PlaylistId` (`types/playlist.ts`),
+      all `string`
+- [x] Track list ids: library rows use the track's UUID; pending imports are `pending:<n>`
+      (`allocPendingTrackId`), CD rows `cd:<n>` (`cdTrackListId`). `isLibraryTrackId` replaces the
+      old `id > 0` checks.
+- [x] `lib/tauri.ts` command signatures, `skinPlaylist.ts` (`playlist:<id>` no longer parsed as a
+      number), drag reorder (`String(source.id)`), visualizer preview id (`"preview"`)
+- [x] Tests
 
 ## Decisions
 
@@ -83,6 +74,14 @@ About 87 source files and 23 test files mention track, playlist or event ids.
 - A track is in a playlist at most once; no per-entry ids.
 - Ids are Rust newtypes over `String`.
 - Playlist order and sidebar order both use fractional keys in this PR.
+- An id the backend receives as JSON must be a UUID (`ids.rs` deserializes through `TryFrom`), so
+  ids are safe in file names (playlist art is named `<id>-<title>`).
+
+## Known leftovers
+
+- Custom playlist art saved before the migration keeps its `<old int id>-<title>` file name. The
+  stored path still points at it, so it shows; but replacing or removing that art clears files by
+  the new id's prefix, so the old file stays on disk.
 
 ## Checks
 

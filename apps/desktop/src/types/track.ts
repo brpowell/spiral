@@ -8,8 +8,18 @@ export type RepeatMode = "off" | "all" | "one";
 /** Client-only state while a track is staged before copy/save finishes. */
 export type TrackImportStatus = "importing";
 
+/** A library track's id: a UUIDv7 string, the same value the database and sync use. */
+export type TrackId = string;
+
+/**
+ * An id in a track list: a library track's {@link TrackId}, or a synthetic id for a row that
+ * isn't a library track (`pending:<n>` while importing, `cd:<n>` for a disc track).
+ */
+export type TrackListId = string;
+
 export interface Track {
-  id: number;
+  /** A {@link TrackId}, or a synthetic {@link TrackListId} for pending and CD rows. */
+  id: TrackListId;
   title: string;
   artist: string | null;
   album: string | null;

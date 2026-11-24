@@ -1,6 +1,7 @@
 use crate::commands::library::DbState;
 use crate::db;
 use crate::file_scan::scan_folder_paths;
+use crate::ids::TrackId;
 use crate::library_organize;
 use crate::library_paths;
 use crate::lyrics_normalize;
@@ -253,7 +254,7 @@ pub(crate) fn migrate_moved_art_cache(
             continue;
         }
         let old_source_root = sources::join_rel_path(old_root, &stored);
-        let tracks: Vec<(i64, String, String)> = conn
+        let tracks: Vec<(TrackId, String, String)> = conn
             .prepare(
                 "SELECT id, rel_path, art_path FROM tracks
                  WHERE source_id = ?1 AND art_path IS NOT NULL",
@@ -351,7 +352,7 @@ fn index_audio_in_sources(app: &AppHandle, state: &DbState, root: &Path) -> Resu
         };
         match db::save_track(&conn, &input, source_id) {
             Ok(id) => {
-                if let Err(e) = lyrics_normalize::persist_import_lyrics(&conn, id, &input.lyrics) {
+                if let Err(e) = lyrics_normalize::persist_import_lyrics(&conn, &id, &input.lyrics) {
                     eprintln!("fresh import lyrics for {path}: {e}");
                 }
                 imported = imported.saturating_add(1);

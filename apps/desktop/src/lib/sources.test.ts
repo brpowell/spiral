@@ -87,7 +87,7 @@ describe("source commands", () => {
   it("keep each track's source and missing mark from the library", async () => {
     vi.mocked(invoke).mockResolvedValue([
       {
-        id: 1,
+        id: "1",
         title: "A",
         filePath: "/m/a.mp3",
         dateAdded: "2026-01-01",
@@ -95,7 +95,7 @@ describe("source commands", () => {
         missingSince: "2026-10-01T12:00:00Z",
       },
       {
-        id: 2,
+        id: "2",
         title: "B",
         file_path: "/m/b.mp3",
         date_added: "2026-01-01",

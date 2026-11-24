@@ -1,5 +1,5 @@
 import type { PlayableRef } from "@/types/playable";
-import type { RepeatMode } from "@/types/track";
+import type { RepeatMode, TrackListId } from "@/types/track";
 import { rampDeckGain, setDeckGain, type DeckId } from "./deckGain";
 import {
   canCrossfade,
@@ -73,12 +73,12 @@ export interface DualDeckEngine {
 
 export interface CrossfadeHandoff {
   incomingPlayable: PlayableRef;
-  incomingTrackListId: number;
+  incomingTrackListId: TrackListId;
 }
 
 export interface CrossfadeVisualState {
-  outgoingTrackId: number;
-  incomingTrackId: number;
+  outgoingTrackId: TrackListId;
+  incomingTrackId: TrackListId;
   /** Linear 0–1 over the full crossfade window (matches audio gain ramps). */
   progress: number;
 }
@@ -86,11 +86,11 @@ export interface CrossfadeVisualState {
 export interface CrossfadeScheduleContext {
   crossfadeSeconds: number;
   currentPlayable: PlayableRef;
-  currentTrackId: number;
+  currentTrackId: TrackListId;
   currentSource: PlaybackSource;
   nextPlayable: PlayableRef;
   nextSource: PlaybackSource;
-  nextTrackId: number;
+  nextTrackId: TrackListId;
   repeatMode: RepeatMode;
   volume: number;
   muted: boolean;
@@ -143,7 +143,7 @@ export class CrossfadeController {
   private fadeDurationSec = 0;
   private dominantTrackPromoted = false;
   /** Incoming target while preloading (before activeFadeContext is set). */
-  private pendingIncomingTrackId: number | null = null;
+  private pendingIncomingTrackId: TrackListId | null = null;
   private onEndCallback: (() => void) | null = null;
   private onCdErrorCallback: ((error: CdPlaybackStreamError) => void) | null =
     null;
@@ -158,7 +158,7 @@ export class CrossfadeController {
    * (a dropped network share). Not preloaded again on every position tick;
    * cleared when a track is loaded.
    */
-  private failedIncomingTrackId: number | null = null;
+  private failedIncomingTrackId: TrackListId | null = null;
   /** True while a dual-deck fade is frozen by pause (timers cleared, gains held). */
   private fadePaused = false;
 
@@ -212,7 +212,7 @@ export class CrossfadeController {
   }
 
   /** Target track of an in-flight handoff (preload, fade, or gapless wait), if any. */
-  getCrossfadeIncomingTrackId(): number | null {
+  getCrossfadeIncomingTrackId(): TrackListId | null {
     if (
       this.fadeState !== "preloading" &&
       this.fadeState !== "fading" &&

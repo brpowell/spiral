@@ -6,11 +6,12 @@ import type {
   ListenEventPayload,
   ListenUiMode,
 } from "@/types/listenEvent";
+import type { TrackId } from "@/types/track";
 
 export type { ListenCompletion, ListenEventPayload, ListenUiMode };
 
 interface ActiveListen {
-  trackId: number;
+  trackId: TrackId;
   startedAt: string;
   trackDurationSeconds: number | null;
   librarySeconds: number;
@@ -103,7 +104,7 @@ export function setSkinModeSessionActive(nextActive: boolean): void {
   switchListenUiModeBucket();
 }
 
-export function getActiveListenTrackId(): number | null {
+export function getActiveListenTrackId(): TrackId | null {
   return active?.trackId ?? null;
 }
 
@@ -177,7 +178,7 @@ function snapshotAppearance(): Pick<
  * (caller should persist that payload). Returns the previous payload if any.
  */
 export function openListen(
-  trackId: number,
+  trackId: TrackId,
   trackDurationSeconds: number | null,
   isPlaying: boolean,
 ): ListenEventPayload | null {

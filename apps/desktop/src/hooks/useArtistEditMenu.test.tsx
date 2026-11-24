@@ -10,7 +10,7 @@ import { useArtistEditMenu } from "./useArtistEditMenu";
 const artist = {
   key: "a",
   name: "A",
-  tracks: [{ id: 7 }, { id: 3 }] as Track[],
+  tracks: [{ id: "7" }, { id: "3" }] as Track[],
 } as Artist;
 
 function Harness({ value }: { value: Artist }) {
@@ -45,7 +45,7 @@ describe("useArtistEditMenu", () => {
     render(<Harness value={artist} />);
     openMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Play All" }));
-    expect(playTracks).toHaveBeenCalledWith([7, 3], 7);
+    expect(playTracks).toHaveBeenCalledWith(["7", "3"], "7");
   });
 
   it("hides play all for an artist without tracks", () => {
@@ -58,7 +58,9 @@ describe("useArtistEditMenu", () => {
     const addTracksToPlaylist = vi.fn().mockResolvedValue(undefined);
     usePlayerStore.setState({ library: artist.tracks });
     usePlaylistStore.setState({
-      playlists: [{ id: 9, title: "Mix", trackIds: [] } as unknown as Playlist],
+      playlists: [
+        { id: "9", title: "Mix", trackIds: [] } as unknown as Playlist,
+      ],
       addTracksToPlaylist,
     });
     render(<Harness value={artist} />);
@@ -68,7 +70,7 @@ describe("useArtistEditMenu", () => {
     );
     fireEvent.click(screen.getAllByRole("menuitem", { name: "Mix" })[0]);
     await waitFor(() =>
-      expect(addTracksToPlaylist).toHaveBeenCalledWith(9, [7, 3]),
+      expect(addTracksToPlaylist).toHaveBeenCalledWith("9", ["7", "3"]),
     );
   });
 });
@@ -90,7 +92,7 @@ describe("remove from library", () => {
       screen.getByRole("button", { name: "Remove from library" }),
     );
     await waitFor(() =>
-      expect(removeTracksFromLibrary).toHaveBeenCalledWith([7, 3], false),
+      expect(removeTracksFromLibrary).toHaveBeenCalledWith(["7", "3"], false),
     );
   });
 });

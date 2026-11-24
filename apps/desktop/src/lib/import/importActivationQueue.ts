@@ -1,4 +1,4 @@
-import type { Track } from "@/types/track";
+import type { Track, TrackListId } from "@/types/track";
 import {
   isUserScrolling,
   waitForPaint,
@@ -7,7 +7,7 @@ import {
 import { usePlayerStore } from "@/store/usePlayerStore";
 
 interface QueuedActivation {
-  pendingId: number;
+  pendingId: TrackListId;
   track: Track;
 }
 
@@ -15,7 +15,7 @@ const MAX_SCROLL_DEFER_MS = 450;
 const MIN_BATCH_INTERVAL_MS = 120;
 
 const activationQueue: QueuedActivation[] = [];
-const removalQueue: number[] = [];
+const removalQueue: TrackListId[] = [];
 
 let flushScheduled = false;
 let queueEpoch = 0;
@@ -84,14 +84,14 @@ export function resetImportActivationQueue(): void {
 }
 
 export function queueImportedTrackActivation(
-  pendingId: number,
+  pendingId: TrackListId,
   track: Track,
 ): void {
   activationQueue.push({ pendingId, track });
   scheduleFlush();
 }
 
-export function queuePendingImportRemoval(pendingId: number): void {
+export function queuePendingImportRemoval(pendingId: TrackListId): void {
   removalQueue.push(pendingId);
   scheduleFlush();
 }

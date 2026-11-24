@@ -9,6 +9,7 @@ import type {
   BackgroundTaskSettleAsOptions,
   ShowToastOptions,
 } from "@/store/useBackgroundTasksStore";
+import type { TrackId } from "@/types/track";
 
 /** Shared toast option shape for production helpers and Toast Lab presets. */
 export type ToastPayload = ShowToastOptions;
@@ -585,9 +586,9 @@ export function lyricsNoneMissingPayload(options?: {
 
 export function lyricsAmbiguousPayload(
   title: string,
-  options?: { dismissMs?: number | null; trackId?: number },
+  options?: { dismissMs?: number | null; trackId?: TrackId },
 ): ToastPayload {
-  const settle = lyricsAmbiguousSettleOptions(title, options?.trackId ?? 0);
+  const settle = lyricsAmbiguousSettleOptions(title, options?.trackId ?? "");
   return withOptionalDismiss(
     {
       key: "lyrics-fetch-bulk",

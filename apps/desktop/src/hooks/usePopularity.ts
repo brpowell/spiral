@@ -5,6 +5,7 @@ import {
 } from "@/lib/popularity/popularity";
 import type { PopularityProfile } from "@/lib/popularity/profiles";
 import { usePopularityStore } from "@/store/usePopularityStore";
+import type { TrackId } from "@/types/track";
 
 const NO_SCORES: TrackScores = new Map();
 
@@ -38,7 +39,7 @@ export function usePopularity(
 /** One track's raw popularity score (0 when it has no listening signal). */
 export function usePopularityScore(
   profile: PopularityProfile,
-  trackId: number,
+  trackId: TrackId,
 ): number {
   return usePopularityStore(
     (state) => state.scores[profile]?.get(trackId) ?? 0,
@@ -52,7 +53,7 @@ export function usePopularityScore(
  */
 export function usePopularityFraction(
   profile: PopularityProfile,
-  trackId: number,
+  trackId: TrackId,
 ): number {
   return usePopularityStore((state) =>
     popularityFraction(

@@ -36,7 +36,7 @@ const bindState = {
   canGoPrevious: true,
   canGoNext: true,
   activeQueueLength: 1,
-  currentTrackId: 1,
+  currentTrackId: "1",
   alwaysOnTop: false,
   currentPlayable: null,
   visualizerName: "Bars",

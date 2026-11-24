@@ -3,7 +3,7 @@ import {
   playbackFilesMissingPayload,
 } from "@/lib/toast/toastPayloads";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
-import type { Track } from "@/types/track";
+import type { Track, TrackId } from "@/types/track";
 
 export function showPlaybackFileMissingToast(
   track: Pick<Track, "title" | "sourceOffline">,
@@ -17,7 +17,7 @@ export function showPlaybackFileMissingToast(
 const SKIP_RUN_MS = 2000;
 
 let skipRun: {
-  trackIds: Set<number>;
+  trackIds: Set<TrackId>;
   lastSkipAt: number;
   /** Every track skipped so far was in an offline music folder. */
   allSourceOffline: boolean;

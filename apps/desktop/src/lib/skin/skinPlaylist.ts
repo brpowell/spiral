@@ -6,8 +6,8 @@ import {
   resolvePlaylistTracks,
   sortedPlaylists,
 } from "@/lib/playlists/playlists";
-import type { Playlist } from "@/types/playlist";
-import type { Track } from "@/types/track";
+import type { Playlist, PlaylistId } from "@/types/playlist";
+import type { Track, TrackListId } from "@/types/track";
 
 export const SKIN_PLAYLIST_SOURCE_ALL = "all";
 export const SKIN_PLAYLIST_SOURCE_UP_NEXT = "upNext";
@@ -17,13 +17,13 @@ export interface SkinPlaylistSourceOption {
   label: string;
 }
 
-export function playlistSourceIdForPlaylist(playlistId: number): string {
+export function playlistSourceIdForPlaylist(playlistId: PlaylistId): string {
   return `playlist:${playlistId}`;
 }
 
 export function parsePlaylistSourceId(sourceId: string): {
   kind: "all" | "upNext" | "playlist";
-  playlistId?: number;
+  playlistId?: PlaylistId;
 } {
   if (sourceId === SKIN_PLAYLIST_SOURCE_ALL) {
     return { kind: "all" };
@@ -32,8 +32,8 @@ export function parsePlaylistSourceId(sourceId: string): {
     return { kind: "upNext" };
   }
   if (sourceId.startsWith("playlist:")) {
-    const playlistId = Number.parseInt(sourceId.slice("playlist:".length), 10);
-    if (Number.isFinite(playlistId)) {
+    const playlistId = sourceId.slice("playlist:".length);
+    if (playlistId) {
       return { kind: "playlist", playlistId };
     }
   }
@@ -73,9 +73,9 @@ export interface SkinPlaylistTrackContext {
   library: Track[];
   playbackTracks: Track[];
   cdQueueTracks?: Track[];
-  playContextIds: number[];
-  manualQueueIds: number[];
-  currentTrackId: number | null;
+  playContextIds: TrackListId[];
+  manualQueueIds: TrackListId[];
+  currentTrackId: TrackListId | null;
   playlists: Playlist[];
   /** Case-insensitive substring filter (title / artist / album / genre). */
   filterQuery?: string;
@@ -95,9 +95,9 @@ function trackMatchesSkinPlaylistFilter(track: Track, query: string): boolean {
 }
 
 function applySkinPlaylistFilter(
-  ids: number[],
+  ids: TrackListId[],
   ctx: SkinPlaylistTrackContext,
-): number[] {
+): TrackListId[] {
   const needle = ctx.filterQuery?.trim() ?? "";
   if (!needle) return ids;
   return ids.filter((id) => {
@@ -114,7 +114,7 @@ function applySkinPlaylistFilter(
 export function resolveSkinPlaylistTrackIds(
   sourceId: string,
   ctx: SkinPlaylistTrackContext,
-): number[] {
+): TrackListId[] {
   const { kind, playlistId } = parsePlaylistSourceId(sourceId);
 
   if (kind === "all") {
@@ -187,7 +187,7 @@ export function resolveSkinPlaylistTrackCount(
 export function resolveIdlePlaybackTrackIds(
   sourceId: string,
   ctx: SkinPlaylistTrackContext,
-): number[] {
+): TrackListId[] {
   const fromSource = resolveSkinPlaylistTrackIds(sourceId, ctx);
   if (fromSource.length > 0) return fromSource;
   if (sourceId === SKIN_PLAYLIST_SOURCE_ALL) return [];

@@ -1,3 +1,5 @@
+import type { TrackId } from "./track";
+
 /** How a library listen closed. */
 export type ListenCompletion = "natural_end" | "skipped" | "interrupted";
 
@@ -6,7 +8,7 @@ export type ListenUiMode = "library" | "skin";
 
 /** Payload written via `record_listen_event`. */
 export interface ListenEventPayload {
-  trackId: number;
+  trackId: TrackId;
   startedAt: string;
   endedAt: string;
   listenedSeconds: number;

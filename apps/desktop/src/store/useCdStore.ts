@@ -45,6 +45,7 @@ import {
 import { useLibrarySettingsStore } from "./useLibrarySettingsStore";
 import { useNavigationStore } from "./useNavigationStore";
 import { usePlayerStore } from "./usePlayerStore";
+import type { TrackListId } from "@/types/track";
 
 interface CdState {
   drives: CdDrive[];
@@ -63,7 +64,7 @@ interface CdState {
   cdtextAttemptedDriveIds: Set<string>;
   ejectingDriveIds: Set<string>;
   /** Synthetic CD track list ids currently open in CdTrackEditor. */
-  editingCdTrackIds: number[];
+  editingCdTrackIds: TrackListId[];
   editingCdDriveId: string | null;
   editingCdAlbumDriveId: string | null;
   cdAlbumEditorInitialTab: "details" | "art" | "musicbrainz";
@@ -91,7 +92,10 @@ interface CdState {
   confirmMetadataFetch: (driveId: string, remember: boolean) => void;
   cancelMetadataFetch: (driveId: string, remember: boolean) => void;
   setHeroArt: (driveId: string, artPath: string | null) => void;
-  openCdTrackEditor: (driveId: string, ids: number | number[]) => void;
+  openCdTrackEditor: (
+    driveId: string,
+    ids: TrackListId | TrackListId[],
+  ) => void;
   closeCdTrackEditor: () => void;
   openCdAlbumEditor: (
     driveId: string,

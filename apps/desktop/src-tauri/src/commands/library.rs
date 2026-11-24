@@ -4,6 +4,7 @@ use crate::db;
 use crate::encoding_profiles;
 use crate::fs_move;
 use crate::fs_probe::{self, Probed};
+use crate::ids::TrackId;
 use crate::import_files;
 use crate::library_organize::{self, OrganizeMetadata};
 use crate::lyrics_normalize;
@@ -35,7 +36,7 @@ fn library_root(app: &AppHandle) -> PathBuf {
 pub(crate) fn track_for_ui(
     conn: &rusqlite::Connection,
     library_root: &Path,
-    track_id: i64,
+    track_id: &TrackId,
 ) -> Result<Track, String> {
     let mut track = db::get_track_by_id(conn, track_id)
         .map_err(|e| e.to_string())?
@@ -205,11 +206,11 @@ pub fn save_track(
         eprintln!("save_track error: {e}");
         e.to_string()
     })?;
-    lyrics_normalize::persist_import_lyrics(&conn, id, &track.lyrics).map_err(|e| {
+    lyrics_normalize::persist_import_lyrics(&conn, &id, &track.lyrics).map_err(|e| {
         eprintln!("persist_import_lyrics error: {e}");
         e.to_string()
     })?;
-    track_for_ui(&conn, &root, id)
+    track_for_ui(&conn, &root, &id)
 }
 
 #[tauri::command]
@@ -335,7 +336,7 @@ pub fn record_listen_event(
 ) -> Result<RecordListenEventResult, String> {
     let mut conn = state.0.lock().map_err(|e| e.to_string())?;
     if !settings::listening_history_enabled(&app) {
-        return db::skip_listen_event_recording(&conn, event.track_id).map_err(|e| {
+        return db::skip_listen_event_recording(&conn, &event.track_id).map_err(|e| {
             eprintln!("skip_listen_event_recording error: {e}");
             e.to_string()
         });
@@ -379,9 +380,10 @@ pub fn set_track_rating(
     app: AppHandle,
     state: State<DbState>,
     rating_sync: State<RatingSync>,
-    track_id: i64,
+    track_id: TrackId,
     rating: u8,
 ) -> Result<u8, String> {
+    let track_id = &track_id;
     let (saved_rating, file_path) = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
         save_rating(&conn, track_id, rating)?
@@ -396,7 +398,7 @@ pub fn set_track_rating(
 /// write the rating tag to.
 fn save_rating(
     conn: &rusqlite::Connection,
-    track_id: i64,
+    track_id: &TrackId,
     rating: u8,
 ) -> Result<(u8, String), String> {
     let saved_rating = db::set_track_rating(conn, track_id, rating).map_err(|e| {
@@ -435,9 +437,10 @@ pub enum RemovedFile {
 pub fn remove_track(
     app: AppHandle,
     state: State<DbState>,
-    track_id: i64,
+    track_id: TrackId,
     delete_from_disk: bool,
 ) -> Result<RemovedFile, String> {
+    let track_id = &track_id;
     let sidecar_enabled = settings::lyrics_sidecar_sync_enabled(&app);
     let (track, file) =
         remove_track_and_file(&state.0, track_id, delete_from_disk, sidecar_enabled)?;
@@ -466,7 +469,7 @@ pub fn remove_track(
 /// would freeze every library command.
 fn remove_track_and_file(
     db: &Mutex<rusqlite::Connection>,
-    track_id: i64,
+    track_id: &TrackId,
     delete_from_disk: bool,
     sidecar_enabled: bool,
 ) -> Result<(Track, RemovedFile), String> {
@@ -519,7 +522,7 @@ struct FileRemoval {
     /// answering isn't taken to mean the file is gone.
     source_root: Option<PathBuf>,
     /// Other rows whose file name matches, confirmed on disk before trashing.
-    namesakes: Vec<(i64, PathBuf)>,
+    namesakes: Vec<(TrackId, PathBuf)>,
 }
 
 /// `None` when the track was marked missing: its path can't be trusted to name
@@ -536,7 +539,7 @@ fn plan_file_removal(
     let source_root = sources::SourceRoots::load(conn)?
         .root(track.source_id)
         .map(Path::to_path_buf);
-    let namesakes = track_identity::rows_named_like(conn, &audio_path, track.id)?;
+    let namesakes = track_identity::rows_named_like(conn, &audio_path, &track.id)?;
     Ok(Some(FileRemoval {
         audio_path,
         source_root,
@@ -621,7 +624,7 @@ fn replacement_destination(
 /// lyrics sidecar. A file another track row still names stays on disk.
 fn remove_superseded_file(
     conn: &rusqlite::Connection,
-    track_id: i64,
+    track_id: &TrackId,
     source_root: Option<&Path>,
     old_path: &Path,
     sidecar_enabled: bool,
@@ -688,7 +691,7 @@ fn replace_with(
 fn adopt_replacement(
     conn: &rusqlite::Connection,
     roots: &LibraryRoots,
-    track_id: i64,
+    track_id: &TrackId,
     new_path: &Path,
     merge: bool,
     metadata: &TrackMetadataUpdate,
@@ -699,7 +702,7 @@ fn adopt_replacement(
         for other in track_identity::other_rows_for_file(&tx, new_path, track_id)
             .map_err(|e| e.to_string())?
         {
-            track_identity::merge_into(&tx, track_id, other).map_err(|e| e.to_string())?;
+            track_identity::merge_into(&tx, track_id, &other).map_err(|e| e.to_string())?;
         }
     }
     db::update_track(
@@ -742,7 +745,7 @@ fn adopt_replacement(
 #[tauri::command]
 pub async fn replace_track_from_import(
     app: AppHandle,
-    track_id: i64,
+    track_id: TrackId,
     source_path: String,
     track: TrackInput,
 ) -> Result<Track, String> {
@@ -755,14 +758,14 @@ pub async fn replace_track_from_import(
         replace_track_file(
             &state.0,
             &LibraryRoots::from_settings(&resolved),
-            track_id,
+            &track_id,
             Path::new(&source_path),
             &track,
             settings::lyrics_sidecar_sync_enabled(&app),
             app.path().app_data_dir().ok().as_deref(),
         )?;
         let conn = state.0.lock().map_err(|e| e.to_string())?;
-        track_for_ui(&conn, Path::new(&resolved.library_root), track_id)
+        track_for_ui(&conn, Path::new(&resolved.library_root), &track_id)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -773,7 +776,7 @@ pub async fn replace_track_from_import(
 fn replace_track_file(
     db: &Mutex<rusqlite::Connection>,
     roots: &LibraryRoots,
-    track_id: i64,
+    track_id: &TrackId,
     incoming: &Path,
     track: &TrackInput,
     sidecar_enabled: bool,
@@ -913,7 +916,7 @@ fn build_convert_dest_path(
 /// Write under the destination source's folder so the final relocate is
 /// same-volume when possible (`std::env::temp_dir()` is often a different
 /// mount on Linux, e.g. tmpfs `/tmp`). Scans and watchers skip hidden folders.
-fn convert_temp_path(source_root: &Path, track_id: i64, extension: &str) -> PathBuf {
+fn convert_temp_path(source_root: &Path, track_id: &TrackId, extension: &str) -> PathBuf {
     source_root
         .join(".spiral-convert")
         .join(format!("{track_id}.{extension}"))
@@ -922,12 +925,12 @@ fn convert_temp_path(source_root: &Path, track_id: i64, extension: &str) -> Path
 #[tauri::command]
 pub async fn convert_track(
     app: AppHandle,
-    track_id: i64,
+    track_id: TrackId,
     profile_id: String,
     mode: String,
 ) -> Result<Track, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        convert_track_impl(&app, track_id, &profile_id, &mode)
+        convert_track_impl(&app, &track_id, &profile_id, &mode)
     })
     .await
     .map_err(|err| err.to_string())?
@@ -943,14 +946,10 @@ pub fn get_convert_profile_options(
 
 fn convert_track_impl(
     app: &AppHandle,
-    track_id: i64,
+    track_id: &TrackId,
     profile_id: &str,
     mode: &str,
 ) -> Result<Track, String> {
-    if track_id <= 0 {
-        return Err("Cannot convert a track that is still importing".to_string());
-    }
-
     if mode != "replace" && mode != "add_new" {
         return Err(format!("Invalid convert mode: {mode}"));
     }
@@ -1037,7 +1036,7 @@ fn convert_track_impl(
             eprintln!("convert_track save_track error: {e}");
             e.to_string()
         })?;
-        return track_for_ui(&conn, &root, id);
+        return track_for_ui(&conn, &root, &id);
     }
 
     let old_path = PathBuf::from(&existing.file_path);
@@ -1092,7 +1091,7 @@ mod tests {
 
     fn sample_track(file_path: &str) -> Track {
         Track {
-            id: 1,
+            id: TrackId::from("1"),
             title: "Example Song".into(),
             artist: Some("Example Artist".into()),
             album: Some("Example Album".into()),
@@ -1165,10 +1164,10 @@ mod tests {
             let conn = conn();
             let t = default_source_tracks(&conn);
             for (id, path) in [(t.managed, "/managed/m.mp3"), (t.user, "/user/u.mp3")] {
-                let (saved, file) = save_rating(&conn, id, 80).unwrap();
+                let (saved, file) = save_rating(&conn, &id, 80).unwrap();
                 assert_eq!(file, path);
                 assert_eq!(
-                    db::get_track_by_id(&conn, id).unwrap().unwrap().rating,
+                    db::get_track_by_id(&conn, &id).unwrap().unwrap().rating,
                     saved
                 );
             }
@@ -1182,7 +1181,7 @@ mod tests {
             (audio, sidecar)
         }
 
-        fn track_in(conn: &rusqlite::Connection, id: i64) -> Track {
+        fn track_in(conn: &rusqlite::Connection, id: &TrackId) -> Track {
             db::get_track_by_id(conn, id).unwrap().unwrap()
         }
 
@@ -1199,7 +1198,7 @@ mod tests {
             let b = insert_track(&conn, "Sub/b.mp3", loose_id);
 
             // Organized without its own format: Spiral's built-in one.
-            let (target, folder) = replacement_destination(&conn, &track_in(&conn, a)).unwrap();
+            let (target, folder) = replacement_destination(&conn, &track_in(&conn, &a)).unwrap();
             assert_eq!(target.source_id, organized_id);
             assert_eq!(
                 target.path_format.as_deref(),
@@ -1214,11 +1213,11 @@ mod tests {
                 Some("{title}.{ext}".into()),
             )
             .unwrap();
-            let (target, _) = replacement_destination(&conn, &track_in(&conn, a)).unwrap();
+            let (target, _) = replacement_destination(&conn, &track_in(&conn, &a)).unwrap();
             assert_eq!(target.path_format.as_deref(), Some("{title}.{ext}"));
 
             // Not organized: the replacement lands beside the old file.
-            let (target, folder) = replacement_destination(&conn, &track_in(&conn, b)).unwrap();
+            let (target, folder) = replacement_destination(&conn, &track_in(&conn, &b)).unwrap();
             assert_eq!((target.source_id, target.path_format), (loose_id, None));
             assert_eq!(folder, loose);
         }
@@ -1229,11 +1228,11 @@ mod tests {
             let conn = conn();
             let gone = add_user_source(&conn, &tmp.0.join("Unplugged"));
             let u = insert_track(&conn, "u.mp3", gone);
-            assert!(replacement_destination(&conn, &track_in(&conn, u)).is_err());
+            assert!(replacement_destination(&conn, &track_in(&conn, &u)).is_err());
         }
 
         /// Remove a track's row the way `remove_track` does, returning it.
-        fn remove_row(conn: &rusqlite::Connection, id: i64) -> Track {
+        fn remove_row(conn: &rusqlite::Connection, id: &TrackId) -> Track {
             let track = track_in(conn, id);
             db::delete_track(conn, id).unwrap();
             track
@@ -1268,7 +1267,7 @@ mod tests {
             let source = add_user_source(&db.lock().unwrap(), &tmp.0);
             let id = insert_track(&db.lock().unwrap(), "song.mp3", source);
 
-            let (_, file) = remove_track_and_file(&db, id, true, true).unwrap();
+            let (_, file) = remove_track_and_file(&db, &id, true, true).unwrap();
             assert_eq!(file, RemovedFile::Trashed);
             assert!(!audio.exists() && !sidecar.exists());
             assert!(remembered(&db, source).is_empty());
@@ -1281,7 +1280,7 @@ mod tests {
             let source = add_user_source(&db.lock().unwrap(), &tmp.0);
             let id = insert_track(&db.lock().unwrap(), "gone.mp3", source);
 
-            let (_, file) = remove_track_and_file(&db, id, true, true).unwrap();
+            let (_, file) = remove_track_and_file(&db, &id, true, true).unwrap();
             assert_eq!(file, RemovedFile::NotFound);
             assert!(remembered(&db, source).is_empty());
         }
@@ -1297,13 +1296,13 @@ mod tests {
             let started = std::time::Instant::now();
             let (_, file) = {
                 let _stall = crate::fs_probe::stall_dir(&tmp.0);
-                remove_track_and_file(&db, id, true, true).unwrap()
+                remove_track_and_file(&db, &id, true, true).unwrap()
             };
             assert!(started.elapsed() < std::time::Duration::from_millis(500));
             assert_eq!(file, RemovedFile::KeptUnreachable);
             assert!(audio.is_file() && sidecar.is_file());
             assert_eq!(remembered(&db, source), ["song.mp3"]);
-            assert!(db::get_track_by_id(&db.lock().unwrap(), id)
+            assert!(db::get_track_by_id(&db.lock().unwrap(), &id)
                 .unwrap()
                 .is_none());
         }
@@ -1318,7 +1317,7 @@ mod tests {
 
             let (_, file) = {
                 let _stall = crate::fs_probe::stall_file(&audio);
-                remove_track_and_file(&db, id, true, true).unwrap()
+                remove_track_and_file(&db, &id, true, true).unwrap()
             };
             assert_eq!(file, RemovedFile::KeptUnreachable);
             assert!(audio.is_file());
@@ -1333,7 +1332,7 @@ mod tests {
             let source = add_user_source(&db.lock().unwrap(), &tmp.0);
             let id = insert_track(&db.lock().unwrap(), "song.mp3", source);
 
-            let (_, file) = remove_track_and_file(&db, id, false, true).unwrap();
+            let (_, file) = remove_track_and_file(&db, &id, false, true).unwrap();
             assert_eq!(file, RemovedFile::NotRequested);
             assert!(audio.is_file());
             assert_eq!(remembered(&db, source), ["song.mp3"]);
@@ -1355,7 +1354,7 @@ mod tests {
             ];
 
             for (id, (audio, sidecar)) in ids.iter().zip(&files) {
-                let track = remove_row(&conn, *id);
+                let track = remove_row(&conn, id);
                 assert_eq!(
                     delete_removed_track_file(&conn, &track, true).unwrap(),
                     RemovedFile::Trashed
@@ -1374,10 +1373,10 @@ mod tests {
             let id = insert_track(&conn, "song.mp3", source);
             conn.execute(
                 "UPDATE tracks SET missing_since = 'then' WHERE id = ?1",
-                [id],
+                [&id],
             )
             .unwrap();
-            let track = remove_row(&conn, id);
+            let track = remove_row(&conn, &id);
             assert_eq!(
                 delete_removed_track_file(&conn, &track, true).unwrap(),
                 RemovedFile::KeptMissing
@@ -1396,7 +1395,7 @@ mod tests {
             let a = insert_track(&conn, "song.mp3", user);
             insert_track(&conn, "SONG.mp3", user);
 
-            let track = remove_row(&conn, a);
+            let track = remove_row(&conn, &a);
             assert_eq!(
                 delete_removed_track_file(&conn, &track, true).unwrap(),
                 RemovedFile::KeptShared
@@ -1404,7 +1403,7 @@ mod tests {
             assert!(audio.is_file() && sidecar.is_file());
 
             // The same file is kept when a replace supersedes it.
-            remove_superseded_file(&conn, a, Some(&tmp.0), &audio, true);
+            remove_superseded_file(&conn, &a, Some(&tmp.0), &audio, true);
             assert!(audio.is_file() && sidecar.is_file());
         }
 
@@ -1417,7 +1416,7 @@ mod tests {
             struct Library {
                 tmp: TempDir,
                 db: Mutex<rusqlite::Connection>,
-                track: i64,
+                track: TrackId,
                 old: PathBuf,
                 incoming: PathBuf,
                 a: i64,
@@ -1450,11 +1449,11 @@ mod tests {
                     file_path: incoming.to_string_lossy().into_owned(),
                     ..Default::default()
                 };
-                replace_track_file(&lib.db, &roots, lib.track, incoming, &input, true, None)
+                replace_track_file(&lib.db, &roots, &lib.track, incoming, &input, true, None)
                     .unwrap();
             }
 
-            fn track_ids(conn: &rusqlite::Connection) -> Vec<i64> {
+            fn track_ids(conn: &rusqlite::Connection) -> Vec<TrackId> {
                 let mut stmt = conn.prepare("SELECT id FROM tracks ORDER BY id").unwrap();
                 stmt.query_map([], |row| row.get(0))
                     .unwrap()
@@ -1478,9 +1477,9 @@ mod tests {
                 replace(&lib, &lib.incoming);
 
                 let conn = lib.db.lock().unwrap();
-                let track = track_in(&conn, lib.track);
+                let track = track_in(&conn, &lib.track);
                 // The same track, now at A's file: no copy, one row.
-                assert_eq!(track_ids(&conn), vec![lib.track]);
+                assert_eq!(track_ids(&conn), vec![lib.track.clone()]);
                 assert_eq!(Path::new(&track.file_path), lib.incoming);
                 assert_eq!(track.source_id, lib.a);
                 assert_eq!(track.missing_since, None);
@@ -1501,36 +1500,36 @@ mod tests {
                     let scanned = insert_track(&conn, "new.wav", lib.a);
                     conn.execute(
                         "UPDATE tracks SET play_count = 2 WHERE id = ?1",
-                        [lib.track],
+                        [&lib.track],
                     )
                     .unwrap();
-                    conn.execute("UPDATE tracks SET play_count = 3 WHERE id = ?1", [scanned])
+                    conn.execute("UPDATE tracks SET play_count = 3 WHERE id = ?1", [&scanned])
                         .unwrap();
-                    conn.execute(
-                        "INSERT INTO playlists (title, date_created, last_used_at)
-                         VALUES ('Mix', 'now', 'now')",
-                        [],
+                    let playlist = db::create_playlist(
+                        &conn,
+                        "Mix",
+                        None,
+                        crate::models::PlaylistImageMode::Generated,
+                        None,
+                        None,
+                        None,
+                        None,
                     )
                     .unwrap();
-                    conn.execute(
-                        "INSERT INTO playlist_tracks (playlist_id, track_id, position)
-                         VALUES (last_insert_rowid(), ?1, 0)",
-                        [scanned],
-                    )
-                    .unwrap();
+                    db::add_tracks_to_playlist(&conn, &playlist, &[scanned]).unwrap();
                 }
                 replace(&lib, &lib.incoming);
 
                 let conn = lib.db.lock().unwrap();
                 // A's row is gone, its plays and playlist entry carried over.
-                assert_eq!(track_ids(&conn), vec![lib.track]);
-                let track = track_in(&conn, lib.track);
+                assert_eq!(track_ids(&conn), vec![lib.track.clone()]);
+                let track = track_in(&conn, &lib.track);
                 assert_eq!(track.play_count, 5);
                 assert_eq!(Path::new(&track.file_path), lib.incoming);
                 let in_playlist: i64 = conn
                     .query_row(
                         "SELECT COUNT(*) FROM playlist_tracks WHERE track_id = ?1",
-                        [lib.track],
+                        [&lib.track],
                         |row| row.get(0),
                     )
                     .unwrap();
@@ -1544,7 +1543,7 @@ mod tests {
                 replace(&lib, &lib.old);
 
                 let conn = lib.db.lock().unwrap();
-                let track = track_in(&conn, lib.track);
+                let track = track_in(&conn, &lib.track);
                 assert_eq!(Path::new(&track.file_path), lib.old);
                 assert_eq!(track.title, "Song");
                 assert!(lib.old.is_file());
@@ -1558,12 +1557,12 @@ mod tests {
                 replace(&lib, &outside);
 
                 let conn = lib.db.lock().unwrap();
-                let track = track_in(&conn, lib.track);
+                let track = track_in(&conn, &lib.track);
                 // Copied beside the old file in B, which went to the Trash.
                 assert_eq!(Path::new(&track.file_path), lib.tmp.0.join("B/got.wav"));
                 assert!(outside.is_file());
                 assert_eq!(files_in(&lib.tmp.0.join("B")), vec!["got.wav"]);
-                assert_eq!(track_ids(&conn), vec![lib.track]);
+                assert_eq!(track_ids(&conn), vec![lib.track.clone()]);
             }
         }
 
@@ -1588,7 +1587,7 @@ mod tests {
             let lock = || db.lock().unwrap();
             let source = add_user_source(&lock(), &root);
             let id = insert_track(&lock(), "ALBUM/a.wav", source);
-            db::set_track_rating(&lock(), id, 80).unwrap();
+            db::set_track_rating(&lock(), &id, 80).unwrap();
             let ctx = ScanContext {
                 app_data_dir: tmp.0.join("AppData"),
                 roots: LibraryRoots::for_library_root(&tmp.0.join("Spiral")),
@@ -1613,7 +1612,7 @@ mod tests {
                     lock()
                         .execute(
                             "UPDATE tracks SET missing_since = 'then' WHERE id = ?1",
-                            [id],
+                            [&id],
                         )
                         .unwrap();
                 }
@@ -1621,7 +1620,7 @@ mod tests {
             };
             // Deleting the missing row from disk deletes nothing...
             let stale = duplicate(true);
-            let stale = remove_row(&lock(), stale);
+            let stale = remove_row(&lock(), &stale);
             assert_eq!(
                 delete_removed_track_file(&lock(), &stale, false).unwrap(),
                 RemovedFile::KeptMissing
@@ -1630,7 +1629,7 @@ mod tests {
             // ...nor does it when the row wasn't marked missing, since the
             // other row still names the file.
             let stale = duplicate(false);
-            let stale = remove_row(&lock(), stale);
+            let stale = remove_row(&lock(), &stale);
             assert_eq!(
                 delete_removed_track_file(&lock(), &stale, false).unwrap(),
                 RemovedFile::KeptShared
@@ -1640,11 +1639,11 @@ mod tests {
             // Duplicates already in a library merge at the next startup scan,
             // into the row with the history.
             let stale = duplicate(true);
-            db::set_track_rating(&lock(), stale, 0).unwrap();
+            db::set_track_rating(&lock(), &stale, 0).unwrap();
             source_scan::reconcile_all(&db, &ctx);
             let tracks = db::get_tracks_for_source(&lock(), source).unwrap();
             assert_eq!(tracks.len(), 1);
-            assert_eq!((tracks[0].id, tracks[0].rating), (id, 80));
+            assert_eq!((&tracks[0].id, tracks[0].rating), (&id, 80));
             assert_eq!(Path::new(&tracks[0].file_path), file);
         }
 
@@ -1655,7 +1654,7 @@ mod tests {
             let root = tmp.dir("Source");
             let nested = tmp.dir("Source/Artist/Album");
             let (old, sidecar) = audio_with_sidecar(&nested, "old");
-            remove_superseded_file(&conn, 1, Some(&root), &old, true);
+            remove_superseded_file(&conn, &TrackId::new(), Some(&root), &old, true);
             assert!(!old.exists() && !sidecar.exists());
             // Emptied folders are pruned up to the source root.
             assert!(!tmp.0.join("Source/Artist").exists());

@@ -3,7 +3,7 @@ import type { Track } from "@/types/track";
 import { buildTrackGenreMetadata } from "./genreMetadata";
 
 const track = {
-  id: 1,
+  id: "1",
   title: "Song",
   artist: "Artist",
   album: "Album",

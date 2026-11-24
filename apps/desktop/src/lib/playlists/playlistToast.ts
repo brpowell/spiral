@@ -1,10 +1,10 @@
 import { playlistAddedPayload } from "@/lib/toast/toastPayloads";
 import { useBackgroundTasksStore } from "@/store/useBackgroundTasksStore";
 import type { Playlist } from "@/types/playlist";
-import type { Track } from "@/types/track";
+import type { Track, TrackId } from "@/types/track";
 
 export function showPlaylistAddedToast(
-  trackIds: number[],
+  trackIds: TrackId[],
   library: Track[],
   playlist: Playlist,
 ): void {

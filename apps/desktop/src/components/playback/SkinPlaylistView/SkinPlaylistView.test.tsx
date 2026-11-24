@@ -97,7 +97,7 @@ describe("SkinPlaylistView", () => {
   });
 
   it("hides row artwork by default", () => {
-    usePlayerStore.setState({ library: [track({ id: 1 })] });
+    usePlayerStore.setState({ library: [track({ id: "1" })] });
     const { container } = render(<SkinPlaylistView node={playlistNode()} />);
 
     expect(
@@ -130,8 +130,11 @@ describe("SkinPlaylistView", () => {
 
   it("applies playingRowStyle as inline CSS on the playing row only", () => {
     usePlayerStore.setState({
-      library: [track({ id: 1 }), track({ id: 2, title: "Paranoid Android" })],
-      currentTrackId: 1,
+      library: [
+        track({ id: "1" }),
+        track({ id: "2", title: "Paranoid Android" }),
+      ],
+      currentTrackId: "1",
       playbackState: "playing",
     });
     const { container } = render(
@@ -161,8 +164,8 @@ describe("SkinPlaylistView", () => {
 
   it("does not apply playingRowStyle when the current track is paused", () => {
     usePlayerStore.setState({
-      library: [track({ id: 1 })],
-      currentTrackId: 1,
+      library: [track({ id: "1" })],
+      currentTrackId: "1",
       playbackState: "paused",
     });
     const { container } = render(
@@ -187,8 +190,11 @@ describe("SkinPlaylistView", () => {
 
   it("applies currentRowStyle as inline CSS on the current row when paused", () => {
     usePlayerStore.setState({
-      library: [track({ id: 1 }), track({ id: 2, title: "Paranoid Android" })],
-      currentTrackId: 1,
+      library: [
+        track({ id: "1" }),
+        track({ id: "2", title: "Paranoid Android" }),
+      ],
+      currentTrackId: "1",
       playbackState: "paused",
     });
     const { container } = render(
@@ -209,8 +215,8 @@ describe("SkinPlaylistView", () => {
 
   it("applies currentRowStyle on the playing row when playingRowStyle is omitted", () => {
     usePlayerStore.setState({
-      library: [track({ id: 1 })],
-      currentTrackId: 1,
+      library: [track({ id: "1" })],
+      currentTrackId: "1",
       playbackState: "playing",
     });
     const { container } = render(
@@ -228,8 +234,8 @@ describe("SkinPlaylistView", () => {
 
   it("applies currentRowStyle on the playing row and lets playingRowStyle win conflicts", () => {
     usePlayerStore.setState({
-      library: [track({ id: 1 })],
-      currentTrackId: 1,
+      library: [track({ id: "1" })],
+      currentTrackId: "1",
       playbackState: "playing",
     });
     const { container } = render(
@@ -276,8 +282,11 @@ describe("SkinPlaylistView", () => {
 
   it("applies rowHoverStyle on hover under current/playing paint", () => {
     usePlayerStore.setState({
-      library: [track({ id: 1 }), track({ id: 2, title: "Paranoid Android" })],
-      currentTrackId: 1,
+      library: [
+        track({ id: "1" }),
+        track({ id: "2", title: "Paranoid Android" }),
+      ],
+      currentTrackId: "1",
       playbackState: "paused",
     });
     const { container } = render(
@@ -304,7 +313,7 @@ describe("SkinPlaylistView", () => {
   });
 
   it("renders source options instead of tracks when items is sources", () => {
-    usePlayerStore.setState({ library: [track({ id: 1 })] });
+    usePlayerStore.setState({ library: [track({ id: "1" })] });
     useSkinStore.getState().setPlaylistSource(SKIN_PLAYLIST_SOURCE_UP_NEXT);
     const { container } = render(
       <SkinPlaylistView
@@ -345,8 +354,8 @@ describe("SkinPlaylistView", () => {
       .mockResolvedValue(undefined);
     usePlayerStore.setState({
       library: [
-        track({ id: 1, title: "Airbag" }),
-        track({ id: 2, title: "Paranoid Android" }),
+        track({ id: "1", title: "Airbag" }),
+        track({ id: "2", title: "Paranoid Android" }),
       ],
     });
     useSkinStore.getState().setPlaylistFilter("air");
@@ -354,14 +363,14 @@ describe("SkinPlaylistView", () => {
 
     fireEvent.click(container.querySelector(".skin-playlist-view__row")!);
 
-    expect(playTracks).toHaveBeenCalledWith([1, 2], 1);
+    expect(playTracks).toHaveBeenCalledWith(["1", "2"], "1");
   });
 
   it("filters track rows by playlistFilterQuery", () => {
     usePlayerStore.setState({
       library: [
-        track({ id: 1, title: "Airbag" }),
-        track({ id: 2, title: "Paranoid Android" }),
+        track({ id: "1", title: "Airbag" }),
+        track({ id: "2", title: "Paranoid Android" }),
       ],
     });
     useSkinStore.getState().setPlaylistFilter("air");
@@ -373,7 +382,7 @@ describe("SkinPlaylistView", () => {
   });
 
   it("does not filter source lists", () => {
-    usePlayerStore.setState({ library: [track({ id: 1, title: "Airbag" })] });
+    usePlayerStore.setState({ library: [track({ id: "1", title: "Airbag" })] });
     useSkinStore.getState().setPlaylistFilter("air");
     const { container } = render(
       <SkinPlaylistView node={playlistNode({ items: "sources" })} />,
@@ -385,7 +394,7 @@ describe("SkinPlaylistView", () => {
   });
 
   it("renders row artwork when showArtwork is true", () => {
-    usePlayerStore.setState({ library: [track({ id: 1 })] });
+    usePlayerStore.setState({ library: [track({ id: "1" })] });
     const { container } = render(
       <SkinPlaylistView node={playlistNode({ showArtwork: true })} />,
     );

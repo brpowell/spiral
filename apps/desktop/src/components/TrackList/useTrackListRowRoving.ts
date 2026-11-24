@@ -6,7 +6,7 @@ import {
   useState,
   type RefObject,
 } from "react";
-import type { Track } from "@/types/track";
+import type { Track, TrackId, TrackListId } from "@/types/track";
 import {
   findMatchingCellControl,
   type CellControlLocation,
@@ -14,8 +14,8 @@ import {
 
 interface UseTrackListRowRovingOptions {
   tracks: Track[];
-  selectedTrackIds: number[];
-  selectionAnchorId: number | null;
+  selectedTrackIds: TrackListId[];
+  selectionAnchorId: TrackListId | null;
   bodyRef: RefObject<HTMLOListElement | null>;
   scrollContainerRef: RefObject<HTMLElement | null>;
   isRowNavigable: (index: number) => boolean;
@@ -217,7 +217,7 @@ function isIndexVisibleInViewport(
   return false;
 }
 
-function findTrackIndex(tracks: Track[], trackId: number): number {
+function findTrackIndex(tracks: Track[], trackId: TrackId): number {
   return tracks.findIndex((track) => track.id === trackId);
 }
 
@@ -276,7 +276,7 @@ export function useTrackListRowRoving({
 
   const getPreferredFocusIndex = useCallback(() => {
     const scrollEl = scrollContainerRef.current;
-    const candidateIds: number[] = [];
+    const candidateIds: TrackListId[] = [];
     if (selectionAnchorId != null) {
       candidateIds.push(selectionAnchorId);
     }

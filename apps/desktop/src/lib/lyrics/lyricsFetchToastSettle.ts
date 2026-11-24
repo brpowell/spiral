@@ -5,6 +5,7 @@ import type {
 import { useLyricsFetchStore } from "@/store/useLyricsFetchStore";
 import { t } from "@/lib/i18n/i18n";
 import { formatPeerOutcomeTitle } from "@/lib/toast/toastPeerOutcomes";
+import type { TrackId } from "@/types/track";
 
 /**
  * Bulk lyrics-fetch toast rules (see Toast Spec: Lyrics Fetch):
@@ -87,7 +88,7 @@ function lyricsFetchBulkStatus(
   return successes > 0 ? "warning" : "error";
 }
 
-function reviewLyricsAction(trackIds: number[]): BackgroundTaskAction {
+function reviewLyricsAction(trackIds: TrackId[]): BackgroundTaskAction {
   return {
     id: "lyrics-review",
     label: t("toasts:lyrics.review"),
@@ -98,7 +99,7 @@ function reviewLyricsAction(trackIds: number[]): BackgroundTaskAction {
   };
 }
 
-function chooseLyricsAction(trackIds: number[]): BackgroundTaskAction {
+function chooseLyricsAction(trackIds: TrackId[]): BackgroundTaskAction {
   return {
     id: "lyrics-choose",
     label: t("toasts:lyrics.choose"),
@@ -113,7 +114,7 @@ export function lyricsFetchBulkSettleOptions(options: {
   tally: LyricsFetchPeerTally;
   errorLines?: string[];
   /** Tracks that need candidate review, if any. */
-  reviewTrackIds?: number[];
+  reviewTrackIds?: TrackId[];
 }): BackgroundTaskSettleAsOptions & { label: string } {
   const { tally, errorLines = [], reviewTrackIds = [] } = options;
   const label = formatLyricsFetchPeerTitle(tally);
@@ -149,7 +150,7 @@ export function lyricsFetchBulkSettleOptions(options: {
 
 export function lyricsAmbiguousSettleOptions(
   title: string,
-  trackId: number,
+  trackId: TrackId,
 ): BackgroundTaskSettleAsOptions & { label: string } {
   return {
     status: "success",

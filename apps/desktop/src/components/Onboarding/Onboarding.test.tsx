@@ -26,7 +26,7 @@ const tauri = vi.hoisted(() => ({
 vi.mock("@/lib/tauri", () => tauri);
 
 const tracks = {
-  id: 1,
+  id: "1",
   name: "Tracks",
   rootPath: "/Music/Spiral/Tracks",
   autoOrganize: true,

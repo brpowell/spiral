@@ -11,48 +11,49 @@ import {
   touchPlaylist as touchPlaylistApi,
   updatePlaylist as updatePlaylistApi,
 } from "@/lib/tauri";
-import type { Playlist } from "@/types/playlist";
+import type { Playlist, PlaylistId } from "@/types/playlist";
 import type { PlaylistImageUpdate } from "@/lib/tauri";
+import type { TrackId, TrackListId } from "@/types/track";
 
-export type PlaylistEditorTarget = number | "new" | null;
+export type PlaylistEditorTarget = PlaylistId | "new" | null;
 
 interface PlaylistState {
   playlists: Playlist[];
   editingPlaylistId: PlaylistEditorTarget;
-  pendingTrackIdsForNewPlaylist: number[];
+  pendingTrackIdsForNewPlaylist: TrackId[];
 
   loadPlaylists: () => Promise<void>;
   openPlaylistEditor: (
-    target: number | "new",
-    pendingTrackIds?: number[],
+    target: PlaylistId | "new",
+    pendingTrackIds?: TrackListId[],
   ) => void;
   closePlaylistEditor: () => void;
   createPlaylist: (
     title: string,
     description: string | null,
     image: PlaylistImageUpdate,
-  ) => Promise<number>;
+  ) => Promise<PlaylistId>;
   updatePlaylist: (
-    id: number,
+    id: PlaylistId,
     title: string,
     description: string | null,
     image: PlaylistImageUpdate,
   ) => Promise<void>;
   addTracksToPlaylist: (
-    playlistId: number,
-    trackIds: number[],
+    playlistId: PlaylistId,
+    trackIds: TrackId[],
   ) => Promise<void>;
   removeTracksFromPlaylist: (
-    playlistId: number,
-    trackIds: number[],
+    playlistId: PlaylistId,
+    trackIds: TrackId[],
   ) => Promise<void>;
   reorderPlaylistTracks: (
-    playlistId: number,
-    trackIds: number[],
+    playlistId: PlaylistId,
+    trackIds: TrackId[],
   ) => Promise<void>;
-  reorderPlaylists: (playlistIds: number[]) => Promise<void>;
-  touchPlaylist: (id: number) => Promise<void>;
-  deletePlaylist: (id: number) => Promise<void>;
+  reorderPlaylists: (playlistIds: PlaylistId[]) => Promise<void>;
+  touchPlaylist: (id: PlaylistId) => Promise<void>;
+  deletePlaylist: (id: PlaylistId) => Promise<void>;
 }
 
 export const usePlaylistStore = create<PlaylistState>((set, get) => ({

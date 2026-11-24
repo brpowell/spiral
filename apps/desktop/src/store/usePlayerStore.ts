@@ -98,7 +98,13 @@ import {
 import type { PlayableRef } from "@/types/playable";
 import type { PlaybackSource } from "@/lib/playback";
 import type { CrossfadeVisualState } from "@/lib/playback";
-import type { PlaybackState, RepeatMode, Track } from "@/types/track";
+import type {
+  PlaybackState,
+  RepeatMode,
+  Track,
+  TrackId,
+  TrackListId,
+} from "@/types/track";
 import { playOrResume } from "@/lib/playback/playbackStart";
 
 export type TrackEditorTab =
@@ -108,19 +114,19 @@ interface PlayerState {
   library: Track[];
   /** True once the first `loadLibrary` settles, so an empty library can be told apart from one still loading. */
   libraryLoaded: boolean;
-  playContextIds: number[];
+  playContextIds: TrackListId[];
   /** Set list order from before shuffle was applied, so turning shuffle off can restore it. */
-  sequentialContextIds: number[] | null;
-  manualQueueIds: number[];
-  currentTrackId: number | null;
+  sequentialContextIds: TrackListId[] | null;
+  manualQueueIds: TrackListId[];
+  currentTrackId: TrackListId | null;
   currentPlayable: PlayableRef | null;
   /** When playing from a CD, the active drive and synthetic track rows. */
   cdDriveId: string | null;
   playbackTracks: Track[];
   /** CD rows added to the manual queue before playback begins. */
   cdQueueContext: { driveId: string; tracks: Track[] } | null;
-  selectedTrackIds: number[];
-  selectionAnchorId: number | null;
+  selectedTrackIds: TrackListId[];
+  selectionAnchorId: TrackListId | null;
   playbackState: PlaybackState;
   positionSeconds: number;
   /** Non-null while the user is scrubbing; shared by seek bar and skin time display. */
@@ -132,7 +138,7 @@ interface PlayerState {
   balance: number;
   repeatMode: RepeatMode;
   shuffle: boolean;
-  editingTrackIds: number[];
+  editingTrackIds: TrackListId[];
   trackEditorInitialTab: TrackEditorTab;
   editingAlbumKey: string | null;
   albumEditorInitialTab: "details" | "art" | "musicbrainz";
@@ -142,7 +148,7 @@ interface PlayerState {
   editingArtistBrowseMode: ArtistBrowseMode;
   editingGenreKey: string | null;
   /** Bumped when lyrics are saved so now-playing UI can refetch. */
-  lyricsRevisionByTrackId: Record<number, number>;
+  lyricsRevisionByTrackId: Record<TrackId, number>;
 
   /**
    * Replace library rows from disk. Pass `{ preservePlayback: true }` for
@@ -152,13 +158,16 @@ interface PlayerState {
   loadLibrary: (options?: { preservePlayback?: boolean }) => Promise<void>;
   stagePendingImportTracks: (tracks: Track[]) => void;
   applyImportTrackUpdates: (
-    activations: { pendingId: number; track: Track }[],
-    removedPendingIds: number[],
+    activations: { pendingId: TrackListId; track: Track }[],
+    removedPendingIds: TrackListId[],
   ) => void;
   addToLibrary: () => Promise<void>;
   importFromPaths: (paths: string[]) => void;
-  playTrack: (id: number, options?: PlaybackAdvanceOptions) => Promise<void>;
-  playTracks: (ids: number[], startId: number) => Promise<void>;
+  playTrack: (
+    id: TrackListId,
+    options?: PlaybackAdvanceOptions,
+  ) => Promise<void>;
+  playTracks: (ids: TrackListId[], startId: TrackListId) => Promise<void>;
   playCdTracks: (
     driveId: string,
     tracks: Track[],
@@ -166,8 +175,8 @@ interface PlayerState {
   ) => Promise<void>;
   stopCdPlaybackForDrive: (driveId: string) => void;
   selectTracksInList: (
-    id: number,
-    orderedIds: number[],
+    id: TrackListId,
+    orderedIds: TrackListId[],
     modifiers: TrackSelectionModifiers,
   ) => void;
   clearSelection: () => void;
@@ -184,15 +193,15 @@ interface PlayerState {
   setVolume: (volume: number) => void;
   setBalance: (balance: number) => void;
   toggleMute: () => void;
-  addToQueue: (ids: number[]) => void;
+  addToQueue: (ids: TrackListId[]) => void;
   addCdToQueue: (driveId: string, tracks: Track[]) => void;
-  removeFromQueue: (id: number) => void;
+  removeFromQueue: (id: TrackListId) => void;
   clearSetList: () => void;
   cycleRepeat: () => void;
   toggleRepeat: () => void;
   toggleShuffle: () => void;
   openTrackEditor: (
-    ids: number | number[],
+    ids: TrackListId | TrackListId[],
     options?: { tab?: TrackEditorTab },
   ) => void;
   closeTrackEditor: () => void;
@@ -211,18 +220,18 @@ interface PlayerState {
   closeGenreEditor: () => void;
   updateTrackInLibrary: (track: Track) => void;
   updateTracksInLibrary: (tracks: Track[]) => void;
-  notifyTrackLyricsUpdated: (trackId: number) => void;
+  notifyTrackLyricsUpdated: (trackId: TrackId) => void;
   removeTrackFromLibrary: (
-    id: number,
+    id: TrackListId,
     deleteFromDisk: boolean,
   ) => Promise<void>;
   removeTracksFromLibrary: (
-    ids: number[],
+    ids: TrackListId[],
     deleteFromDisk: boolean,
   ) => Promise<void>;
 }
 
-function cdPlayContextIds(state: PlayerState): number[] {
+function cdPlayContextIds(state: PlayerState): TrackListId[] {
   if (state.playContextIds.length > 0) return state.playContextIds;
   if (state.cdDriveId == null || state.playbackTracks.length === 0) {
     return state.playContextIds;
@@ -230,7 +239,7 @@ function cdPlayContextIds(state: PlayerState): number[] {
   return state.playbackTracks.map((track) => track.id);
 }
 
-function getPlaybackOrder(get: () => PlayerState): number[] {
+function getPlaybackOrder(get: () => PlayerState): TrackListId[] {
   const state = get();
   return buildPlaybackOrder(
     state.manualQueueIds,
@@ -240,7 +249,10 @@ function getPlaybackOrder(get: () => PlayerState): number[] {
   );
 }
 
-function pruneIdsMany(ids: number[], removed: Set<number>): number[] {
+function pruneIdsMany(
+  ids: TrackListId[],
+  removed: Set<TrackListId>,
+): TrackListId[] {
   return ids.filter((id) => !removed.has(id));
 }
 
@@ -251,7 +263,7 @@ function applyActiveTrackHandoff(
   ) => void,
   get: () => PlayerState,
   incomingPlayable: PlayableRef,
-  incomingTrackListId: number,
+  incomingTrackListId: TrackListId,
 ): void {
   const outgoingId = get().currentTrackId;
   if (outgoingId !== null && !isCdTrackListId(outgoingId)) {
@@ -374,7 +386,7 @@ function tryScheduleCrossfade(
   const order = getPlaybackOrder(get);
   // This runs on every position tick, so what it passes over is only told
   // once the handoff happens.
-  const skippedIds: number[] = [];
+  const skippedIds: TrackListId[] = [];
   const nextId = getNextSkippingKnownUnplayable(
     order,
     state.currentTrackId,
@@ -412,8 +424,8 @@ function buildCrossfadeScheduleContext(
       Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
   nextPlayable: PlayableRef,
-  nextTrackId: number,
-  skippedIds: readonly number[] = [],
+  nextTrackId: TrackListId,
+  skippedIds: readonly TrackListId[] = [],
 ): Parameters<typeof audio.startCrossfadeNow>[0] | null {
   const settings = usePlaybackSettingsStore.getState();
   const state = get();
@@ -453,7 +465,9 @@ function buildCrossfadeScheduleContext(
   };
 }
 
-function getManualAdvanceFromTrackId(get: () => PlayerState): number | null {
+function getManualAdvanceFromTrackId(
+  get: () => PlayerState,
+): TrackListId | null {
   const crossfadeTarget = audio.getCrossfadeIncomingTrackId();
   if (crossfadeTarget !== null) return crossfadeTarget;
   return get().currentTrackId;
@@ -466,7 +480,7 @@ function tryStartManualCrossfade(
   ) => void,
   get: () => PlayerState,
   nextPlayable: PlayableRef,
-  nextTrackId: number,
+  nextTrackId: TrackListId,
 ): boolean {
   const settings = usePlaybackSettingsStore.getState();
   if (!settings.crossfadeEnabled || !settings.crossfadeOnSkip) return false;
@@ -575,7 +589,7 @@ interface PlaybackAdvanceOptions {
 }
 
 interface PlayResolvedPlayableOptions extends PlaybackAdvanceOptions {
-  playContextIds?: number[];
+  playContextIds?: TrackListId[];
   playbackTracks?: Track[];
   cdDriveId?: string | null;
 }
@@ -596,7 +610,7 @@ function setLibraryTrackMissingFile(
     partial:
       Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
-  trackId: number,
+  trackId: TrackId,
   missing: boolean,
 ): void {
   set((state) => ({
@@ -613,7 +627,7 @@ function handlePlaybackFileMissing(
       Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
   get: () => PlayerState,
-  trackId: number,
+  trackId: TrackId,
 ): void {
   setLibraryTrackMissingFile(set, trackId, true);
   notifySkippedMissing(get, trackId);
@@ -630,7 +644,7 @@ function handleSourceUnavailable(
   ) => void,
   get: () => PlayerState,
   sourceId: number,
-  trackId: number,
+  trackId: TrackId,
 ): void {
   set((state) => ({
     library: state.library.map((track) =>
@@ -663,7 +677,7 @@ function handleSourceAvailable(
 }
 
 /** Skipping passes over importing tracks too, which aren't worth a mention. */
-function notifySkippedMissing(get: () => PlayerState, trackId: number): void {
+function notifySkippedMissing(get: () => PlayerState, trackId: TrackId): void {
   const track = get().library.find((item) => item.id === trackId);
   if (track && isTrackMissingFile(track)) {
     showMissingTrackSkippedToast(track);
@@ -676,7 +690,7 @@ async function advanceToPlayableInOrder(
       Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
   get: () => PlayerState,
-  fromTrackId: number,
+  fromTrackId: TrackListId,
   getNextId: PlaybackNextIdFn,
   offlineSourceIds: number[] = [],
 ): Promise<void> {
@@ -733,7 +747,7 @@ async function flagUnplayableTrack(
       Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
   get: () => PlayerState,
-  trackId: number,
+  trackId: TrackId,
   options: { fileKnownMissing?: boolean; error?: unknown } = {},
 ): Promise<"source" | "file" | null> {
   const track = get().library.find((item) => item.id === trackId);
@@ -760,7 +774,7 @@ async function handleMissingLibraryPlayback(
       Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
   get: () => PlayerState,
-  trackId: number,
+  trackId: TrackId,
   generation: number,
   options?: PlayResolvedPlayableOptions,
   error?: unknown,
@@ -952,7 +966,7 @@ async function playResolvedPlayable(
 async function primeCdTrackPaused(
   driveId: string,
   tracks: Track[],
-  trackId: number,
+  trackId: TrackId,
   set: (partial: Partial<PlayerState>) => void,
 ): Promise<void> {
   const trackNumber = cdTrackNumberFromListId(trackId);
@@ -988,7 +1002,7 @@ async function primeCdTrackPaused(
 }
 
 async function primeTrackPaused(
-  id: number,
+  id: TrackListId,
   library: Track[],
   set: (
     partial:
@@ -1037,15 +1051,18 @@ async function primeTrackPaused(
 const PREVIOUS_DOUBLE_TAP_MS = 2_000;
 let lastPreviousPressAt = 0;
 
-function prunePlaybackIds(ids: number[], libraryIds: Set<number>): number[] {
+function prunePlaybackIds(
+  ids: TrackListId[],
+  libraryIds: Set<TrackListId>,
+): TrackListId[] {
   return ids.filter((id) => libraryIds.has(id));
 }
 
-function prunePendingIds(ids: number[]): number[] {
+function prunePendingIds(ids: TrackListId[]): TrackListId[] {
   return ids.filter((id) => !isPendingTrackId(id));
 }
 
-function interactiveLibraryIds(library: Track[]): number[] {
+function interactiveLibraryIds(library: Track[]): TrackListId[] {
   return library.filter((t) => !isTrackImporting(t)).map((t) => t.id);
 }
 
@@ -1393,7 +1410,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       set((state) => ({
         library: [...state.library, ...tracks],
         selectedTrackIds: prunePendingIds(state.selectedTrackIds),
-        selectionAnchorId: isPendingTrackId(state.selectionAnchorId ?? -1)
+        selectionAnchorId: isPendingTrackId(state.selectionAnchorId ?? "")
           ? null
           : state.selectionAnchorId,
         playContextIds: prunePendingIds(state.playContextIds),
@@ -1827,7 +1844,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         state.playContextIds.length === 0 &&
         state.manualQueueIds.length === 0;
 
-      let addedIds: number[] = [];
+      let addedIds: TrackListId[] = [];
       set((s) => {
         const existing = new Set(s.manualQueueIds);
         const toAdd = valid.filter((id) => !existing.has(id));
@@ -1855,7 +1872,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         state.playContextIds.length === 0 &&
         state.manualQueueIds.length === 0;
 
-      let addedIds: number[] = [];
+      let addedIds: TrackListId[] = [];
       set((s) => {
         const existing = new Set(s.manualQueueIds);
         const toAdd = ids.filter((id) => !existing.has(id));

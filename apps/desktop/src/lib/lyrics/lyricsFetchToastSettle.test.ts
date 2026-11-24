@@ -74,7 +74,7 @@ describe("lyricsFetchBulkSettleOptions", () => {
     const settle = lyricsFetchBulkSettleOptions({
       tally: { found: 1, notFound: 0, ambiguous: 1, failed: 1 },
       errorLines: ["Song D: network timeout"],
-      reviewTrackIds: [42],
+      reviewTrackIds: ["42"],
     });
     expect(settle).toMatchObject({
       status: "warning",
@@ -89,7 +89,7 @@ describe("lyricsFetchBulkSettleOptions", () => {
     expect(
       lyricsFetchBulkSettleOptions({
         tally: { found: 0, notFound: 0, ambiguous: 2, failed: 0 },
-        reviewTrackIds: [7, 8],
+        reviewTrackIds: ["7", "8"],
       }),
     ).toMatchObject({
       status: "success",
@@ -99,7 +99,7 @@ describe("lyricsFetchBulkSettleOptions", () => {
     expect(
       lyricsFetchBulkSettleOptions({
         tally: { found: 0, notFound: 0, ambiguous: 2, failed: 0 },
-        reviewTrackIds: [7, 8],
+        reviewTrackIds: ["7", "8"],
       }).logLink,
     ).toBeUndefined();
   });
@@ -108,10 +108,10 @@ describe("lyricsFetchBulkSettleOptions", () => {
     openReviewQueue.mockClear();
     const settle = lyricsFetchBulkSettleOptions({
       tally: { found: 0, notFound: 0, ambiguous: 2, failed: 0 },
-      reviewTrackIds: [7, 8],
+      reviewTrackIds: ["7", "8"],
     });
     settle.actions?.[0]?.onClick();
-    expect(openReviewQueue).toHaveBeenCalledWith([7, 8]);
+    expect(openReviewQueue).toHaveBeenCalledWith(["7", "8"]);
   });
 
   it("uses inline detail for one failure and View logs for two+", () => {
@@ -142,13 +142,13 @@ describe("lyricsFetchBulkSettleOptions", () => {
 describe("lyricsAmbiguousSettleOptions", () => {
   it("settles as success with Choose that opens the review queue", () => {
     openReviewQueue.mockClear();
-    const settle = lyricsAmbiguousSettleOptions("Song", 7);
+    const settle = lyricsAmbiguousSettleOptions("Song", "7");
     expect(settle).toMatchObject({
       status: "success",
       label: "Multiple lyrics found for Song",
       actions: [{ id: "lyrics-choose", label: "Choose" }],
     });
     settle.actions?.[0]?.onClick();
-    expect(openReviewQueue).toHaveBeenCalledWith([7]);
+    expect(openReviewQueue).toHaveBeenCalledWith(["7"]);
   });
 });

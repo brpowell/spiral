@@ -6,13 +6,13 @@ import {
   isTrackMissingFile,
   isTrackOnlySourceOffline,
 } from "@/lib/tracks/missingFileTrack";
-import type { RepeatMode, Track } from "@/types/track";
+import type { RepeatMode, Track, TrackId, TrackListId } from "@/types/track";
 
 export type PlaybackNextIdFn = (
-  queue: number[],
-  currentId: number,
+  queue: TrackListId[],
+  currentId: TrackListId,
   mode: RepeatMode,
-) => number | null;
+) => TrackListId | null;
 
 /**
  * Not worth trying: importing, or its file is missing. A track flagged only
@@ -29,7 +29,7 @@ export function isTrackKnownUnplayable(track: Track | undefined): boolean {
 
 /** Library lookup for set-list and skip logic; CD list ids are always playable. */
 export function isPlaybackIdKnownUnplayable(
-  id: number,
+  id: TrackListId,
   library: Track[],
 ): boolean {
   if (isCdTrackListId(id)) return false;
@@ -44,15 +44,15 @@ async function isTrackPlayableOnDisk(track: Track): Promise<boolean> {
 
 /** Skip tracks already flagged missing (or importing) when advancing the set list. */
 export function getNextSkippingKnownUnplayable(
-  order: number[],
-  currentId: number,
+  order: TrackListId[],
+  currentId: TrackListId,
   repeatMode: RepeatMode,
   library: Track[],
   getNextId: PlaybackNextIdFn,
-  onSkipped?: (trackId: number) => void,
-): number | null {
+  onSkipped?: (trackId: TrackId) => void,
+): TrackListId | null {
   let candidate = getNextId(order, currentId, repeatMode);
-  const visited = new Set<number>();
+  const visited = new Set<TrackListId>();
 
   while (candidate !== null) {
     if (visited.has(candidate)) return null;
@@ -85,15 +85,15 @@ export async function isSourceUnavailable(sourceId: number): Promise<boolean> {
 
 export interface FindNextPlayableOptions {
   /** A track already flagged missing was passed over. */
-  onSkippedMissing?: (trackId: number) => void;
-  onDiscoveredMissing?: (trackId: number) => void;
+  onSkippedMissing?: (trackId: TrackId) => void;
+  onDiscoveredMissing?: (trackId: TrackId) => void;
   /**
    * A track's source folder isn't answering (an unplugged drive, a dropped
    * share). Called once per source, with the track the walk reached; the
    * caller flags all of the source's tracks. Its other tracks are then passed
    * over without looking at their files.
    */
-  onSourceUnavailable?: (sourceId: number, trackId: number) => void;
+  onSourceUnavailable?: (sourceId: number, trackId: TrackId) => void;
   /**
    * A track flagged offline is in a folder that answers again. Called once
    * per source; the caller clears the offline flag from all of its tracks.
@@ -110,15 +110,15 @@ export interface FindNextPlayableOptions {
  * by one (each of which could wait on a dead network share).
  */
 export async function findNextPlayableInOrder(
-  order: number[],
-  currentId: number,
+  order: TrackListId[],
+  currentId: TrackListId,
   repeatMode: RepeatMode,
   library: Track[],
   getNextId: PlaybackNextIdFn,
   options: FindNextPlayableOptions = {},
-): Promise<number | null> {
+): Promise<TrackListId | null> {
   let candidate = getNextId(order, currentId, repeatMode);
-  const visited = new Set<number>();
+  const visited = new Set<TrackListId>();
   /** Each source's folder, looked at when the walk first reaches it. */
   const unavailable = new Map<number, boolean>(
     (options.offlineSourceIds ?? []).map((id) => [id, true]),

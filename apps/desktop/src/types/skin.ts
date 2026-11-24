@@ -1,6 +1,7 @@
 /** Mirrors Rust `SkinManifest` / layout types (skin.json). */
 
 import type { PackZone } from "./pack";
+import type { TrackListId } from "./track";
 
 /** Pack-relative path under assets/, including extension (e.g. buttons/play.png). */
 export type SkinAssetFile = string;
@@ -508,7 +509,7 @@ export interface SkinActionPayloadFields {
   albumKey?: string;
   viewId?: string;
   sourceId?: string;
-  trackId?: number;
+  trackId?: TrackListId;
   /** Current input string for `playlist.setFilter` (host-injected on `onChange`). */
   query?: string;
   band?: number;

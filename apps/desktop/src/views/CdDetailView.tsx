@@ -57,7 +57,7 @@ import { useNavigationStore } from "@/store/useNavigationStore";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import type { Album } from "@/types/album";
 import type { Artist } from "@/types/artist";
-import type { Track } from "@/types/track";
+import type { Track, TrackListId } from "@/types/track";
 import { AlertConfirmation } from "@/components/common/AlertConfirmation/AlertConfirmation";
 import "./CdDetailView.css";
 import "./DetailViewShared.css";
@@ -129,7 +129,7 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
     [cdImportProgress, cdImportCompletedDisplay],
   );
 
-  const [checkedTrackIds, setCheckedTrackIds] = useState<number[]>([]);
+  const [checkedTrackIds, setCheckedTrackIds] = useState<TrackListId[]>([]);
   const [refetchOverrideConfirmOpen, setRefetchOverrideConfirmOpen] =
     useState(false);
 

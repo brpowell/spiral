@@ -8,11 +8,11 @@ import {
   resolveSkinPlaylistTrackIds,
 } from "./skinPlaylist";
 import type { Playlist } from "@/types/playlist";
-import type { Track } from "@/types/track";
+import type { Track, TrackId } from "@/types/track";
 
 function track(id: number, title: string): Track {
   return {
-    id,
+    id: String(id),
     title,
     artist: null,
     album: null,
@@ -33,9 +33,9 @@ function track(id: number, title: string): Track {
   };
 }
 
-function playlist(id: number, title: string, trackIds: number[]): Playlist {
+function playlist(id: number, title: string, trackIds: TrackId[]): Playlist {
   return {
-    id,
+    id: String(id),
     title,
     description: null,
     dateCreated: "2024-01-01",
@@ -59,8 +59,8 @@ describe("buildSkinPlaylistSourceOptions", () => {
     expect(options.map((option) => option.id)).toEqual([
       SKIN_PLAYLIST_SOURCE_ALL,
       SKIN_PLAYLIST_SOURCE_UP_NEXT,
-      playlistSourceIdForPlaylist(1),
-      playlistSourceIdForPlaylist(2),
+      playlistSourceIdForPlaylist("1"),
+      playlistSourceIdForPlaylist("2"),
     ]);
   });
 });
@@ -78,7 +78,7 @@ describe("resolveSkinPlaylistTrackIds", () => {
         currentTrackId: null,
         playlists: [],
       }),
-    ).toEqual([2, 1, 3]);
+    ).toEqual(["2", "1", "3"]);
   });
 
   it("returns tracks after the current item for Up Next", () => {
@@ -86,25 +86,25 @@ describe("resolveSkinPlaylistTrackIds", () => {
       resolveSkinPlaylistTrackIds(SKIN_PLAYLIST_SOURCE_UP_NEXT, {
         library,
         playbackTracks: [],
-        playContextIds: [1, 2, 3],
+        playContextIds: ["1", "2", "3"],
         manualQueueIds: [],
-        currentTrackId: 1,
+        currentTrackId: "1",
         playlists: [],
       }),
-    ).toEqual([2, 3]);
+    ).toEqual(["2", "3"]);
   });
 
   it("returns playlist track order for user playlists", () => {
     expect(
-      resolveSkinPlaylistTrackIds(playlistSourceIdForPlaylist(9), {
+      resolveSkinPlaylistTrackIds(playlistSourceIdForPlaylist("9"), {
         library,
         playbackTracks: [],
         playContextIds: [],
         manualQueueIds: [],
         currentTrackId: null,
-        playlists: [playlist(9, "Mix", [3, 1])],
+        playlists: [playlist(9, "Mix", ["3", "1"])],
       }),
-    ).toEqual([3, 1]);
+    ).toEqual(["3", "1"]);
   });
 
   it("filters All tracks by title, artist, album, and genre", () => {
@@ -141,31 +141,31 @@ describe("resolveSkinPlaylistTrackIds", () => {
         ...ctx,
         filterQuery: "air",
       }),
-    ).toEqual([2]);
+    ).toEqual(["2"]);
     expect(
       resolveSkinPlaylistTrackIds(SKIN_PLAYLIST_SOURCE_ALL, {
         ...ctx,
         filterQuery: "nirvana",
       }),
-    ).toEqual([3]);
+    ).toEqual(["3"]);
     expect(
       resolveSkinPlaylistTrackIds(SKIN_PLAYLIST_SOURCE_ALL, {
         ...ctx,
         filterQuery: "ok computer",
       }),
-    ).toEqual([2, 1]);
+    ).toEqual(["2", "1"]);
     expect(
       resolveSkinPlaylistTrackIds(SKIN_PLAYLIST_SOURCE_ALL, {
         ...ctx,
         filterQuery: "grunge",
       }),
-    ).toEqual([3]);
+    ).toEqual(["3"]);
     expect(
       resolveSkinPlaylistTrackIds(SKIN_PLAYLIST_SOURCE_ALL, {
         ...ctx,
         filterQuery: "   ",
       }),
-    ).toEqual([2, 3, 1]);
+    ).toEqual(["2", "3", "1"]);
   });
 });
 
@@ -174,24 +174,24 @@ describe("resolveIdlePlaybackTrackIds", () => {
   const emptyCtx = {
     library,
     playbackTracks: [],
-    playContextIds: [] as number[],
-    manualQueueIds: [] as number[],
+    playContextIds: [] as TrackId[],
+    manualQueueIds: [] as TrackId[],
     currentTrackId: null,
     playlists: [] as Playlist[],
   };
 
   it("uses the current playlist source when it has tracks", () => {
     expect(
-      resolveIdlePlaybackTrackIds(playlistSourceIdForPlaylist(9), {
+      resolveIdlePlaybackTrackIds(playlistSourceIdForPlaylist("9"), {
         ...emptyCtx,
-        playlists: [playlist(9, "Mix", [3, 1])],
+        playlists: [playlist(9, "Mix", ["3", "1"])],
       }),
-    ).toEqual([3, 1]);
+    ).toEqual(["3", "1"]);
   });
 
   it("falls back to all tracks when Up Next is empty", () => {
     expect(
       resolveIdlePlaybackTrackIds(SKIN_PLAYLIST_SOURCE_UP_NEXT, emptyCtx),
-    ).toEqual([2, 1, 3]);
+    ).toEqual(["2", "1", "3"]);
   });
 });

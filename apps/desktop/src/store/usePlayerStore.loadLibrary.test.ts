@@ -20,7 +20,7 @@ import { usePlayerStore } from "./usePlayerStore";
 
 function makeTrack(overrides: Partial<Track> = {}): Track {
   return {
-    id: 1,
+    id: "1",
     title: "Now Playing",
     artist: "Artist",
     album: "Album",
@@ -45,7 +45,7 @@ function makeTrack(overrides: Partial<Track> = {}): Track {
 describe("loadLibrary playback preservation", () => {
   const playing = makeTrack();
   const importedCdTrack = makeTrack({
-    id: 10,
+    id: "10",
     title: "CD Track 1",
     album: "Imported CD",
     filePath: "/music/cd-track-1.flac",
