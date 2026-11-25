@@ -4,6 +4,8 @@ on:
   pull_request:
     paths: &paths
       - "libs/sync/**"
+      # Its test checks libs/sync/tests/fixtures/host_schema.sql against the migrations.
+      - "apps/desktop/src-tauri/src/db_migrations.rs"
       - "Cargo.toml"
       - "Cargo.lock"
       - ".github/workflows/sync-ci.yml"
@@ -27,4 +29,6 @@ jobs:
           shared-key: sync
       - run: cargo fmt -p spiral-sync -- --check
       - run: cargo clippy -p spiral-sync --all-targets -- -D warnings
+      - run: cargo clippy -p spiral-sync --all-targets --all-features -- -D warnings
       - run: cargo test -p spiral-sync
+      - run: cargo test -p spiral-sync --all-features
