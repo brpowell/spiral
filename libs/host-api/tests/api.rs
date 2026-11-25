@@ -71,8 +71,17 @@ impl HostDb {
             .await
             .unwrap();
         assert_eq!(library.spiral_folder(), self.dir.path());
-        router(HostApi::new(library, DevTokenAuth::new(TOKEN)))
+        router(HostApi::new(
+            library,
+            DevTokenAuth::new(TOKEN),
+            unused_cache_dir(),
+        ))
     }
+}
+
+/// These tests never resize artwork, so nothing is written here.
+fn unused_cache_dir() -> PathBuf {
+    std::env::temp_dir().join("spiral-host-api-unused-cache")
 }
 
 struct Reply {
@@ -82,7 +91,15 @@ struct Reply {
 }
 
 async fn get(app: &Router, uri: &str, authorization: Option<&str>) -> Reply {
-    let mut request = Request::get(uri);
+    send(app, Request::get(uri), authorization).await
+}
+
+async fn send(
+    app: &Router,
+    mut request: axum::http::request::Builder,
+    authorization: Option<&str>,
+) -> Reply {
+    let uri = request.uri_ref().unwrap().to_string();
     if let Some(value) = authorization {
         request = request.header("authorization", value);
     }
@@ -401,7 +418,11 @@ impl HostLibrary for BrokenLibrary {
 
 #[tokio::test]
 async fn a_storage_error_is_500_without_details() {
-    let app = router(HostApi::new(BrokenLibrary, DevTokenAuth::new(TOKEN)));
+    let app = router(HostApi::new(
+        BrokenLibrary,
+        DevTokenAuth::new(TOKEN),
+        unused_cache_dir(),
+    ));
     for uri in [
         "/v1/library",
         "/v1/snapshot",
@@ -414,6 +435,50 @@ async fn a_storage_error_is_500_without_details() {
     }
     // Auth still comes first.
     assert_unauthorized(&get(&app, "/v1/library", None).await);
+}
+
+#[tokio::test]
+async fn file_routes_are_501_when_the_library_has_no_files() {
+    // BrokenLibrary keeps the default `track_file` and `artwork_original`.
+    let app = router(HostApi::new(
+        BrokenLibrary,
+        DevTokenAuth::new(TOKEN),
+        unused_cache_dir(),
+    ));
+    for uri in [
+        format!("/v1/tracks/{TRACK_A}/audio"),
+        format!("/v1/artwork/{}", "a".repeat(64)),
+    ] {
+        let reply = get(&app, &uri, Some(&format!("Bearer {TOKEN}"))).await;
+        assert_eq!(reply.status, StatusCode::NOT_IMPLEMENTED, "{uri}");
+        assert_eq!(reply.body, json!({ "error": "not implemented" }));
+    }
+}
+
+#[tokio::test]
+async fn a_wrong_method_is_405_as_json() {
+    let db = HostDb::seeded();
+    let app = db.router().await;
+    for uri in [
+        "/v1/library".to_string(),
+        "/v1/snapshot".to_string(),
+        format!("/v1/tracks/{TRACK_A}/audio"),
+        format!("/v1/artwork/{}", "a".repeat(64)),
+    ] {
+        for method in ["POST", "PUT", "DELETE"] {
+            let request = Request::builder().method(method).uri(&uri);
+            let reply = send(&app, request, Some(&format!("Bearer {TOKEN}"))).await;
+            assert_eq!(
+                reply.status,
+                StatusCode::METHOD_NOT_ALLOWED,
+                "{method} {uri}"
+            );
+            assert_eq!(reply.body, json!({ "error": "method not allowed" }));
+            // And 401 first without a token.
+            let request = Request::builder().method(method).uri(&uri);
+            assert_unauthorized(&send(&app, request, None).await);
+        }
+    }
 }
 
 #[tokio::test]

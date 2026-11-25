@@ -1,23 +1,27 @@
 //! Serves a `Library.db` over the host API for development.
 //!
 //! ```text
-//! dev-host --db <Library.db> [--spiral-folder <dir>] [--addr 127.0.0.1:7878] [--token <t>]
+//! dev-host --db <Library.db> [--spiral-folder <dir>] [--cache-dir <dir>]
+//!          [--addr 127.0.0.1:7878] [--token <t>]
 //! ```
 //!
 //! The token comes from `--token` or `SPIRAL_DEV_TOKEN`; there is no default.
+//! Resized artwork goes to `--cache-dir`, by default `spiral-dev-host-cache`
+//! in the OS temp dir. It is refused inside the Spiral folder.
 
 use spiral_host_api::{router, serve, DevTokenAuth, HostApi, SqliteHostLibrary};
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 const USAGE: &str = "usage: dev-host --db <Library.db> [--spiral-folder <dir>] \
-                     [--addr <ip:port>] [--token <token>]\n\
+                     [--cache-dir <dir>] [--addr <ip:port>] [--token <token>]\n\
                      The token can also come from SPIRAL_DEV_TOKEN.";
 
 struct Args {
     db: PathBuf,
     spiral_folder: PathBuf,
+    cache_dir: PathBuf,
     addr: SocketAddr,
     token: String,
 }
@@ -25,6 +29,7 @@ struct Args {
 fn parse_args() -> Result<Args, String> {
     let mut db = None;
     let mut spiral_folder = None;
+    let mut cache_dir = None;
     let mut addr: SocketAddr = "127.0.0.1:7878".parse().unwrap();
     let mut token = None;
     let mut args = std::env::args().skip(1);
@@ -36,6 +41,7 @@ fn parse_args() -> Result<Args, String> {
         match flag.as_str() {
             "--db" => db = Some(PathBuf::from(value()?)),
             "--spiral-folder" => spiral_folder = Some(PathBuf::from(value()?)),
+            "--cache-dir" => cache_dir = Some(PathBuf::from(value()?)),
             "--addr" => {
                 let v = value()?;
                 addr = v.parse().map_err(|e| format!("--addr {v}: {e}"))?;
@@ -56,12 +62,30 @@ fn parse_args() -> Result<Args, String> {
         .or_else(|| std::env::var("SPIRAL_DEV_TOKEN").ok())
         .filter(|t| !t.is_empty())
         .ok_or("refusing to start without a token: pass --token or set SPIRAL_DEV_TOKEN")?;
+    let cache_dir = cache_dir.unwrap_or_else(|| std::env::temp_dir().join("spiral-dev-host-cache"));
     Ok(Args {
         db,
         spiral_folder,
+        cache_dir,
         addr,
         token,
     })
+}
+
+/// Creates `cache_dir` and refuses it inside the Spiral folder, whose
+/// `Artwork/` the desktop app owns.
+fn check_cache_dir(cache_dir: &Path, spiral_folder: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(cache_dir)
+        .map_err(|e| format!("can't create --cache-dir {}: {e}", cache_dir.display()))?;
+    let cache = std::fs::canonicalize(cache_dir)
+        .map_err(|e| format!("--cache-dir {}: {e}", cache_dir.display()))?;
+    match std::fs::canonicalize(spiral_folder) {
+        Ok(spiral) if cache.starts_with(&spiral) => Err(format!(
+            "--cache-dir {} is inside the Spiral folder; pick a folder outside it",
+            cache_dir.display()
+        )),
+        _ => Ok(()),
+    }
 }
 
 #[tokio::main]
@@ -79,6 +103,10 @@ async fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    if let Err(message) = check_cache_dir(&args.cache_dir, &args.spiral_folder) {
+        eprintln!("{message}");
+        return ExitCode::from(2);
+    }
     let library = match SqliteHostLibrary::open(&args.db, &args.spiral_folder).await {
         Ok(library) => library,
         Err(e) => {
@@ -97,9 +125,14 @@ async fn main() -> ExitCode {
         addr = %args.addr,
         db = %args.db.display(),
         spiral_folder = %args.spiral_folder.display(),
+        cache_dir = %args.cache_dir.display(),
         "dev-host listening"
     );
-    let app = router(HostApi::new(library, DevTokenAuth::new(args.token)));
+    let app = router(HostApi::new(
+        library,
+        DevTokenAuth::new(args.token),
+        args.cache_dir,
+    ));
     let shutdown = async {
         let _ = tokio::signal::ctrl_c().await;
         tracing::info!("shutting down");

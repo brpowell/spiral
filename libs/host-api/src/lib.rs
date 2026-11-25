@@ -15,7 +15,11 @@
 //! - `GET /v1/snapshot`: the [`Snapshot`](spiral_sync::Snapshot).
 //! - `GET /v1/changes?library_id=&since=`: the
 //!   [`ChangesResponse`](spiral_sync::ChangesResponse) for that cursor.
+//! - `GET /v1/tracks/{id}/audio`: the track's audio file, with range requests.
+//! - `GET /v1/artwork/{hash}?max=N`: an image, the original or resized to
+//!   120, 300, 600 or 1200 px on the longer side.
 
+mod artwork;
 mod auth;
 mod library;
 mod routes;
@@ -23,7 +27,7 @@ mod serve;
 mod sqlite;
 
 pub use auth::{AuthFuture, AuthedDevice, Authenticator, DevTokenAuth};
-pub use library::{HostFuture, HostLibrary, HostLibraryError};
+pub use library::{is_artwork_hash, ArtworkOriginal, HostFuture, HostLibrary, HostLibraryError};
 pub use routes::{router, HostApi};
 pub use serve::{serve, serve_connection};
 pub use sqlite::SqliteHostLibrary;
