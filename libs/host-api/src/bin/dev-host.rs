@@ -1,0 +1,114 @@
+//! Serves a `Library.db` over the host API for development.
+//!
+//! ```text
+//! dev-host --db <Library.db> [--spiral-folder <dir>] [--addr 127.0.0.1:7878] [--token <t>]
+//! ```
+//!
+//! The token comes from `--token` or `SPIRAL_DEV_TOKEN`; there is no default.
+
+use spiral_host_api::{router, serve, DevTokenAuth, HostApi, SqliteHostLibrary};
+use std::net::SocketAddr;
+use std::path::PathBuf;
+use std::process::ExitCode;
+
+const USAGE: &str = "usage: dev-host --db <Library.db> [--spiral-folder <dir>] \
+                     [--addr <ip:port>] [--token <token>]\n\
+                     The token can also come from SPIRAL_DEV_TOKEN.";
+
+struct Args {
+    db: PathBuf,
+    spiral_folder: PathBuf,
+    addr: SocketAddr,
+    token: String,
+}
+
+fn parse_args() -> Result<Args, String> {
+    let mut db = None;
+    let mut spiral_folder = None;
+    let mut addr: SocketAddr = "127.0.0.1:7878".parse().unwrap();
+    let mut token = None;
+    let mut args = std::env::args().skip(1);
+    while let Some(flag) = args.next() {
+        if flag == "-h" || flag == "--help" {
+            return Err(USAGE.into());
+        }
+        let mut value = || args.next().ok_or_else(|| format!("{flag} needs a value"));
+        match flag.as_str() {
+            "--db" => db = Some(PathBuf::from(value()?)),
+            "--spiral-folder" => spiral_folder = Some(PathBuf::from(value()?)),
+            "--addr" => {
+                let v = value()?;
+                addr = v.parse().map_err(|e| format!("--addr {v}: {e}"))?;
+            }
+            "--token" => token = Some(value()?),
+            other => return Err(format!("unknown argument {other}\n{USAGE}")),
+        }
+    }
+    let db = db.ok_or_else(|| format!("--db is required\n{USAGE}"))?;
+    let spiral_folder = match spiral_folder {
+        Some(folder) => folder,
+        None => match db.parent() {
+            Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
+            _ => PathBuf::from("."),
+        },
+    };
+    let token = token
+        .or_else(|| std::env::var("SPIRAL_DEV_TOKEN").ok())
+        .filter(|t| !t.is_empty())
+        .ok_or("refusing to start without a token: pass --token or set SPIRAL_DEV_TOKEN")?;
+    Ok(Args {
+        db,
+        spiral_folder,
+        addr,
+        token,
+    })
+}
+
+#[tokio::main]
+async fn main() -> ExitCode {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
+        )
+        .init();
+
+    let args = match parse_args() {
+        Ok(args) => args,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
+    let library = match SqliteHostLibrary::open(&args.db, &args.spiral_folder).await {
+        Ok(library) => library,
+        Err(e) => {
+            eprintln!("can't open {}: {e}", args.db.display());
+            return ExitCode::FAILURE;
+        }
+    };
+    let listener = match tokio::net::TcpListener::bind(args.addr).await {
+        Ok(listener) => listener,
+        Err(e) => {
+            eprintln!("can't listen on {}: {e}", args.addr);
+            return ExitCode::FAILURE;
+        }
+    };
+    tracing::info!(
+        addr = %args.addr,
+        db = %args.db.display(),
+        spiral_folder = %args.spiral_folder.display(),
+        "dev-host listening"
+    );
+    let app = router(HostApi::new(library, DevTokenAuth::new(args.token)));
+    let shutdown = async {
+        let _ = tokio::signal::ctrl_c().await;
+        tracing::info!("shutting down");
+    };
+    match serve(listener, app, shutdown).await {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("server error: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}

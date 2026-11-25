@@ -4,6 +4,7 @@ on:
   pull_request:
     paths: &paths
       - "libs/sync/**"
+      - "libs/host-api/**"
       # The host_db tests run against a fixture of this schema. Desktop CI checks the fixture
       # still matches; this reruns the sync tests when the migrations change.
       - "apps/desktop/src-tauri/src/db_migrations.rs"
@@ -28,8 +29,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: sync
-      - run: cargo fmt -p spiral-sync -- --check
-      - run: cargo clippy -p spiral-sync --all-targets -- -D warnings
-      - run: cargo clippy -p spiral-sync --all-targets --all-features -- -D warnings
-      - run: cargo test -p spiral-sync
-      - run: cargo test -p spiral-sync --all-features
+      - run: cargo fmt -p spiral-sync -p spiral-host-api -- --check
+      - run: cargo clippy -p spiral-sync -p spiral-host-api --all-targets -- -D warnings
+      - run: cargo clippy -p spiral-sync -p spiral-host-api --all-targets --all-features -- -D warnings
+      - run: cargo test -p spiral-sync -p spiral-host-api
+      - run: cargo test -p spiral-sync -p spiral-host-api --all-features
