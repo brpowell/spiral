@@ -3,7 +3,12 @@
 staged="$(git diff --cached --name-only --diff-filter=ACMR)"
 
 if echo "$staged" | grep -qE '^(apps/desktop/|libs/spk-format/|Cargo\.(toml|lock)$)'; then
-  cd "$(git rev-parse --show-toplevel)/apps/desktop"
+  # In a linked worktree git runs hooks with GIT_DIR set but no GIT_WORK_TREE, so
+  # after the cd below git would treat apps/desktop as the top of the work tree and
+  # stage paths like src-tauri/NOTICE at the repo root. Pin the work tree first.
+  GIT_WORK_TREE="$(git rev-parse --show-toplevel)"
+  export GIT_WORK_TREE
+  cd "$GIT_WORK_TREE/apps/desktop"
 
   npx lint-staged
 
