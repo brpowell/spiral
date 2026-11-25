@@ -5559,6 +5559,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "spiral-host-api"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "constant_time_eq",
+ "hyper-util",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "spiral-sync",
+ "tempfile",
+ "tokio",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "spiral-sync"
 version = "0.1.0"
 dependencies = [
