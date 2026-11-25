@@ -2043,6 +2043,95 @@ mod tests {
         std::fs::write(fixtures_dir().join(format!("v{version}.sql")), out).unwrap();
     }
 
+    /// The fresh schema as `libs/sync` reads it, for its host database tests.
+    fn host_schema_fixture() -> std::path::PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../libs/sync/tests/fixtures/host_schema.sql")
+    }
+
+    const REGENERATE_HOST_SCHEMA: &str =
+        "cargo test --lib generate_host_schema_fixture -- --ignored (from apps/desktop/src-tauri)";
+
+    /// The fixture's library id, fixed so the generated file is stable.
+    const HOST_SCHEMA_LIBRARY_ID: &str = "018d0000-0000-7000-8000-00000000f1f0";
+
+    /// Every table, index and trigger as `type name: sql`, sorted by type and name.
+    fn schema_objects(conn: &Connection) -> Vec<String> {
+        conn.prepare(
+            "SELECT type || ' ' || name || ': ' || sql FROM sqlite_master
+             WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY type, name",
+        )
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap()
+    }
+
+    /// Regenerate `libs/sync/tests/fixtures/host_schema.sql` after a migration:
+    /// `cargo test --lib generate_host_schema_fixture -- --ignored`.
+    #[test]
+    #[ignore = "writes libs/sync/tests/fixtures/host_schema.sql; run on demand"]
+    fn generate_host_schema_fixture() {
+        let conn = mem();
+        run(&conn, None).unwrap();
+        let ddl: Vec<String> = conn
+            .prepare("SELECT sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY rowid")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        let version = latest_version();
+        let out = format!(
+            "-- Generated from the desktop app's fresh schema (version {version}). Do not edit;\n\
+             -- regenerate with: {REGENERATE_HOST_SCHEMA}\n\
+             PRAGMA user_version = {version};\n{};\n\
+             -- The change log triggers read and bump this row's rev.\n\
+             INSERT INTO library_meta (id, library_id, rev) VALUES (1, '{HOST_SCHEMA_LIBRARY_ID}', 0);\n",
+            ddl.join(";\n")
+        );
+        std::fs::write(host_schema_fixture(), out).unwrap();
+    }
+
+    #[test]
+    fn host_schema_fixture_matches_fresh_schema() {
+        let fresh = mem();
+        run(&fresh, None).unwrap();
+
+        let sql = std::fs::read_to_string(host_schema_fixture()).unwrap_or_else(|e| {
+            panic!("missing libs/sync/tests/fixtures/host_schema.sql ({e}); run {REGENERATE_HOST_SCHEMA}")
+        });
+        let fixture = mem();
+        fixture.execute_batch(&sql).unwrap();
+
+        let stale = format!(
+            "libs/sync/tests/fixtures/host_schema.sql differs from the fresh schema; \
+             run {REGENERATE_HOST_SCHEMA}"
+        );
+        assert_eq!(
+            schema_version(&fixture).unwrap(),
+            latest_version(),
+            "{stale}"
+        );
+        assert_eq!(describe(&fixture), describe(&fresh), "{stale}");
+        // `describe` lists columns only; the triggers are what `libs/sync` tests write through.
+        let objects = schema_objects(&fresh);
+        assert!(
+            objects
+                .iter()
+                .any(|o| o.starts_with("trigger change_log_tracks_insert:")),
+            "schema_objects must cover triggers"
+        );
+        assert_eq!(schema_objects(&fixture), objects, "{stale}");
+        let meta: (i64, i64) = fixture
+            .query_row("SELECT COUNT(*), MAX(rev) FROM library_meta", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+        assert_eq!(meta, (1, 0), "{stale}");
+    }
+
     #[test]
     fn uuid_ids_keeps_every_row_and_link() {
         let conn = mem();

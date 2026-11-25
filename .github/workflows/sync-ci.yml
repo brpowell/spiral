@@ -4,6 +4,9 @@ on:
   pull_request:
     paths: &paths
       - "libs/sync/**"
+      # The host_db tests run against a fixture of this schema. Desktop CI checks the fixture
+      # still matches; this reruns the sync tests when the migrations change.
+      - "apps/desktop/src-tauri/src/db_migrations.rs"
       - "Cargo.toml"
       - "Cargo.lock"
       - ".github/workflows/sync-ci.yml"
@@ -27,4 +30,6 @@ jobs:
           shared-key: sync
       - run: cargo fmt -p spiral-sync -- --check
       - run: cargo clippy -p spiral-sync --all-targets -- -D warnings
+      - run: cargo clippy -p spiral-sync --all-targets --all-features -- -D warnings
       - run: cargo test -p spiral-sync
+      - run: cargo test -p spiral-sync --all-features
