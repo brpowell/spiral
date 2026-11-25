@@ -550,11 +550,61 @@ fn a_link_to_an_unregistered_image_is_an_error() {
     ))
     .unwrap();
     let err = read_snapshot(&conn).unwrap_err();
-    assert!(
-        matches!(&err, HostDbError::MissingArtwork { hash, .. } if hash == "feed"),
-        "{err:?}"
-    );
+    match &err {
+        HostDbError::MissingArtwork { key, hash } => {
+            assert_eq!(hash, "feed");
+            assert_eq!(
+                key,
+                &RecordKey::TrackArtwork {
+                    owner: TRACK_A.into(),
+                    kind: "front".into()
+                }
+            );
+        }
+        other => panic!("expected missing artwork, got {other:?}"),
+    }
     assert!(err.to_string().contains("feed"), "{err}");
+    // The failed read ended its transaction.
+    assert!(conn.is_autocommit());
+    assert!(read_changes(&conn, &cursor(Rev(SEED_REVS + 1))).is_ok());
+}
+
+#[test]
+fn reads_nest_inside_a_callers_transaction() {
+    let conn = seeded_host();
+    conn.execute_batch("BEGIN").unwrap();
+    conn.execute("DELETE FROM genre_settings", []).unwrap();
+
+    // The read sees the caller's uncommitted delete, and leaves its transaction open.
+    let snapshot = read_snapshot(&conn).unwrap();
+    assert_eq!(snapshot.rev, Rev(SEED_REVS + 1));
+    assert!(snapshot.genre_settings.is_empty());
+    let set = changes_since(&conn, Rev(SEED_REVS));
+    assert_eq!(set.changes.len(), 1);
+    assert!(!conn.is_autocommit());
+
+    conn.execute_batch("ROLLBACK").unwrap();
+    assert_eq!(rev(&conn), Rev(SEED_REVS));
+    assert_eq!(read_snapshot(&conn).unwrap().genre_settings.len(), 1);
+}
+
+#[test]
+fn a_database_from_before_sync_is_refused() {
+    let conn = Connection::open_in_memory().unwrap();
+    for version in [0, 9] {
+        conn.execute_batch(&format!("PRAGMA user_version = {version};"))
+            .unwrap();
+        let err = read_snapshot(&conn).unwrap_err();
+        assert!(
+            matches!(err, HostDbError::UnsupportedSchema { version: v } if v == version),
+            "{err:?}"
+        );
+        assert!(matches!(
+            read_changes(&conn, &cursor(Rev::ZERO)),
+            Err(HostDbError::UnsupportedSchema { .. })
+        ));
+        assert!(conn.is_autocommit());
+    }
 }
 
 #[test]

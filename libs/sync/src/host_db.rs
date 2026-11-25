@@ -4,7 +4,13 @@
 //! The schema belongs to the desktop app (`db_migrations.rs`). Its triggers
 //! keep `library_meta.rev` and `change_log` current; this module only reads.
 //! Every function works on a read-only connection, and each reads in one
-//! transaction, so the rev it reports matches the rows it returns.
+//! transaction, so the rev it reports matches the rows it returns. Inside a
+//! caller's transaction the read nests as a savepoint.
+//!
+//! The desktop database uses SQLite's rollback journal, so while a read is
+//! open the app's writes wait for it, and a read waits for a write in
+//! progress. rusqlite gives every connection a 5 s busy timeout, which covers
+//! both. A host that lowers it on its connection can get `SQLITE_BUSY`.
 //!
 //! `tests/fixtures/host_schema.sql` is the desktop schema these readers are
 //! tested against. A desktop test fails when the two drift apart.
@@ -42,7 +48,16 @@ pub enum HostDbError {
     },
     /// `library_meta.rev` or a `change_log.rev` is below zero.
     NegativeRev(i64),
+    /// The database's `user_version` is below [`MIN_SCHEMA_VERSION`]: not a
+    /// Spiral library, or one from before sync.
+    UnsupportedSchema {
+        version: i64,
+    },
 }
+
+/// The oldest desktop schema these readers understand: version 10, the first
+/// with the artwork registry and every logged table.
+pub const MIN_SCHEMA_VERSION: i64 = 10;
 
 impl fmt::Display for HostDbError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -65,6 +80,11 @@ impl fmt::Display for HostDbError {
                 key.log_id()
             ),
             HostDbError::NegativeRev(rev) => write!(f, "negative rev {rev} in host database"),
+            HostDbError::UnsupportedSchema { version } => write!(
+                f,
+                "host database schema version {version} is not supported; \
+                 it needs version {MIN_SCHEMA_VERSION} or newer"
+            ),
         }
     }
 }
@@ -96,6 +116,10 @@ type Result<T> = std::result::Result<T, HostDbError>;
 /// The host's library id and latest rev. The log is never compacted, so
 /// `oldest_rev` is 0.
 pub fn read_host_state(conn: &Connection) -> Result<HostState> {
+    let version: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+    if version < MIN_SCHEMA_VERSION {
+        return Err(HostDbError::UnsupportedSchema { version });
+    }
     let (library_id, rev): (String, i64) = conn.query_row(
         "SELECT library_id, rev FROM library_meta WHERE id = 1",
         [],
@@ -111,23 +135,22 @@ pub fn read_host_state(conn: &Connection) -> Result<HostState> {
 /// The whole catalog at the host's current rev, each table in primary-key
 /// order.
 pub fn read_snapshot(conn: &Connection) -> Result<Snapshot> {
-    let tx = conn.unchecked_transaction()?;
-    let host = read_host_state(&tx)?;
+    let read = Read::begin(conn)?;
+    let tx = read.conn;
+    let host = read_host_state(tx)?;
     let snapshot = Snapshot {
         library_id: host.library_id,
         rev: host.rev,
-        tracks: read_all(&tx, &TRACKS, track)?,
-        playlists: read_all(&tx, &PLAYLISTS, playlist)?,
-        playlist_tracks: read_all(&tx, &PLAYLIST_TRACKS, playlist_track)?,
-        track_lyrics: read_all(&tx, &TRACK_LYRICS, track_lyrics)?,
-        track_artwork: read_all(&tx, &TRACK_ARTWORK, |r| art_link(r, Entity::TrackArtwork))?,
-        artist_artwork: read_all(&tx, &ARTIST_ARTWORK, |r| art_link(r, Entity::ArtistArtwork))?,
-        playlist_artwork: read_all(&tx, &PLAYLIST_ARTWORK, |r| {
-            art_link(r, Entity::PlaylistArtwork)
-        })?,
-        genre_settings: read_all(&tx, &GENRE_SETTINGS, genre_setting)?,
+        tracks: read_all(tx, &TRACKS, track)?,
+        playlists: read_all(tx, &PLAYLISTS, playlist)?,
+        playlist_tracks: read_all(tx, &PLAYLIST_TRACKS, playlist_track)?,
+        track_lyrics: read_all(tx, &TRACK_LYRICS, track_lyrics)?,
+        track_artwork: read_all(tx, &TRACK_ARTWORK, track_art)?,
+        artist_artwork: read_all(tx, &ARTIST_ARTWORK, artist_art)?,
+        playlist_artwork: read_all(tx, &PLAYLIST_ARTWORK, playlist_art)?,
+        genre_settings: read_all(tx, &GENRE_SETTINGS, genre_setting)?,
     };
-    tx.commit()?;
+    read.finish()?;
     Ok(snapshot)
 }
 
@@ -135,8 +158,9 @@ pub fn read_snapshot(conn: &Connection) -> Result<Snapshot> {
 /// must take a snapshot ([`plan_sync`] decides). Each upsert carries the
 /// entity's current row.
 pub fn read_changes(conn: &Connection, client: &SyncCursor) -> Result<ChangesResponse> {
-    let tx = conn.unchecked_transaction()?;
-    let host = read_host_state(&tx)?;
+    let read = Read::begin(conn)?;
+    let tx = read.conn;
+    let host = read_host_state(tx)?;
     let response = match plan_sync(Some(client), &host) {
         SyncAction::UpToDate => ChangesResponse::Changes(ChangeSet {
             library_id: host.library_id,
@@ -145,15 +169,48 @@ pub fn read_changes(conn: &Connection, client: &SyncCursor) -> Result<ChangesRes
             changes: Vec::new(),
         }),
         SyncAction::FetchChanges { since } => ChangesResponse::Changes(ChangeSet {
-            changes: read_log(&tx, since)?,
+            changes: read_log(tx, since)?,
             library_id: host.library_id,
             since,
             rev: host.rev,
         }),
         SyncAction::Resnapshot { reason } => ChangesResponse::Resnapshot { reason, host },
     };
-    tx.commit()?;
+    read.finish()?;
     Ok(response)
+}
+
+/// One consistent read. `SAVEPOINT` starts a deferred transaction on an idle
+/// connection and nests inside a caller's, where `BEGIN` would fail.
+struct Read<'c> {
+    conn: &'c Connection,
+    done: bool,
+}
+
+impl<'c> Read<'c> {
+    const BEGIN: &'static str = "SAVEPOINT spiral_sync_read";
+
+    fn begin(conn: &'c Connection) -> Result<Self> {
+        conn.execute_batch(Self::BEGIN)?;
+        Ok(Read { conn, done: false })
+    }
+
+    fn finish(mut self) -> Result<()> {
+        self.done = true;
+        self.conn.execute_batch("RELEASE spiral_sync_read")?;
+        Ok(())
+    }
+}
+
+impl Drop for Read<'_> {
+    fn drop(&mut self) {
+        if !self.done {
+            // Nothing was written; this only ends the read.
+            let _ = self
+                .conn
+                .execute_batch("ROLLBACK TO spiral_sync_read; RELEASE spiral_sync_read");
+        }
+    }
 }
 
 fn read_log(conn: &Connection, since: Rev) -> Result<Vec<Change>> {
@@ -206,22 +263,16 @@ fn read_record(conn: &Connection, key: &RecordKey) -> Result<Option<Record>> {
             read_one(conn, &TRACK_LYRICS, [track_id], track_lyrics)?.map(Record::TrackLyrics)
         }
         RecordKey::TrackArtwork { owner, kind } => {
-            read_one(conn, &TRACK_ARTWORK, params![owner, kind], |r| {
-                art_link(r, Entity::TrackArtwork)
-            })?
-            .map(Record::TrackArtwork)
+            read_one(conn, &TRACK_ARTWORK, params![owner, kind], track_art)?
+                .map(Record::TrackArtwork)
         }
         RecordKey::ArtistArtwork { owner, kind } => {
-            read_one(conn, &ARTIST_ARTWORK, params![owner, kind], |r| {
-                art_link(r, Entity::ArtistArtwork)
-            })?
-            .map(Record::ArtistArtwork)
+            read_one(conn, &ARTIST_ARTWORK, params![owner, kind], artist_art)?
+                .map(Record::ArtistArtwork)
         }
         RecordKey::PlaylistArtwork { owner, kind } => {
-            read_one(conn, &PLAYLIST_ARTWORK, params![owner, kind], |r| {
-                art_link(r, Entity::PlaylistArtwork)
-            })?
-            .map(Record::PlaylistArtwork)
+            read_one(conn, &PLAYLIST_ARTWORK, params![owner, kind], playlist_art)?
+                .map(Record::PlaylistArtwork)
         }
         RecordKey::GenreSetting { genre_key } => {
             read_one(conn, &GENRE_SETTINGS, [genre_key], genre_setting)?.map(Record::GenreSetting)
@@ -381,14 +432,27 @@ fn track_lyrics(r: &Row) -> Result<TrackLyrics> {
     })
 }
 
-fn art_link(r: &Row, entity: Entity) -> Result<ArtLink> {
+fn track_art(r: &Row) -> Result<ArtLink> {
+    art_link(r, |owner, kind| RecordKey::TrackArtwork { owner, kind })
+}
+
+fn artist_art(r: &Row) -> Result<ArtLink> {
+    art_link(r, |owner, kind| RecordKey::ArtistArtwork { owner, kind })
+}
+
+fn playlist_art(r: &Row) -> Result<ArtLink> {
+    art_link(r, |owner, kind| RecordKey::PlaylistArtwork { owner, kind })
+}
+
+/// An art link row. `key` names the link in the error when its image isn't
+/// registered.
+fn art_link(r: &Row, key: fn(String, String) -> RecordKey) -> Result<ArtLink> {
     let owner: String = r.get(0)?;
     let kind: String = r.get(1)?;
     let hash: String = r.get(2)?;
     let Some(mime) = r.get::<_, Option<String>>(3)? else {
-        let id = format!("{owner}:{kind}");
         return Err(HostDbError::MissingArtwork {
-            key: RecordKey::from_log(entity.as_str(), &id)?,
+            key: key(owner, kind),
             hash,
         });
     };

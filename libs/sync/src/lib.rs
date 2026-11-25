@@ -8,7 +8,7 @@
 //!
 //! This crate holds plain data and logic only: no transport, UI or runtime.
 //! Requests and responses are serde types, so any transport can carry them.
-//! The `host` feature adds [`host_db`], which reads them from a host's SQLite
+//! The `host` feature adds `host_db`, which reads them from a host's SQLite
 //! library; clients leave it off.
 
 #[cfg(feature = "host")]

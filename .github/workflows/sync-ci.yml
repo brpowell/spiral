@@ -4,7 +4,8 @@ on:
   pull_request:
     paths: &paths
       - "libs/sync/**"
-      # Its test checks libs/sync/tests/fixtures/host_schema.sql against the migrations.
+      # The host_db tests run against a fixture of this schema. Desktop CI checks the fixture
+      # still matches; this reruns the sync tests when the migrations change.
       - "apps/desktop/src-tauri/src/db_migrations.rs"
       - "Cargo.toml"
       - "Cargo.lock"
