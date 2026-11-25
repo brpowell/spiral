@@ -1,0 +1,18 @@
+[package]
+name = "spiral-sync"
+version = "0.1.0"
+edition = "2021"
+description = "Spiral library sync: protocol types and sync planning shared by hosts and clients"
+license = "FSL-1.1-Apache-2.0"
+repository = "https://github.com/brpowell/spiral"
+publish = false
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"
+
+[lib]
+name = "spiral_sync"
+path = "src/lib.rs"

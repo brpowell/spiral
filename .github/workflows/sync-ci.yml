@@ -1,0 +1,30 @@
+name: Sync CI
+
+on:
+  pull_request:
+    paths: &paths
+      - "libs/sync/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/sync-ci.yml"
+  push:
+    branches: [main, feat/sync]
+    paths: *paths
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: sync
+      - run: cargo fmt -p spiral-sync -- --check
+      - run: cargo clippy -p spiral-sync --all-targets -- -D warnings
+      - run: cargo test -p spiral-sync
