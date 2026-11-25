@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
   "libs/spk-format",
+  "libs/sync",
   "apps/registry",
   "apps/desktop/src-tauri",
 ]
