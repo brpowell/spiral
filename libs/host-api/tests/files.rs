@@ -186,15 +186,35 @@ impl Host {
         self.spiral.path().join("Library.db")
     }
 
+    /// Registers `bytes` as the image `hash` at `Artwork/Albums/<name>`.
+    fn add_image(&self, hash: &str, name: &str, bytes: &[u8], (w, h): (u32, u32)) {
+        let rel_path = format!("Artwork/Albums/{name}");
+        let path = self.spiral.path().join(&rel_path);
+        fs::write(&path, bytes).unwrap();
+        let (size, mtime) = stat(&path);
+        let conn = rusqlite::Connection::open(self.db_path()).unwrap();
+        conn.execute(
+            "INSERT INTO artwork (hash, mime, width, height, byte_size)
+             VALUES (?1, 'image/jpeg', ?2, ?3, ?4)",
+            rusqlite::params![hash, w, h, bytes.len() as i64],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO artwork_file (rel_path, hash, size, mtime_ms) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![rel_path, hash, size, mtime],
+        )
+        .unwrap();
+    }
+
     async fn router(&self) -> Router {
+        self.router_with_cache(self.cache.path()).await
+    }
+
+    async fn router_with_cache(&self, cache_dir: &Path) -> Router {
         let library = SqliteHostLibrary::open(self.db_path(), self.spiral.path())
             .await
             .unwrap();
-        router(HostApi::new(
-            library,
-            DevTokenAuth::new(TOKEN),
-            self.cache.path(),
-        ))
+        router(HostApi::new(library, DevTokenAuth::new(TOKEN), cache_dir))
     }
 
     fn cache_files(&self) -> Vec<String> {
@@ -550,4 +570,112 @@ async fn file_routes_need_a_token() {
         assert_eq!(reply.json(), json!({ "error": "unauthorized" }));
     }
     assert!(host.cache_files().is_empty());
+}
+
+#[tokio::test]
+async fn audio_range_past_the_end_is_416_as_json() {
+    let host = Host::new();
+    let app = host.router().await;
+    let reply = send(
+        &app,
+        &audio_uri(IN_MUSIC),
+        &[("range", "bytes=20000-")],
+        true,
+    )
+    .await;
+    assert_eq!(reply.status, StatusCode::RANGE_NOT_SATISFIABLE);
+    assert_eq!(reply.header("content-range"), Some("bytes */10000"));
+    assert_eq!(reply.json(), json!({ "error": "Range Not Satisfiable" }));
+}
+
+/// Little-endian EXIF (TIFF) data with one tag: Orientation = 6, "rotate 90° clockwise".
+const EXIF_ROTATE_90: [u8; 26] = [
+    0x49, 0x49, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00, // header, IFD at 8
+    0x01, 0x00, // one entry
+    0x12, 0x01, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, // 0x0112 SHORT 6
+    0x00, 0x00, 0x00, 0x00, // no next IFD
+];
+
+#[tokio::test]
+async fn resized_artwork_follows_exif_orientation() {
+    use image::codecs::jpeg::JpegEncoder;
+    use image::ImageEncoder;
+    let host = Host::new();
+    // Stored 400x200 (wide), shown 200x400 (tall) after the EXIF rotation.
+    let pixels = RgbImage::from_pixel(400, 200, [90, 90, 90].into());
+    let mut bytes = Vec::new();
+    let mut encoder = JpegEncoder::new(&mut bytes);
+    encoder.set_exif_metadata(EXIF_ROTATE_90.to_vec()).unwrap();
+    encoder
+        .write_image(&pixels, 400, 200, image::ExtendedColorType::Rgb8)
+        .unwrap();
+    let hash = "8".repeat(64);
+    host.add_image(&hash, "rotated.jpg", &bytes, (400, 200));
+    let app = host.router().await;
+
+    let reply = get(&app, &format!("/v1/artwork/{hash}?max=120")).await;
+    assert_eq!(reply.status, StatusCode::OK);
+    let image = decoded(&reply);
+    assert_eq!(
+        (image.width(), image.height()),
+        (60, 120),
+        "upright, not sideways"
+    );
+}
+
+#[tokio::test]
+async fn opaque_rgba_artwork_resizes_to_jpeg() {
+    let host = Host::new();
+    let bytes = encode(
+        DynamicImage::ImageRgba8(RgbaImage::from_pixel(800, 800, [9, 9, 9, 255].into())),
+        ImageFormat::Png,
+    );
+    let hash = "9".repeat(64);
+    host.add_image(&hash, "opaque-rgba.png", &bytes, (800, 800));
+    let app = host.router().await;
+
+    let reply = get(&app, &format!("/v1/artwork/{hash}?max=300")).await;
+    assert_eq!(reply.status, StatusCode::OK);
+    assert_eq!(reply.header("content-type"), Some("image/jpeg"));
+    assert_eq!(image::guess_format(&reply.body).unwrap(), ImageFormat::Jpeg);
+}
+
+#[tokio::test]
+async fn resized_artwork_is_served_when_the_cache_cant_be_written() {
+    let host = Host::new();
+    // A file where the cache folder should be: nothing can be written.
+    let not_a_dir = host.cache.path().join("blocked");
+    fs::write(&not_a_dir, b"").unwrap();
+    let app = host.router_with_cache(&not_a_dir.join("cache")).await;
+
+    let reply = get(&app, &format!("/v1/artwork/{WIDE}?max=300")).await;
+    assert_eq!(reply.status, StatusCode::OK);
+    assert_eq!(reply.header("content-type"), Some("image/jpeg"));
+    assert_eq!(reply.header("etag"), Some(&*format!("\"{WIDE}-300\"")));
+    let image = decoded(&reply);
+    assert_eq!((image.width(), image.height()), (300, 150));
+}
+
+#[tokio::test]
+async fn stale_temp_files_are_swept_from_the_cache() {
+    let host = Host::new();
+    let stale = host.cache.path().join(format!(".{WIDE}-300.jpg.1-0.tmp"));
+    let fresh = host.cache.path().join(format!(".{WIDE}-600.jpg.1-1.tmp"));
+    let kept = host.cache.path().join(format!("{WIDE}-120.jpg"));
+    for path in [&stale, &fresh, &kept] {
+        fs::write(path, b"x").unwrap();
+    }
+    let two_hours_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(2 * 3600);
+    for path in [&stale, &kept] {
+        fs::File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(two_hours_ago)
+            .unwrap();
+    }
+    let _app = host.router().await;
+    assert!(!stale.exists(), "an old temp file is removed");
+    assert!(fresh.exists(), "a recent one may be a write in progress");
+    assert!(kept.exists(), "cached images are left alone");
 }

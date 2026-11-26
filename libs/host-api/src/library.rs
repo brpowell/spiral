@@ -57,7 +57,9 @@ pub trait HostLibrary: Send + Sync + 'static {
 }
 
 /// An image's original file and what the library recorded about it.
+/// Non-exhaustive so fields can be added; build one with [`ArtworkOriginal::new`].
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct ArtworkOriginal {
     /// Absolute path of an intact copy.
     pub path: PathBuf,
@@ -67,6 +69,24 @@ pub struct ArtworkOriginal {
     pub width: Option<u32>,
     pub height: Option<u32>,
     pub byte_size: u64,
+}
+
+impl ArtworkOriginal {
+    pub fn new(
+        path: PathBuf,
+        mime: impl Into<String>,
+        width: Option<u32>,
+        height: Option<u32>,
+        byte_size: u64,
+    ) -> Self {
+        ArtworkOriginal {
+            path,
+            mime: mime.into(),
+            width,
+            height,
+            byte_size,
+        }
+    }
 }
 
 /// Artwork is addressed by the SHA-256 of its bytes: 64 lowercase hex digits.

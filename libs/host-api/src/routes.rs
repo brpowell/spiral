@@ -1,12 +1,12 @@
 //! The router and its handlers.
 
-use crate::artwork;
+use crate::artwork::{self, ResizedBody};
 use crate::auth::{require_auth, Authenticator};
 use crate::library::{is_artwork_hash, ArtworkOriginal, HostLibrary, HostLibraryError};
 use axum::body::Body;
 use axum::extract::rejection::{PathRejection, QueryRejection};
 use axum::extract::{Path as UrlPath, Query, Request, State};
-use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE, ETAG, IF_NONE_MATCH};
+use axum::http::header::{CACHE_CONTROL, CONTENT_RANGE, CONTENT_TYPE, ETAG, IF_NONE_MATCH};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use spiral_sync::{LibraryId, Rev, SyncCursor};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use tokio::sync::Semaphore;
 use tower::ServiceExt;
 use tower_http::services::ServeFile;
 
@@ -31,6 +32,9 @@ pub struct HostApi {
 }
 
 impl HostApi {
+    /// `cache_dir` must be outside the Spiral folder, never under `Artwork/`,
+    /// whose files the desktop app registers (see [`HostApi::cache_dir`]).
+    /// Nothing evicts its files; the host may delete them at any time.
     pub fn new(
         library: impl HostLibrary,
         auth: impl Authenticator,
@@ -48,7 +52,12 @@ impl HostApi {
 struct AppState {
     library: Arc<dyn HostLibrary>,
     cache_dir: Arc<Path>,
+    /// Bounds concurrent decodes: each one holds a whole image in memory.
+    resize_permits: Arc<Semaphore>,
 }
+
+/// How many images may be decoded and resized at once.
+const RESIZE_PERMITS: usize = 2;
 
 /// The host API. Authentication wraps every route and the fallback, so an
 /// unknown path answers 401 to a request without a valid token, not 404.
@@ -62,9 +71,11 @@ pub fn router(api: HostApi) -> Router {
         .route("/tracks/{id}/audio", get(track_audio))
         .route("/artwork/{hash}", get(artwork))
         .method_not_allowed_fallback(method_not_allowed);
+    artwork::sweep_stale_temp_files(&api.cache_dir);
     let state = AppState {
         library: api.library,
         cache_dir: api.cache_dir.into(),
+        resize_permits: Arc::new(Semaphore::new(RESIZE_PERMITS)),
     };
     Router::new()
         .nest("/v1", v1)
@@ -120,17 +131,29 @@ async fn track_audio(
 }
 
 /// Serves `path` with `ServeFile`: ranges (`206`, `Content-Range`, `If-Range`)
-/// and conditional requests. A file that vanished since the lookup is our
-/// JSON 404, and a read error our JSON 500.
+/// and conditional requests. Its errors become our JSON ones: a file that
+/// vanished since the lookup is 404, a read error 500, and any other (416 for
+/// a range past the end, keeping its `Content-Range`) the same status.
 async fn serve_file(path: PathBuf, request: Request) -> Result<Response, ApiError> {
     let Ok(response) = ServeFile::new(&path).oneshot(request).await;
-    match response.status() {
-        StatusCode::NOT_FOUND => Err(ApiError::NotFound),
-        StatusCode::INTERNAL_SERVER_ERROR => Err(ApiError::Library(HostLibraryError::storage(
-            format!("reading {} failed", path.display()),
-        ))),
-        _ => Ok(response.map(Body::new)),
+    let status = response.status();
+    if status == StatusCode::NOT_FOUND {
+        return Err(ApiError::NotFound);
     }
+    if status.is_server_error() {
+        return Err(ApiError::Library(HostLibraryError::storage(format!(
+            "reading {} failed",
+            path.display()
+        ))));
+    }
+    if status.is_client_error() {
+        let mut error = error_response(status, status.canonical_reason().unwrap_or("error"));
+        if let Some(range) = response.headers().get(CONTENT_RANGE) {
+            error.headers_mut().insert(CONTENT_RANGE, range.clone());
+        }
+        return Ok(error);
+    }
+    Ok(response.map(Body::new))
 }
 
 #[derive(Deserialize)]
@@ -196,12 +219,27 @@ async fn artwork(
         }
         Some(size) => {
             let cache_dir = Arc::clone(&state.cache_dir);
+            // Requests waiting here for the same image find it cached once
+            // the first is done: `resized` checks the cache before decoding.
+            let _permit = state
+                .resize_permits
+                .acquire()
+                .await
+                .map_err(HostLibraryError::storage)?;
             let resized = blocking(move || {
                 artwork::resized(&cache_dir, &hash, &original.path, size)
                     .map_err(HostLibraryError::Storage)
             })
             .await?;
-            (resized.path, Some(HeaderValue::from_static(resized.mime)))
+            let mime = HeaderValue::from_static(resized.mime);
+            match resized.body {
+                ResizedBody::File(path) => (path, Some(mime)),
+                ResizedBody::Bytes(bytes) => {
+                    let mut response = Response::new(Body::from(bytes));
+                    set_artwork_headers(response.headers_mut(), etag, Some(mime));
+                    return Ok(response);
+                }
+            }
         }
     };
     let mut response = serve_file(path, request).await?;

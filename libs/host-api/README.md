@@ -22,7 +22,7 @@ Every route needs `Authorization: Bearer <token>`.
 | `GET /v1/tracks/{id}/audio` | The track's audio file, with range requests (`206`) |
 | `GET /v1/artwork/{hash}?max=N` | An image by content hash, the original or resized |
 
-Errors are `{ "error": "..." }` with status 400, 401, 404, 405, 500 or 501. A library that
+Errors are `{ "error": "..." }` with status 400, 401, 404, 405, 416, 500 or 501. A library that
 doesn't serve files answers 501 on the file routes.
 
 Audio: a track that is unknown, missing on disk or outside its source's root is the same 404.
@@ -31,7 +31,7 @@ Artwork: without `max` you get the original. `max` snaps up to 120, 300, 600 or 
 longer side in pixels; anything larger is 1200, and `0` or a non-number is 400). Images are
 never upscaled: one that already fits comes back as the original. Resized images are JPEG, or
 PNG when the source has alpha, and are cached in the `cache_dir` given to `HostApi`, never
-under `Artwork/`. Responses carry `ETag: "<hash>-<size>"` (`orig` for originals) and
+under `Artwork/`. Nothing evicts cached files; the host may delete them at any time. Responses carry `ETag: "<hash>-<size>"` (`orig` for originals) and
 `Cache-Control: private, max-age=31536000, immutable`, and answer `If-None-Match` with 304. A
 malformed hash is 404.
 

@@ -72,19 +72,41 @@ fn parse_args() -> Result<Args, String> {
     })
 }
 
-/// Creates `cache_dir` and refuses it inside the Spiral folder, whose
-/// `Artwork/` the desktop app owns.
+/// Refuses `cache_dir` inside the Spiral folder, whose `Artwork/` the
+/// desktop app owns, then creates it. Checked first, so a refused folder is
+/// never created.
 fn check_cache_dir(cache_dir: &Path, spiral_folder: &Path) -> Result<(), String> {
+    let cache =
+        resolve(cache_dir).map_err(|e| format!("--cache-dir {}: {e}", cache_dir.display()))?;
+    if let Ok(spiral) = std::fs::canonicalize(spiral_folder) {
+        if cache.starts_with(&spiral) {
+            return Err(format!(
+                "--cache-dir {} is inside the Spiral folder; pick a folder outside it",
+                cache_dir.display()
+            ));
+        }
+    }
     std::fs::create_dir_all(cache_dir)
-        .map_err(|e| format!("can't create --cache-dir {}: {e}", cache_dir.display()))?;
-    let cache = std::fs::canonicalize(cache_dir)
-        .map_err(|e| format!("--cache-dir {}: {e}", cache_dir.display()))?;
-    match std::fs::canonicalize(spiral_folder) {
-        Ok(spiral) if cache.starts_with(&spiral) => Err(format!(
-            "--cache-dir {} is inside the Spiral folder; pick a folder outside it",
-            cache_dir.display()
-        )),
-        _ => Ok(()),
+        .map_err(|e| format!("can't create --cache-dir {}: {e}", cache_dir.display()))
+}
+
+/// `path` with symlinks resolved, though its last parts may not exist yet:
+/// its nearest existing ancestor canonicalized, plus the rest.
+fn resolve(path: &Path) -> std::io::Result<PathBuf> {
+    let path = std::path::absolute(path)?;
+    let mut missing = Vec::new();
+    let mut existing = path.as_path();
+    loop {
+        match std::fs::canonicalize(existing) {
+            Ok(base) => return Ok(missing.into_iter().rev().fold(base, |p, part| p.join(part))),
+            Err(e) => {
+                let (Some(parent), Some(name)) = (existing.parent(), existing.file_name()) else {
+                    return Err(e);
+                };
+                missing.push(name.to_owned());
+                existing = parent;
+            }
+        }
     }
 }
 

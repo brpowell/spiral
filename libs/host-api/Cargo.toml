@@ -21,7 +21,7 @@ hyper-util = { version = "0.1", features = ["server-auto", "service", "tokio"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 spiral-sync = { path = "../sync", features = ["host"] }
-tokio = { version = "1", features = ["rt", "macros", "net"] }
+tokio = { version = "1", features = ["rt", "macros", "net", "sync"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["fs"] }
 tracing = "0.1"

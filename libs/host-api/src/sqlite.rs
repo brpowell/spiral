@@ -229,12 +229,14 @@ fn artwork_original(
         (file_stat(&file)? == (size, mtime_ms)).then_some(file)
     });
     let dimension = |v: Option<i64>| v.and_then(|v| u32::try_from(v).ok()).filter(|&v| v > 0);
-    Ok(path.map(|path| ArtworkOriginal {
-        path,
-        mime,
-        width: dimension(width),
-        height: dimension(height),
-        byte_size: u64::try_from(byte_size).unwrap_or(0),
+    Ok(path.map(|path| {
+        ArtworkOriginal::new(
+            path,
+            mime,
+            dimension(width),
+            dimension(height),
+            u64::try_from(byte_size).unwrap_or(0),
+        )
     }))
 }
 
