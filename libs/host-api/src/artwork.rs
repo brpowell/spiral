@@ -2,10 +2,6 @@
 //!
 //! Everything here touches the disk or decodes images, so it runs on a
 //! blocking thread.
-//!
-//! The cache folder belongs to the host. Files in it are named by content
-//! hash, so they never go stale, and the host can delete any of them (or the
-//! whole folder) at any time; nothing here evicts them.
 
 use crate::library::ArtworkOriginal;
 use image::codecs::jpeg::JpegEncoder;
@@ -24,15 +20,12 @@ pub(crate) const SIZES: [u32; 4] = [120, 300, 600, 1200];
 
 const JPEG_QUALITY: u8 = 85;
 
-/// The most a single decode may allocate. Covers are rarely past 4000 px a
-/// side (64 MB as RGBA); this leaves room while keeping a hostile or broken
-/// file from taking the host's memory.
+/// Caps one decode's memory (a 4000 px RGBA cover is 64 MB).
 const MAX_DECODE_BYTES: u64 = 256 * 1024 * 1024;
 
 /// A temp file older than this was left by a write that never finished.
 const STALE_TEMP: Duration = Duration::from_secs(60 * 60);
 
-/// Why a `max` query value was refused.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct BadMax;
 
@@ -139,8 +132,7 @@ fn decode_upright(source: &Path) -> image::ImageResult<DynamicImage> {
     Ok(image)
 }
 
-/// Whether any pixel is less than opaque. Many covers are RGBA with every
-/// pixel opaque, and those are smaller as JPEG.
+/// Many covers are RGBA with every pixel opaque, and those are smaller as JPEG.
 fn has_transparency(image: &DynamicImage) -> bool {
     image.color().has_alpha() && image.to_rgba8().pixels().any(|p| p[3] < u8::MAX)
 }

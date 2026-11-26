@@ -56,16 +56,14 @@ pub trait HostLibrary: Send + Sync + 'static {
     }
 }
 
-/// An image's original file and what the library recorded about it.
-/// Non-exhaustive so fields can be added; build one with [`ArtworkOriginal::new`].
+/// An image's original file and what the library recorded about it. Build
+/// one with [`ArtworkOriginal::new`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct ArtworkOriginal {
     /// Absolute path of an intact copy.
     pub path: PathBuf,
-    /// `image/jpeg`, `image/png`, ...
     pub mime: String,
-    /// Pixel size, when the library knows it.
     pub width: Option<u32>,
     pub height: Option<u32>,
     pub byte_size: u64,
