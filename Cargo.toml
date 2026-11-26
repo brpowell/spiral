@@ -14,3 +14,17 @@ spk-format = { path = "libs/spk-format" }
 [profile.profiling]
 inherits = "release"
 debug = true
+
+# Smaller dev builds: keep file:line in panic backtraces, drop full debug info
+# (and all debug info for third-party crates). Re-enable `debug = true` here if
+# you need to step through code in lldb/gdb.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
+# Without debug info, the macOS linker writes a sqlx-macros dylib that dlopen rejects
+# ("mis-aligned LINKEDIT string pool"), which breaks every registry build.
+[profile.dev.package.sqlx-macros]
+debug = "line-tables-only"
