@@ -71,8 +71,17 @@ impl HostDb {
             .await
             .unwrap();
         assert_eq!(library.spiral_folder(), self.dir.path());
-        router(HostApi::new(library, DevTokenAuth::new(TOKEN)))
+        router(HostApi::new(
+            library,
+            DevTokenAuth::new(TOKEN),
+            unused_cache_dir(),
+        ))
     }
+}
+
+/// These tests never resize artwork, so nothing is written here.
+fn unused_cache_dir() -> PathBuf {
+    std::env::temp_dir().join("spiral-host-api-unused-cache")
 }
 
 struct Reply {
@@ -82,7 +91,15 @@ struct Reply {
 }
 
 async fn get(app: &Router, uri: &str, authorization: Option<&str>) -> Reply {
-    let mut request = Request::get(uri);
+    send(app, Request::get(uri), authorization).await
+}
+
+async fn send(
+    app: &Router,
+    mut request: axum::http::request::Builder,
+    authorization: Option<&str>,
+) -> Reply {
+    let uri = request.uri_ref().unwrap().to_string();
     if let Some(value) = authorization {
         request = request.header("authorization", value);
     }
@@ -128,10 +145,10 @@ fn rev(body: &Value) -> u64 {
 }
 
 #[tokio::test]
-async fn library_returns_the_host_state() {
+async fn sync_state_returns_the_host_state() {
     let db = HostDb::seeded();
     let app = db.router().await;
-    let body = get_ok(&app, "/v1/library").await;
+    let body = get_ok(&app, "/v1/sync/state").await;
     let state: HostState = serde_json::from_value(body.clone()).unwrap();
     assert_eq!(state.library_id.as_str(), LIBRARY_ID);
     assert_eq!(state.oldest_rev.0, 0);
@@ -139,7 +156,7 @@ async fn library_returns_the_host_state() {
     assert_eq!(state.rev.0, 1);
 
     db.add_track(TRACK_B, "Second");
-    assert_eq!(rev(&get_ok(&app, "/v1/library").await), 2);
+    assert_eq!(rev(&get_ok(&app, "/v1/sync/state").await), 2);
 }
 
 #[tokio::test]
@@ -147,7 +164,8 @@ async fn snapshot_returns_the_catalog() {
     let db = HostDb::seeded();
     db.add_track(TRACK_B, "Second");
     let app = db.router().await;
-    let snapshot: Snapshot = serde_json::from_value(get_ok(&app, "/v1/snapshot").await).unwrap();
+    let snapshot: Snapshot =
+        serde_json::from_value(get_ok(&app, "/v1/sync/snapshot").await).unwrap();
     assert_eq!(snapshot.library_id.as_str(), LIBRARY_ID);
     assert_eq!(snapshot.rev.0, 2);
     let titles: Vec<_> = snapshot.tracks.iter().map(|t| t.title.as_str()).collect();
@@ -158,12 +176,12 @@ async fn snapshot_returns_the_catalog() {
 async fn changes_returns_what_changed_since_the_cursor() {
     let db = HostDb::seeded();
     let app = db.router().await;
-    let since = rev(&get_ok(&app, "/v1/library").await);
+    let since = rev(&get_ok(&app, "/v1/sync/state").await);
     db.add_track(TRACK_B, "Second");
 
     let body = get_ok(
         &app,
-        &format!("/v1/changes?library_id={LIBRARY_ID}&since={since}"),
+        &format!("/v1/sync/changes?library_id={LIBRARY_ID}&since={since}"),
     )
     .await;
     assert_eq!(body["type"], "changes");
@@ -177,7 +195,10 @@ async fn changes_returns_what_changed_since_the_cursor() {
     // At the host's rev there is nothing to fetch.
     let body = get_ok(
         &app,
-        &format!("/v1/changes?library_id={LIBRARY_ID}&since={}", since + 1),
+        &format!(
+            "/v1/sync/changes?library_id={LIBRARY_ID}&since={}",
+            since + 1
+        ),
     )
     .await;
     assert_eq!(body["type"], "changes");
@@ -190,7 +211,7 @@ async fn changes_tells_a_client_ahead_to_resnapshot() {
     let app = db.router().await;
     let body = get_ok(
         &app,
-        &format!("/v1/changes?library_id={LIBRARY_ID}&since=99"),
+        &format!("/v1/sync/changes?library_id={LIBRARY_ID}&since=99"),
     )
     .await;
     assert_eq!(
@@ -207,7 +228,11 @@ async fn changes_tells_a_client_ahead_to_resnapshot() {
 async fn changes_tells_another_library_to_resnapshot() {
     let db = HostDb::seeded();
     let app = db.router().await;
-    let body = get_ok(&app, "/v1/changes?library_id=some-other-library&since=0").await;
+    let body = get_ok(
+        &app,
+        "/v1/sync/changes?library_id=some-other-library&since=0",
+    )
+    .await;
     assert_eq!(body["type"], "resnapshot");
     assert_eq!(body["reason"], "different_library");
     assert_eq!(body["host"]["library_id"], LIBRARY_ID);
@@ -228,7 +253,7 @@ async fn changes_rejects_a_bad_query() {
     ] {
         let reply = get(
             &app,
-            &format!("/v1/changes{query}"),
+            &format!("/v1/sync/changes{query}"),
             Some(&format!("Bearer {TOKEN}")),
         )
         .await;
@@ -246,9 +271,9 @@ async fn every_route_needs_a_valid_bearer_token() {
     let db = HostDb::seeded();
     let app = db.router().await;
     let uris = [
-        "/v1/library",
-        "/v1/snapshot",
-        &format!("/v1/changes?library_id={LIBRARY_ID}&since=0"),
+        "/v1/sync/state",
+        "/v1/sync/snapshot",
+        &format!("/v1/sync/changes?library_id={LIBRARY_ID}&since=0"),
     ];
     let bad = [
         None,
@@ -271,7 +296,18 @@ async fn every_route_needs_a_valid_bearer_token() {
 async fn an_unknown_path_is_401_before_404() {
     let db = HostDb::seeded();
     let app = db.router().await;
-    for uri in ["/", "/v1", "/v1/nope", "/v2/library", "/admin"] {
+    // The pre-`/v1/sync` paths included: they're gone, not aliased.
+    for uri in [
+        "/",
+        "/v1",
+        "/v1/nope",
+        "/v1/sync",
+        "/v1/library",
+        "/v1/snapshot",
+        "/v1/changes",
+        "/v2/sync/state",
+        "/admin",
+    ] {
         assert_unauthorized(&get(&app, uri, None).await);
         let reply = get(&app, uri, Some(&format!("Bearer {TOKEN}"))).await;
         assert_eq!(reply.status, StatusCode::NOT_FOUND, "{uri}");
@@ -321,7 +357,7 @@ async fn loopback_gets_no_trust_over_tcp() {
         Some("Bearer wrong"),
         Some(&format!("Basic {TOKEN}") as &str),
     ] {
-        let response = raw_request(connect().await.unwrap(), "/v1/library", authorization).await;
+        let response = raw_request(connect().await.unwrap(), "/v1/sync/state", authorization).await;
         assert_eq!(
             status_line(&response),
             "HTTP/1.1 401 Unauthorized",
@@ -341,7 +377,7 @@ async fn loopback_gets_no_trust_over_tcp() {
 
     let response = raw_request(
         connect().await.unwrap(),
-        "/v1/library",
+        "/v1/sync/state",
         Some(&format!("Bearer {TOKEN}")),
     )
     .await;
@@ -359,7 +395,12 @@ async fn serve_connection_answers_on_a_connected_stream() {
     let (client, host) = tokio::io::duplex(64 * 1024);
     let server = tokio::spawn(serve_connection(host, app));
 
-    let response = raw_request(client, "/v1/snapshot", Some(&format!("Bearer {TOKEN}"))).await;
+    let response = raw_request(
+        client,
+        "/v1/sync/snapshot",
+        Some(&format!("Bearer {TOKEN}")),
+    )
+    .await;
     assert_eq!(status_line(&response), "HTTP/1.1 200 OK");
     let body = response.split("\r\n\r\n").nth(1).unwrap();
     let snapshot: Snapshot = serde_json::from_str(body).unwrap();
@@ -369,7 +410,7 @@ async fn serve_connection_answers_on_a_connected_stream() {
     // Unauthenticated on this transport too.
     let (client, host) = tokio::io::duplex(64 * 1024);
     let server = tokio::spawn(serve_connection(host, db.router().await));
-    let response = raw_request(client, "/v1/snapshot", None).await;
+    let response = raw_request(client, "/v1/sync/snapshot", None).await;
     assert_eq!(status_line(&response), "HTTP/1.1 401 Unauthorized");
     server.await.unwrap().unwrap();
 }
@@ -401,11 +442,15 @@ impl HostLibrary for BrokenLibrary {
 
 #[tokio::test]
 async fn a_storage_error_is_500_without_details() {
-    let app = router(HostApi::new(BrokenLibrary, DevTokenAuth::new(TOKEN)));
+    let app = router(HostApi::new(
+        BrokenLibrary,
+        DevTokenAuth::new(TOKEN),
+        unused_cache_dir(),
+    ));
     for uri in [
-        "/v1/library",
-        "/v1/snapshot",
-        "/v1/changes?library_id=x&since=0",
+        "/v1/sync/state",
+        "/v1/sync/snapshot",
+        "/v1/sync/changes?library_id=x&since=0",
     ] {
         let reply = get(&app, uri, Some(&format!("Bearer {TOKEN}"))).await;
         assert_eq!(reply.status, StatusCode::INTERNAL_SERVER_ERROR, "{uri}");
@@ -413,7 +458,51 @@ async fn a_storage_error_is_500_without_details() {
         assert!(!reply.body.to_string().contains("corrupt"));
     }
     // Auth still comes first.
-    assert_unauthorized(&get(&app, "/v1/library", None).await);
+    assert_unauthorized(&get(&app, "/v1/sync/state", None).await);
+}
+
+#[tokio::test]
+async fn file_routes_are_501_when_the_library_has_no_files() {
+    // BrokenLibrary keeps the default `track_file` and `artwork_original`.
+    let app = router(HostApi::new(
+        BrokenLibrary,
+        DevTokenAuth::new(TOKEN),
+        unused_cache_dir(),
+    ));
+    for uri in [
+        format!("/v1/tracks/{TRACK_A}/audio"),
+        format!("/v1/artwork/{}", "a".repeat(64)),
+    ] {
+        let reply = get(&app, &uri, Some(&format!("Bearer {TOKEN}"))).await;
+        assert_eq!(reply.status, StatusCode::NOT_IMPLEMENTED, "{uri}");
+        assert_eq!(reply.body, json!({ "error": "not implemented" }));
+    }
+}
+
+#[tokio::test]
+async fn a_wrong_method_is_405_as_json() {
+    let db = HostDb::seeded();
+    let app = db.router().await;
+    for uri in [
+        "/v1/sync/state".to_string(),
+        "/v1/sync/snapshot".to_string(),
+        format!("/v1/tracks/{TRACK_A}/audio"),
+        format!("/v1/artwork/{}", "a".repeat(64)),
+    ] {
+        for method in ["POST", "PUT", "DELETE"] {
+            let request = Request::builder().method(method).uri(&uri);
+            let reply = send(&app, request, Some(&format!("Bearer {TOKEN}"))).await;
+            assert_eq!(
+                reply.status,
+                StatusCode::METHOD_NOT_ALLOWED,
+                "{method} {uri}"
+            );
+            assert_eq!(reply.body, json!({ "error": "method not allowed" }));
+            // And 401 first without a token.
+            let request = Request::builder().method(method).uri(&uri);
+            assert_unauthorized(&send(&app, request, None).await);
+        }
+    }
 }
 
 #[tokio::test]
@@ -439,10 +528,10 @@ async fn reads_never_write_the_database() {
     let db = HostDb::seeded();
     let app = db.router().await;
     let before = std::fs::read(db.path()).unwrap();
-    get_ok(&app, "/v1/snapshot").await;
+    get_ok(&app, "/v1/sync/snapshot").await;
     get_ok(
         &app,
-        &format!("/v1/changes?library_id={LIBRARY_ID}&since=0"),
+        &format!("/v1/sync/changes?library_id={LIBRARY_ID}&since=0"),
     )
     .await;
     assert_eq!(std::fs::read(db.path()).unwrap(), before);

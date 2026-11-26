@@ -9,13 +9,18 @@
 //! [`axum::serve::Listener`] it opened, or hands [`serve_connection`] a single
 //! stream it already connected.
 //!
-//! Routes, all under `/v1` and answering JSON:
+//! Routes, all under `/v1`. Sync routes (`/v1/sync/*`) answer JSON and are how
+//! a client mirrors the catalog. Content routes serve files to any client.
 //!
-//! - `GET /v1/library`: the [`HostState`](spiral_sync::HostState).
-//! - `GET /v1/snapshot`: the [`Snapshot`](spiral_sync::Snapshot).
-//! - `GET /v1/changes?library_id=&since=`: the
+//! - `GET /v1/sync/state`: the [`HostState`](spiral_sync::HostState).
+//! - `GET /v1/sync/snapshot`: the [`Snapshot`](spiral_sync::Snapshot).
+//! - `GET /v1/sync/changes?library_id=&since=`: the
 //!   [`ChangesResponse`](spiral_sync::ChangesResponse) for that cursor.
+//! - `GET /v1/tracks/{id}/audio`: the track's audio file, with range requests.
+//! - `GET /v1/artwork/{hash}?max=N`: an image, the original or resized to
+//!   120, 300, 600 or 1200 px on the longer side.
 
+mod artwork;
 mod auth;
 mod library;
 mod routes;
@@ -23,7 +28,7 @@ mod serve;
 mod sqlite;
 
 pub use auth::{AuthFuture, AuthedDevice, Authenticator, DevTokenAuth};
-pub use library::{HostFuture, HostLibrary, HostLibraryError};
+pub use library::{is_artwork_hash, ArtworkOriginal, HostFuture, HostLibrary, HostLibraryError};
 pub use routes::{router, HostApi};
 pub use serve::{serve, serve_connection};
 pub use sqlite::SqliteHostLibrary;
