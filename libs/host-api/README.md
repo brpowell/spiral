@@ -11,11 +11,14 @@ Every route needs `Authorization: Bearer <token>`.
 
 ## Endpoints
 
+`/v1/sync/*` is replication: a client mirrors the catalog from it. Content routes
+(`/v1/tracks/…`, `/v1/artwork/…`) serve files to any client.
+
 | Route | Returns |
 | --- | --- |
-| `GET /v1/library` | Library id and current rev |
-| `GET /v1/snapshot` | The whole catalog |
-| `GET /v1/changes?library_id=&since=` | Changes since `since`, or a resnapshot |
+| `GET /v1/sync/state` | Library id and current rev |
+| `GET /v1/sync/snapshot` | The whole catalog |
+| `GET /v1/sync/changes?library_id=&since=` | Changes since `since`, or a resnapshot |
 | `GET /v1/tracks/{id}/audio` | The track's audio file, with range requests (`206`) |
 | `GET /v1/artwork/{hash}?max=N` | An image by content hash, the original or resized |
 
@@ -44,10 +47,10 @@ artwork (default: `spiral-dev-host-cache` in the OS temp dir; refused inside the
 and `--addr` (default: `127.0.0.1:7878`). Point it at a test database, not your real library.
 
 ```bash
-curl -H "Authorization: Bearer dev-secret" http://127.0.0.1:7878/v1/library
-curl -H "Authorization: Bearer dev-secret" http://127.0.0.1:7878/v1/snapshot
+curl -H "Authorization: Bearer dev-secret" http://127.0.0.1:7878/v1/sync/state
+curl -H "Authorization: Bearer dev-secret" http://127.0.0.1:7878/v1/sync/snapshot
 curl -H "Authorization: Bearer dev-secret" \
-  "http://127.0.0.1:7878/v1/changes?library_id=<id>&since=<rev>"
+  "http://127.0.0.1:7878/v1/sync/changes?library_id=<id>&since=<rev>"
 
 # A whole track, then its first kilobyte (206 with Content-Range).
 curl -H "Authorization: Bearer dev-secret" -o track.flac \

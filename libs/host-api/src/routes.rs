@@ -54,9 +54,11 @@ struct AppState {
 /// unknown path answers 401 to a request without a valid token, not 404.
 pub fn router(api: HostApi) -> Router {
     let v1 = Router::new()
-        .route("/library", get(library))
-        .route("/snapshot", get(snapshot))
-        .route("/changes", get(changes))
+        // Replication: a client mirrors the catalog from these.
+        .route("/sync/state", get(sync_state))
+        .route("/sync/snapshot", get(snapshot))
+        .route("/sync/changes", get(changes))
+        // Content any client fetches, addressed by track id or image hash.
         .route("/tracks/{id}/audio", get(track_audio))
         .route("/artwork/{hash}", get(artwork))
         .method_not_allowed_fallback(method_not_allowed);
@@ -71,7 +73,7 @@ pub fn router(api: HostApi) -> Router {
         .layer(middleware::from_fn_with_state(api.auth, require_auth))
 }
 
-async fn library(State(state): State<AppState>) -> Result<Response, ApiError> {
+async fn sync_state(State(state): State<AppState>) -> Result<Response, ApiError> {
     Ok(Json(state.library.host_state().await?).into_response())
 }
 
