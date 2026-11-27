@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.3.0](https://github.com/brpowell/spiral/compare/desktop-v1.2.0...desktop-v1.3.0) (2026-11-27)
+
+
+### Features
+
+* **desktop:** add artwork registry and sync genre settings ([#192](https://github.com/brpowell/spiral/issues/192)) ([419ad83](https://github.com/brpowell/spiral/commit/419ad839797443917bc5f4340e705594f2aa8500))
+* **desktop:** add library id and change log ([#190](https://github.com/brpowell/spiral/issues/190)) ([97d483a](https://github.com/brpowell/spiral/commit/97d483a47d1302914861ffecedbd64ee41beb1f6))
+* **sync:** add sync protocol and host HTTP API libraries ([#199](https://github.com/brpowell/spiral/issues/199)) ([f4abfb6](https://github.com/brpowell/spiral/commit/f4abfb638b5d4d2eac2bcec95aff1f4167474f2f))
+
+
+### Bug Fixes
+
+* **desktop:** stage NOTICE from the right folder in git worktrees ([#196](https://github.com/brpowell/spiral/issues/196)) ([028f48e](https://github.com/brpowell/spiral/commit/028f48e58f49c17983b013be17ccc85fbd4ed0c0))
+
 ## [1.2.0](https://github.com/brpowell/spiral/compare/desktop-v1.1.0...desktop-v1.2.0) (2026-11-20)
 
 
