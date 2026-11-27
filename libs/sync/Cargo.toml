@@ -1,0 +1,31 @@
+[package]
+name = "spiral-sync"
+version = "0.1.0"
+edition = "2021"
+description = "Spiral library sync: protocol types and sync planning shared by hosts and clients"
+license = "FSL-1.1-Apache-2.0"
+repository = "https://github.com/brpowell/spiral"
+publish = false
+
+[features]
+# Reading snapshots and change sets from a host's SQLite library. Hosts only:
+# clients (iOS links this crate) keep the default, serde-only build.
+host = ["dep:rusqlite", "dep:serde_json"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+# Must match the desktop crate's version: two bundled `libsqlite3-sys` can't link in one workspace.
+rusqlite = { version = "0.32", features = ["bundled"], optional = true }
+serde_json = { version = "1", optional = true }
+
+[dev-dependencies]
+serde_json = "1"
+tempfile = "3"
+
+[lib]
+name = "spiral_sync"
+path = "src/lib.rs"
+
+[[test]]
+name = "host_db"
+required-features = ["host"]

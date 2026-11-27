@@ -1,0 +1,42 @@
+[package]
+name = "spiral-host-api"
+version = "0.1.0"
+edition = "2021"
+description = "Spiral host HTTP API: library sync endpoints served from a host library"
+license = "FSL-1.1-Apache-2.0"
+repository = "https://github.com/brpowell/spiral"
+publish = false
+
+[features]
+# The `dev-host` binary and its log output. The library itself only emits `tracing` events.
+dev-host = ["dep:tracing-subscriber", "tokio/rt-multi-thread", "tokio/signal"]
+
+[dependencies]
+axum = { version = "0.8", default-features = false, features = ["http1", "http2", "json", "query", "tokio"] }
+constant_time_eq = "0.3"
+# Same codecs as the desktop app, which wrote the artwork.
+image = { version = "0.25", default-features = false, features = ["bmp", "gif", "jpeg", "png", "webp"] }
+hyper-util = { version = "0.1", features = ["server-auto", "service", "tokio"] }
+# Must match `spiral-sync`'s: the SQLite reader takes its `rusqlite::Connection`.
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+spiral-sync = { path = "../sync", features = ["host"] }
+tokio = { version = "1", features = ["rt", "macros", "net", "sync"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["fs"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
+
+[dev-dependencies]
+serde_json = "1"
+tempfile = "3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util"] }
+
+[lib]
+name = "spiral_host_api"
+path = "src/lib.rs"
+
+[[bin]]
+name = "dev-host"
+path = "src/bin/dev-host.rs"
+required-features = ["dev-host"]
