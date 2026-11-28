@@ -22,8 +22,30 @@ function readOpenMap(): Record<string, string[]> {
   }
 }
 
+const localListeners = new Set<() => void>();
+
 function writeOpenMap(map: Record<string, string[]>): void {
-  localStorage.setItem(OPEN_AUX_KEY, JSON.stringify(map));
+  const next = JSON.stringify(map);
+  if (localStorage.getItem(OPEN_AUX_KEY) === next) return;
+  localStorage.setItem(OPEN_AUX_KEY, next);
+  for (const listener of localListeners) listener();
+}
+
+/**
+ * Calls `listener` when the open views change, whether this window or another
+ * one wrote them (`storage` events only reach the other windows).
+ */
+export function subscribeOpenAuxViews(listener: () => void): () => void {
+  const onStorage = (event: StorageEvent) => {
+    // A null key means the whole storage area was cleared.
+    if (event.key === OPEN_AUX_KEY || event.key === null) listener();
+  };
+  localListeners.add(listener);
+  window.addEventListener("storage", onStorage);
+  return () => {
+    localListeners.delete(listener);
+    window.removeEventListener("storage", onStorage);
+  };
 }
 
 export function readOpenAuxViewsForSkin(skinId: string): string[] {
