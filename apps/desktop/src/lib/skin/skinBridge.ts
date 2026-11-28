@@ -1,5 +1,9 @@
 import { listen } from "@tauri-apps/api/event";
 import { closeAllSkinAuxWindows } from "./auxWindow/skinAuxWindow";
+import {
+  readOpenAuxViewsForSkin,
+  subscribeOpenAuxViews,
+} from "./auxWindow/skinAuxViewState";
 import { useSkinStore } from "@/store/useSkinStore";
 import { useSkinPreferencesStore } from "@/store/useSkinPreferencesStore";
 import { useThemeStore } from "@/store/useThemeStore";
@@ -64,6 +68,20 @@ function applyRemoteSkinPreferences(
   useSkinPreferencesStore.setState({ skinId, preferences });
 }
 
+/** Mirror the shared open-view list, which drives `skin.view.{id}.open`. */
+function syncOpenAuxViews(): void {
+  const { activeSkinId } = useSkinStore.getState();
+  useSkinStore.setState({
+    openAuxiliaryViews: readOpenAuxViewsForSkin(activeSkinId),
+  });
+}
+
+function followOpenAuxViews(): void {
+  subscribeOpenAuxViews(syncOpenAuxViews);
+  // Catch anything written between bootstrap and this subscription.
+  syncOpenAuxViews();
+}
+
 async function listenSkinPreferencesChanged(): Promise<void> {
   await listen<SkinPreferencesChangedPayload>(
     SKIN_PREFERENCES_CHANGED_EVENT,
@@ -120,6 +138,7 @@ export async function initSkinBridge(role: WindowRole): Promise<void> {
   }
 
   if (isSkinModeWindow()) {
+    followOpenAuxViews();
     await listen<SkinChangedPayload>(SKIN_CHANGED_EVENT, () => {
       void useSkinStore
         .getState()
@@ -133,6 +152,7 @@ export async function initSkinBridge(role: WindowRole): Promise<void> {
   }
 
   if (isSkinAuxWindow()) {
+    followOpenAuxViews();
     await listen<SkinChangedPayload>(SKIN_CHANGED_EVENT, async () => {
       const previousPack = useSkinStore.getState().activePack;
       if (previousPack) {
