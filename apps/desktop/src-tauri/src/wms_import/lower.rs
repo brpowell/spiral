@@ -1,6 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
+use image::RgbaImage;
 use serde_json::{json, Map, Value};
 
 use crate::wms_import::behavior::{apply_behavior_tree, BehaviorPlan};
@@ -854,8 +855,9 @@ fn lower_slider(node: &WmsNode, deps: &mut LowerDeps<'_>, ids: &mut IdGen) -> Op
             .map(String::as_str),
     );
     let Some(presentation) = slider_presentation(node, deps, &bounds, direction) else {
-        if !node.attrs.contains_key("image")
-            && !node.attrs.contains_key("thumbimage")
+        if let Some(strip_name) = node.attrs.get("image") {
+            report_skipped_strip_slider(node, deps, &id, strip_name);
+        } else if !node.attrs.contains_key("thumbimage")
             && !node.attrs.contains_key("backgroundimage")
             && !node.attrs.contains_key("foregroundimage")
         {
@@ -1031,9 +1033,32 @@ fn strip_slider_presentation(
     let map_name = node.attrs.get("positionimage");
     let strip_size = (deps.size_of)(strip_name)?;
     let map_size = map_name.and_then(|name| (deps.size_of)(name));
-    let (frame_width, frame_height, frame_count) =
-        infer_strip_frames(strip_size, map_size, bounds)?;
     let node_id = node.attrs.get("id").map(String::as_str);
+    let (frame_width, frame_height, frame_count) =
+        match infer_strip_frames(strip_size, map_size, bounds) {
+            Some(frames) => frames,
+            None => {
+                let map_size = map_size?;
+                let frames = infer_near_strip_frames(strip_size, map_size)?;
+                let (fw, fh, count) = frames;
+                let side = if fw == map_size.0 as f64 {
+                    "height"
+                } else {
+                    "width"
+                };
+                deps.report.add(
+                    ReportKind::Info,
+                    format!(
+                        "strip {}x{} and position map {}x{} differ in {side}; \
+                         imported {count} frames of {fw}x{fh}",
+                        strip_size.0, strip_size.1, map_size.0, map_size.1
+                    ),
+                    node_id,
+                    Some("image"),
+                );
+                frames
+            }
+        };
     let strip = register_image(
         strip_name,
         AssetRole::Default,
@@ -1065,8 +1090,105 @@ fn strip_slider_presentation(
     });
     if let Some(map) = map {
         out["positionMap"] = json!(map);
+        if let Some(map_name) = map_name {
+            apply_ramp_value_frames(&mut out, map_name, node_id, deps);
+        }
     }
     Some(out)
+}
+
+/// Spiral shows frame 0 where a grayscale `positionImage` is darkest. A straight
+/// ramp that is darkest at the max end (top or right) therefore means frame 0 is
+/// the maximum. A curved or diagonal ramp that leans that way, with no equal pull
+/// toward the bottom or left, doesn't settle it, so it is only reported.
+///
+/// Art drawn full to empty over a map that is darkest at the min end looks the
+/// same from here and isn't detected.
+fn apply_ramp_value_frames(
+    out: &mut Value,
+    map_name: &str,
+    node_id: Option<&str>,
+    deps: &mut LowerDeps<'_>,
+) {
+    let Some(map) = (deps.resolve_source)(map_name).and_then(|path| image::open(path).ok()) else {
+        return;
+    };
+    let detail = match ramp_dark_end(&map.to_rgba8()) {
+        Some(RampDarkEnd::Max) => {
+            out["valueFrames"] = json!("descending");
+            format!(
+                "position map {map_name} is darkest at the top or right; set valueFrames \
+                 \"descending\" (frame 0 is the maximum)"
+            )
+        }
+        Some(RampDarkEnd::Unclear) => {
+            format!(
+                "position map {map_name} darkens toward the top or right but isn't a straight \
+                 ramp; if the slider is inverted, set valueFrames \"descending\""
+            )
+        }
+        None => return,
+    };
+    deps.report
+        .add(ReportKind::Info, detail, node_id, Some("positionImage"));
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RampDarkEnd {
+    Max,
+    Unclear,
+}
+
+/// `None` for color-key maps and for ramps that run the usual way.
+fn ramp_dark_end(map: &RgbaImage) -> Option<RampDarkEnd> {
+    let mut colors: HashSet<[u8; 3]> = HashSet::new();
+    let mut samples: Vec<[f64; 3]> = Vec::new();
+    for (x, y, pixel) in map.enumerate_pixels() {
+        let [r, g, b, a] = pixel.0;
+        if a < 128 || (r, g, b) == (255, 0, 255) {
+            continue;
+        }
+        colors.insert([r, g, b]);
+        let luminance = (f64::from(r) + f64::from(g) + f64::from(b)) / 3.0;
+        samples.push([f64::from(x), f64::from(y), luminance]);
+    }
+    // Same grayscale test as the runtime (`skinStripSliderMap.ts`).
+    let gray = colors
+        .iter()
+        .filter(|[r, g, b]| r.abs_diff(*g) <= 5 && r.abs_diff(*b) <= 5)
+        .count();
+    if colors.is_empty() || (gray as f64) < colors.len() as f64 * 0.85 {
+        return None;
+    }
+
+    let n = samples.len() as f64;
+    let mean: [f64; 3] = std::array::from_fn(|i| samples.iter().map(|s| s[i]).sum::<f64>() / n);
+    let correlation_with_luminance = |axis: usize| {
+        let (mut cov, mut var_axis, mut var_lum) = (0.0, 0.0, 0.0);
+        for sample in &samples {
+            let d_axis = sample[axis] - mean[axis];
+            let d_lum = sample[2] - mean[2];
+            cov += d_axis * d_lum;
+            var_axis += d_axis * d_axis;
+            var_lum += d_lum * d_lum;
+        }
+        if var_axis == 0.0 || var_lum == 0.0 {
+            0.0
+        } else {
+            cov / (var_axis * var_lum).sqrt()
+        }
+    };
+    let x = correlation_with_luminance(0);
+    let y = correlation_with_luminance(1);
+    // Luminance falls toward the right (x < 0) or toward the top (y > 0).
+    let (darker_right, darker_top) = (-x, y);
+    if (darker_right >= 0.95 && y.abs() <= 0.25) || (darker_top >= 0.95 && x.abs() <= 0.25) {
+        Some(RampDarkEnd::Max)
+    } else if darker_right.max(darker_top) >= 0.5 && darker_right.min(darker_top) > -0.5 {
+        Some(RampDarkEnd::Unclear)
+    } else {
+        None
+    }
 }
 
 fn infer_strip_frames(
@@ -1102,6 +1224,59 @@ fn infer_strip_frames(
         }
     }
     None
+}
+
+/// Per-side slack for strips drawn a pixel or two off their position map.
+const STRIP_CROSS_SLACK: u32 = 2;
+
+/// WMP takes the frame step from `positionImage`, so a strip that divides evenly
+/// along one axis is still usable when its other side is slightly off. The frame
+/// keeps the strip's size on that side.
+fn infer_near_strip_frames(strip: (u32, u32), map: (u32, u32)) -> Option<(f64, f64, u32)> {
+    let (sw, sh) = strip;
+    let (mw, mh) = map;
+    let count_along = |length: u32, step: u32| {
+        (step > 0 && length.is_multiple_of(step) && length / step >= 2).then(|| length / step)
+    };
+    if sh.abs_diff(mh) <= STRIP_CROSS_SLACK {
+        if let Some(count) = count_along(sw, mw) {
+            return Some((mw.into(), sh.into(), count));
+        }
+    }
+    if sw.abs_diff(mw) <= STRIP_CROSS_SLACK {
+        if let Some(count) = count_along(sh, mh) {
+            return Some((sw.into(), mh.into(), count));
+        }
+    }
+    None
+}
+
+fn report_skipped_strip_slider(
+    node: &WmsNode,
+    deps: &mut LowerDeps<'_>,
+    id: &str,
+    strip_name: &str,
+) {
+    let map_size = node
+        .attrs
+        .get("positionimage")
+        .and_then(|name| (deps.size_of)(name));
+    let reason = match (deps.size_of)(strip_name) {
+        Some((w, h)) => {
+            let map = match map_size {
+                Some((mw, mh)) => format!("position map {mw}x{mh}"),
+                None => "no readable position map".into(),
+            };
+            format!("can't split the {w}x{h} strip {strip_name} into frames ({map})")
+        }
+        None => format!("strip {strip_name} is built in, missing, or unreadable"),
+    };
+    deps.report.add(
+        ReportKind::UnmappedElement,
+        format!("<{}> skipped: {reason}", node.tag),
+        Some(id),
+        Some("image"),
+    );
 }
 
 fn slider_presentation(
@@ -3603,6 +3778,206 @@ function AdjustAudio() {
             .items
             .iter()
             .all(|i| { i.kind != ReportKind::Info || !i.detail.contains("missing thumb/track") }));
+    }
+
+    #[test]
+    fn imports_custom_slider_whose_strip_is_a_pixel_off_its_map() {
+        let xml = r##"
+      <theme id="Ice">
+        <view id="mainView" width="383" height="200">
+          <customSlider id="volume" left="219" top="100" min="0" max="100"
+            image="volume.png" positionImage="volume_map.png"
+            value="wmpprop:player.settings.volume"/>
+          <customSlider id="eq1" left="53" top="59" direction="vertical"
+            image="eq.png" positionImage="eq_map.png"
+            value="wmpprop:eq.gainLevel1"/>
+        </view>
+      </theme>
+    "##;
+        let (manifest, report) = lower_xml(
+            xml,
+            &[
+                ("volume.png", (1064, 5)),
+                ("volume_map.png", (76, 6)),
+                ("eq.png", (15, 715)),
+                ("eq_map.png", (14, 65)),
+            ],
+        );
+        let layout = &manifest["views"]["main"]["layout"];
+        let volume = find_id(layout, "volume").expect("volume");
+        assert_eq!(volume["presentation"]["frameWidth"], 76.0);
+        assert_eq!(volume["presentation"]["frameHeight"], 5.0);
+        assert_eq!(volume["presentation"]["frameCount"], 14);
+        assert_eq!(volume["presentation"]["direction"], "horizontal");
+        assert_eq!(volume["bounds"]["w"], 76.0);
+        assert_eq!(volume["bounds"]["h"], 6.0);
+        let eq = find_id(layout, "eq1").expect("eq1");
+        assert_eq!(eq["presentation"]["frameWidth"], 15.0);
+        assert_eq!(eq["presentation"]["frameHeight"], 65.0);
+        assert_eq!(eq["presentation"]["frameCount"], 11);
+        let md = report.to_markdown();
+        assert!(md.contains(
+            "**volume image** — strip 1064x5 and position map 76x6 differ in height; \
+             imported 14 frames of 76x5"
+        ));
+        assert!(md.contains("differ in width; imported 11 frames of 15x65"));
+    }
+
+    #[test]
+    fn reports_custom_slider_it_cannot_split_into_frames() {
+        let xml = r##"
+      <theme id="Mandalay">
+        <view id="mainView" width="300" height="200">
+          <customSlider id="volume" image="volume.png" positionImage="volume_map.png"/>
+          <customSlider id="tall" image="tall.png" positionImage="tall_map.png"/>
+          <customSlider id="gone" image="gone.png" positionImage="tall_map.png"/>
+        </view>
+      </theme>
+    "##;
+        let (manifest, report) = lower_xml(
+            xml,
+            &[
+                ("volume.png", (255, 48)),
+                ("volume_map.png", (16, 48)),
+                ("tall.png", (760, 20)),
+                ("tall_map.png", (76, 6)),
+            ],
+        );
+        let layout = &manifest["views"]["main"]["layout"];
+        for id in ["volume", "tall", "gone"] {
+            assert!(find_id(layout, id).is_none(), "{id}");
+        }
+        let md = report.to_markdown();
+        assert!(md.contains(
+            "**volume image** — <customslider> skipped: can't split the 255x48 strip \
+             volume.png into frames (position map 16x48)"
+        ));
+        assert!(md.contains("can't split the 760x20 strip tall.png into frames"));
+        assert!(md.contains("strip gone.png is built in, missing, or unreadable"));
+    }
+
+    /// Lowers one `customSlider` whose position map is painted by `luminance`.
+    fn lower_ramp_slider(
+        name: &str,
+        (width, height): (u32, u32),
+        luminance: impl Fn(u32, u32) -> u8,
+    ) -> (Value, GapReport) {
+        let map_name = format!("spiral-wms-ramp-{}-{name}.png", std::process::id());
+        let map_path = std::env::temp_dir().join(&map_name);
+        RgbaImage::from_fn(width, height, |x, y| {
+            let l = luminance(x, y);
+            image::Rgba([l, l, l, 255])
+        })
+        .save(&map_path)
+        .expect("write map");
+        let xml = format!(
+            r#"<theme id="Ramp"><view id="mainView" width="200" height="200">
+              <customSlider id="{name}" image="strip.png" positionImage="{map_name}"/>
+            </view></theme>"#
+        );
+        let strip = if width < height {
+            (width, height * 4)
+        } else {
+            (width * 4, height)
+        };
+        let root = parse_wms_xml(&xml).expect("parse");
+        let mut report = GapReport::new();
+        let mut jobs = HashMap::new();
+        let mut size_of = |asset: &str| {
+            Some(if asset == "strip.png" {
+                strip
+            } else {
+                (width, height)
+            })
+        };
+        let mut resolve = |asset: &str| Some(std::env::temp_dir().join(asset));
+        let plan = BehaviorPlan::empty();
+        let manifest = {
+            let mut deps = LowerDeps {
+                report: &mut report,
+                size_of: &mut size_of,
+                resolve_source: &mut resolve,
+                jobs: &mut jobs,
+                behavior: &plan,
+                known_geom: HashMap::new(),
+                close_action: "skin.exit",
+                view_ids: Vec::new(),
+            };
+            lower_theme(&root, &mut deps, "ramp").expect("lower")
+        };
+        let _ = std::fs::remove_file(&map_path);
+        let slider = find_id(&manifest["views"]["main"]["layout"], name)
+            .expect("slider")
+            .clone();
+        (slider, report)
+    }
+
+    #[test]
+    fn marks_value_frames_descending_when_ramp_is_darkest_at_the_max_end() {
+        let (vertical, report) = lower_ramp_slider("top", (5, 65), |_, y| (y * 3) as u8);
+        assert_eq!(vertical["presentation"]["valueFrames"], "descending");
+        assert!(report
+            .to_markdown()
+            .contains("**top positionImage** — position map spiral-wms-ramp-"));
+        let (horizontal, _) = lower_ramp_slider("right", (65, 5), |x, _| ((64 - x) * 3) as u8);
+        assert_eq!(horizontal["presentation"]["valueFrames"], "descending");
+    }
+
+    #[test]
+    fn keeps_ascending_value_frames_when_ramp_is_darkest_at_the_min_end() {
+        for (name, size, vertical) in [("bottom", (5, 65), true), ("left", (65, 5), false)] {
+            let (slider, report) = lower_ramp_slider(name, size, |x, y| {
+                (if vertical { (64 - y) * 3 } else { x * 3 }) as u8
+            });
+            assert!(slider["presentation"].get("valueFrames").is_none());
+            assert!(report
+                .items
+                .iter()
+                .all(|i| i.attr.as_deref() != Some("positionImage")));
+        }
+    }
+
+    #[test]
+    fn leaves_ramps_darkest_at_the_bottom_right_alone() {
+        // Quarter-arc tracks start low on the right; the pull toward the bottom wins.
+        let (slider, report) =
+            lower_ramp_slider("arc", (40, 40), |x, y| ((39 - x + 39 - y) * 3) as u8);
+        assert!(slider["presentation"].get("valueFrames").is_none());
+        assert!(report
+            .items
+            .iter()
+            .all(|i| i.attr.as_deref() != Some("positionImage")));
+    }
+
+    #[test]
+    fn reports_curved_ramps_that_lean_toward_the_max_end() {
+        // Diagonal: darkest at the top right, so neither axis settles direction.
+        let (slider, report) =
+            lower_ramp_slider("curve", (40, 40), |x, y| ((39 - x + y) * 3) as u8);
+        assert!(slider["presentation"].get("valueFrames").is_none());
+        assert!(report
+            .to_markdown()
+            .contains("darkens toward the top or right but isn't a straight ramp"));
+    }
+
+    #[test]
+    fn ramp_dark_end_ignores_color_key_maps_and_passthrough_pixels() {
+        let color_key = RgbaImage::from_fn(3, 30, |_, y| match y / 10 {
+            0 => image::Rgba([0, 0, 128, 255]),
+            1 => image::Rgba([0, 200, 0, 255]),
+            _ => image::Rgba([255, 200, 0, 255]),
+        });
+        assert_eq!(ramp_dark_end(&color_key), None);
+        // Magenta surround must not count toward the ramp.
+        let framed = RgbaImage::from_fn(9, 65, |x, y| {
+            if x < 2 {
+                image::Rgba([255, 0, 255, 255])
+            } else {
+                let l = (y * 3) as u8;
+                image::Rgba([l, l, l, 255])
+            }
+        });
+        assert_eq!(ramp_dark_end(&framed), Some(RampDarkEnd::Max));
     }
 
     #[test]

@@ -41,12 +41,13 @@ function colorKey(r: number, g: number, b: number): string {
   return `${r},${g},${b}`;
 }
 
-function isTransparent(r: number, g: number, b: number, a: number): boolean {
-  if (a < 128) return true;
-  // WMP mapping images use magenta and often white for passthrough.
-  if (r === 255 && g === 0 && b === 255) return true;
-  if (r === 255 && g === 255 && b === 255) return true;
-  return false;
+/**
+ * Only alpha makes a map pixel blank. WMP maps usually paint passthrough areas
+ * white or magenta, but an element may declare either as its `mappingColor`, so
+ * every opaque color is kept and `validKeys` passes undeclared ones through.
+ */
+function isTransparent(a: number): boolean {
+  return a < 128;
 }
 
 function buildRegions(
@@ -66,7 +67,7 @@ function buildRegions(
       const g = data[i + 1];
       const b = data[i + 2];
       const a = data[i + 3];
-      if (isTransparent(r, g, b, a)) continue;
+      if (isTransparent(a)) continue;
 
       const key = colorKey(r, g, b);
       const box = boxes.get(key) ?? {
@@ -141,8 +142,7 @@ function buildExcludeColorMasks(
         const pg = data[i + 1];
         const pb = data[i + 2];
         const pa = data[i + 3];
-        const excluded =
-          pr === r && pg === g && pb === b && !isTransparent(pr, pg, pb, pa);
+        const excluded = pr === r && pg === g && pb === b && !isTransparent(pa);
         const o = (y * width + x) * 4;
         maskData[o] = 255;
         maskData[o + 1] = 255;
@@ -177,7 +177,7 @@ function collectMapColorKeys(
       const g = data[i + 1];
       const b = data[i + 2];
       const a = data[i + 3];
-      if (isTransparent(r, g, b, a)) continue;
+      if (isTransparent(a)) continue;
       colorKeys.add(colorKey(r, g, b));
     }
   }
@@ -201,8 +201,7 @@ function maskAlphaForColor(
       const pg = data[i + 1];
       const pb = data[i + 2];
       const pa = data[i + 3];
-      const match =
-        pr === r && pg === g && pb === b && !isTransparent(pr, pg, pb, pa);
+      const match = pr === r && pg === g && pb === b && !isTransparent(pa);
       alpha[y * width + x] = match ? 255 : 0;
     }
   }
@@ -227,10 +226,30 @@ export async function loadButtonGroupPositionMap(
     canvas.width,
     canvas.height,
   );
-  const regions = buildRegions(data, width, height);
+  const { regions, keyAt } = buildButtonGroupHitMapFromPixels(
+    data,
+    width,
+    height,
+  );
   const colorMasks = buildColorMasks(data, width, height);
   const excludeColorMasks = buildExcludeColorMasks(data, width, height);
 
+  return {
+    width,
+    height,
+    regions,
+    colorMasks,
+    excludeColorMasks,
+    keyAt,
+  };
+}
+
+/** Hit testing over RGBA map pixels (shared by the runtime loader and tests). */
+export function buildButtonGroupHitMapFromPixels(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+): Pick<ButtonGroupPositionMap, "regions" | "keyAt"> {
   const colorAt = (x: number, y: number): string | null => {
     const px = Math.min(Math.max(Math.floor(x), 0), width - 1);
     const py = Math.min(Math.max(Math.floor(y), 0), height - 1);
@@ -239,11 +258,11 @@ export async function loadButtonGroupPositionMap(
     const g = data[i + 1];
     const b = data[i + 2];
     const a = data[i + 3];
-    if (isTransparent(r, g, b, a)) return null;
+    if (isTransparent(a)) return null;
     return colorKey(r, g, b);
   };
 
-  const resolveKeyAt = (
+  const keyAt = (
     x: number,
     y: number,
     validKeys: Set<string>,
@@ -268,14 +287,7 @@ export async function loadButtonGroupPositionMap(
     return null;
   };
 
-  return {
-    width,
-    height,
-    regions,
-    colorMasks,
-    excludeColorMasks,
-    keyAt: resolveKeyAt,
-  };
+  return { regions: buildRegions(data, width, height), keyAt };
 }
 
 function loadImage(url: string): Promise<HTMLImageElement> {
